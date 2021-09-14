@@ -5,47 +5,54 @@ set -e
 function check_and_delete_previous_r53_hzr {
   json_file=delete_records_$1.json
   echo "Check and delete previous Route53 hosted zones records on $1 zone..." 
-  hzid=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='$1.'].Id" --output text)
-  if [[ ! -z "$hzid" ]]; then
-    rrs=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Type=='A'].Name" --output text)
-    if [[ ! -z "$rrs" ]]; then
-      cat > $json_file << EOF_json1_head
+  for hzid in $(aws route53 list-hosted-zones --query "HostedZones[?Name=='$1.'].Id" --output text)
+  do
+    if [[ ! -z "$hzid" ]]; then
+      rrs=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Type=='A'].Name" --output text)
+      if [[ ! -z "$rrs" ]]; then
+        cat > $json_file << EOF_json1_head
 {
   "Changes": [
 EOF_json1_head
-      cpt=0
-      for i in $rrs; do
-        hzjson=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Name=='$i']" | jq -r .[])
-        echo $hzjson
-        if [ $cpt -ne 0 ]; then
-          echo "    ," >> $json_file
-        fi
-        cat >> $json_file << EOF_json1
+        cpt=0
+        for i in $rrs; do
+          hzjson=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Name=='$i']" | jq -r .[])
+          echo $hzjson
+          if [ $cpt -ne 0 ]; then
+            echo "    ," >> $json_file
+          fi
+          cat >> $json_file << EOF_json1
     {
       "Action": "DELETE",
       "ResourceRecordSet": $hzjson
     }
 EOF_json1
-        cpt=$((cpt+1))
-      done
-      cat >> $json_file << EOF_json1_foot
+          cpt=$((cpt+1))
+        done
+        cat >> $json_file << EOF_json1_foot
   ]
 }
 EOF_json1_foot
-      aws route53 change-resource-record-sets --hosted-zone-id $hzid --change-batch file://$json_file
+        aws route53 change-resource-record-sets --hosted-zone-id $hzid --change-batch file://$json_file
+      fi
     fi
-  fi
+  done
 }
 ###############################################
 
 ###############################################
 function aws_ec2_get {
+  if [[ "$1" == "nat-gateway" ]]; then
+    filter_arg="filter"
+  else
+    filter_arg="filters"
+  fi
   if [[ $# -eq 2 ]]; then
     aws ec2 describe-$1s --query $2 --output text
   elif [[ $# -eq 4 ]]; then
-    aws ec2 describe-$1s --query $2 --output text --filters Name=$3,Values=$4
+    aws ec2 describe-$1s --query $2 --output text --$filter_arg Name=$3,Values=$4
   else
-    aws ec2 describe-$1s --query $2 --output text --filters Name=$3,Values=$4 Name=$5,Values=$6
+    aws ec2 describe-$1s --query $2 --output text --$filter_arg Name=$3,Values=$4 Name=$5,Values=$6
   fi
 }
 
@@ -104,27 +111,37 @@ INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
 CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 -w0)"
 
-export AWS_ACCESS_KEY_ID
-export AWS_SECRET_ACCESS_KEY
-export AWS_DEFAULT_REGION
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
 echo Check and delete previous ELBs...
 for i in $(aws_elb_get load-balancer LoadBalancerDescriptions[].LoadBalancerName); do aws elb delete-load-balancer --load-balancer-name $i; done
 for i in $(aws_elbv2_get load-balancer LoadBalancers[].LoadBalancerArn); do aws elbv2 delete-load-balancer --load-balancer-arn $i; done
 
-echo Check and delete previous EIPs...
-for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id $i; done
-
 prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId tag:Name "myocp*")
-for vpcid in $prev_vpc_ids
+prev_vpc_ids_cs=$(echo $prev_vpc_ids | sed "s/ /,/g")
+
+echo "Check and delete previous NAT Gateways for vpc ids ... $prev_vpc_ids"
+for i in $(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-nat-gateway --nat-gateway-id $i; done
+echo "Waiting NAT Gateways are deleted..."
+while [[ ! -z "$(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id $prev_vpc_ids_cs state pending,available,deleting)" ]];
 do
-  echo "Check and delete previous NAT Gateways for vpc id ... $vpcid"
-  for i in $(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id $vpcid); do aws ec2 delete-nat-gateway --nat-gateway-id $i; done
+  echo -n
+  sleep 5
+done
+
+echo "Check, detach and delete previous Internet Gateways for vpc id ... $prev_vpc_ids"
+for i in $(aws_ec2_get internet-gateway InternetGateways[].InternetGatewayId attachment.vpc-id $prev_vpc_ids_cs)
+do
+  aws ec2 detach-internet-gateway --internet-gateway-id $i --vpc-id $vpcid
+  aws ec2 delete-internet-gateway --internet-gateway-id $i
 done
 
 echo Check and delete previous route53 materials...
 check_and_delete_previous_r53_hzr $CLUSTER_NAME$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN
 check_and_delete_previous_r53_hzr ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}
+
+echo Check and delete previous EIPs...
+for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id $i; done
 
 echo Check and delete previous instances...
 INSTANCE_ID=$(aws_ec2_get instance Reservations[].Instances[].InstanceId)
@@ -136,19 +153,44 @@ if [[ ! -z "$INSTANCE_ID" ]]; then
   aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
 fi
 
+echo "Check and delete previous Network interfaces for vpc ids ... $prev_vpc_ids"
+for i in $(aws_ec2_get network-interface NetworkInterfaces[].NetworkInterfaceId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-network-interface --network-interface-id $i; done
+
+echo "Delete previous security group rules for vpc id $prev_vpc_ids"
+sg=$(aws_ec2_get security-group "SecurityGroups[?!(GroupName=='default')].GroupId" vpc-id $prev_vpc_ids_cs)
+for i in $sg
+do
+  echo delete ingress rules for security group: $i
+  sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?!(IsEgress)].SecurityGroupRuleId" group-id $i)
+  if [[ ! -z "$sgr" ]]; then
+    aws ec2 revoke-security-group-ingress --group-id $i --security-group-rule-ids $sgr
+  fi
+  echo delete egress rules for security group: $i
+  sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?IsEgress].SecurityGroupRuleId" group-id $i)
+  if [[ ! -z "$sgr" ]]; then
+    aws ec2 revoke-security-group-egress --group-id $i --security-group-rule-ids $sgr
+  fi
+  echo delete security group: $i
+  aws ec2 delete-security-group --group-id $i
+done
+
+echo "Check and delete previous subnets for vpc ids ... $prev_vpc_ids"
+for i in $(aws_ec2_get subnet Subnets[].SubnetId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-subnet --subnet-id $i; done
+
+echo "Check and delete previous vpc endpoints for vpc ids ... $prev_vpc_ids"
+for i in $(aws_ec2_get vpc-endpoint VpcEndpoints[].VpcEndpointId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-vpc-endpoints --vpc-endpoints-ids $i; done
+
+echo "Check and delete previous route tables for vpc ids ... $prev_vpc_ids"
+for i in $(aws_ec2_get route-table "RouteTables[?!(Associations[].Main)].RouteTableId" vpc-id $prev_vpc_ids_cs); do aws ec2 delete-route-table --route-table-id $i; done
+
 for vpcid in $prev_vpc_ids
 do
-  echo "Check and delete previous Network interfaces for vpc id $vpcid"
-  for i in $(aws_ec2_get network-interface NetworkInterfaces[].NetworkInterfaceId vpc-id $vpcid); do aws ec2 delete-network-interface --network-interface-id $i; done
-  echo "Delete previous security group rules for vpc id $vpcid"
-  for i in $(aws_ec2_get security-group SecurityGroups[].GroupId vpc-id $VPC_ID tag-key Name); do echo TBD; done
-  # echo "Delete vpc id: $vpcid..."
-  # aws ec2 delete-vpc --vpc-id $vpcid
+  echo "Delete vpc id: $vpcid..."
+  aws ec2 delete-vpc --vpc-id $vpcid
 done
 
 echo
-echo ------------------------------------
-echo Retriving AWS tenant data...
+echo Retrieving AWS tenant data...
 echo ------------------------------------
 VPC_ID=($(aws_ec2_get vpc Vpcs[].VpcId tag:Name $RHPDS_GUID$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN))
 echo VPC_ID=$VPC_ID
