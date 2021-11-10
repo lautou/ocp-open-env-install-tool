@@ -108,7 +108,12 @@ echo ------------------------------------
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
-CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 -w0)"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  BASE64_OPTS="-b0"
+else
+  BASE64_OPTS="-w0"
+fi
+CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 ${BASE64_OPTS})"
 
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
