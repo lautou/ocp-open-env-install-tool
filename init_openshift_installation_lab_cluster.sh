@@ -211,12 +211,28 @@ done
 echo
 echo Retrieving AWS tenant data...
 echo ------------------------------------
+
 VPC_ID=($(aws_ec2_get vpc Vpcs[].VpcId tag:Name $RHPDS_GUID$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN))
 echo VPC_ID=$VPC_ID
+if [[ -z "$VPC_ID" ]]; then
+  echo "Cannot find expected Vpc $RHPDS_GUID$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
+  exit 4
+fi
+
 SG_ID=($(aws_ec2_get security-group SecurityGroups[].GroupId vpc-id $VPC_ID tag:Name $AWS_BASTION_SG_NAME))
 echo SG_ID=$SG_ID
+if [[ -z "$SUBNET_ID" ]]; then
+  echo "Cannot find expected subnet $AWS_SUBNET_NAME in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
+  exit 6
+fi
+
 SUBNET_ID=($(aws_ec2_get subnet Subnets[].SubnetId vpc-id $VPC_ID tag:Name $AWS_SUBNET_NAME))
 echo SUBNET_ID=$SUBNET_ID
+if [[ -z "$SUBNET_ID" ]]; then
+  echo "Cannot find expected subnet $AWS_SUBNET_NAME in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
+  exit 6
+fi
+
 echo ------------------------------------
 echo
 
