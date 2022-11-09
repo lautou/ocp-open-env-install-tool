@@ -221,8 +221,8 @@ fi
 
 SG_ID=($(aws_ec2_get security-group SecurityGroups[].GroupId vpc-id $VPC_ID tag:Name $AWS_BASTION_SG_NAME))
 echo SG_ID=$SG_ID
-if [[ -z "$SUBNET_ID" ]]; then
-  echo "Cannot find expected subnet $AWS_SUBNET_NAME in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
+if [[ -z "$SG_ID" ]]; then
+  echo "Cannot find expected security group $SG_ID (name: $AWS_BASTION_SG_NAME) in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
   exit 6
 fi
 
