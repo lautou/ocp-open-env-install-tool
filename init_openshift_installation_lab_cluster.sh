@@ -74,24 +74,40 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 
-if [[ ! -f install-config_template.yaml ]]; then
-  echo "Cannot find install-config_template.yaml file on $(dirname $0)"
-  exit 1
+echo Check if podman is installed...
+podman --version 1>/dev/null 2>&1
+if [[ $? -ne 0 ]]; then
+  echo "podman is needed to check Red Hat credentials! Ensure podman is installed."
+  exit 2
 fi
 
+echo Check if pull-secret.txt file is present...
+if [[ ! -f pull-secret.txt ]]; then
+  echo "Cannot find pull-secret.txt file on $(dirname $0)! Get this file from cloud.redhat.com using your Red Hat credentials and drop it into this directory."
+  exit 3
+fi
+
+echo Check if install-config_template.yaml is present...
+if [[ ! -f install-config_template.yaml ]]; then
+  echo "Cannot find install-config_template.yaml file on $(dirname $0)"
+  exit 4
+fi
+
+echo Check if ocp_rhpds.config is present...
 if [[ ! -f ocp_rhpds.config ]]; then
   echo "Cannot find ocp_rhpds.config file on $(dirname $0)"
-  exit 3
+  exit 5
 fi
 . ocp_rhpds.config
 
-#At this stage, we have generated RHPDS_GUID and others variables...
+RHOCM_PULL_SECRET=$(cat pull-secret.txt)
+
+#At this stage, we have generated some variables...
 echo
 echo ------------------------------------
 echo Configuration variables
 echo ------------------------------------
 echo OPENSHIFT_VERSION=$OPENSHIFT_VERSION
-echo RHPDS_GUID=$RHPDS_GUID
 echo RHPDS_TOP_LEVEL_ROUTE53_DOMAIN=$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN
 echo CLUSTER_NAME=$CLUSTER_NAME
 echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
@@ -99,11 +115,18 @@ echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
 echo RHOCM_PULL_SECRET=$RHOCM_PULL_SECRET
-echo RHPDS_SSH_PASSWORD=$RHPDS_SSH_PASSWORD
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
-echo AWS_BASTION_SG_NAME=$AWS_BASTION_SG_NAME
-echo AWS_SUBNET_NAME=$AWS_SUBNET_NAME
 echo ------------------------------------
+
+echo Check RH subscription credentials validity...
+REGISTRY_LIST=(registry.connect.redhat.com quay.io registry.redhat.io)
+for registry in ${REGISTRY_LIST[@]};
+do
+  podman login --authfile=pull-secret.txt $registry < /dev/null
+done
+
+echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
+aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
@@ -121,7 +144,7 @@ echo Check and delete previous ELBs...
 for i in $(aws_elb_get load-balancer LoadBalancerDescriptions[].LoadBalancerName); do aws elb delete-load-balancer --load-balancer-name $i; done
 for i in $(aws_elbv2_get load-balancer LoadBalancers[].LoadBalancerArn); do aws elbv2 delete-load-balancer --load-balancer-arn $i; done
 
-prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId tag:Name "myocp*")
+prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId)
 if [[ ! -z "$prev_vpc_ids" ]]; then
   prev_vpc_ids_cs=$(echo $prev_vpc_ids | sed "s/ /,/g")
 
@@ -209,32 +232,44 @@ do
 done
 
 echo
-echo Retrieving AWS tenant data...
 echo ------------------------------------
-
-VPC_ID=($(aws_ec2_get vpc Vpcs[].VpcId tag:Name $RHPDS_GUID$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN))
+echo Creating the VPC...
+VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value=$CLUSTER_NAME$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN}]" --output text --query Vpc.VpcId --cidr 192.168.0.0/16)
 echo VPC_ID=$VPC_ID
-if [[ -z "$VPC_ID" ]]; then
-  echo "Cannot find expected Vpc $RHPDS_GUID$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
-  exit 4
-fi
 
-SG_ID=($(aws_ec2_get security-group SecurityGroups[].GroupId vpc-id $VPC_ID tag:Name $AWS_BASTION_SG_NAME))
-echo SG_ID=$SG_ID
-if [[ -z "$SG_ID" ]]; then
-  echo "Cannot find expected security group $SG_ID (name: $AWS_BASTION_SG_NAME) in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
-  exit 6
-fi
+echo Enable DNS Hostnames in the VPC...
+aws ec2 modify-vpc-attribute --enable-dns-hostnames --vpc-id $VPC_ID
 
-SUBNET_ID=($(aws_ec2_get subnet Subnets[].SubnetId vpc-id $VPC_ID tag:Name $AWS_SUBNET_NAME))
+echo Creating the subnet for VPC id $VPC_ID...
+SUBNET_ID=$(aws ec2 create-subnet --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=bastion}]" --output text --query Subnet.SubnetId --cidr 192.168.0.0/24 --vpc-id=$VPC_ID)
 echo SUBNET_ID=$SUBNET_ID
-if [[ -z "$SUBNET_ID" ]]; then
-  echo "Cannot find expected subnet $AWS_SUBNET_NAME in Vpc id $VPC_ID ! Something was wrong when provisionning RHPDS lab! Recreate the lab and if issue persist check with the support."
-  exit 6
-fi
 
+echo Creating the security group for VPC id $VPC_ID...
+SG_ID=$(aws ec2 create-security-group --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value=Bastion}]" --output text --query GroupId --group-name Bastion --description Host --vpc-id $VPC_ID)
+echo SG_ID=$SG_ID
+
+echo Creating the TCP port 22 ingress rule for security group id $SG_ID... 
+INGRESS_TCP_22_ID=$(aws ec2 authorize-security-group-ingress --group-id $SG_ID --cidr 0.0.0.0/0 --protocol tcp --port 22 --output text --query SecurityGroupRules[].GroupId)
+echo INGRESS_TCP_22_ID=$INGRESS_TCP_22_ID
 echo ------------------------------------
 echo
+
+echo Creating an Internet Gateway...
+IGW_ID=$(aws ec2 create-internet-gateway --tag-specifications "ResourceType=internet-gateway,Tags=[{Key=Name,Value=bastion-vpc-igw}]" --output text --query InternetGateway.InternetGatewayId)
+echo IGW_ID=$IGW_ID
+
+echo Attaching Internet Gateway id $IGW_ID to vpc id $VPC_ID...
+aws ec2 attach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID
+
+echo Creating a route table for vpc id $VPC_ID...
+RT_ID=$(aws ec2 create-route-table --vpc-id $VPC_ID --output text --query RouteTable.RouteTableId)
+echo RT_ID=$RT_ID
+
+echo Associate route table id $RT_ID to subnet $SUBNET_ID...
+aws ec2 associate-route-table --route-table-id $RT_ID --subnet-id $SUBNET_ID 
+
+echo Create route in table id $RT_ID for internet gateway $IGW_ID...
+aws ec2 create-route --route-table-id $RT_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
 
 echo "Creating the keys for the bastion..."
 aws ec2 delete-key-pair --key-name bastionkey
@@ -242,7 +277,7 @@ aws ec2 create-key-pair --key-name bastionkey --query KeyMaterial --output text 
 chmod 600 bastion.pem
 
 echo Creating the bastion...
-INSTANCE_ID=$(aws ec2 run-instances --image-id $AWS_AMI --instance-type t2.large --subnet-id $SUBNET_ID --key-name bastionkey --security-group-ids $SG_ID --query Instances[].InstanceId --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=bastion}]" --output text)
+INSTANCE_ID=$(aws ec2 run-instances --image-id $AWS_AMI --instance-type t2.large --subnet-id $SUBNET_ID --key-name bastionkey --security-group-ids $SG_ID --associate-public-ip-address --query Instances[].InstanceId --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=bastion}]" --output text)
 echo INSTANCE_ID=$INSTANCE_ID
 echo Waiting the bastion instance state is running...
 aws ec2 wait instance-running --filters Name=instance-id,Values=$INSTANCE_ID
