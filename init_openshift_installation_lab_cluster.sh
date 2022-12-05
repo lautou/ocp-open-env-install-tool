@@ -126,6 +126,7 @@ do
 done
 
 echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
@@ -137,8 +138,6 @@ else
   BASE64_OPTS="-w0"
 fi
 CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 ${BASE64_OPTS})"
-
-export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
 echo Check and delete previous ELBs...
 for i in $(aws_elb_get load-balancer LoadBalancerDescriptions[].LoadBalancerName); do aws elb delete-load-balancer --load-balancer-name $i; done
