@@ -94,13 +94,13 @@ fi
 
 echo Check if install-config_template.yaml is present...
 if [[ ! -f install-config_template.yaml ]]; then
-  echo "Cannot find install-config_template.yaml file on $(dirname $0)"
+  echo "Cannot find install-config_template.yaml file on $(dirname $0)."
   exit 4
 fi
 
 echo Check if ocp_rhpds.config is present...
 if [[ ! -f ocp_rhpds.config ]]; then
-  echo "Cannot find ocp_rhpds.config file on $(dirname $0)"
+  echo "Cannot find ocp_rhpds.config file on $(dirname $0)."
   exit 5
 fi
 . ocp_rhpds.config
@@ -142,7 +142,7 @@ aws sts get-caller-identity
 
 echo check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
-  echo "Base domain does not exist: ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}"
+  echo "Base domain does not exist: ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}."
   exit 7
 fi
 
