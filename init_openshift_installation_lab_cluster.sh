@@ -2,10 +2,15 @@
 set -e
 
 ###############################################
+
+function get_r53_hz {
+  aws route53 list-hosted-zones --query "HostedZones[?Name=='$1.'].Id" --output text
+}
+
 function check_and_delete_previous_r53_hzr {
   json_file=delete_records_$1.json
   echo "Check and delete previous Route53 hosted zones records on $1 zone..." 
-  for hzid in $(aws route53 list-hosted-zones --query "HostedZones[?Name=='$1.'].Id" --output text)
+  for hzid in $(get_r53_hz "$1")
   do
     if [[ ! -z "$hzid" ]]; then
       rrs=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Type=='A'].Name" --output text)
@@ -118,6 +123,12 @@ echo RHOCM_PULL_SECRET=$RHOCM_PULL_SECRET
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
+echo Check if Route53 base domain is valid...
+if [[ "${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
+  echo "The base domain $RHPDS_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
+  exit 6
+fi
+
 echo Check RH subscription credentials validity...
 REGISTRY_LIST=(registry.connect.redhat.com quay.io registry.redhat.io)
 for registry in ${REGISTRY_LIST[@]};
@@ -125,8 +136,17 @@ do
   podman login --authfile=pull-secret.txt $registry < /dev/null
 done
 
-echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
+echo check Amazon credentials...
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+aws sts get-caller-identity
+
+echo check base domain hosted zone exists...
+if [[ -z "$(get_r53_hz ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
+  echo "Base domain does not exist: ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}"
+  exit 7
+fi
+
+echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
@@ -340,7 +360,7 @@ cat > bastion_script << EOF_bastion
   echo "Creating MachineConfig for chrony configuration..."
   echo "$(cat day1_config/machineconfig/masters-chrony-configuration_template.yaml | sed s/\$CHRONY_CONF_B64/$CHRONY_CONF_B64/g)" > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
   echo "$(cat day1_config/machineconfig/workers-chrony-configuration_template.yaml | sed s/\$CHRONY_CONF_B64/$CHRONY_CONF_B64/g)" > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
-  
+
   echo "Creating the MachineSet for infra nodes..."
   cat $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-0.yaml | sed -r "s/^(  name:.*|.*machine.openshift.io\\/cluster-api-machineset:.*)-worker-/\\1-infra-/g" | sed -r "s/^      metadata: \\{\\}/      metadata:\n        labels:\n          node-role.kubernetes.io\/infra: \\"\\"/" > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-0.yaml
   cat $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-1.yaml | sed -r "s/^(  name:.*|.*machine.openshift.io\\/cluster-api-machineset:.*)-worker-/\\1-infra-/g" | sed -r "s/^      metadata: \\{\\}/      metadata:\n        labels:\n          node-role.kubernetes.io\/infra: \\"\\"/" > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-1.yaml
