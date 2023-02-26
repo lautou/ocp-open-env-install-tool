@@ -312,7 +312,7 @@ cat > bastion_script << EOF_bastion
   set -e
 
   echo "Installing some important packages..."
-  sudo yum install -y wget httpd https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  sudo yum install -y wget httpd-tools https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 
   echo "Install snap package..."
   sudo yum install -y snapd
