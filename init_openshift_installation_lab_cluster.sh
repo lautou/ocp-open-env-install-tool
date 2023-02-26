@@ -395,7 +395,8 @@ EOF_IP
   exit
 EOF_bastion
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME << EOF_toto
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME << EOF_ssh_bastion
 $(cat bastion_script)
-EOF_toto
+EOF_ssh_bastion
+
 echo "OCP installation lab setup script ended."
