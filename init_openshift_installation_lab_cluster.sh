@@ -292,7 +292,15 @@ cat > bastion_script << EOF_bastion
   set -e
 
   echo "Installing some important packages..."
-  sudo yum install -y wget httpd
+  sudo yum install -y wget httpd https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+
+  echo "Install snap package..."
+  sudo yum install -y snapd
+  sudo systemctl enable --now snapd.socket
+  sudo systemctl restart snapd.seeded.service
+
+  echo "Install yq package..."
+  sudo snap install yq
 
   echo "Installing CLI..."
   wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE -O $OC_TARGZ_FILE
