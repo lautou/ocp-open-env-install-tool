@@ -309,7 +309,7 @@ aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem install-config_template.yaml ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 cat > bastion_script << EOF_bastion
   set -e
@@ -369,8 +369,8 @@ cat > bastion_script << EOF_bastion
   ./openshift-install create manifests --dir $INSTALL_DIRNAME
 
   echo "Creating MachineConfig for chrony configuration..."
-  echo "$(cat day1_config/machineconfig/masters-chrony-configuration_template.yaml | sed s/\$CHRONY_CONF_B64/$CHRONY_CONF_B64/g)" > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
-  echo "$(cat day1_config/machineconfig/workers-chrony-configuration_template.yaml | sed s/\$CHRONY_CONF_B64/$CHRONY_CONF_B64/g)" > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
 
   echo "Creating the MachineSet for infra nodes..."
   for i in {0..2}; do
