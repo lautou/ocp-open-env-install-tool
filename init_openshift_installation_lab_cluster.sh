@@ -150,13 +150,6 @@ fi
 echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  BASE64_OPTS="-b0"
-else
-  BASE64_OPTS="-w0"
-fi
-CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 ${BASE64_OPTS})"
-
 echo Check and delete previous ELBs...
 for i in $(aws_elb_get load-balancer LoadBalancerDescriptions[].LoadBalancerName); do aws elb delete-load-balancer --load-balancer-name $i; done
 for i in $(aws_elbv2_get load-balancer LoadBalancers[].LoadBalancerArn); do aws elbv2 delete-load-balancer --load-balancer-arn $i; done
@@ -311,9 +304,25 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml
 cat > bastion_script << EOF_bastion
   set -e
 
-  OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
-  INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
+  OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
+  OPENSHIFT_VERSION=$OPENSHIFT_VERSION
+  CLUSTER_NAME=$CLUSTER_NAME
+  RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
+  RHOCM_PULL_SECRET='$RHOCM_PULL_SECRET'
+  AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
+  AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+  AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
+
+  OC_TARGZ_FILE=openshift-client-linux-\$OPENSHIFT_VERSION.tar.gz
+  INSTALLER_TARGZ_FILE=openshift-install-linux-\$OPENSHIFT_VERSION.tar.gz
   INSTALL_DIRNAME=cluster-install
+  if [[ "\$OSTYPE" == "darwin"* ]]; then
+    BASE64_OPTS="-b0"
+  else
+    BASE64_OPTS="-w0"
+  fi
+  CHRONY_CONF_B64="\$(cat day1_config/chrony.conf | base64 \$BASE64_OPTS)"
 
   echo "Installing some important packages..."
   sudo yum install -y wget httpd-tools https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
@@ -331,9 +340,9 @@ cat > bastion_script << EOF_bastion
   . /etc/profile
 
   echo "Installing CLI..."
-  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/\$OC_TARGZ_FILE -O \$OC_TARGZ_FILE
+  wget \$OCP_DOWNLOAD_BASE_URL/\$OPENSHIFT_VERSION/\$OC_TARGZ_FILE -O \$OC_TARGZ_FILE
   if [[ \$? -ne 0 ]]; then
-    echo "Something was wrong when downloading CLI for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
+    echo "Something was wrong when downloading CLI for OpenShift version: \$OPENSHIFT_VERSION. Ensure version exists."
     exit 10
   fi
   sudo tar -xvf \$OC_TARGZ_FILE -C /usr/bin oc kubectl
@@ -342,9 +351,9 @@ cat > bastion_script << EOF_bastion
   sudo sh -c '/usr/bin/oc completion bash >/etc/bash_completion.d/openshift'
 
   echo "Installing the installer..."
-  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/\$INSTALLER_TARGZ_FILE -O \$INSTALLER_TARGZ_FILE
+  wget \$OCP_DOWNLOAD_BASE_URL/\$OPENSHIFT_VERSION/\$INSTALLER_TARGZ_FILE -O \$INSTALLER_TARGZ_FILE
   if [[ \$? -ne 0 ]]; then
-    echo "Something was wrong when downloading installer for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
+    echo "Something was wrong when downloading installer for OpenShift version: \$OPENSHIFT_VERSION. Ensure version exists."
     exit 11
   fi
   tar -xvf \$INSTALLER_TARGZ_FILE openshift-install
@@ -357,21 +366,21 @@ cat > bastion_script << EOF_bastion
   
   mkdir -p \$INSTALL_DIRNAME .aws
   echo "Generating install-config.yaml file from template..."
-  yq ".baseDomain = \\"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\\" \\
-    | .metadata.name = \\"$CLUSTER_NAME\\" \\
-    | .platform.aws.region = \\"$AWS_DEFAULT_REGION\\" \\
-    | .pullSecret = \\"${RHOCM_PULL_SECRET//\"/\\\\\\\"}\\"" \\
+  yq ".baseDomain = \\"\${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\\" \\
+    | .metadata.name = \\"\$CLUSTER_NAME\\" \\
+    | .platform.aws.region = \\"\$AWS_DEFAULT_REGION\\" \\
+    | .pullSecret = \\"\${RHOCM_PULL_SECRET//\\"/\\\\\\"}\\"" \\
     install-config_template.yaml > \$INSTALL_DIRNAME/install-config.yaml
 
   echo "Generating AWS credentials file from template..."
-  echo "$(cat credentials_template | sed s/\"/\\\\\"/g | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/g | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/g)" > .aws/credentials
+  cat credentials_template | sed s/\\\$AWS_ACCESS_KEY_ID/\$AWS_ACCESS_KEY_ID/ | sed s/\\\$AWS_SECRET_ACCESS_KEY/\${AWS_SECRET_ACCESS_KEY//\//\\\/}/ > .aws/credentials
   
   echo "Generating manifests..."
   ./openshift-install create manifests --dir \$INSTALL_DIRNAME
 
   echo "Creating MachineConfig for chrony configuration..."
-  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
-  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,\$CHRONY_CONF_B64\\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,\$CHRONY_CONF_B64\\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
 
   echo "Creating the MachineSet for infra nodes..."
   for i in {0..2}; do
@@ -381,11 +390,11 @@ cat > bastion_script << EOF_bastion
       | .spec.template.metadata.labels[\\"machine.openshift.io/cluster-api-machineset\\"] = \\"\$MS_INFRA_NAME\\" \\
       | .spec.template.metadata.labels[\\"machine.openshift.io/cluster-api-machine-role\\"] = \\"infra\\" \\
       | .spec.template.spec.metadata.labels.\\"node-role.kubernetes.io/infra\\" = \\"\\" \\
-      | .spec.template.spec.providerSpec.value.instanceType = \\"$AWS_INSTANCE_TYPE_INFRA_NODES\\" \\
+      | .spec.template.spec.providerSpec.value.instanceType = \\"\$AWS_INSTANCE_TYPE_INFRA_NODES\\" \\
       | .spec.template.taints += [{\\"key\\": \\"node-role.kubernetes.io/infra\\", \\"effect\\": \\"NoSchedule\\"}]" \\
       cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-\$i.yaml
   done
-  exit
+
   echo "Creating the cluster..."
   ./openshift-install create cluster --dir \$INSTALL_DIRNAME
 
