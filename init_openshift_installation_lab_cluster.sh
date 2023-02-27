@@ -150,9 +150,6 @@ fi
 echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
-OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
-INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
-INSTALL_DIRNAME=cluster-install
 if [[ "$OSTYPE" == "darwin"* ]]; then
   BASE64_OPTS="-b0"
 else
@@ -309,10 +306,14 @@ aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config credentials_template ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 cat > bastion_script << EOF_bastion
   set -e
+
+  OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
+  INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
+  INSTALL_DIRNAME=cluster-install
 
   echo "Installing some important packages..."
   sudo yum install -y wget httpd-tools https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
@@ -330,47 +331,47 @@ cat > bastion_script << EOF_bastion
   . /etc/profile
 
   echo "Installing CLI..."
-  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE -O $OC_TARGZ_FILE
+  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/\$OC_TARGZ_FILE -O \$OC_TARGZ_FILE
   if [[ \$? -ne 0 ]]; then
     echo "Something was wrong when downloading CLI for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
     exit 10
   fi
-  sudo tar -xvf $OC_TARGZ_FILE -C /usr/bin oc kubectl
+  sudo tar -xvf \$OC_TARGZ_FILE -C /usr/bin oc kubectl
 
   echo "Set up bash completion for the CLI"
   sudo sh -c '/usr/bin/oc completion bash >/etc/bash_completion.d/openshift'
 
   echo "Installing the installer..."
-  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE -O $INSTALLER_TARGZ_FILE
+  wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/\$INSTALLER_TARGZ_FILE -O \$INSTALLER_TARGZ_FILE
   if [[ \$? -ne 0 ]]; then
     echo "Something was wrong when downloading installer for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
     exit 11
   fi
-  tar -xvf $INSTALLER_TARGZ_FILE openshift-install
+  tar -xvf \$INSTALLER_TARGZ_FILE openshift-install
 
-  if [[ -f $INSTALL_DIRNAME/terraform.tfstate ]]; then
+  if [[ -f \$INSTALL_DIRNAME/terraform.tfstate ]]; then
     echo "A previous cluster installation has been detected. So we destroy the cluster first before recreating it."
-    ./openshift-install destroy cluster --dir $INSTALL_DIRNAME
-    rm -rf $INSTALL_DIRNAME
+    ./openshift-install destroy cluster --dir \$INSTALL_DIRNAME
+    rm -rf \$INSTALL_DIRNAME
   fi
   
-  mkdir -p $INSTALL_DIRNAME .aws
+  mkdir -p \$INSTALL_DIRNAME .aws
   echo "Generating install-config.yaml file from template..."
   yq ".baseDomain = \\"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\\" \\
     | .metadata.name = \\"$CLUSTER_NAME\\" \\
     | .platform.aws.region = \\"$AWS_DEFAULT_REGION\\" \\
     | .pullSecret = \\"${RHOCM_PULL_SECRET//\"/\\\\\\\"}\\"" \\
-    install-config_template.yaml > $INSTALL_DIRNAME/install-config.yaml
+    install-config_template.yaml > \$INSTALL_DIRNAME/install-config.yaml
 
   echo "Generating AWS credentials file from template..."
   echo "$(cat credentials_template | sed s/\"/\\\\\"/g | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/g | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/g)" > .aws/credentials
   
   echo "Generating manifests..."
-  ./openshift-install create manifests --dir $INSTALL_DIRNAME
+  ./openshift-install create manifests --dir \$INSTALL_DIRNAME
 
   echo "Creating MachineConfig for chrony configuration..."
-  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
-  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
+  yq ".spec.config.storage.files[0].contents.source = \\"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
 
   echo "Creating the MachineSet for infra nodes..."
   for i in {0..2}; do
@@ -382,15 +383,15 @@ cat > bastion_script << EOF_bastion
       | .spec.template.spec.metadata.labels.\\"node-role.kubernetes.io/infra\\" = \\"\\" \\
       | .spec.template.spec.providerSpec.value.instanceType = \\"$AWS_INSTANCE_TYPE_INFRA_NODES\\" \\
       | .spec.template.taints += [{\\"key\\": \\"node-role.kubernetes.io/infra\\", \\"effect\\": \\"NoSchedule\\"}]" \\
-      cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml > cluster-install/openshift/99_openshift-cluster-api_infra-machineset-\$i.yaml
+      cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-\$i.yaml
   done
   exit
   echo "Creating the cluster..."
-  ./openshift-install create cluster --dir $INSTALL_DIRNAME
+  ./openshift-install create cluster --dir \$INSTALL_DIRNAME
 
   echo "Exporting admin TLS credentials..."
-  echo "export KUBECONFIG=\$HOME/$INSTALL_DIRNAME/auth/kubeconfig" >> .bashrc
-  export KUBECONFIG=\$HOME/$INSTALL_DIRNAME/auth/kubeconfig
+  echo "export KUBECONFIG=\$HOME/\$INSTALL_DIRNAME/auth/kubeconfig" >> .bashrc
+  export KUBECONFIG=\$HOME/\$INSTALL_DIRNAME/auth/kubeconfig
  
   echo "Creating htpasswd file"
   htpasswd -c -b -B htpasswd admin redhat
