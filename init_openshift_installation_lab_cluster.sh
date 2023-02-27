@@ -88,7 +88,7 @@ fi
 
 echo Check if pull-secret.txt file is present...
 if [[ ! -f pull-secret.txt ]]; then
-  echo "Cannot find pull-secret.txt file on $(dirname $0)! Get this file from cloud.redhat.com using your Red Hat credentials and drop it into this directory."
+  echo "Cannot find pull-secret.txt file on $(dirname $0)! Get this file from console.redhat.com using your Red Hat credentials and drop it into this directory."
   exit 3
 fi
 
@@ -119,6 +119,7 @@ echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
+echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
 echo RHOCM_PULL_SECRET=$RHOCM_PULL_SECRET
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
@@ -317,10 +318,14 @@ cat > bastion_script << EOF_bastion
   echo "Install snap package..."
   sudo yum install -y snapd
   sudo systemctl enable --now snapd.socket
+  # We restart snap service, so we can use snap command in this session. Otherwise, a restart of SSH session would be necessary.
   sudo systemctl restart snapd.seeded.service
 
   echo "Install yq package..."
   sudo snap install yq
+  # In order to get the PATH updated for yq package, we have to restart the SSH session.
+  # To avoid this, we force profiles reload to update PATH in this current session.  
+  . /etc/profile
 
   echo "Installing CLI..."
   wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE -O $OC_TARGZ_FILE
@@ -362,9 +367,18 @@ cat > bastion_script << EOF_bastion
   echo "$(cat day1_config/machineconfig/workers-chrony-configuration_template.yaml | sed s/\$CHRONY_CONF_B64/$CHRONY_CONF_B64/g)" > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
 
   echo "Creating the MachineSet for infra nodes..."
-  cat $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-0.yaml | sed -r "s/^(  name:.*|.*machine.openshift.io\\/cluster-api-machineset:.*)-worker-/\\1-infra-/g" | sed -r "s/^      metadata: \\{\\}/      metadata:\n        labels:\n          node-role.kubernetes.io\/infra: \\"\\"/" > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-0.yaml
-  cat $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-1.yaml | sed -r "s/^(  name:.*|.*machine.openshift.io\\/cluster-api-machineset:.*)-worker-/\\1-infra-/g" | sed -r "s/^      metadata: \\{\\}/      metadata:\n        labels:\n          node-role.kubernetes.io\/infra: \\"\\"/" > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-1.yaml
-  cat $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-2.yaml | sed -r "s/^(  name:.*|.*machine.openshift.io\\/cluster-api-machineset:.*)-worker-/\\1-infra-/g" | sed -r "s/^      metadata: \\{\\}/      metadata:\n        labels:\n          node-role.kubernetes.io\/infra: \\"\\"/" > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-2.yaml
+  for i in {0..2}; do
+    MS_INFRA_NAME=\$(yq '.metadata.name' cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml | sed s/worker/infra/)
+    yq ".metadata.name = \\"\$MS_INFRA_NAME\\" \\
+      | .spec.selector.matchLabels[\\"machine.openshift.io/cluster-api-machineset\\"] = \\"\$MS_INFRA_NAME\\" \\
+      | .spec.template.metadata.labels[\\"machine.openshift.io/cluster-api-machineset\\"] = \\"\$MS_INFRA_NAME\\" \\
+      | .spec.template.metadata.labels[\\"machine.openshift.io/cluster-api-machine-role\\"] = \\"infra\\" \\
+      | .spec.template.spec.metadata.labels.\\"node-role.kubernetes.io/infra\\" = \\"\\" \\
+      | .spec.template.spec.providerSpec.value.instanceType = \\"$AWS_INSTANCE_TYPE_INFRA_NODES\\" \\
+      | .spec.template.taints += [{\\"key\\": \\"node-role.kubernetes.io/infra\\", \\"effect\\": \\"NoSchedule\\"}]" \\
+      cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml > cluster-install/openshift/99_openshift-cluster-api_infra-machineset-\$i.yaml
+  done
+  exit
   echo "Creating the cluster..."
   ./openshift-install create cluster --dir $INSTALL_DIRNAME
 
