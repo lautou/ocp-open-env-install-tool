@@ -307,7 +307,9 @@ echo PUBLIC_DNS_NAME=$PUBLIC_DNS_NAME
 echo Waiting the system status for bastion instance is OK...
 aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
-echo Connect to the bastion...
+echo Copy template files to the bastion...
+
+scp -o "StrictHostKeyChecking=no" -i bastion.pem install-config_template.yaml ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 cat > bastion_script << EOF_bastion
   set -e
@@ -354,7 +356,11 @@ cat > bastion_script << EOF_bastion
   
   mkdir -p $INSTALL_DIRNAME .aws
   echo "Generating install-config.yaml file from template..."
-  echo "$(cat install-config_template.yaml | sed s/\"/\\\\\"/g | sed s/\$RHDP_TOP_LEVEL_ROUTE53_DOMAIN/${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}/g | sed s/\$AWS_DEFAULT_REGION/$AWS_DEFAULT_REGION/g | sed s/\$CLUSTER_NAME/$CLUSTER_NAME/g | sed s/\$RHOCM_PULL_SECRET/${RHOCM_PULL_SECRET//\"/\\\\\"}/g) " > $INSTALL_DIRNAME/install-config.yaml
+  yq ".baseDomain = \\"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\\" \\
+    | .metadata.name = \\"$CLUSTER_NAME\\" \\
+    | .platform.aws.region = \\"$AWS_DEFAULT_REGION\\" \\
+    | .pullSecret = \\"${RHOCM_PULL_SECRET//\"/\\\\\\\"}\\"" \\
+    install-config_template.yaml > $INSTALL_DIRNAME/install-config.yaml
 
   echo "Generating AWS credentials file from template..."
   echo "$(cat credentials_template | sed s/\"/\\\\\"/g | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/g | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/g)" > .aws/credentials
@@ -429,6 +435,7 @@ EOF_IP
   exit
 EOF_bastion
 
+echo "Running the ocp installation script into the bastion..."
 ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME << EOF_ssh_bastion
 $(cat bastion_script)
 EOF_ssh_bastion
