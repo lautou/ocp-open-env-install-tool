@@ -124,8 +124,8 @@ echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
 echo Check if Route53 base domain is valid...
-if [[ "${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
-  echo "The base domain $RHPDS_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
+if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
+  echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
   exit 6
 fi
 
@@ -141,8 +141,8 @@ export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 aws sts get-caller-identity
 
 echo check base domain hosted zone exists...
-if [[ -z "$(get_r53_hz ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
-  echo "Base domain does not exist: ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}."
+if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
+  echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
   exit 7
 fi
 
