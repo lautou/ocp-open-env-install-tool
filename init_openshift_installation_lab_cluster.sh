@@ -98,12 +98,12 @@ if [[ ! -f install-config_template.yaml ]]; then
   exit 4
 fi
 
-echo Check if ocp_rhpds.config is present...
-if [[ ! -f ocp_rhpds.config ]]; then
-  echo "Cannot find ocp_rhpds.config file on $(dirname $0)."
+echo Check if ocp_rhdp.config is present...
+if [[ ! -f ocp_rhdp.config ]]; then
+  echo "Cannot find ocp_rhdp.config file on $(dirname $0)"
   exit 5
 fi
-. ocp_rhpds.config
+. ocp_rhdp.config
 
 RHOCM_PULL_SECRET=$(cat pull-secret.txt)
 
@@ -113,7 +113,7 @@ echo ------------------------------------
 echo Configuration variables
 echo ------------------------------------
 echo OPENSHIFT_VERSION=$OPENSHIFT_VERSION
-echo RHPDS_TOP_LEVEL_ROUTE53_DOMAIN=$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN
+echo RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
 echo CLUSTER_NAME=$CLUSTER_NAME
 echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
 echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
@@ -181,8 +181,8 @@ echo Check and delete previous EIPs...
 for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id $i; done
 
 echo Check and delete previous route53 materials...
-check_and_delete_previous_r53_hzr $CLUSTER_NAME$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN
-check_and_delete_previous_r53_hzr ${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}
+check_and_delete_previous_r53_hzr $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
+check_and_delete_previous_r53_hzr ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}
 
 echo Check and delete previous instances...
 INSTANCE_ID=$(aws_ec2_get instance Reservations[].Instances[].InstanceId)
@@ -253,7 +253,7 @@ done
 echo
 echo ------------------------------------
 echo Creating the VPC...
-VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value=$CLUSTER_NAME$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN}]" --output text --query Vpc.VpcId --cidr 192.168.0.0/16)
+VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value=$CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN}]" --output text --query Vpc.VpcId --cidr 192.168.0.0/16)
 echo VPC_ID=$VPC_ID
 
 echo Enable DNS Hostnames in the VPC...
@@ -349,7 +349,7 @@ cat > bastion_script << EOF_bastion
   
   mkdir -p $INSTALL_DIRNAME .aws
   echo "Generating install-config.yaml file from template..."
-  echo "$(cat install-config_template.yaml | sed s/\"/\\\\\"/g | sed s/\$RHPDS_TOP_LEVEL_ROUTE53_DOMAIN/${RHPDS_TOP_LEVEL_ROUTE53_DOMAIN:1}/g | sed s/\$AWS_DEFAULT_REGION/$AWS_DEFAULT_REGION/g | sed s/\$CLUSTER_NAME/$CLUSTER_NAME/g | sed s/\$RHOCM_PULL_SECRET/${RHOCM_PULL_SECRET//\"/\\\\\"}/g) " > $INSTALL_DIRNAME/install-config.yaml
+  echo "$(cat install-config_template.yaml | sed s/\"/\\\\\"/g | sed s/\$RHDP_TOP_LEVEL_ROUTE53_DOMAIN/${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}/g | sed s/\$AWS_DEFAULT_REGION/$AWS_DEFAULT_REGION/g | sed s/\$CLUSTER_NAME/$CLUSTER_NAME/g | sed s/\$RHOCM_PULL_SECRET/${RHOCM_PULL_SECRET//\"/\\\\\"}/g) " > $INSTALL_DIRNAME/install-config.yaml
 
   echo "Generating AWS credentials file from template..."
   echo "$(cat credentials_template | sed s/\"/\\\\\"/g | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/g | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/g)" > .aws/credentials
