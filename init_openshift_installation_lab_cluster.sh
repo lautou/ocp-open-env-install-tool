@@ -391,7 +391,7 @@ cat > bastion_script << EOF_bastion
       | .spec.template.metadata.labels[\\"machine.openshift.io/cluster-api-machine-role\\"] = \\"infra\\" \\
       | .spec.template.spec.metadata.labels.\\"node-role.kubernetes.io/infra\\" = \\"\\" \\
       | .spec.template.spec.providerSpec.value.instanceType = \\"\$AWS_INSTANCE_TYPE_INFRA_NODES\\" \\
-      | .spec.template.taints += [{\\"key\\": \\"node-role.kubernetes.io/infra\\", \\"effect\\": \\"NoSchedule\\"}]" \\
+      | .spec.template.spec.taints += [{\\"key\\": \\"node-role.kubernetes.io/infra\\", \\"effect\\": \\"NoSchedule\\"}]" \\
       cluster-install/openshift/99_openshift-cluster-api_worker-machineset-\$i.yaml > \$INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-\$i.yaml
   done
 
