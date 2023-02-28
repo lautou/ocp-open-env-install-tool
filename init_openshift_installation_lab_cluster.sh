@@ -301,7 +301,7 @@ echo Copy template files to the bastion...
 
 scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config credentials_template oauth-cluster.yaml ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
-cat > bastion_script << EOF_bastion
+cat > bastion_script.sh << EOF_bastion
   set -e
 
   OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
@@ -430,10 +430,11 @@ cat > bastion_script << EOF_bastion
   
   exit
 EOF_bastion
+chmod +x bastion_script.sh
+
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config credentials_template bastion_script.sh oauth-cluster.yaml ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME << EOF_ssh_bastion
-$(cat bastion_script)
-EOF_ssh_bastion
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh
 
 echo "OCP installation lab setup script ended."

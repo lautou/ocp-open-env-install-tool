@@ -1,4 +1,4 @@
 delete_records_*.json
-bastion_script
+bastion_script.sh
 bastion.pem
 pull-secret.txt
