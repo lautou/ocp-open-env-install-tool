@@ -299,7 +299,7 @@ aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config credentials_template ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config credentials_template oauth-cluster.yaml ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 cat > bastion_script << EOF_bastion
   set -e
@@ -412,21 +412,7 @@ cat > bastion_script << EOF_bastion
   oc create secret generic htpass-secret --from-file=htpasswd=htpasswd -n openshift-config --dry-run -o yaml | oc apply -f -
   
   echo "Configuring HTPassw identity provider"
-  cat > cluster-oauth.yaml << EOF_IP
-apiVersion: config.openshift.io/v1
-kind: OAuth
-metadata:
-  name: cluster
-spec:
-  identityProviders:
-  - name: my_htpasswd_provider 
-    mappingMethod: claim 
-    type: HTPasswd
-    htpasswd:
-      fileData:
-        name: htpass-secret
-EOF_IP
-  oc apply -f cluster-oauth.yaml
+  oc apply -f oauth-cluster.yaml
 
   echo "Giving cluster-admin role to admin user"
   oc adm policy add-cluster-role-to-user cluster-admin admin
