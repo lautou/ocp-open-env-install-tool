@@ -104,6 +104,9 @@ for i in {0..2}; do
     $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-$i.yaml
 done
 
+echo "Adding network configuration manifest..."
+cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
+
 echo "Creating the cluster..."
 ./openshift-install create cluster --dir $INSTALL_DIRNAME
 
