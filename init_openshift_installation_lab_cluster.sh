@@ -147,8 +147,8 @@ echo Copy template files to the bastion...
 scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
-echo ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES
 
 ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES
 
 echo "OCP installation lab setup script ended."
+echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
