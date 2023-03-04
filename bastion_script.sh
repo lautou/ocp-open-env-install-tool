@@ -128,6 +128,9 @@ oc apply -f day2_config/cluster-ingress-default-ingresscontroller.yaml
 echo "Configure images registry"
 oc apply -f day2_config/images-registry-config-cluster.yaml
 
+echo "Configure cluster monitoring"
+oc apply -f day2_config/configmap-cluster-monitoring-config.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
