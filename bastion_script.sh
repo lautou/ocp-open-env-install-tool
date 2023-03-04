@@ -131,6 +131,14 @@ oc apply -f day2_config/images-registry-config-cluster.yaml
 echo "Configure cluster monitoring"
 oc apply -f day2_config/configmap-cluster-monitoring-config.yaml
 
+echo "Install ElasticSearch Operator"
+oc apply -f day2_config/namespace-openshift-redhat-operators.yaml
+oc apply -f day2_config/operator-group-openshift-operators-redhat.yaml
+oc apply -f day2_config/subscription-elastic-search-operator.yaml
+
+echo "Install Loki Operator"
+oc apply -f day2_config/subscription-loki-operator.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
