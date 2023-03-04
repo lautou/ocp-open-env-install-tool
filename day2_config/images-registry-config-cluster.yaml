@@ -1,0 +1,14 @@
+﻿apiVersion: imageregistry.operator.openshift.io/v1
+kind: Config
+metadata:
+  name: cluster
+spec:
+  managementState: Managed
+  nodeSelector:
+    node-role.kubernetes.io/infra: ''
+  replicas: 2
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+
+
