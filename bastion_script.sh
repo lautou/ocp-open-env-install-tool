@@ -122,6 +122,9 @@ oc adm policy add-cluster-role-to-user cluster-admin admin
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
+echo "Configure ingress controller"
+oc apply -f day2_config/cluster-ingress-default-ingresscontroller.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
