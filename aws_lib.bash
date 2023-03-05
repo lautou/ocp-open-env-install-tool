@@ -70,23 +70,27 @@ function aws_elbv2_get {
 
 ###############################################
 function create_s3_bucket {
-BUCKET_PREFIX_LENGTH=${#1}
+BUCKET_PREFIX=$1-$2
+BUCKET_PREFIX_LENGTH=${#BUCKET_PREFIX}
 if [[ $BUCKET_PREFIX_LENGTH -lt 62 ]]; then
   for ((i=0;i<62-$BUCKET_PREFIX_LENGTH-1;i++)); do
      BUCKET_SUFFIX=${BUCKET_SUFFIX}$(printf "\x$(printf %x $((97 + $RANDOM % 26)))")
   done
-  BUCKET_NAME=$1-$BUCKET_SUFFIX
+  BUCKET_NAME=$BUCKET_PREFIX-$BUCKET_SUFFIX
 elif [[ $BUCKET_PREFIX_LENGTH -gt 62 ]]; then
-  BUCKET_PREFIX_TRUNCATED=${1::62}
+  BUCKET_PREFIX_TRUNCATED=${BUCKET_PREFIX::62}
   if [[ "$BUCKET_PREFIX_TRUNCATED" == *- ]]; then
-    BUCKET_NAME=${1::61}$(printf "\x$(printf %x $((97 + $RANDOM % 26)))")
+    BUCKET_NAME=${BUCKET_PREFIX::61}$(printf "\x$(printf %x $((97 + $RANDOM % 26)))")
   else
     BUCKET_NAME=$BUCKET_PREFIX_TRUNCATED
   fi
 else
-  BUCKET_NAME=$1
+  BUCKET_NAME=$BUCKET_PREFIX
 fi
   aws s3 mb s3://$BUCKET_NAME 1>/dev/null
+  aws s3api put-public-access-block --bucket $BUCKET_NAME --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+  aws s3api put-bucket-tagging --bucket $BUCKET_NAME --tagging "TagSet=[{Key=kubernetes.io/cluster/$1,Value=owned},{Key=Name,Value=$1-$2}]"
+  aws s3api put-bucket-lifecycle-configuration --bucket $BUCKET_NAME --lifecycle-configuration "Rules=[{ID=cleanup-incomplete-multipart-registry-uploads,Status=Enabled,AbortIncompleteMultipartUpload={DaysAfterInitiation=1},Prefix=\"\"}]"
   echo $BUCKET_NAME
 }
 ###############################################

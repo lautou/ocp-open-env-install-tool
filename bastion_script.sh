@@ -184,7 +184,7 @@ echo "Install OpenShift GitOps Operator"
 oc apply -f day2_config/subscription-gitops.yaml
 
 echo "Create S3 bucket for Openshift Logging Loki stack"
-OL_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}")-openshift-logging-lokistack)
+OL_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}") openshift-logging-lokistack)
 echo S3 OpenShift Logging Loki Bucket name: $OL_LOKI_BUCKET
 echo "----------------------------"
 echo "Your cluster API URL is:"
