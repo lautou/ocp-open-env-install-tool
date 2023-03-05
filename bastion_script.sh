@@ -152,8 +152,11 @@ oc apply -f day2_config/subscription-openshift-distributed-tracing.yaml
 echo "Install OSSM Kiali Operator"
 oc apply -f day2_config/subscription-kiali-ossm.yaml
 
-echo "Install OpenShfit Service Mesh Operator"
-oc apply -f day2_config/day2_config/subscription-servicemeshoperator.yaml
+echo "Install OpenShift Service Mesh Operator"
+oc apply -f day2_config/subscription-servicemeshoperator.yaml
+
+echo "Install OpenShift Service Mesh Console Operator"
+oc apply -f day2_config/subscription-ossmconsole.yaml
 
 echo "Install Network Observability Operator"
 oc apply -f day2_config/subscription-netobserv-operator.yaml
