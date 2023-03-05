@@ -22,9 +22,13 @@ else
   BASE64_OPTS="-w0"
 fi
 CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 $BASE64_OPTS)"
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+
+# Load AWS library
+. aws_lib.bash
 
 echo "Installing some important packages..."
-sudo yum install -y wget httpd-tools https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+sudo yum install -y wget httpd-tools unzip https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 
 echo "Install snap package..."
 sudo yum install -y snapd
@@ -38,19 +42,24 @@ sudo snap install yq
 # To avoid this, we force profiles reload to update PATH in this current session.  
 . /etc/profile
 
-echo "Installing CLI..."
-wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE -O $OC_TARGZ_FILE
+echo "Installing aws CLI..."
+wget -nv -O awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+unzip awscliv2.zip
+sudo ./aws/install
+
+echo "Installing OpenShift CLI..."
+wget -nv -O $OC_TARGZ_FILE $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE
 if [[ $? -ne 0 ]]; then
-  echo "Something was wrong when downloading CLI for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
+  echo "Something was wrong when downloading OpenShift CLI for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
   exit 10
 fi
 sudo tar -xvf $OC_TARGZ_FILE -C /usr/bin oc kubectl
 
-echo "Set up bash completion for the CLI"
+echo "Set up bash completion for the OpenShift CLI"
 sudo sh -c '/usr/bin/oc completion bash >/etc/bash_completion.d/openshift'
 
 echo "Installing the installer..."
-wget $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE -O $INSTALLER_TARGZ_FILE
+wget -nv -O $INSTALLER_TARGZ_FILE $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE
 if [[ $? -ne 0 ]]; then
   echo "Something was wrong when downloading installer for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
   exit 11
@@ -174,6 +183,9 @@ oc apply -f day2_config/subscription-rhacs-operator.yaml
 echo "Install OpenShift GitOps Operator"
 oc apply -f day2_config/subscription-gitops.yaml
 
+echo "Create S3 bucket for Openshift Logging Loki stack"
+OL_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}")-openshift-logging-lokistack)
+echo S3 OpenShift Logging Loki Bucket name: $OL_LOKI_BUCKET
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server

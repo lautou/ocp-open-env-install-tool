@@ -105,4 +105,8 @@ do
   aws ec2 delete-vpc --vpc-id $vpcid
 done
 
-echo
+echo Delete previous S3 buckets...
+for bucket in $(aws s3api list-buckets --query Buckets[].Name --output text); do
+  aws s3 rb s3://$bucket --force 1>/dev/null
+done
+

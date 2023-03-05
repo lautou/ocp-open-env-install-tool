@@ -84,13 +84,8 @@ fi
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
 
-echo Delete previous S3 buckets...
-for bucket in $(aws s3api list-buckets --query Buckets[].Name --output text); do
-  aws s3 rb s3://$bucket --force 1>/dev/null
-done
-
-echo Check and clean an previous VPC...
-./clean_vpc.sh $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_DEFAULT_REGION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN
+echo Check and clean the AWS tenant...
+./clean_aws_tenant.sh $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_DEFAULT_REGION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN
 
 echo ------------------------------------
 echo Creating the VPC...
@@ -149,7 +144,7 @@ aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh aws_lib.bash ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 

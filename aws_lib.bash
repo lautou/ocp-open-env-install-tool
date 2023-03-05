@@ -68,3 +68,25 @@ function aws_elbv2_get {
 
 ###############################################
 
+###############################################
+function create_s3_bucket {
+BUCKET_PREFIX_LENGTH=${#1}
+if [[ $BUCKET_PREFIX_LENGTH -lt 62 ]]; then
+  for ((i=0;i<62-$BUCKET_PREFIX_LENGTH-1;i++)); do
+     BUCKET_SUFFIX=${BUCKET_SUFFIX}$(printf "\x$(printf %x $((97 + $RANDOM % 26)))")
+  done
+  BUCKET_NAME=$1-$BUCKET_SUFFIX
+elif [[ $BUCKET_PREFIX_LENGTH -gt 62 ]]; then
+  BUCKET_PREFIX_TRUNCATED=${1::62}
+  if [[ "$BUCKET_PREFIX_TRUNCATED" == *- ]]; then
+    BUCKET_NAME=${1::61}$(printf "\x$(printf %x $((97 + $RANDOM % 26)))")
+  else
+    BUCKET_NAME=$BUCKET_PREFIX_TRUNCATED
+  fi
+else
+  BUCKET_NAME=$1
+fi
+  aws s3 mb s3://$BUCKET_NAME 1>/dev/null
+  echo $BUCKET_NAME
+}
+###############################################
