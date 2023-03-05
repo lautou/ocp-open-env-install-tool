@@ -71,18 +71,23 @@ do
   podman login --authfile=pull-secret.txt $registry < /dev/null
 done
 
-echo check Amazon credentials...
+echo Check Amazon credentials...
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 aws sts get-caller-identity
 
-echo check base domain hosted zone exists...
+echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
   exit 7
 fi
 
-echo check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
+echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
 aws ec2 describe-images --image-ids $AWS_AMI 1>/dev/null
+
+echo Delete previous S3 buckets...
+for bucket in $(aws s3api list-buckets --query Buckets[].Name --output text); do
+  aws s3 rb s3://$bucket --force 1>/dev/null
+done
 
 echo Check and clean an previous VPC...
 ./clean_vpc.sh $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_DEFAULT_REGION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN
