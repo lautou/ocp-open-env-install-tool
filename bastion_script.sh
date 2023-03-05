@@ -171,6 +171,9 @@ oc apply -f day2_config/namespace-rhacs-operator.yaml
 oc apply -f day2_config/operator-group-rhacs-operator.yaml
 oc apply -f day2_config/subscription-rhacs-operator.yaml
 
+echo "Install OpenShift GitOps Operator"
+oc apply -f day2_config/subscription-gitops.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
