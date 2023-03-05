@@ -139,6 +139,35 @@ oc apply -f day2_config/subscription-elastic-search-operator.yaml
 echo "Install Loki Operator"
 oc apply -f day2_config/subscription-loki-operator.yaml
 
+echo "Install OpenShift Logging Operator"
+oc apply -f day2_config/namespace-openshift-logging.yaml
+oc apply -f day2_config/operator-group-cluster-logging.yaml
+oc apply -f day2_config/subscription-cluster-logging.yaml
+
+echo "Install OpenShift Distributed Tracing Operator"
+oc apply -f day2_config/namespace-openshift-distributed-tracing.yaml
+oc apply -f day2_config/operator-group-openshift-distributed-tracing.yaml
+oc apply -f day2_config/subscription-openshift-distributed-tracing.yaml
+
+echo "Install OSSM Kiali Operator"
+oc apply -f day2_config/subscription-kiali-ossm.yaml
+
+echo "Install OpenShfit Service Mesh Operator"
+oc apply -f day2_config/day2_config/subscription-servicemeshoperator.yaml
+
+echo "Install Network Observability Operator"
+oc apply -f day2_config/subscription-netobserv-operator.yaml
+
+echo "Install Advanced Cluster Management Operator"
+oc apply -f day2_config/namespace-open-cluster-management.yaml
+oc apply -f day2_config/operator-group-open-cluster-management.yaml
+oc apply -f day2_config/subscription-advanced-cluster-management.yaml
+
+echo "Install Advanced Cluster Security Operator"
+oc apply -f day2_config/namespace-rhacs-operator.yaml
+oc apply -f day2_config/operator-group-rhacs-operator.yaml
+oc apply -f day2_config/subscription-rhacs-operator.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
