@@ -110,3 +110,6 @@ for bucket in $(aws s3api list-buckets --query Buckets[].Name --output text); do
   aws s3 rb s3://$bucket --force 1>/dev/null
 done
 
+echo Delete previous Elastic Block Storage...
+for i in $(aws_ec2_get volume Volumes[].VolumeId); do aws ec2 delete-volume --volume-id $i; done
+
