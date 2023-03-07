@@ -28,23 +28,15 @@ export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 . aws_lib.bash
 
 echo "Installing some important packages..."
-sudo yum install -y wget httpd-tools unzip https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-
-echo "Install snap package..."
-sudo yum install -y snapd
-sudo systemctl enable --now snapd.socket
-# We restart snap service, so we can use snap command in this session. Otherwise, a restart of SSH session would be necessary.
-sudo systemctl restart snapd.seeded.service
+sudo yum install -y wget httpd-tools unzip 
 
 echo "Install yq package..."
-sudo snap install yq
-# In order to get the PATH updated for yq package, we have to restart the SSH session.
-# To avoid this, we force profiles reload to update PATH in this current session.  
-. /etc/profile
+sudo wget -nv -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/bin/yq
 
 echo "Installing aws CLI..."
 wget -nv -O awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
-unzip awscliv2.zip
+unzip -q awscliv2.zip
 sudo ./aws/install
 
 echo "Installing OpenShift CLI..."
@@ -131,61 +123,84 @@ oc adm policy add-cluster-role-to-user cluster-admin admin
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
-echo "Configure ingress controller"
+echo "Configure ingress controller..."
 oc apply -f day2_config/cluster-ingress-default-ingresscontroller.yaml
 
-echo "Configure images registry"
+echo "Configure images registry..."
 oc apply -f day2_config/images-registry-config-cluster.yaml
 
-echo "Configure cluster monitoring"
+echo "Configure cluster monitoring..."
 oc apply -f day2_config/configmap-cluster-monitoring-config.yaml
 
-echo "Install ElasticSearch Operator"
+echo "Install ElasticSearch Operator..."
 oc apply -f day2_config/namespace-openshift-redhat-operators.yaml
 oc apply -f day2_config/operator-group-openshift-operators-redhat.yaml
 oc apply -f day2_config/subscription-elastic-search-operator.yaml
 
-echo "Install Loki Operator"
+echo "Install Loki Operator..."
 oc apply -f day2_config/subscription-loki-operator.yaml
 
-echo "Install OpenShift Logging Operator"
+echo "Install OpenShift Logging Operator..."
 oc apply -f day2_config/namespace-openshift-logging.yaml
 oc apply -f day2_config/operator-group-cluster-logging.yaml
 oc apply -f day2_config/subscription-cluster-logging.yaml
 
-echo "Install OpenShift Distributed Tracing Operator"
+echo "Install OpenShift Distributed Tracing Operator..."
 oc apply -f day2_config/namespace-openshift-distributed-tracing.yaml
 oc apply -f day2_config/operator-group-openshift-distributed-tracing.yaml
 oc apply -f day2_config/subscription-openshift-distributed-tracing.yaml
 
-echo "Install OSSM Kiali Operator"
+echo "Install OSSM Kiali Operator..."
 oc apply -f day2_config/subscription-kiali-ossm.yaml
 
-echo "Install OpenShift Service Mesh Operator"
+echo "Install OpenShift Service Mesh Operator..."
 oc apply -f day2_config/subscription-servicemeshoperator.yaml
 
-echo "Install OpenShift Service Mesh Console Operator"
+echo "Install OpenShift Service Mesh Console Operator..."
 oc apply -f day2_config/subscription-ossmconsole.yaml
 
-echo "Install Network Observability Operator"
+echo "Install Network Observability Operator..."
 oc apply -f day2_config/subscription-netobserv-operator.yaml
 
-echo "Install Advanced Cluster Management Operator"
+echo "Install Advanced Cluster Management Operator..."
 oc apply -f day2_config/namespace-open-cluster-management.yaml
 oc apply -f day2_config/operator-group-open-cluster-management.yaml
 oc apply -f day2_config/subscription-advanced-cluster-management.yaml
 
-echo "Install Advanced Cluster Security Operator"
+echo "Install Advanced Cluster Security Operator..."
 oc apply -f day2_config/namespace-rhacs-operator.yaml
 oc apply -f day2_config/operator-group-rhacs-operator.yaml
 oc apply -f day2_config/subscription-rhacs-operator.yaml
 
-echo "Install OpenShift GitOps Operator"
+echo "Install OpenShift GitOps Operator..."
 oc apply -f day2_config/subscription-gitops.yaml
 
-echo "Create S3 bucket for Openshift Logging Loki stack"
+echo "Create S3 bucket for Openshift Logging Loki stack..."
 OL_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}") openshift-logging-lokistack)
 echo S3 OpenShift Logging Loki Bucket name: $OL_LOKI_BUCKET
+
+echo "Create secret for OpenShift Logging Loki bucket access..."
+oc create secret generic logging-loki-s3 -n openshift-logging --from-literal=access_key_id=$AWS_ACCESS_KEY_ID --from-literal=access_key_secret=$AWS_SECRET_ACCESS_KEY --from-literal=bucketnames=$OL_LOKI_BUCKET --from-literal=region=$AWS_DEFAULT_REGION --from-literal=endpoint=https://s3.$AWS_DEFAULT_REGION.amazonaws.com
+
+echo "Create S3 bucket for Network Observability Loki stack..."
+NO_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}") network-observability-lokistack)
+echo S3 Network Observability Loki Bucket name: $NO_LOKI_BUCKET
+
+echo "Create Network Observability namespace..."
+oc apply -f day2_config/namespace-netobserv.yaml
+
+echo "Create secret for Network Observability Loki bucket access..."
+oc create secret generic loki-s3 -n netobserv --from-literal=access_key_id=$AWS_ACCESS_KEY_ID --from-literal=access_key_secret=$AWS_SECRET_ACCESS_KEY --from-literal=bucketnames=$NO_LOKI_BUCKET --from-literal=region=$AWS_DEFAULT_REGION --from-literal=endpoint=https://s3.$AWS_DEFAULT_REGION.amazonaws.com
+
+echo "Checking Loki Operator installation is completed..."
+while true; do oc get crd lokistacks.loki.grafana.com 2>/dev/null 1>&2 && break; done
+
+echo "Create Loki Stack for OpenShift Logging..."
+oc apply -f day2_config/lokistack-logging-loki.yaml
+
+echo "Create Loki Stack for Network Observability..."
+oc apply -f day2_config/lokistack-loki.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
