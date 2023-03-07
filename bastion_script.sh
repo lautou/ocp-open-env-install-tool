@@ -201,6 +201,12 @@ oc apply -f day2_config/lokistack-logging-loki.yaml
 echo "Create Loki Stack for Network Observability..."
 oc apply -f day2_config/lokistack-loki.yaml
 
+echo "Checking OpenShift Logging installation is completed..."
+while true; do oc get crd clusterloggings.logging.openshift.io 2>/dev/null 1>&2 && break; done
+
+echo "Create OpenShift Logging instance"
+oc apply -f day2_config/cluster-logging-instance.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server
