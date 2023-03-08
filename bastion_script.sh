@@ -207,6 +207,18 @@ while true; do oc get crd clusterloggings.logging.openshift.io 2>/dev/null 1>&2 
 echo "Create OpenShift Logging instance"
 oc apply -f day2_config/cluster-logging-instance.yaml
 
+echo "Configuring Alerts for Loki"
+oc apply -f day2_config/prometheusrule-loki-alerts.yaml
+
+echo "Create Permissions for Network Observability"
+oc apply -f day2_config/authentication-authorization-network-observability.yaml
+
+echo "Checking Network Observability is completed..."
+while true; do oc get crd flowcollectors.flows.netobserv.io 2>/dev/null 1>&2 && break; done
+
+echo "Create FlowCollector for Network Observability"
+oc apply -f day2_config/flowcollector-cluster.yaml
+
 echo "----------------------------"
 echo "Your cluster API URL is:"
 oc whoami --show-server

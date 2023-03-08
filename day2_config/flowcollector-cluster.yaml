@@ -1,0 +1,25 @@
+﻿apiVersion: flows.netobserv.io/v1alpha1
+kind: FlowCollector
+metadata:
+  name: cluster
+spec:
+  agent:
+    ebpf:
+      sampling: 50
+    type: EBPF
+  deploymentModel: DIRECT
+  consolePlugin:
+    register: true
+  loki:
+    tenantID: network
+    url: 'https://loki-gateway-http.netobserv.svc:8080/api/logs/v1/network'
+    authToken: FORWARD
+    tls:
+      caCert:
+        certFile: service-ca.crt
+        name: loki-gateway-ca-bundle
+        type: configmap
+      enable: true
+      insecureSkipVerify: true
+    statusUrl: 'https://loki-query-frontend-http.netobserv.svc:3100/'
+  namespace: netobserv
