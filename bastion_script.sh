@@ -130,6 +130,7 @@ echo "Configure images registry..."
 oc apply -f day2_config/images-registry-config-cluster.yaml
 
 echo "Configure cluster monitoring..."
+oc apply -f day2_config/configmap-user-workload-monitoring-config.yaml
 oc apply -f day2_config/configmap-cluster-monitoring-config.yaml
 
 echo "Install ElasticSearch Operator..."
