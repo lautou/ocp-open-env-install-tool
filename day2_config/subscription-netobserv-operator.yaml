@@ -2,9 +2,9 @@
 kind: Subscription
 metadata:
   name: netobserv-operator
-  namespace: openshift-operators
+  namespace: openshift-netobserv-operator
 spec:
-  channel: v1.0.x
+  channel: stable
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''

@@ -160,6 +160,8 @@ echo "Install OpenShift Service Mesh Console Operator..."
 oc apply -f day2_config/subscription-ossmconsole.yaml
 
 echo "Install Network Observability Operator..."
+oc apply -f day2_config/namespace-openshift-netobserv-operator.yaml
+oc apply -f day2_config/operator-group-openshift-netobserv-operator.yaml
 oc apply -f day2_config/subscription-netobserv-operator.yaml
 
 echo "Install Advanced Cluster Management Operator..."
