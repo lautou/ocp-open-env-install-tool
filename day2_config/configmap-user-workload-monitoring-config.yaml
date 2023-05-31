@@ -20,7 +20,7 @@ data:
     prometheus:
       volumeClaimTemplate:
         spec:
-          storageClassName: gp2
+          storageClassName: gp2-csi
           resources:
             requests:
               storage: 40Gi

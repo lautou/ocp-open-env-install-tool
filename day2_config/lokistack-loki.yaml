@@ -24,7 +24,7 @@ spec:
     secret:
       name: loki-s3
       type: s3
-  storageClassName: gp2
+  storageClassName: gp2-csi
   template:
     compactor:
       nodeSelector:
