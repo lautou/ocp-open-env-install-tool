@@ -210,9 +210,6 @@ while true; do oc get crd clusterloggings.logging.openshift.io 2>/dev/null 1>&2 
 echo "Create OpenShift Logging instance"
 oc apply -f day2_config/cluster-logging-instance.yaml
 
-echo "Configuring Alerts for Loki"
-oc apply -f day2_config/prometheusrule-loki-alerts.yaml
-
 echo "Create Permissions for Network Observability"
 oc apply -f day2_config/authentication-authorization-network-observability.yaml
 
