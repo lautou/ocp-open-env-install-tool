@@ -95,8 +95,11 @@ for i in {0..2}; do
     $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-$i.yaml
 done
 
-echo "Adding network configuration manifest..."
+echo "Adding network configuration manifests..."
 cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
+
+echo "Adding gitops operator configuration manifests..."
+cp day1_config/gitops/*.yaml $INSTALL_DIRNAME/manifests
 
 echo "Creating the cluster..."
 ./openshift-install create cluster --dir $INSTALL_DIRNAME
@@ -174,9 +177,6 @@ echo "Install Advanced Cluster Security Operator..."
 oc apply -f day2_config/namespace-rhacs-operator.yaml
 oc apply -f day2_config/operator-group-rhacs-operator.yaml
 oc apply -f day2_config/subscription-rhacs-operator.yaml
-
-echo "Install OpenShift GitOps Operator..."
-oc apply -f day2_config/subscription-gitops.yaml
 
 echo "Create S3 bucket for Openshift Logging Loki stack..."
 OL_LOKI_BUCKET=$(create_s3_bucket $(oc get infrastructure cluster -o jsonpath="{.status.infrastructureName}") openshift-logging-lokistack)
