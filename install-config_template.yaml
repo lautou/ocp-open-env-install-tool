@@ -6,3 +6,4 @@ platform:
   aws:
     region: $AWS_DEFAULT_REGION
 pullSecret: '$RHOCM_PULL_SECRET'
+sshKey: '$SSH_KEY'
