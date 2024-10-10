@@ -51,6 +51,7 @@ echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
 echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
+echo AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES
 echo RHOCM_PULL_SECRET=$RHOCM_PULL_SECRET
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
@@ -148,7 +149,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
