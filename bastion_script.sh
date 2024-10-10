@@ -17,13 +17,8 @@ AWS_INSTANCE_TYPE_STORAGE_NODES=${10}
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  BASE64_OPTS="-b0"
-else
-  BASE64_OPTS="-w0"
-fi
-CHRONY_CONF_B64="$(cat day1_config/chrony.conf | base64 $BASE64_OPTS)"
 SSH_KEY_PATH=/home/ec2-user/.ssh/id_rsa
+
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
 # Load AWS library
@@ -83,9 +78,8 @@ cat credentials_template | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/ | sed s
 echo "Generating manifests..."
 ./openshift-install create manifests --dir $INSTALL_DIRNAME
 
-echo "Creating MachineConfig for chrony configuration..."
-yq ".spec.config.storage.files[0].contents.source = \"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\"" day1_config/machineconfig/masters-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-masters-chrony.yaml
-yq ".spec.config.storage.files[0].contents.source = \"data:text/plain;charset=utf-8;base64,$CHRONY_CONF_B64\"" day1_config/machineconfig/workers-chrony-configuration_template.yaml > $INSTALL_DIRNAME/openshift/99_openshift-machineconfig_99-workers-chrony.yaml
+echo "Adding MachineConfig configuration..."
+cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
 
 echo "Creating the MachineSet for infra nodes..."
 for i in {0..2}; do
