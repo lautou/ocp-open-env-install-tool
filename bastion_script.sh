@@ -138,6 +138,7 @@ echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 echo "Run day2 config through GitOps"
+oc create -f day2_config/group-cluster-admins.yaml
 oc create -f day2_config/application-cluster.yaml
 
 echo "----------------------------"
