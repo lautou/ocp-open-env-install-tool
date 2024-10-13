@@ -126,7 +126,7 @@ htpasswd -b -B htpasswd karla r3dh4t1!
 htpasswd -b -B htpasswd marina r3dh4t1!
 
 echo "Creating HTPasswd Secret"
-oc create secret generic htpass-secret --from-file=htpasswd=htpasswd -n openshift-config --dry-run -o yaml | oc apply -f -
+oc create secret generic htpass-secret --from-file=htpasswd=htpasswd -n openshift-config --dry-run=client -o yaml | oc apply -f -
 
 echo "Configuring HTPassw identity provider"
 oc apply -f day2_config/oauth-cluster.yaml

@@ -4,15 +4,13 @@ set -e
 cd $(dirname $0)
 
 echo Check if aws CLI is installed...
-aws --version 1>/dev/null 2>&1
-if [[ $? -ne 0 ]]; then
+if ! hash aws 2>/dev/null; then
   echo "aws CLI is not installed on your workstation! Ensure aws CLI is installed."
   exit 1
 fi
 
 echo Check if podman is installed...
-podman --version 1>/dev/null 2>&1
-if [[ $? -ne 0 ]]; then
+if ! hash podman 2>/dev/null; then
   echo "podman is needed to check Red Hat credentials! Ensure podman is installed."
   exit 2
 fi
@@ -62,7 +60,7 @@ echo ------------------------------------
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 6
+  exit 7
 fi
 
 echo Check RH subscription credentials validity...
@@ -79,7 +77,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 7
+  exit 8
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
