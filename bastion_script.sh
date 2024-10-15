@@ -92,7 +92,7 @@ for i in {0..2}; do
     | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\" \
     | .spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\" \
     | .spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_INFRA_NODES\" \
-    | .spec.template.spec.taints += [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"}]" \
+    | .spec.template.spec.taints += [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"},{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoExecute\"}]" \
     $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-$i.yaml
   yq ".metadata.name = \"$MS_STORAGE_NAME\" \
     | .spec.selector.matchLabels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_STORAGE_NAME\" \
@@ -102,7 +102,7 @@ for i in {0..2}; do
     | .spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\" \
     | .spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\" \
     | .spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\" \
-    | .spec.template.spec.taints += [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}]" \
+    | .spec.template.spec.taints += [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"},{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoExecute\"}]" \
     $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_storage-machineset-$i.yaml
 done
 
