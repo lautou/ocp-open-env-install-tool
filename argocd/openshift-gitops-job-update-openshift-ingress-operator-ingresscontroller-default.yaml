@@ -20,7 +20,7 @@ spec:
             - |
               while ! oc get certificate ingress -n openshift-ingress 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
               echo "Wait for certificate to be ready"
-              oc wait --for=condition=Ready certificate/ingress -n openshift-ingress
+              oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
               echo "Update ingress controller config"
               oc extract cm/openshift-ingress-operator-ingresscontroller-default --keys openshift-ingress-operator-ingresscontroller-default.yaml --to /data -n openshift-gitops
               cat /data/openshift-ingress-operator-ingresscontroller-default.yaml

@@ -47,7 +47,7 @@ spec:
             - |
               while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
               echo "Wait for certificate to be ready"
-              oc wait --for=condition=Ready certificate/api -n openshift-config
+              oc wait --for=condition=Ready --timeout -1s certificate/api -n openshift-config
               echo "Update api config"
               cat /data/cluster-apiserver-cluster.yaml
               echo
