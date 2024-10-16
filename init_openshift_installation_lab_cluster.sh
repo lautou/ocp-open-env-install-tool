@@ -15,22 +15,28 @@ if ! hash podman 2>/dev/null; then
   exit 2
 fi
 
+echo Check if git is installed...
+if ! hash git 2>/dev/null; then
+  echo "git is required to check git connectivity to the git repository hosting GitOps resources! Ensure git is installed."
+  exit 3
+fi
+
 echo Check if pull-secret.txt file is present...
 if [[ ! -f pull-secret.txt ]]; then
   echo "Cannot find pull-secret.txt file on $(dirname $0)! Get this file from console.redhat.com using your Red Hat credentials and drop it into this directory."
-  exit 3
+  exit 4
 fi
 
 echo Check if install-config_template.yaml is present...
 if [[ ! -f install-config_template.yaml ]]; then
   echo "Cannot find install-config_template.yaml file on $(dirname $0)."
-  exit 4
+  exit 5
 fi
 
 echo Check if ocp_rhdp.config is present...
 if [[ ! -f ocp_rhdp.config ]]; then
   echo "Cannot find ocp_rhdp.config file on $(dirname $0)"
-  exit 5
+  exit 6
 fi
 . ocp_rhdp.config
 
@@ -44,23 +50,28 @@ echo ------------------------------------
 echo OPENSHIFT_VERSION=$OPENSHIFT_VERSION
 echo RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
 echo CLUSTER_NAME=$CLUSTER_NAME
-echo AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-echo AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
 echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
 echo AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES
-echo RHOCM_PULL_SECRET=$RHOCM_PULL_SECRET
+echo GIT_REPO_DOMAIN=$GIT_REPO_DOMAIN
+echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
 # Load AWS library
 . aws_lib.bash
 
+echo Check if git credentials are valid and we can connect to the repository...
+if ! git ls-remote -q https://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
+  echo "Unable to connect to the repo https://$GIT_REPO_DOMAIN/$GIT_REPO_PATH . Check the credentials and/or the repository path."
+  exit 7 
+fi
+
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 7
+  exit 8
 fi
 
 echo Check RH subscription credentials validity...
@@ -77,7 +88,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 8
+  exit 9
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
@@ -147,7 +158,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"

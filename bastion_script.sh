@@ -13,6 +13,10 @@ AWS_ACCESS_KEY_ID=$7
 AWS_SECRET_ACCESS_KEY=$8
 AWS_INSTANCE_TYPE_INFRA_NODES=$9
 AWS_INSTANCE_TYPE_STORAGE_NODES=${10}
+GIT_REPO_DOMAIN=${11}
+GIT_REPO_PATH=${12}
+GIT_TOKEN_NAME=${13}
+GIT_TOKEN_SECRET=${14}
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
@@ -136,6 +140,10 @@ oc adm policy add-cluster-role-to-user cluster-admin admin
 
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
+
+echo "Create git repository secret for ArgoCD repo"
+oc create secret generic repo-cluster-config --from-literal username=$GIT_TOKEN_NAME --from-literal password=$GIT_TOKEN_SECRET --from-literal type=git --from-literal url=https://$GIT_REPO_DOMAIN/$GIT_REPO_PATH --from-literal project=default -n openshift-gitops
+oc label secret repo-cluster-config argocd.argoproj.io/secret-type=repository -n openshift-gitops
 
 echo "Run day2 config through GitOps"
 oc create -f day2_config/group-cluster-admins.yaml

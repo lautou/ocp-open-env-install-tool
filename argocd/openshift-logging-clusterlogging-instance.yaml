@@ -1,0 +1,22 @@
+apiVersion: logging.openshift.io/v1
+kind: ClusterLogging
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: '1'
+  name: instance 
+  namespace: openshift-logging 
+spec:
+  collection:
+    type: vector
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+      - key: node.ocs.openshift.io/storage
+        operator: Exists
+  logStore:
+    lokistack:
+      name: logging-loki
+    type: lokistack
+  visualization:
+    type: ocp-console

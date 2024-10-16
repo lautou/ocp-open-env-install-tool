@@ -1,0 +1,38 @@
+﻿kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: user-workload-monitoring-config
+  namespace: openshift-user-workload-monitoring
+data:
+  config.yaml: |
+    alertmanagerMain:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 10Gi
+    prometheus:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 40Gi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    prometheusOperator:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    thanosRuler:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra

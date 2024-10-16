@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+    argocd.argoproj.io/sync-wave: '1'
+  name: update-cluster-apiserver-cluster
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: update-cluster-apiserver-cluster
+    spec:
+      initContainers:
+        - name: extract-resources-to-create
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              oc extract cm/cluster-config-v1 --keys install-config --to /data -n kube-system
+              oc extract cm/cluster-apiserver-cluster --keys cluster-apiserver-cluster.yaml --to /data -n openshift-gitops
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+        - name: extract-config-data
+          image: quay.io/multi-arch/yq:4.35.2
+          command:
+          - /bin/sh
+          args:
+          - '-c'
+          - |
+            export BASEDOMAIN=$(yq e '.baseDomain' /data/install-config)
+            echo BASEDOMAIN=$BASEDOMAIN
+            export CLUSTERNAME=$(yq e '.metadata.name' /data/install-config)
+            echo CLUSTERNAME=$CLUSTERNAME
+            yq e '.spec.servingCerts.namedCertificates[0].names[0] |= "api." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/cluster-apiserver-cluster.yaml
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+      containers:
+        - name: update-cluster-apiserver-cluster
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
+              echo "Wait for certificate to be ready"
+              oc wait --for=condition=Ready certificate/api -n openshift-config
+              echo "Update api config"
+              cat /data/cluster-apiserver-cluster.yaml
+              echo
+              oc apply -f /data/cluster-apiserver-cluster.yaml
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      volumes:
+      - name: shared-data
+        empty-dir: {}

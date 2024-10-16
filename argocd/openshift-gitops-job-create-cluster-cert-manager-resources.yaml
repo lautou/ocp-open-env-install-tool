@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+    argocd.argoproj.io/sync-wave: '1'
+  name: create-cluster-cert-manager-resources
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: create-cluster-cert-manager-resources
+    spec:
+      initContainers:
+        - name: extract-resources-to-create
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              echo "Read the secret for AWS cloud provider"
+              while ! oc get secret aws-creds -n kube-system 2>/dev/null 1>&2; do echo "Waiting for secret aws-creds in namespace kube-system."; done
+              ACCESS_KEY=$(oc get secret aws-creds -n kube-system --template={{.data.aws_access_key_id}} | base64 -d)
+              SECRET_KEY=$(oc get secret aws-creds -n kube-system --template={{.data.aws_secret_access_key}} | base64 -d)
+              echo "Create the aws-acme secret"
+              oc delete secret generic aws-acme -n cert-manager --ignore-not-found
+              oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
+              oc extract cm/cluster-config-v1 --keys install-config --to /data -n kube-system
+              oc extract cm/clusterissuer-cluster --keys cluster-clusterissuer-cluster.yaml --to /data -n openshift-gitops
+              oc extract cm/openshift-ingress-certificate-ingress --keys openshift-ingress-certificate-ingress.yaml --to /data -n openshift-gitops
+              oc extract cm/openshift-config-certificate-api --keys openshift-config-certificate-api.yaml --to /data -n openshift-gitops
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+        - name: extract-config-data
+          image: quay.io/multi-arch/yq:4.35.2
+          command:
+          - /bin/sh
+          args:
+          - '-c'
+          - |
+            export REGION=$(yq e '.platform.aws.region' /data/install-config)
+            echo REGION=$REGION
+            export BASEDOMAIN=$(yq e '.baseDomain' /data/install-config)
+            echo BASEDOMAIN=$BASEDOMAIN
+            export CLUSTERNAME=$(yq e '.metadata.name' /data/install-config)
+            echo CLUSTERNAME=$CLUSTERNAME
+            yq e '.spec.acme.solvers[0].dns01.route53.region |= strenv(REGION)' -i /data/cluster-clusterissuer-cluster.yaml
+            yq e '.spec.commonName |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
+            yq e '.spec.dnsNames[0] |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
+            yq e '.spec.dnsNames[1] |= "*.apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
+            yq e '.spec.commonName |= "api." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-config-certificate-api.yaml
+            yq e '.spec.dnsNames[0] |= "api." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-config-certificate-api.yaml
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+      containers:
+        - name: create-cluster-cert-manager-resources
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              echo "Create the ClusterIssuer resource"
+              oc apply -f /data/cluster-clusterissuer-cluster.yaml
+              echo "Create the Certificate resource for Ingress"
+              oc apply -f /data/openshift-ingress-certificate-ingress.yaml
+              echo "Create the Certificate resource for API"
+              oc apply -f /data/openshift-config-certificate-api.yaml
+          volumeMounts:
+          - name: shared-data
+            mountPath: /data
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      volumes:
+      - name: shared-data
+        empty-dir: {}

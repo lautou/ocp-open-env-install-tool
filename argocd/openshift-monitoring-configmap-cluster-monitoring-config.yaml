@@ -1,0 +1,74 @@
+﻿kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+    alertmanagerMain:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 10Gi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    kubeStateMetrics:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    metricsServer:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    monitoringPlugin:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    openshiftStateMetrics:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    prometheusK8s:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3-csi
+          resources:
+            requests:
+              storage: 40Gi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    prometheusOperator:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    telemeterClient:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+    thanosQuerier:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra

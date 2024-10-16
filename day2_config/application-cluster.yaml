@@ -8,7 +8,7 @@ spec:
     server: https://kubernetes.default.svc
   project: default
   source:
-    repoURL: https://github.com/lautou/ocp-open-env-install-tool-day2
+    repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool
     path: argocd
     targetRevision: main
   syncPolicy:

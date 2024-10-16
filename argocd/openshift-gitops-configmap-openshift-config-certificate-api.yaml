@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openshift-config-certificate-api
+  namespace: openshift-gitops
+data:
+  openshift-config-certificate-api.yaml: |-
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: api
+      namespace: openshift-config
+    spec:
+      isCA: false
+      commonName: "DOMAIN"
+      secretName: api-certificates
+      dnsNames:
+      - "DOMAIN"
+      issuerRef:
+        name: cluster
+        kind: ClusterIssuer

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openshift-ingress-operator-ingresscontroller-default
+  namespace: openshift-gitops
+data:
+  openshift-ingress-operator-ingresscontroller-default.yaml: |-
+    apiVersion: operator.openshift.io/v1
+    kind: IngressController
+    metadata:
+      name: default
+      namespace: openshift-ingress-operator
+    spec:
+      defaultCertificate:
+        name: ingress-certificates
+      nodePlacement:
+        nodeSelector:
+          matchLabels:
+            node-role.kubernetes.io/infra: ""
+        tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+      replicas: 3
+  
