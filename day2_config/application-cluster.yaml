@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool
     path: argocd
-    targetRevision: main
+    targetRevision: master
   syncPolicy:
     automated:
       selfHeal: true
