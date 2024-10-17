@@ -51,8 +51,10 @@ spec:
             yq e '.spec.commonName |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
             yq e '.spec.dnsNames[0] |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
             yq e '.spec.dnsNames[1] |= "*.apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
+            yq e '.spec.dnsNames[2] |= "apps.$TIMESTAMP." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
             yq e '.spec.commonName |= "api." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-config-certificate-api.yaml
             yq e '.spec.dnsNames[0] |= "api." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-config-certificate-api.yaml
+            yq e '.spec.dnsNames[1] |= "api.$TIMESTAMP." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-config-certificate-api.yaml
           volumeMounts:
           - name: shared-data
             mountPath: /data
