@@ -1,6 +1,8 @@
 apiVersion: console.openshift.io/v1
 kind: ConsoleLink
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
   name: application-menu-rh-developer-blog
 spec:
   href: 'https://developers.redhat.com/topics/kubernetes'
