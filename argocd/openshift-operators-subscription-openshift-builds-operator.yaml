@@ -5,6 +5,12 @@ metadata:
   namespace: openshift-operators
 spec:
   channel: latest
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
   name: openshift-builds-operator 
   source: redhat-operators 
   sourceNamespace: openshift-marketplace 
