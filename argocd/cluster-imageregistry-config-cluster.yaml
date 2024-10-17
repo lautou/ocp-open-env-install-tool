@@ -1,6 +1,8 @@
-﻿apiVersion: imageregistry.operator.openshift.io/v1
+apiVersion: imageregistry.operator.openshift.io/v1
 kind: Config
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
   name: cluster
 spec:
   managementState: Managed
