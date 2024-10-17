@@ -3,6 +3,9 @@ kind: Namespace
 metadata:
   annotations:
     argocd.argoproj.io/sync-wave: '-1'
+    scheduler.alpha.kubernetes.io/defaultTolerations: >-
+      [{"operator": "Exists", "key":
+      "node-role.kubernetes.io/infra"}]
   name: openshift-nfd
   labels:
     openshift.io/cluster-monitoring: "true"
