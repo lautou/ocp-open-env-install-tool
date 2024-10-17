@@ -1,6 +1,8 @@
-﻿kind: ConfigMap
+kind: ConfigMap
 apiVersion: v1
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
   name: cluster-monitoring-config
   namespace: openshift-monitoring
 data:
