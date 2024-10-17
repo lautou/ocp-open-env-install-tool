@@ -1,6 +1,8 @@
-﻿kind: ConfigMap
+kind: ConfigMap
 apiVersion: v1
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
   name: user-workload-monitoring-config
   namespace: openshift-user-workload-monitoring
 data:
