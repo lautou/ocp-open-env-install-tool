@@ -1,0 +1,11 @@
+apiVersion: pipelines.openshift.io/v1alpha1
+kind: GitopsService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  name: cluster
+spec:
+  runOnInfra: true
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
