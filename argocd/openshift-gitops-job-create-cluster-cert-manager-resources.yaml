@@ -45,6 +45,8 @@ spec:
             echo BASEDOMAIN=$BASEDOMAIN
             export CLUSTERNAME=$(yq e '.metadata.name' /data/install-config)
             echo CLUSTERNAME=$CLUSTERNAME
+            TIMESTAMP=$(date %s)
+            echo TIMESTAMP=$TIMESTAMP
             yq e '.spec.acme.solvers[0].dns01.route53.region |= strenv(REGION)' -i /data/cluster-clusterissuer-cluster.yaml
             yq e '.spec.commonName |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
             yq e '.spec.dnsNames[0] |= "apps." + strenv(CLUSTERNAME) + "." + strenv(BASEDOMAIN)' -i /data/openshift-ingress-certificate-ingress.yaml
