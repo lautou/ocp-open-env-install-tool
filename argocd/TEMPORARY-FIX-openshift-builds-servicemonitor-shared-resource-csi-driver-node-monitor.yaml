@@ -1,4 +1,4 @@
-# There is a bug that trigger a TargetDown alert when Prometheus tries to scrape shared-resource-csi-driver-node-metrics service endpoints
+# There is a bug that triggers a TargetDown alert when Prometheus tries to scrape shared-resource-csi-driver-node-metrics service endpoints.
 # Root cause is serverName is set to "shared-resource-csi-driver-node-metrics.openshift-cluster-csi-drivers.svc" during the OpenShift Build operator configuration.
 # There is not bug issue ticket filed at this time.
 apiVersion: monitoring.coreos.com/v1
