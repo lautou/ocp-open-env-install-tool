@@ -1,0 +1,43 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  annotations:
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/modelServingSupport: '["single"]'
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: ollama
+  namespace: redhat-ods-applications
+objects:
+- apiVersion: serving.kserve.io/v1alpha1
+  kind: ServingRuntime
+  labels:
+    opendatahub.io/dashboard: "true"
+  metadata:
+    annotations:
+      openshift.io/display-name: Ollama
+    name: ollama
+  spec:
+    builtInAdapter:
+      modelLoadingTimeoutMillis: 90000
+    containers:
+    - env:
+      - name: OLLAMA_MODELS
+        value: /.ollama/models
+      - name: OLLAMA_HOST
+        value: 0.0.0.0
+      - name: OLLAMA_KEEP_ALIVE
+        value: -1m
+      - name: MODEL_FILE
+        value: model.gguf
+      image: image-registry.openshift-image-registry.svc:5000/redhat-saia/ollama-model-serve-single
+      imagePullPolicy: Always
+      name: kserve-container
+      ports:
+      - containerPort: 11434
+        name: http1
+        protocol: TCP
+    multiModel: false
+    supportedModelFormats:
+    - autoSelect: true
+      name: any
