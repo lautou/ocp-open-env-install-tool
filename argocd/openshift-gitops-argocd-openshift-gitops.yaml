@@ -3,6 +3,8 @@ kind: ArgoCD
 metadata:
   name: openshift-gitops
   namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   nodePlacement:
     nodeSelector:
