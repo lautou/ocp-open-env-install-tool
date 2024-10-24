@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: openshift-builds-operator
-  namespace: openshift-operators
+  namespace: openshift-builds
 spec:
   channel: latest
   config:
