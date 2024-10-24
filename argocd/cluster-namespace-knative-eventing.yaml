@@ -4,5 +4,4 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: '-1'
   name: knative-eventing
-  labels:
-    openshift.io/cluster-monitoring: "true"
+
