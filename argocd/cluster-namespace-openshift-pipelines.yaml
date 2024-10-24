@@ -8,5 +8,3 @@ metadata:
       [{"operator": "Exists", "key":
       "node-role.kubernetes.io/infra"}]
   name: openshift-pipelines
-  labels:
-    openshift.io/cluster-monitoring: "true"
