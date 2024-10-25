@@ -10,6 +10,7 @@ spec:
   sso:
     dex:
       openShiftOAuth: true
+    provider: dex
   rbac:
     defaultPolicy: ''
     policy: |
