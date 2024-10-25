@@ -10,3 +10,9 @@ spec:
   sso:
     dex:
       openShiftOAuth: true
+  rbac:
+    defaultPolicy: ''
+    policy: |
+      g, system:cluster-admins, role:admin
+      g, cluster-admins, role:admin
+    scopes: '[groups]'
