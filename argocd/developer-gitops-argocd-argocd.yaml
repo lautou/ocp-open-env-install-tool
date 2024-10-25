@@ -3,4 +3,7 @@ kind: ArgoCD
 metadata:
   name: argocd
   namespace: developer-gitops
-spec: {}
+spec:
+  server:
+    route:
+      enabled: true
