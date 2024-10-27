@@ -22,32 +22,38 @@ fi
 
 echo Check if git is installed...
 if ! hash git 2>/dev/null; then
-  echo "git is required to check git connectivity to the git repository hosting GitOps resources! Ensure git is installed."
+  echo "git is required in order to check git connectivity to the git repository hosting GitOps resources! Ensure git is installed."
   exit 3
+fi
+
+echo Check if yq is installed...
+if ! hash yq 2>/dev/null; then
+  echo "yq is required in order to inject proper yaml configuration files! Ensure yq is installed."
+  exit 4
 fi
 
 echo Check if pull-secret.txt file is present...
 if [[ ! -f pull-secret.txt ]]; then
   echo "Cannot find pull-secret.txt file on $(dirname $0)! Get this file from console.redhat.com using your Red Hat credentials and drop it into this directory."
-  exit 4
+  exit 5
 fi
 
 echo Check if install-config_template.yaml is present...
 if [[ ! -f install-config_template.yaml ]]; then
   echo "Cannot find install-config_template.yaml file on $(dirname $0)."
-  exit 5
+  exit 6
 fi
 
 echo Check if credentials_template is present...
 if [[ ! -f credentials_template ]]; then
   echo "Cannot find credentials_template file on $(dirname $0)."
-  exit 6
+  exit 7
 fi
 
 echo Check if ocp_rhdp.config is present...
 if [[ ! -f ocp_rhdp.config ]]; then
   echo "Cannot find ocp_rhdp.config file on $(dirname $0)"
-  exit 7
+  exit 8
 fi
 . ocp_rhdp.config
 
@@ -80,13 +86,13 @@ echo ------------------------------------
 echo Check if git credentials are valid and we can connect to the repository...
 if ! git ls-remote -q https://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
   echo "Unable to connect to the repo https://$GIT_REPO_DOMAIN/$GIT_REPO_PATH . Check the credentials and/or the repository path."
-  exit 8 
+  exit 9 
 fi
 
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 9
+  exit 10
 fi
 
 echo Check RH subscription credentials validity...
@@ -103,7 +109,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 10
+  exit 11
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
@@ -175,13 +181,24 @@ echo "Generating AWS credentials file from template..."
 mkdir $UPLOAD_TO_BASTION_DIR/.aws
 cat credentials_template | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/ | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/ > $UPLOAD_TO_BASTION_DIR/.aws/credentials
 
+echo "Generating SSH key for OCP nodes..."
+mkdir $UPLOAD_TO_BASTION_DIR/.ssh
+ssh-keygen -q -N '' -f $UPLOAD_TO_BASTION_DIR/.ssh/id_rsa <<<y
+SSH_KEY="$(cat $UPLOAD_TO_BASTION_DIR/.ssh/id_rsa.pub)"
+yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
+  | .metadata.name = \"$CLUSTER_NAME\" \
+  | .platform.aws.region = \"$AWS_DEFAULT_REGION\" \
+  | .pullSecret = \"${RHOCM_PULL_SECRET//\"/\\\"}\" \
+  | .sshKey = \"$SSH_KEY\"" \
+  install-config_template.yaml > $UPLOAD_TO_BASTION_DIR/cluster-install/install-config.yaml
+
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR day1_config day2_config bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"

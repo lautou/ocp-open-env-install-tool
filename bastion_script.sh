@@ -5,23 +5,17 @@ if [[ $# -lt 9 ]]; then
 fi
 OCP_DOWNLOAD_BASE_URL=$1
 OPENSHIFT_VERSION=$2
-CLUSTER_NAME=$3
-RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$4
-RHOCM_PULL_SECRET=$5
-AWS_DEFAULT_REGION=$6
-AWS_INSTANCE_TYPE_INFRA_NODES=$7
-AWS_INSTANCE_TYPE_STORAGE_NODES=$8
-GIT_REPO_DOMAIN=$9
-GIT_REPO_PATH=${10}
-GIT_TOKEN_NAME=${11}
-GIT_TOKEN_SECRET=${12}
+AWS_INSTANCE_TYPE_INFRA_NODES=$3
+AWS_INSTANCE_TYPE_STORAGE_NODES=$4
+GIT_REPO_DOMAIN=$5
+GIT_REPO_PATH=$6
+GIT_TOKEN_NAME=$7
+GIT_TOKEN_SECRET=$8
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
 SSH_KEY_PATH=/home/ec2-user/.ssh/id_rsa
-
-export AWS_DEFAULT_REGION
 
 echo "Installing some important packages..."
 sudo yum install -y wget httpd-tools
@@ -48,18 +42,6 @@ if [[ $? -ne 0 ]]; then
   exit 11
 fi
 tar -xvf $INSTALLER_TARGZ_FILE openshift-install
-
-mkdir -p $INSTALL_DIRNAME .aws
-echo "Generating install-config.yaml file from template..."
-ssh-keygen -q -N '' -f $SSH_KEY_PATH <<<y
-SSH_KEY="$(cat $SSH_KEY_PATH.pub)"
-yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
-  | .metadata.name = \"$CLUSTER_NAME\" \
-  | .platform.aws.region = \"$AWS_DEFAULT_REGION\" \
-  | .pullSecret = \"${RHOCM_PULL_SECRET//\"/\\\"}\" \
-  | .sshKey = \"$SSH_KEY\"" \
-  install-config_template.yaml > $INSTALL_DIRNAME/install-config.yaml
-
 
 echo "Generating manifests..."
 ./openshift-install create manifests --dir $INSTALL_DIRNAME
