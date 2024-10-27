@@ -25,20 +25,12 @@ SSH_KEY_PATH=/home/ec2-user/.ssh/id_rsa
 
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 
-# Load AWS library
-. aws_lib.bash
-
 echo "Installing some important packages..."
-sudo yum install -y wget httpd-tools unzip 
+sudo yum install -y wget httpd-tools
 
 echo "Install yq package..."
 sudo wget -nv -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 sudo chmod +x /usr/bin/yq
-
-echo "Installing aws CLI..."
-wget -nv -O awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
-unzip -q awscliv2.zip
-sudo ./aws/install
 
 echo "Installing OpenShift CLI..."
 wget -nv -O $OC_TARGZ_FILE $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE
@@ -58,12 +50,6 @@ if [[ $? -ne 0 ]]; then
   exit 11
 fi
 tar -xvf $INSTALLER_TARGZ_FILE openshift-install
-
-if [[ -f $INSTALL_DIRNAME/terraform.tfstate ]]; then
-  echo "A previous cluster installation has been detected. So we destroy the cluster first before recreating it."
-  ./openshift-install destroy cluster --dir $INSTALL_DIRNAME
-  rm -rf $INSTALL_DIRNAME
-fi
 
 mkdir -p $INSTALL_DIRNAME .aws
 echo "Generating install-config.yaml file from template..."

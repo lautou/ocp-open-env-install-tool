@@ -154,7 +154,7 @@ aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh aws_lib.bash ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 
