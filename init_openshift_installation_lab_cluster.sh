@@ -201,7 +201,7 @@ yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
 
 echo Copy required files to the bastion...
 cp -r day1_config day2_config bastion_script.sh $UPLOAD_TO_BASTION_DIR
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR/* ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 
