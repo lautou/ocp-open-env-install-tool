@@ -38,10 +38,16 @@ if [[ ! -f install-config_template.yaml ]]; then
   exit 5
 fi
 
+echo Check if credentials_template is present...
+if [[ ! -f credentials_template ]]; then
+  echo "Cannot find credentials_template file on $(dirname $0)."
+  exit 6
+fi
+
 echo Check if ocp_rhdp.config is present...
 if [[ ! -f ocp_rhdp.config ]]; then
   echo "Cannot find ocp_rhdp.config file on $(dirname $0)"
-  exit 6
+  exit 7
 fi
 . ocp_rhdp.config
 
@@ -70,13 +76,13 @@ echo ------------------------------------
 echo Check if git credentials are valid and we can connect to the repository...
 if ! git ls-remote -q https://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
   echo "Unable to connect to the repo https://$GIT_REPO_DOMAIN/$GIT_REPO_PATH . Check the credentials and/or the repository path."
-  exit 7 
+  exit 8 
 fi
 
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 8
+  exit 9
 fi
 
 echo Check RH subscription credentials validity...
@@ -93,7 +99,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 9
+  exit 10
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
