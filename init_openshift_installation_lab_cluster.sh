@@ -191,6 +191,7 @@ echo "Generating SSH key for OCP nodes..."
 mkdir $UPLOAD_TO_BASTION_DIR/.ssh
 ssh-keygen -q -N '' -f $UPLOAD_TO_BASTION_DIR/.ssh/id_rsa <<<y
 SSH_KEY="$(cat $UPLOAD_TO_BASTION_DIR/.ssh/id_rsa.pub)"
+mkdir $UPLOAD_TO_BASTION_DIR/cluster-install
 yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
   | .metadata.name = \"$CLUSTER_NAME\" \
   | .platform.aws.region = \"$AWS_DEFAULT_REGION\" \
