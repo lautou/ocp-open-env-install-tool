@@ -80,8 +80,8 @@ echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
-echo Check if 
-if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+) ]]; then echo fuck;
+echo Check if git repo URL is valid...
+if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+) ]]; then
   echo Check if git credentials are valid and we can connect to the repository...
   if ! git ls-remote -q ${BASH_REMATCH[1]}://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@${BASH_REMATCH[2]}/$GIT_REPO_PATH &>/dev/null; then
     echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
