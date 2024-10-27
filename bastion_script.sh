@@ -15,10 +15,9 @@ GIT_TOKEN_SECRET=$8
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
-SSH_KEY_PATH=/home/ec2-user/.ssh/id_rsa
 
-echo "Installing some important packages..."
-sudo yum install -y wget httpd-tools
+echo "Installing wget package..."
+sudo yum install -y wget
 
 echo "Install yq package..."
 sudo wget -nv -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
@@ -46,9 +45,6 @@ tar -xvf $INSTALLER_TARGZ_FILE openshift-install
 echo "Generating manifests..."
 ./openshift-install create manifests --dir $INSTALL_DIRNAME
 
-echo "Adding MachineConfig configuration..."
-cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
-
 echo "Creating the MachineSet for infra nodes..."
 for i in {0..2}; do
   MS_INFRA_NAME=$(yq '.metadata.name' $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml | sed s/worker/infra/)
@@ -74,6 +70,9 @@ for i in {0..2}; do
     $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_storage-machineset-$i.yaml
 done
 
+echo "Adding MachineConfig configuration..."
+cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
+
 echo "Adding network configuration manifests..."
 cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
 
@@ -87,21 +86,6 @@ echo "Exporting admin TLS credentials..."
 echo "export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig" >> .bashrc
 export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
 
-echo "Creating htpasswd file"
-htpasswd -c -b -B htpasswd admin redhat
-htpasswd -b -B htpasswd andrew r3dh4t1!
-htpasswd -b -B htpasswd karla r3dh4t1!
-htpasswd -b -B htpasswd marina r3dh4t1!
-
-echo "Creating HTPasswd Secret"
-oc create secret generic htpass-secret --from-file=htpasswd=htpasswd -n openshift-config --dry-run=client -o yaml | oc apply -f -
-
-echo "Configuring HTPassw identity provider"
-oc apply -f day2_config/oauth-cluster.yaml
-
-echo "Giving cluster-admin role to admin user"
-oc adm policy add-cluster-role-to-user cluster-admin admin
-
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
@@ -113,7 +97,6 @@ oc create secret generic repo-cluster-config --from-literal type=git --from-lite
 oc label secret repo-cluster-config argocd.argoproj.io/secret-type=repository -n openshift-gitops
 
 echo "Run day2 config through GitOps"
-oc create -f day2_config/group-cluster-admins.yaml
 oc create -f day2_config/application-cluster.yaml
 
 echo "----------------------------"

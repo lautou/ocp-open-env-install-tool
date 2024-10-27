@@ -192,9 +192,9 @@ yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
   | .sshKey = \"$SSH_KEY\"" \
   install-config_template.yaml > $UPLOAD_TO_BASTION_DIR/cluster-install/install-config.yaml
 
-echo Copy template files to the bastion...
-
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR day1_config day2_config bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+echo Copy required files to the bastion...
+cp day1_config day2_config bastion_script.sh $UPLOAD_TO_BASTION_DIR
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 
