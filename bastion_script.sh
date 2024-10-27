@@ -1,6 +1,6 @@
 set -e
-if [[ $# -lt 9 ]]; then
-  echo "Incorrect number of found arguments: $# - Expected: 9"
+if [[ $# -lt 8 ]]; then
+  echo "Incorrect number of found arguments: $# - Expected: 8"
   exit 1
 fi
 OCP_DOWNLOAD_BASE_URL=$1
