@@ -9,21 +9,19 @@ CLUSTER_NAME=$3
 RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$4
 RHOCM_PULL_SECRET=$5
 AWS_DEFAULT_REGION=$6
-AWS_ACCESS_KEY_ID=$7
-AWS_SECRET_ACCESS_KEY=$8
-AWS_INSTANCE_TYPE_INFRA_NODES=$9
-AWS_INSTANCE_TYPE_STORAGE_NODES=${10}
-GIT_REPO_DOMAIN=${11}
-GIT_REPO_PATH=${12}
-GIT_TOKEN_NAME=${13}
-GIT_TOKEN_SECRET=${14}
+AWS_INSTANCE_TYPE_INFRA_NODES=$7
+AWS_INSTANCE_TYPE_STORAGE_NODES=$8
+GIT_REPO_DOMAIN=$9
+GIT_REPO_PATH=${10}
+GIT_TOKEN_NAME=${11}
+GIT_TOKEN_SECRET=${12}
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALL_DIRNAME=cluster-install
 SSH_KEY_PATH=/home/ec2-user/.ssh/id_rsa
 
-export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+export AWS_DEFAULT_REGION
 
 echo "Installing some important packages..."
 sudo yum install -y wget httpd-tools
@@ -62,8 +60,6 @@ yq ".baseDomain = \"${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}\" \
   | .sshKey = \"$SSH_KEY\"" \
   install-config_template.yaml > $INSTALL_DIRNAME/install-config.yaml
 
-echo "Generating AWS credentials file from template..."
-cat credentials_template | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/ | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/ > .aws/credentials
 
 echo "Generating manifests..."
 ./openshift-install create manifests --dir $INSTALL_DIRNAME

@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 
+UPLOAD_TO_BASTION_DIR=_upload_to_bastion
+
 cd $(dirname $0)
+
+echo Clean temporary directories...
+rm -rf $UPLOAD_TO_BASTION_DIR
 
 echo Check if aws CLI is installed...
 if ! hash aws 2>/dev/null; then
@@ -152,13 +157,21 @@ echo PUBLIC_DNS_NAME=$PUBLIC_DNS_NAME
 echo Waiting the system status for bastion instance is OK...
 aws ec2 wait system-status-ok --instance-ids $INSTANCE_ID
 echo System status is OK
+
+echo Prepare files to send to the bastion...
+mkdir $UPLOAD_TO_BASTION_DIR
+
+echo "Generating AWS credentials file from template..."
+mkdir $UPLOAD_TO_BASTION_DIR/.aws
+cat credentials_template | sed s/\$AWS_ACCESS_KEY_ID/$AWS_ACCESS_KEY_ID/ | sed s/\$AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY//\//\\\/}/ > $UPLOAD_TO_BASTION_DIR/.aws/credentials
+
 echo Copy template files to the bastion...
 
-scp -o "StrictHostKeyChecking=no" -i bastion.pem -r install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
+scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR install-config_template.yaml day1_config day2_config credentials_template bastion_script.sh ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $CLUSTER_NAME $RHDP_TOP_LEVEL_ROUTE53_DOMAIN "'$RHOCM_PULL_SECRET'" $AWS_DEFAULT_REGION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
