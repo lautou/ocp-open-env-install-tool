@@ -75,24 +75,27 @@ echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
 echo AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES
 echo GIT_TOKEN_NAME="****************"
 echo GIT_TOKEN_SECRET="****************"
-echo GIT_REPO_DOMAIN=$GIT_REPO_DOMAIN
+echo GIT_REPO_BASE_URL=$GIT_REPO_BASE_URL
 echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
-# Load AWS library
-. aws_lib.bash
-
-echo Check if git credentials are valid and we can connect to the repository...
-if ! git ls-remote -q https://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
-  echo "Unable to connect to the repo https://$GIT_REPO_DOMAIN/$GIT_REPO_PATH . Check the credentials and/or the repository path."
-  exit 9 
+echo Check if 
+if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+) ]]; then echo fuck;
+  echo Check if git credentials are valid and we can connect to the repository...
+  if ! git ls-remote -q ${BASH_REMATCH[1]}://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@${BASH_REMATCH[2]}/$GIT_REPO_PATH &>/dev/null; then
+    echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
+    exit 10 
+  fi
+else
+  echo "URL: $GIT_REPO_BASE_URL is invalid. Ensure it is filled and it only uses HTTP(S) method."
+  exit 9
 fi
 
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 10
+  exit 11
 fi
 
 echo Check RH subscription credentials validity...
@@ -106,10 +109,13 @@ echo Check Amazon credentials...
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
 aws sts get-caller-identity
 
+# Load AWS library
+. aws_lib.bash
+
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 11
+  exit 12
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
@@ -198,7 +204,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR ec2-u
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_DOMAIN $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_BASE_URL $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
