@@ -5,4 +5,4 @@ metadata:
   namespace: openshift-gitops
 spec:
   source:
-    repoURL: https://gitlab.consulting.redhat.com/ltourrea/ocp-open-env-install-tool
+    repoURL: $GIT_REPO_BASE_URL/$GIT_REPO_PATH
