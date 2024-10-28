@@ -2,4 +2,4 @@ resources:
 - applications/application-cluster.yaml
 
 patches:
-- path: patch_templates/application-patch.yaml
+- path: ../_day2_generated/application-patch.yaml
