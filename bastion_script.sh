@@ -97,8 +97,8 @@ oc create secret generic repo-cluster-config --from-literal type=git --from-lite
 oc label secret repo-cluster-config argocd.argoproj.io/secret-type=repository -n openshift-gitops
 
 echo "Run day2 config through GitOps"
-mkdir _day2_generated
-yq ".spec.source.repoURL = \"$GIT_REPO_BASE_URL/$GIT_REPO_PATH\"" day2_config/patch_templates/application-patch.yaml > _day2_generated/application-patch.yaml
+mkdir day2_config/_generated
+yq ".spec.source.repoURL = \"$GIT_REPO_BASE_URL/$GIT_REPO_PATH\"" day2_config/patch_templates/application-patch.yaml > day2_config/_generated/application-patch.yaml
 oc create -k day2_config
 
 echo "----------------------------"
