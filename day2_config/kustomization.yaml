@@ -1,13 +1,5 @@
 resources:
-- application-cluster.yaml
+- applications/application-cluster.yaml
 
 patches:
-- patch: |-
-    apiVersion: argoproj.io/v1alpha1
-    kind: Application
-    metadata:
-      name: cluster
-      namespace: openshift-gitops
-    spec:
-      source:
-        repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool
+- path: patch_templates/application-patch.yaml
