@@ -97,13 +97,16 @@ fi
 
 echo Check if git repo base URL is valid...
 if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+[^/])$ ]]; then
-  echo Check if git credentials are valid and we can connect to the repository...
-  if ! git ls-remote -q ${BASH_REMATCH[1]}://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@${BASH_REMATCH[2]}/$GIT_REPO_PATH &>/dev/null; then
-    echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
-    exit 12
-  fi
+  GIT_REPO_BASE_URL_SCHEME=${BASH_REMATCH[1]}
+  GIT_REPO_BASE_URL_DOMAIN=${BASH_REMATCH[2]}
 else
   echo "Git base URL: $GIT_REPO_BASE_URL is invalid. Ensure it is filled, it has not trailing slash (/) and it only uses HTTP(S) method."
+  exit 12
+fi
+
+echo Check if git credentials are valid and we can connect to the repository...
+if ! git ls-remote -q $GIT_REPO_BASE_URL_SCHEME://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_BASE_URL_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
+  echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
   exit 13
 fi
 
