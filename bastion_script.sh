@@ -89,12 +89,9 @@ export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
-echo "Create git repository secret for ArgoCD repo"
+echo "Create git repository credentials template secret for ArgoCD repo"
 oc create secret generic creds-gitlab-consulting --from-literal username=$GIT_TOKEN_NAME --from-literal password=$GIT_TOKEN_SECRET --from-literal url=$GIT_REPO_BASE_URL -n openshift-gitops
 oc label secret creds-gitlab-consulting argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
-
-oc create secret generic repo-cluster-config --from-literal type=git --from-literal url=$GIT_REPO_BASE_URL/$GIT_REPO_PATH --from-literal project=default -n openshift-gitops
-oc label secret repo-cluster-config argocd.argoproj.io/secret-type=repository -n openshift-gitops
 
 echo "Run day2 config through GitOps"
 mkdir day2_config/_generated
