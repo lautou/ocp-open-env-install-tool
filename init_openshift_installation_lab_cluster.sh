@@ -80,22 +80,28 @@ echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
-echo Check if git repo URL is valid...
-if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://([^/]+)/?$ ]]; then
+echo Check if git repo path is valid...
+if [[ ! "$GIT_REPO_PATH" =~ \.git$ ]]; then
+  echo "Git repo path does not end with '.git'. Ensure the extension is added to the path."
+  exit 9
+fi
+
+echo Check if git repo base URL is valid...
+if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+[^/])$ ]]; then
   echo Check if git credentials are valid and we can connect to the repository...
   if ! git ls-remote -q ${BASH_REMATCH[1]}://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@${BASH_REMATCH[2]}/$GIT_REPO_PATH &>/dev/null; then
     echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
-    exit 10 
+    exit 11
   fi
 else
-  echo "URL: $GIT_REPO_BASE_URL is invalid. Ensure it is filled and it only uses HTTP(S) method."
-  exit 9
+  echo "Git base URL: $GIT_REPO_BASE_URL is invalid. Ensure it is filled, it has not trailing slash (/) and it only uses HTTP(S) method."
+  exit 10
 fi
 
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 11
+  exit 12
 fi
 
 echo Check RH subscription credentials validity...
@@ -115,7 +121,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 12
+  exit 13
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
