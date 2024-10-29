@@ -3,5 +3,5 @@ kind: OperatorGroup
 metadata:
   annotations:
     operatorframework.io/bundle-unpack-min-retry-interval: 5m
-  name: global-operators
-  namespace: openshift-operators
+  name: openshift-gitops-operator
+  namespace: openshift-gitops-operator
