@@ -84,12 +84,15 @@ echo ------------------------------------
 
 echo Check if a credential template URL is filled...
 if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
-  if [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME ]]; then
-    echo "No Git token name provided for credential template! Please provide a token name."
+  if [[ "$GIT_CREDENTIALS_TEMPLATE_URL" =~ ^https?://.+$ ]]; then
+    echo "Git credential template URL: $GIT_CREDENTIALS_TEMPLATE_URL is invalid. Ensure it is correctly filled and only uses HTTP(S) method."
     exit 9
+  elif [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME ]]; then
+    echo "No Git token name provided for credential template! Please provide a token name."
+    exit 10
   elif [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET ]]; then
     echo "No Git token secret provided for credential template! Please provide a token secret."
-    exit 10
+    exit 11
   fi
 fi
 
@@ -99,13 +102,13 @@ if [[ "$GIT_REPO_URL" =~ ^(https?)://(.+/.+\.git)$ ]]; then
   GIT_REPO_URL_DOMAIN_PATH=${BASH_REMATCH[2]}
 else
   echo "Git base URL: $GIT_REPO_URL is invalid. Ensure it is filled, it only uses HTTP(S) method and '.git' extension is added at the end to the path."
-  exit 11
+  exit 12
 fi
 
 echo Check if a repo token is required...
 if [[ $GIT_REPO_TOKEN_NAME ]] && [[ -z $GIT_REPO_TOKEN_SECRET ]]; then
     echo "No Git token secret provided for the GitOps git repository! Please provide a token secret."
-    exit 12
+    exit 13
 fi
 
 echo Check if git credentials are valid and we can connect to the repository...
@@ -116,13 +119,13 @@ else
 fi
 if ! git ls-remote -q $GIT_URL_TO_CHECK &>/dev/null; then
   echo "Unable to connect to the repo $GIT_REPO_URL. Check the credentials and/or the repository path."
-  exit 13
+  exit 14
 fi
 
 echo Check if Route53 base domain is valid...
 if [[ "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN::1}" != "." ]]; then
   echo "The base domain $RHDP_TOP_LEVEL_ROUTE53_DOMAIN does not start with a period."
-  exit 14
+  exit 15
 fi
 
 echo Check RH subscription credentials validity...
@@ -142,7 +145,7 @@ aws sts get-caller-identity
 echo Check base domain hosted zone exists...
 if [[ -z "$(get_r53_hz ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1})" ]]; then
   echo "Base domain does not exist: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
-  exit 15
+  exit 16
 fi
 
 echo Check Amazon image existence on the selected region: $AWS_DEFAULT_REGION...
