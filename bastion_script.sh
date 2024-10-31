@@ -7,10 +7,9 @@ OCP_DOWNLOAD_BASE_URL=$1
 OPENSHIFT_VERSION=$2
 AWS_INSTANCE_TYPE_INFRA_NODES=$3
 AWS_INSTANCE_TYPE_STORAGE_NODES=$4
-GIT_REPO_BASE_URL=$5
-GIT_REPO_PATH=$6
-GIT_TOKEN_NAME=$7
-GIT_TOKEN_SECRET=$8
+GIT_REPO_URL=$5
+GIT_REPO_TOKEN_NAME=$6
+GIT_REPO_TOKEN_SECRET=$7
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
@@ -89,13 +88,19 @@ export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
-echo "Create git repository credentials template secret for ArgoCD repo"
-oc create secret generic creds-gitlab-consulting --from-literal username=$GIT_TOKEN_NAME --from-literal password=$GIT_TOKEN_SECRET --from-literal url=$GIT_REPO_BASE_URL -n openshift-gitops
-oc label secret creds-gitlab-consulting argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
+#echo "Create git repository credentials template secret for ArgoCD repo"
+#oc create secret generic creds-gitlab-consulting --from-literal username=$GIT_TOKEN_NAME --from-literal password=$GIT_TOKEN_SECRET --from-literal url=$GIT_REPO_BASE_URL -n openshift-gitops
+#oc label secret creds-gitlab-consulting argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
+
+if [[ $GIT_REPO_TOKEN_NAME ]]; then
+  echo "Create git repository secret for GitOps git repo"
+  oc create secret generic git-app-cluster --from-literal username=$GIT_REPO_TOKEN_NAME --from-literal password=$GIT_REPO_TOKEN_SECRET --from-literal type=git --from-literal url=$GIT_REPO_URL --from-literal project=default -n openshift-gitops
+  oc label secret git-app-cluster argocd.argoproj.io/secret-type=repository -n openshift-gitops
+fi
 
 echo "Run day2 config through GitOps"
 mkdir day2_config/_generated
-yq ".spec.source.repoURL = \"$GIT_REPO_BASE_URL/$GIT_REPO_PATH\"" day2_config/patch_templates/application-patch.yaml > day2_config/_generated/application-patch.yaml
+yq ".spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/application-patch.yaml > day2_config/_generated/application-patch.yaml
 oc create -k day2_config
 
 echo "----------------------------"

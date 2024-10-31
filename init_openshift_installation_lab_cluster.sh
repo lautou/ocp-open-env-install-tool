@@ -73,40 +73,49 @@ echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
 echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
 echo AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES
+echo GIT_CREDENTIALS_TEMPLATE_URL=$GIT_CREDENTIALS_TEMPLATE_URL
+echo GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME="****************"
+echo GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET="****************"
+echo GIT_REPO_URL=$GIT_REPO_URL
 echo GIT_REPO_TOKEN_NAME="****************"
 echo GIT_REPO_TOKEN_SECRET="****************"
-echo GIT_REPO_BASE_URL=$GIT_REPO_BASE_URL
-echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
-echo Check if git credentials are filled...
-if [[ -z $GIT_REPO_TOKEN_NAME ]]; then
-    echo "No Git token name provided! Please provide a token name."
+echo Check if a credential template URL is filled...
+if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
+  if [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME ]]; then
+    echo "No Git token name provided for credential template! Please provide a token name."
     exit 9
-elif [[ -z $GIT_REPO_TOKEN_SECRET ]]; then
-    echo "No Git token secret provided! Please provide a token secret."
+  elif [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET ]]; then
+    echo "No Git token secret provided for credential template! Please provide a token secret."
     exit 10
+  fi
 fi
 
-echo Check if git repo path is valid...
-if [[ ! "$GIT_REPO_PATH" =~ \.git$ ]]; then
-  echo "Git repo path does not end with '.git'. Ensure the extension is added to the path."
+echo Check if git repo URL is valid...
+if [[ "$GIT_REPO_URL" =~ ^(https?)://(.+/.+\.git)$ ]]; then
+  GIT_REPO_URL_SCHEME=${BASH_REMATCH[1]}
+  GIT_REPO_URL_DOMAIN_PATH=${BASH_REMATCH[2]}
+else
+  echo "Git base URL: $GIT_REPO_URL is invalid. Ensure it is filled, it only uses HTTP(S) method and '.git' extension is added at the end to the path."
   exit 11
 fi
 
-echo Check if git repo base URL is valid...
-if [[ "$GIT_REPO_BASE_URL" =~ ^(https?)://(.+[^/])$ ]]; then
-  GIT_REPO_BASE_URL_SCHEME=${BASH_REMATCH[1]}
-  GIT_REPO_BASE_URL_DOMAIN=${BASH_REMATCH[2]}
-else
-  echo "Git base URL: $GIT_REPO_BASE_URL is invalid. Ensure it is filled, it has not trailing slash (/) and it only uses HTTP(S) method."
-  exit 12
+echo Check if a repo token is required...
+if [[ $GIT_REPO_TOKEN_NAME ]] && [[ -z $GIT_REPO_TOKEN_SECRET ]]; then
+    echo "No Git token secret provided for the GitOps git repository! Please provide a token secret."
+    exit 12
 fi
 
 echo Check if git credentials are valid and we can connect to the repository...
-if ! git ls-remote -q $GIT_REPO_BASE_URL_SCHEME://$GIT_REPO_TOKEN_NAME:"$GIT_REPO_TOKEN_SECRET"@$GIT_REPO_BASE_URL_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
-  echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
+if [[ $GIT_REPO_TOKEN_NAME ]]; then
+  GIT_URL_TO_CHECK=$GIT_REPO_URL_SCHEME://$GIT_REPO_TOKEN_NAME:"$GIT_REPO_TOKEN_SECRET"@$GIT_REPO_URL_DOMAIN_PATH
+else
+  GIT_URL_TO_CHECK=$GIT_REPO_URL
+fi
+if ! git ls-remote -q $GIT_URL_TO_CHECK &>/dev/null; then
+  echo "Unable to connect to the repo $GIT_REPO_URL. Check the credentials and/or the repository path."
   exit 13
 fi
 
@@ -223,7 +232,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR/. ec2
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_BASE_URL $GIT_REPO_PATH $GIT_REPO_TOKEN_NAME $GIT_REPO_TOKEN_SECRET
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_URL "$GIT_REPO_TOKEN_NAME" "$GIT_REPO_TOKEN_SECRET"
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
