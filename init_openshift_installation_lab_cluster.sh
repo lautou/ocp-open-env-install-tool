@@ -111,10 +111,15 @@ if [[ $GIT_REPO_TOKEN_NAME ]] && [[ -z $GIT_REPO_TOKEN_SECRET ]]; then
     exit 13
 fi
 
-echo Check if git credentials are valid and we can connect to the repository...
+echo Check if we can connect to the repository...
 if [[ $GIT_REPO_TOKEN_NAME ]]; then
+  echo "We use the explicitely provided git repo token to check the connectivity"
   GIT_URL_TO_CHECK=$GIT_REPO_URL_SCHEME://$GIT_REPO_TOKEN_NAME:"$GIT_REPO_TOKEN_SECRET"@$GIT_REPO_URL_DOMAIN_PATH
+elif [[ "$GIT_REPO_URL" =~ ^$GIT_CREDENTIALS_TEMPLATE_URL ]]; then
+  echo "The git repo URL matches the git credential URL, so we use the credential template token to check the connectivity..."
+  GIT_URL_TO_CHECK=$GIT_REPO_URL_SCHEME://$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME:"$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET"@$GIT_REPO_URL_DOMAIN_PATH
 else
+  echo "No credential provided, we use an anonymous connectivity"
   GIT_URL_TO_CHECK=$GIT_REPO_URL
 fi
 if ! git ls-remote -q $GIT_URL_TO_CHECK &>/dev/null; then
@@ -235,7 +240,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR/. ec2
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_URL "$GIT_REPO_TOKEN_NAME" "$GIT_REPO_TOKEN_SECRET"
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_URL "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" "$GIT_REPO_TOKEN_NAME" "$GIT_REPO_TOKEN_SECRET"
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"

@@ -8,8 +8,11 @@ OPENSHIFT_VERSION=$2
 AWS_INSTANCE_TYPE_INFRA_NODES=$3
 AWS_INSTANCE_TYPE_STORAGE_NODES=$4
 GIT_REPO_URL=$5
-GIT_REPO_TOKEN_NAME=$6
-GIT_REPO_TOKEN_SECRET=$7
+GIT_CREDENTIALS_TEMPLATE_URL=$6
+GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=$7
+GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=$8
+GIT_REPO_TOKEN_NAME=$9
+GIT_REPO_TOKEN_SECRET=${10}
 
 OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
 INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
@@ -88,9 +91,11 @@ export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
-#echo "Create git repository credentials template secret for ArgoCD repo"
-#oc create secret generic creds-gitlab-consulting --from-literal username=$GIT_TOKEN_NAME --from-literal password=$GIT_TOKEN_SECRET --from-literal url=$GIT_REPO_BASE_URL -n openshift-gitops
-#oc label secret creds-gitlab-consulting argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
+if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
+  echo "Create git repository credentials template secret for ArgoCD repo"
+  oc create secret generic creds-cluster --from-literal username=$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME --from-literal password=$GIT_CREDENTIALS_TEMPLATE_TOKEN --from-literal url=$GIT_CREDENTIALS_TEMPLATE_URL -n openshift-gitops
+  oc label secret creds-cluster argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
+fi
 
 if [[ $GIT_REPO_TOKEN_NAME ]]; then
   echo "Create git repository secret for GitOps git repo"
