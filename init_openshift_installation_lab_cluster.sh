@@ -73,18 +73,18 @@ echo AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
 echo AWS_AMI=$AWS_AMI
 echo AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES
 echo AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES
-echo GIT_TOKEN_NAME="****************"
-echo GIT_TOKEN_SECRET="****************"
+echo GIT_REPO_TOKEN_NAME="****************"
+echo GIT_REPO_TOKEN_SECRET="****************"
 echo GIT_REPO_BASE_URL=$GIT_REPO_BASE_URL
 echo GIT_REPO_PATH=$GIT_REPO_PATH
 echo OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL
 echo ------------------------------------
 
 echo Check if git credentials are filled...
-if [[ -z $GIT_TOKEN_NAME ]]; then
+if [[ -z $GIT_REPO_TOKEN_NAME ]]; then
     echo "No Git token name provided! Please provide a token name."
     exit 9
-elif [[ -z $GIT_TOKEN_SECRET ]]; then
+elif [[ -z $GIT_REPO_TOKEN_SECRET ]]; then
     echo "No Git token secret provided! Please provide a token secret."
     exit 10
 fi
@@ -105,7 +105,7 @@ else
 fi
 
 echo Check if git credentials are valid and we can connect to the repository...
-if ! git ls-remote -q $GIT_REPO_BASE_URL_SCHEME://$GIT_TOKEN_NAME:"$GIT_TOKEN_SECRET"@$GIT_REPO_BASE_URL_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
+if ! git ls-remote -q $GIT_REPO_BASE_URL_SCHEME://$GIT_REPO_TOKEN_NAME:"$GIT_REPO_TOKEN_SECRET"@$GIT_REPO_BASE_URL_DOMAIN/$GIT_REPO_PATH &>/dev/null; then
   echo "Unable to connect to the repo $GIT_REPO_BASE_URL/$GIT_REPO_PATH . Check the credentials and/or the repository path."
   exit 13
 fi
@@ -223,7 +223,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR/. ec2
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_BASE_URL $GIT_REPO_PATH $GIT_TOKEN_NAME $GIT_TOKEN_SECRET
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_BASE_URL $GIT_REPO_PATH $GIT_REPO_TOKEN_NAME $GIT_REPO_TOKEN_SECRET
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
