@@ -240,7 +240,7 @@ scp -o "StrictHostKeyChecking=no" -i bastion.pem -r $UPLOAD_TO_BASTION_DIR/. ec2
 
 echo "Running the ocp installation script into the bastion..."
 
-ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES $GIT_REPO_URL "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" "$GIT_REPO_TOKEN_NAME" "$GIT_REPO_TOKEN_SECRET"
+ssh -T -o "StrictHostKeyChecking=no" -i bastion.pem ec2-user@$PUBLIC_DNS_NAME ./bastion_script.sh $OCP_DOWNLOAD_BASE_URL $OPENSHIFT_VERSION $AWS_INSTANCE_TYPE_INFRA_NODES $AWS_INSTANCE_TYPE_STORAGE_NODES "$GIT_CREDENTIALS_TEMPLATE_URL" "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" "$GIT_REPO_URL" "$GIT_REPO_TOKEN_NAME" "$GIT_REPO_TOKEN_SECRET"
 
 echo "OCP installation lab setup script ended."
 echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
