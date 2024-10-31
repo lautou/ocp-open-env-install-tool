@@ -93,7 +93,7 @@ oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
   echo "Create git repository credentials template secret for ArgoCD repo"
-  oc create secret generic creds-cluster --from-literal username=$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME --from-literal password=$GIT_CREDENTIALS_TEMPLATE_TOKEN --from-literal url=$GIT_CREDENTIALS_TEMPLATE_URL -n openshift-gitops
+  oc create secret generic creds-cluster --from-literal username=$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME --from-literal password=$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET --from-literal url=$GIT_CREDENTIALS_TEMPLATE_URL -n openshift-gitops
   oc label secret creds-cluster argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
 fi
 
