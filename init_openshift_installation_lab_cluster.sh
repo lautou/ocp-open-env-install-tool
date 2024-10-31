@@ -84,7 +84,7 @@ echo ------------------------------------
 
 echo Check if a credential template URL is filled...
 if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
-  if [[ "$GIT_CREDENTIALS_TEMPLATE_URL" =~ ^https?://.+$ ]]; then
+  if [[ ! "$GIT_CREDENTIALS_TEMPLATE_URL" =~ ^https?://.+$ ]]; then
     echo "Git credential template URL: $GIT_CREDENTIALS_TEMPLATE_URL is invalid. Ensure it is correctly filled and only uses HTTP(S) method."
     exit 9
   elif [[ -z $GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME ]]; then
