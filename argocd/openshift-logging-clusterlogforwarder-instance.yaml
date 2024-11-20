@@ -24,8 +24,8 @@ spec:
   - inputRefs:
     - application
     - infrastructure
-    name: default-pipeline
+    name: default-logstore
     outputRefs:
     - default-lokistack
   serviceAccount:
-    name: logcollector
+    name: collector
