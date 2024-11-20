@@ -21,10 +21,11 @@ spec:
         key: service-ca.crt
         configMapName: openshift-service-ca.crt
   pipelines:
-  - outputRefs:
-    - default-lokistack
   - inputRefs:
     - application
     - infrastructure
+    name: default-pipeline
+    outputRefs:
+    - default-lokistack
   serviceAccount:
     name: logcollector
