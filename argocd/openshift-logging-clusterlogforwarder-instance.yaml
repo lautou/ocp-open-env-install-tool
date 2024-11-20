@@ -10,6 +10,8 @@ spec:
     tolerations:
     - key: node-role.kubernetes.io/infra
       operator: Exists
+    - key: node.ocs.openshift.io/storage
+      operator: Exists
   outputs:
   - name: default-lokistack
     type: lokiStack
