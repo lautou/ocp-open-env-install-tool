@@ -4,7 +4,7 @@ metadata:
   name: cluster-logging
   namespace: openshift-logging
 spec:
-  channel: "stable"
+  channel: stable-6.1
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
