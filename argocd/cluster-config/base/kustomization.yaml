@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-consolelink-application-menu-rh-developer-blog.yaml
+  - cluster-imageregistry-config-cluster.yaml
+  - cluster-namespace-openshift-console.yaml
+  - cluster-namespace-openshift-operators.yaml 
+  - cluster-oauth-cluster.yaml
+  - openshift-config-secret-htpass-secret.yaml
+  - openshift-monitoring-configmap-cluster-monitoring-config.yaml
+  - openshift-user-workload-monitoring-configmap-user-workload-monitoring-config.yaml 

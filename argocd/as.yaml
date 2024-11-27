@@ -6,6 +6,7 @@ spec:
   generators:
   - list:
       elements:
+      - component: cluster-config
       - component: webterminal
   template:
     metadata:
