@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster
+spec:
+  generators:
+  - list:
+      elements:
+      - component: webterminal
+  template:
+    metadata:
+      name: '{{component}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
+        path: argocd/{{component}}
+      destination:
+        server: https://kubernetes.default.svc
