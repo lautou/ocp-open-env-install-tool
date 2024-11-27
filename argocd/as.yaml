@@ -15,5 +15,6 @@ spec:
       source:
         repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
         path: argocd/{{component}}
+        targetRevision: modularization
       destination:
         server: https://kubernetes.default.svc
