@@ -4,11 +4,11 @@ kind: Kustomization
 resources:
   - cluster-clusterrole-edit-oauth.yaml
   - cluster-crb-edit-oauth-openshift-gitops-argocd-application-controller.yaml
-  - cluster-consolelink-application-menu-rh-developer-blog.yaml
-  - cluster-imageregistry-config-cluster.yaml
-  - cluster-namespace-openshift-console.yaml
-  - cluster-namespace-openshift-operators.yaml 
-  - cluster-oauth-cluster.yaml
-  - openshift-config-secret-htpass-secret.yaml
-  - openshift-monitoring-configmap-cluster-monitoring-config.yaml
-  - openshift-user-workload-monitoring-configmap-user-workload-monitoring-config.yaml 
+#  - cluster-consolelink-application-menu-rh-developer-blog.yaml
+#  - cluster-imageregistry-config-cluster.yaml
+#  - cluster-namespace-openshift-console.yaml
+#  - cluster-namespace-openshift-operators.yaml 
+#  - cluster-oauth-cluster.yaml
+#  - openshift-config-secret-htpass-secret.yaml
+#  - openshift-monitoring-configmap-cluster-monitoring-config.yaml
+#  - openshift-user-workload-monitoring-configmap-user-workload-monitoring-config.yaml 
