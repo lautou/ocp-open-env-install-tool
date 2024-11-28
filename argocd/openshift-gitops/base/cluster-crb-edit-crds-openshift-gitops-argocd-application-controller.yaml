@@ -1,6 +1,8 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
   name: edit-crds-openshift-gitops-argocd-application-controller
 subjects:
   - kind: ServiceAccount
