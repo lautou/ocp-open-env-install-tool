@@ -6,6 +6,7 @@ spec:
   generators:
   - list:
       elements:
+      - item: cert-manager
       - item: cluster-images-registry
       - item: cluster-ingress
       - item: cluster-monitoring
