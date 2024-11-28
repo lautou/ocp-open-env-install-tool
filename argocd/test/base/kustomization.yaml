@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - cluster-clusterrole-edit-oauth.yaml
   - openshift-config-secret-htpass-secret.yaml
+  - openshift-config-rb-edit-openshift-gitops-argocd-application-controller.yaml
