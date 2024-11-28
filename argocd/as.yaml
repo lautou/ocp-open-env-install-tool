@@ -6,7 +6,8 @@ spec:
   generators:
   - list:
       elements:
-      - item: test
+      - item: cluster-images-registry
+      - item: cluster-oauth
   template:
     metadata:
       name: '{{item}}'
