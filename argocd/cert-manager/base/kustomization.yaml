@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
   - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
+  - cluster-namespace-cert-manager.yaml
   - cluster-namespace-cert-manager-operator.yaml
