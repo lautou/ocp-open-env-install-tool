@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
   - cluster-clusterrole-edit-oauth.yaml
+  - openshift-config-secret-htpass-secret.yaml

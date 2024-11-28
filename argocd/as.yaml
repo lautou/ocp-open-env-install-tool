@@ -6,16 +6,15 @@ spec:
   generators:
   - list:
       elements:
-      - component: cluster-config
-      - component: webterminal
+      - item: test
   template:
     metadata:
-      name: '{{component}}'
+      name: '{{item}}'
     spec:
       project: default
       source:
         repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
-        path: argocd/{{component}}/overlays/default
+        path: argocd/{{item}}/overlays/default
         targetRevision: modularization
       destination:
         server: https://kubernetes.default.svc
