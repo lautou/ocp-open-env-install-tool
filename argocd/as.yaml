@@ -7,6 +7,7 @@ spec:
   - list:
       elements:
       - item: cluster-images-registry
+      - item: cluster-monitoring
       - item: cluster-oauth
   template:
     metadata:
