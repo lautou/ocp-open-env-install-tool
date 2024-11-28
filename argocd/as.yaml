@@ -11,6 +11,7 @@ spec:
       - item: cluster-ingress
       - item: cluster-monitoring
       - item: cluster-oauth
+      - item: openshift-gitops
   template:
     metadata:
       name: '{{item}}'
