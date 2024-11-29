@@ -5,3 +5,4 @@ resources:
   - cluster-clusterrole-edit-crds-admission.yaml
   - cluster-crb-edit-crds-admission-openshift-gitops-argocd-application-controller.yaml
   - cluster-group-cluster-admins.yaml
+  - openshift-gitops-argocd-openshift-gitops.yaml
