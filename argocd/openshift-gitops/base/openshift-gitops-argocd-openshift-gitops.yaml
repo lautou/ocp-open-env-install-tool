@@ -85,7 +85,6 @@ spec:
   sso:
     dex:
       openShiftOAuth: true
-    provider: dex
       resources:
         limits:
           cpu: 500m
@@ -93,3 +92,4 @@ spec:
         requests:
           cpu: 250m
           memory: 128Mi
+    provider: dex
