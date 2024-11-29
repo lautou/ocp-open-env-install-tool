@@ -6,12 +6,14 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
 spec:
-  grafana:
-    enabled: false
-  ha:
-    enabled: false
-  monitoring:
-    enabled: false
+  controller:
+    resources:
+      limits:
+        cpu: '2'
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 1Gi
   nodePlacement:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
