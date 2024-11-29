@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - cluster-crb-cluster-admin-admin.yaml 
   - cluster-oauth-cluster.yaml
   - openshift-config-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - openshift-config-secret-htpass-secret.yaml
