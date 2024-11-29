@@ -6,6 +6,13 @@ resources:
   - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
   - cert-manager-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - cluster-certmanager-cluster.yaml
-  #- cluster-clusterissuer-cluster.yaml
+  - cluster-clusterissuer-cluster.yaml
   - cluster-namespace-cert-manager.yaml
   - cluster-namespace-cert-manager-operator.yaml
+  - openshift-gitops-configmap-cluster-apiserver-cluster.yaml
+  - openshift-gitops-configmap-clusterissuer-cluster.yaml
+  - openshift-gitops-configmap-openshift-config-certificate-api.yaml
+  - openshift-gitops-configmap-openshift-ingress-certificate-ingress.yaml
+  - openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+  - openshift-gitops-job-update-cluster-apiserver-cluster.yaml
+  - openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
