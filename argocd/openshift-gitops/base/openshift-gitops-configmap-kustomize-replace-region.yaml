@@ -1,0 +1,19 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kustomize-replace-region
+  namespace: openshift-gitops
+data:
+  plugin.yaml: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: ConfigManagementPlugin
+    metadata:
+      name: kustomize-replace-region
+    spec:
+      generate:
+        command: ["sh", "-c"]
+        args:
+          - |
+            REGION=$(oc get configmap cluster-config-v1 -n kube-system -o jsonpath='{.data.region}')
+            sed "s/REPLACEME/$REGION/g" cluster-clusterissuer-cluster.yaml > final-clusterissuer.yaml
+            cat final-clusterissuer.yaml
