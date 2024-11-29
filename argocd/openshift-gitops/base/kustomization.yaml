@@ -3,6 +3,6 @@ kind: Kustomization
 
 resources:
   - cluster-clusterrole-edit-cluster-wide-resources.yaml
-  - cluster-crb-edit-crds-admission-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-edit-cluster-wide-resources-openshift-gitops-argocd-application-controller.yaml
   - cluster-group-cluster-admins.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
