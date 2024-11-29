@@ -42,6 +42,27 @@ spec:
       requests:
         cpu: 250m
         memory: 256Mi
+    sidecarContainers:
+      - command:
+          - /var/run/argocd/argocd-cmp-server
+        image: 'quay.io/devfile/universal-developer-image:ubi8-latest'
+        name: cluster-issuer
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+          - mountPath: /var/run/argocd
+            name: var-files
+          - mountPath: /home/argocd/cmp-server/plugins
+            name: plugins
+          - mountPath: /tmp
+            name: tmp
+          - mountPath: /home/argocd/cmp-server/config/plugin.yaml
+            name: kustomize-replace-region
+            subPath: plugin.yaml
+    volumes:
+      - configMap:
+          name: kustomize-replace-region
+        name: kustomize-replace-region
   resourceExclusions: |
     - apiGroups:
       - tekton.dev
