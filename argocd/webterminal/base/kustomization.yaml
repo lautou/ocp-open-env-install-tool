@@ -3,4 +3,4 @@ kind: Kustomization
 
 resources:
 #  - openshift-operators-subscription-devworkspace-operator.yaml
-#  - openshift-operators-subscription-web-terminal.yaml
+  - openshift-operators-subscription-web-terminal.yaml
