@@ -5,5 +5,7 @@ resources:
   - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
   - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
   - cert-manager-rb-edit-openshift-gitops-argocd-application-controller.yaml
+  - cluster-certmanager-cluster.yaml
+  #- cluster-clusterissuer-cluster.yaml
   - cluster-namespace-cert-manager.yaml
   - cluster-namespace-cert-manager-operator.yaml
