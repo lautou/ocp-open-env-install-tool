@@ -16,3 +16,4 @@ resources:
   - openshift-gitops-job-create-cluster-cert-manager-resources.yaml
   - openshift-gitops-job-update-cluster-apiserver-cluster.yaml
   - openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
+  - openshift-ingress-rb-edit-openshift-gitops-argocd-application-controller.yaml
