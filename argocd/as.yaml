@@ -12,6 +12,8 @@ spec:
       - item: cluster-monitoring
       - item: cluster-oauth
       - item: openshift-gitops
+      - item: sealed-secrets
+      - item: webterminal
   template:
     metadata:
       name: '{{item}}'
