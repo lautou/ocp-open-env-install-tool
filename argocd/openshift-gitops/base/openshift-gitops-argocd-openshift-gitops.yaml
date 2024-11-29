@@ -20,8 +20,6 @@ spec:
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
-  monitoring:
-    enabled: false
   rbac:
     defaultPolicy: ''
     policy: |
@@ -88,10 +86,10 @@ spec:
     dex:
       openShiftOAuth: true
     provider: dex
-    resources:
-      limits:
-        cpu: 500m
-        memory: 256Mi
-      requests:
-        cpu: 250m
-        memory: 128Mi
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 250m
+          memory: 128Mi
