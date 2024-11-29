@@ -3,7 +3,6 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-    argocd.argoproj.io/sync-wave: '1'
   name: update-openshift-ingress-operator-ingresscontroller-default
   namespace: openshift-gitops
 spec:
@@ -22,15 +21,6 @@ spec:
               echo "Wait for certificate to be ready"
               oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
               echo "Update ingress controller config"
-              oc extract cm/openshift-ingress-operator-ingresscontroller-default --keys openshift-ingress-operator-ingresscontroller-default.yaml --to /data -n openshift-gitops
-              cat /data/openshift-ingress-operator-ingresscontroller-default.yaml
-              echo
-              oc apply -f /data/openshift-ingress-operator-ingresscontroller-default.yaml
-          volumeMounts:
-          - name: shared-data
-            mountPath: /data
+              oc patch ingresscontroller default -n openshift-ingress-operator --type merge -p '{"spec":{"defaultCertificate":{"name":"ingress-certificates"}}}'
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
-      volumes:
-      - name: shared-data
-        empty-dir: {}

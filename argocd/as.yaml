@@ -29,3 +29,9 @@ spec:
         automated:
           prune: true
           selfHeal: true
+      ignoreDifferences:
+      - group: operator.openshift.io
+        kind: IngressController
+        name: default
+        jsonPointers:
+        - /spec/defaultCertificate
