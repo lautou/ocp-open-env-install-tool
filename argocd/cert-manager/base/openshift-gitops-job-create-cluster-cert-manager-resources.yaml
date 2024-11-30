@@ -42,8 +42,7 @@ spec:
                 | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
                 | oc apply -f -
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
-                | yq -y '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
-                | yq -y '.spec.dnsNames[0] = "toto"' 
+                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "toto"' 
               #  | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
               #  | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
               #  | oc apply -f -
