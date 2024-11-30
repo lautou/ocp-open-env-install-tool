@@ -40,8 +40,8 @@ spec:
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
                 | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
                 | oc apply -f -
-              echo "$CERTIFICATE_INGRESS_TEMPLATE"
-              #  | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
+              echo "$CERTIFICATE_INGRESS_TEMPLATE" \
+                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' 
               #  | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
               #  | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
               #  | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
