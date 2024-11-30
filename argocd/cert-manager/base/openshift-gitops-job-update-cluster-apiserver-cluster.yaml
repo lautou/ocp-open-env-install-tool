@@ -29,6 +29,6 @@ spec:
               echo "Wait for certificate to be ready"
               oc wait --for=condition=Ready --timeout -1s certificate/api -n openshift-config
               echo "Update api config"
-              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["api.$CLUSTERNAME.$BASEDOMAIN"],"servingCertificate":{"name":"api-certificates"}}]}}}' 
+              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["api.'$CLUSTERNAME'.'$BASEDOMAIN'"],"servingCertificate":{"name":"api-certificates"}}]}}}' 
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
