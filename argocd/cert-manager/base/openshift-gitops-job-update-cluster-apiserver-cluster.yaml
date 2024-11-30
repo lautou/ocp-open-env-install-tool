@@ -21,9 +21,9 @@ spec:
               INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
               echo "INSTALL_CONFIG content:"
               echo "$INSTALL_CONFIG"
-              BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq e '.baseDomain')
+              BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain')
               echo BASEDOMAIN=$BASEDOMAIN
-              CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq e '.metadata.name')
+              CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
               echo CLUSTERNAME=$CLUSTERNAME
               while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
               echo "Wait for certificate to be ready"
