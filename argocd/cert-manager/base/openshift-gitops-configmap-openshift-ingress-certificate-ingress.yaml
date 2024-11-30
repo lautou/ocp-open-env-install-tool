@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openshift-ingress-certificate-ingress
+  namespace: openshift-gitops
+data:
+  openshift-ingress-certificate-ingress.yaml: |-
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: ingress
+      namespace: openshift-ingress
+    spec:
+      isCA: false
+      commonName: "DOMAIN"
+      secretName: ingress-certificates
+      dnsNames:
+      - "DOMAIN"
+      - "*.DOMAIN"
+      issuerRef:
+        name: cluster
+        kind: ClusterIssuer
