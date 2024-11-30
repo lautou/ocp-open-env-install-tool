@@ -17,6 +17,7 @@ spec:
             - /bin/bash
             - '-c'
             - |
+              set -e
               oc extract cm/cluster-config-v1 --keys install-config --confirm --to /data -n kube-system
               export BASEDOMAIN=$(yq e '.baseDomain' /data/install-config)
               echo BASEDOMAIN=$BASEDOMAIN
