@@ -28,6 +28,7 @@ spec:
               INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
               CLUSTER_ISSUER_CLUSTER_TEMPLATE=$(oc extract cm/clusterissuer-cluster --keys cluster-clusterissuer-cluster.yaml --to - -n openshift-gitops)
               CERTIFICATE_INGRESS_TEMPLATE=$(oc extract cm/openshift-ingress-certificate-ingress --keys openshift-ingress-certificate-ingress.yaml --to - -n openshift-gitops)
+              echo $CERTIFICATE_INGRESS_TEMPLATE
               CERTIFICATE_API_TEMPLATE=$(oc extract cm/openshift-config-certificate-api --keys openshift-config-certificate-api.yaml --to - -n openshift-gitops)
               export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region')
               echo REGION=$REGION
@@ -41,8 +42,8 @@ spec:
                 | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
                 | oc apply -f -
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
-                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
-                | yq '.spec.dnsNames[0] = "toto"' 
+                | yq -y '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
+                | yq -y '.spec.dnsNames[0] = "toto"' 
               #  | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' \ 
               #  | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
               #  | oc apply -f -
