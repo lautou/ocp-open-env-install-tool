@@ -38,7 +38,6 @@ spec:
               export TIMESTAMP=$(date +%s)
               echo TIMESTAMP=$TIMESTAMP
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | envsubst \
                 | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
                 | oc create -f -
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
