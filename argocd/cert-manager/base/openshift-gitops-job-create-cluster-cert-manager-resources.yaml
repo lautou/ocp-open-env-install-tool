@@ -18,6 +18,8 @@ spec:
             - '-c'
             - |
               set -e
+              echo "Waiting the cert manager to be ready"
+              oc wait certmanager cluster --for condition=cert-manager-controller-deploymentAvailable --for condition=cert-manager-cainjector-deploymentAvailable --for condition=cert-manager-webhook-deploymentAvailable --timeout -1s -n cert-manager
               echo "Read the secret for AWS cloud provider"
               while ! oc get secret aws-creds -n kube-system 2>/dev/null 1>&2; do echo "Waiting for secret aws-creds in namespace kube-system."; done
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
