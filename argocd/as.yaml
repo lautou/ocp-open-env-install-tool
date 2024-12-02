@@ -26,6 +26,7 @@ spec:
       - item: opentelemetry
       - item: sealed-secrets
       - item: tempo
+      - item: user-workload-monitoring
       - item: webterminal
   template:
     metadata:
