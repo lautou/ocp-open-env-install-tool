@@ -13,6 +13,7 @@ spec:
       - item: cluster-monitoring
       - item: cluster-oauth
       - item: network-observability
+      - item: loki
       - item: nfd
       - item: openshift-builds
       - item: openshift-data-foundation
