@@ -15,6 +15,7 @@ spec:
       - item: network-observability
       - item: nfd
       - item: openshift-builds
+      - item: openshift-data-foundation
       - item: openshift-gitops
       - item: openshift-pipelines
       - item: openshift-serverless
