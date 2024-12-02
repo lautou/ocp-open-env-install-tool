@@ -12,6 +12,7 @@ spec:
       - item: cluster-ingress
       - item: cluster-monitoring
       - item: cluster-oauth
+      - item: cluster-observability
       - item: network-observability
       - item: loki
       - item: nfd
