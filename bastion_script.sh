@@ -88,6 +88,17 @@ echo "Exporting admin TLS credentials..."
 echo "export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig" >> .bashrc
 export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
 
+echo "Installing OpenShift GitOps..."
+oc create -f day2_config/gitops/openshift-gitops-operator.yaml
+echo "Waiting the OpenShift GitOps Operator Subscription to generate the InstallPlan for the Operator..."
+oc wait sub openshift-gitops-operator -n openshift-gitops-operator --for jsonpath='{.status.installPlanRef.name}' --timeout -1s
+INSTALL_PLAN_NAME=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
+CSV_NAME=$(oc get ip $INSTALL_PLAN_NAME -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
+echo "Found InstallPlan: $INSTALL_PLAN_NAME for ClusterServiceVersion: $CSV_NAME."
+echo "Waiting the OpenShift GitOps installation to complete..."
+oc wait --for jsonpath='{.status.phase}'=Succeeded csv/$CSV_NAME -n openshift-gitops-operator
+echo "OpenShift GitOps Operator successfully installed"
+
 echo "Remove kubeadmin user"
 oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
