@@ -13,7 +13,11 @@ spec:
       - item: cluster-monitoring
       - item: cluster-oauth
       - item: openshift-gitops
+      - item: openshift-serverless
+      - item: openshift-service-mesh
+      - item: opentelemetry
       - item: sealed-secrets
+      - item: tempo
       - item: webterminal
   template:
     metadata:
