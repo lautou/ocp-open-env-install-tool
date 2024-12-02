@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: enable-console-plugin
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: enable-console-plugin
+    spec:
+      containers:
+        - name: enable-console-plugin
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "gitops-plugin")') ]]; then
+                oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "gitops-plugin"}]'
+                echo "Plugin gitops-plugin added successfully."
+              else
+                echo "Plugin gitops-plugin already exists. Nothing changed"
+              fi
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
