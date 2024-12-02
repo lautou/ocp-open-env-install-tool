@@ -18,6 +18,7 @@ spec:
       - item: openshift-builds
       - item: openshift-data-foundation
       - item: openshift-gitops
+      - item: openshift-logging
       - item: openshift-pipelines
       - item: openshift-serverless
       - item: openshift-service-mesh
