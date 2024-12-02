@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-namespace-knative-eventing.yaml
+  - cluster-namespace-knative-serving.yaml 
+  - cluster-namespace-openshift-serverless.yaml
+  - openshift-serverless-operatorgroup-serverless-operators.yaml
+  - openshift-serverless-subscription-serverless-operator.yaml
