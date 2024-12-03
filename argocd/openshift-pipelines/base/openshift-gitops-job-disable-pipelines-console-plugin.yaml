@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
         - name: disable-pipelines-console-plugin
-          image: quay.io/openshift/origin-cli:latest
+          image: quay.io/devfile/universal-developer-image:ubi8-latest 
           command:
             - /bin/bash
             - -c
