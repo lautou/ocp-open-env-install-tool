@@ -3,7 +3,7 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: enable-pipeline-console-plugin
+  name: enable-pipelines-console-plugin
   namespace: openshift-gitops
 spec:
   template:
