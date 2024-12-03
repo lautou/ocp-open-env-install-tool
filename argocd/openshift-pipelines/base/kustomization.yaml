@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-openshift-pipelines.yaml
+  - openshift-gitops-job-enable-pipeline-console-plugin.yaml
   - openshift-pipelines-subscription-openshift-pipelines-operator.yaml
