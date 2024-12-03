@@ -17,7 +17,7 @@ spec:
             - |
               set -e
               if [[ -n $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "pipelines-console-plugin")') ]]; then
-                echo "Plugin 'pipelines-console-plugin' exists. Disable it..."
+                echo "Plugin pipelines-console-plugin exists. Disable it..."
                 PLUGIN_INDEX=$(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins | to_entries | .[] | select(.value == "pipelines-console-plugin") | .key')
                 oc patch console.operator.openshift.io cluster --type=json -p="[{'op': 'remove', 'path': '/spec/plugins/$PLUGIN_INDEX'}]"
                 echo "Plugin successfully removed"
