@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-openshift-storage.yaml
-  - openshift-gitops-job-delete-odf-resources.yaml
   - openshift-gitops-job-disable-odf-console-plugins.yaml
   - openshift-gitops-job-enable-odf-console-plugins.yaml
   - openshift-storage-operatorgroup-openshift-storage.yaml
