@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: delete-openshift-builds-resources
+  namespace: default
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  template:
+    metadata:
+      name: delete-openshift-builds-resources
+    spec:
+      containers:
+      - name: delete-openshift-builds-resources
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - '-c'
+        - |
+          echo "Checking if application is being deleted"
+          if [ "$(oc get apps openshift-builds -n openshift-gitops -o jsonpath='{.metadata.deletionTimestamp}')" != "" ]; then
+            oc delete openshiftbuilds --all 
+          else
+            echo "Application is not being deleted; skipping cleanup"
+          fi
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
