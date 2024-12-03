@@ -22,7 +22,7 @@ spec:
         - |
           echo "Checking if application is being deleted"
           if [ "$(oc get apps openshift-builds -n openshift-gitops -o jsonpath='{.metadata.deletionTimestamp}')" != "" ]; then
-            oc delete openshiftbuilds --all 
+            oc delete openshiftbuild cluster --cascade=foreground 
           else
             echo "Application is not being deleted; skipping cleanup"
           fi
