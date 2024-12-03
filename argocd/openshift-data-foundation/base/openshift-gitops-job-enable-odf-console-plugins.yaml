@@ -3,7 +3,7 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: enable-console-plugins
+  name: enable-odf-console-plugins
   namespace: openshift-gitops
 spec:
   template:

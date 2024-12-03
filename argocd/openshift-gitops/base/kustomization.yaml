@@ -8,4 +8,4 @@ resources:
   - cluster-crb-edit-crd-openshift-gitops-argocd-application-controller.yaml
   - cluster-group-cluster-admins.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
-  - openshift-gitops-enable-console-plugin.yaml
+  - openshift-gitops-job-enable-gitops-console-plugin.yaml
