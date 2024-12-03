@@ -1,15 +1,18 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: disable-pipelines-console-plugin
-  namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/hook: PostDelete
+    argocd.argoproj.io/sync-options: Force=true
+  name: disable-pipelines-console-plugin
+  namespace: openshift-gitops
 spec:
   template:
+    metadata:
+      name: disable-pipelines-console-plugin
     spec:
       containers:
-        - name: disable-pipelines-console-plugin
+        - name: disable-console-plugin
           image: quay.io/devfile/universal-developer-image:ubi8-latest 
           command:
             - /bin/bash
@@ -20,9 +23,9 @@ spec:
                 echo "Plugin pipelines-console-plugin exists. Disable it..."
                 PLUGIN_INDEX=$(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins | to_entries | .[] | select(.value == "pipelines-console-plugin") | .key')
                 oc patch console.operator.openshift.io cluster --type=json -p="[{'op': 'remove', 'path': '/spec/plugins/$PLUGIN_INDEX'}]"
-                echo "Plugin successfully removed"
+                echo "Plugin pipelines-console-plugin successfully removed"
               else
-                echo "Plugin not found. Nothing to delete."
+                echo "Plugin pipelines-console-plugin not found. Nothing to delete."
               fi
       restartPolicy: OnFailure
       serviceAccountName: openshift-gitops-argocd-application-controller
