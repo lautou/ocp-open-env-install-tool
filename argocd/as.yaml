@@ -17,6 +17,7 @@ spec:
       - item: loki
       - item: nfd
       - item: openshift-builds
+      - item: openshift-console
       - item: openshift-data-foundation
       - item: openshift-gitops
       - item: openshift-logging
