@@ -5,3 +5,4 @@ resources:
   - cluster-namespace-openshift-builds.yaml
   - openshift-builds-operatorgroup-openshift-builds-operator.yaml  
   - openshift-builds-subscription-openshift-builds-operator.yaml 
+  - openshift-gitops-delete-openshift-builds-resources.yaml
