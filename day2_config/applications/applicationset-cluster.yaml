@@ -6,6 +6,7 @@ metadata:
 spec:
   generators:
   - list:
+      # Comment / Uncomment the ArgoCD applications you don't want / want to install
       elements:
       - item: cert-manager
       - item: cluster-images-registry
@@ -13,9 +14,9 @@ spec:
       - item: cluster-monitoring
       - item: cluster-oauth
       - item: cluster-observability
+      - item: loki      
       - item: network-observability
-      - item: loki
-      - item: nfd
+      # - item: nfd
       - item: openshift-builds
       - item: openshift-console
       - item: openshift-data-foundation
@@ -32,6 +33,8 @@ spec:
       - item: webterminal
   template:
     metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
       project: default
