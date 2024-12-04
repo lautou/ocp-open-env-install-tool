@@ -116,7 +116,7 @@ fi
 
 echo "Run day2 config through GitOps"
 mkdir day2_config/_generated
-yq ".spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/applicationset-patch.yaml > day2_config/_generated/applicationset-patch.yaml
+yq ".spec.template.spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/applicationset-patch.yaml > day2_config/_generated/applicationset-patch.yaml
 oc create -k day2_config
 
 echo "----------------------------"
