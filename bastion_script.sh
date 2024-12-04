@@ -93,7 +93,10 @@ INSTALL_PLAN_NAME=$(oc get sub openshift-gitops-operator -n openshift-gitops-ope
 CSV_NAME=$(oc get ip $INSTALL_PLAN_NAME -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
 echo "Found InstallPlan: $INSTALL_PLAN_NAME for ClusterServiceVersion: $CSV_NAME."
 echo "Waiting the OpenShift GitOps installation to complete..."
-oc wait --for jsonpath='{.status.phase}'=Succeeded csv/$CSV_NAME -n openshift-gitops-operator
+while [[ $(oc get csv $CSV_NAME -n openshift-gitops-operator -o jsonpath='{.status.phase}' 2>/dev/null) != "Succeeded" ]];
+do
+  echo -ne .
+done 
 echo "OpenShift GitOps Operator successfully installed"
 
 echo "Remove kubeadmin user"
