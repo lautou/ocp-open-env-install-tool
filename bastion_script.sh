@@ -78,9 +78,6 @@ cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
 echo "Adding network configuration manifests..."
 cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
 
-echo "Adding gitops operator configuration manifests..."
-cp day1_config/gitops/*.yaml $INSTALL_DIRNAME/manifests
-
 echo "Creating the cluster..."
 ./openshift-install create cluster --dir $INSTALL_DIRNAME
 
