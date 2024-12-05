@@ -2,9 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   annotations:
+    argocd.argoproj.io/sync-options: Delete=false
     scheduler.alpha.kubernetes.io/defaultTolerations: >-
       [{"operator": "Exists", "key":
       "node-role.kubernetes.io/infra"}]
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io/background
   name: openshift-builds
