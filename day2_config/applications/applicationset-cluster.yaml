@@ -9,30 +9,55 @@ spec:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
       elements:
       - item: cert-manager
+        syncWave: "0"
       - item: cluster-images-registry
+        syncWave: "0"
       - item: cluster-ingress
+        syncWave: "0"
       - item: cluster-monitoring
+        syncWave: "0"
       - item: cluster-oauth
+        syncWave: "0"
       - item: cluster-observability
-      - item: loki      
+        syncWave: "0"
+      - item: loki
+        syncWave: "0"   
       - item: network-observability
+        syncWave: "0"
       # - item: nfd
+      #   syncWave: "0"
       - item: openshift-builds
+        syncWave: "1"
       - item: openshift-console
+        syncWave: "0"
       - item: openshift-data-foundation
+        syncWave: "0"
       - item: openshift-gitops
+        syncWave: "0"
       - item: openshift-logging
+        syncWave: "0"
       - item: openshift-operators
+        syncWave: "0"
       - item: openshift-pipelines
+        syncWave: "0"
       - item: openshift-serverless
+        syncWave: "0"
       - item: openshift-service-mesh
+        syncWave: "0"
       - item: opentelemetry
+        syncWave: "0"
       - item: sealed-secrets
+        syncWave: "0"
       - item: tempo
+        syncWave: "0"
       - item: user-workload-monitoring
+        syncWave: "0"
       - item: webterminal
+        syncWave: "0"
   template:
     metadata:
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{syncWave}}'
       finalizers:
       - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
