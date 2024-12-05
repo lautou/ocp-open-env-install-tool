@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: delete-openshift-builds-resources
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/hook: PostDelete
+spec:
+  template:
+    metadata:
+      name: delete-openshift-builds-resources
+    spec:
+      containers:
+      - name: delete-openshift-builds-resources
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - '-c'
+        - |
+          oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found 
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
