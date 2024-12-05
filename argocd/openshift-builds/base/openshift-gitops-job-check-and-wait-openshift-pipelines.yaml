@@ -19,8 +19,7 @@ spec:
             - '-c'
             - |
               echo "Check for an existing OpenShift Pipelines subscription..."
-              oc get sub openshift-pipelines-operator-rh -n openshift-operators
-              if [[ $(oc get sub openshift-pipelines-operator-r -n openshift-operators 2>/dev/null) ]]; then
+              if [[ $(oc get sub openshift-pipelines-operator-rh -n openshift-operators 2>/dev/null) ]]; then
                 echo "Found OpenShift Pipeline Subscription in openshift-operators namespace."
                 echo "Waiting the OpenShift GitOps Operator Subscription has the InstallPlan for the Operator..."
                 oc wait sub openshift-pipelines-operator-rh -n openshift-operators --for jsonpath='{.status.installPlanRef.name}' --timeout -1s
