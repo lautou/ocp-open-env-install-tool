@@ -19,6 +19,7 @@ spec:
         - /bin/bash
         - '-c'
         - |
-          oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found 
+          oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found
+          oc delete project openshift-builds --ignore-not-found 
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
