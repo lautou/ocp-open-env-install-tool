@@ -25,9 +25,9 @@ spec:
       - item: network-observability
         syncWave: "0"
       # - item: nfd
-      #   syncWave: "0"
-      - item: openshift-builds
-        syncWave: "1"
+      #  syncWave: "0"
+      # - item: openshift-builds
+      #  syncWave: "1"
       - item: openshift-console
         syncWave: "0"
       - item: openshift-data-foundation
@@ -38,7 +38,7 @@ spec:
         syncWave: "0"
       - item: openshift-operators
         syncWave: "0"
-      - item: openshift-pipelines
+       - item: openshift-pipelines
         syncWave: "0"
       - item: openshift-serverless
         syncWave: "0"

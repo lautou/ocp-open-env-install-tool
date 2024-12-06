@@ -97,10 +97,8 @@ while [[ $(oc get csv $CSV_NAME -n openshift-gitops-operator -o jsonpath='{.stat
 do
   echo -ne .
 done 
+echo
 echo "OpenShift GitOps Operator successfully installed"
-
-echo "Remove kubeadmin user"
-oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
   echo "Create git repository credentials template secret for ArgoCD repo"
@@ -118,6 +116,9 @@ echo "Run day2 config through GitOps"
 mkdir day2_config/_generated
 yq ".spec.template.spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/applicationset-patch.yaml > day2_config/_generated/applicationset-patch.yaml
 oc create -k day2_config
+
+echo "Remove kubeadmin user"
+oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 echo "----------------------------"
 echo "Your cluster API URL is:"
