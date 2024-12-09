@@ -10,6 +10,8 @@ spec:
       elements:
       - item: cert-manager
         syncWave: "0"
+      - item: cluster-autoscaler
+        syncWave: "0"
       - item: cluster-images-registry
         syncWave: "0"
       - item: cluster-ingress
