@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: create-machineautoscaler
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: create-machineautoscaler
+    spec:
+      containers:
+        - name: create-machineautoscaler
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              echo "Wait for the machineautoscaler configmap to be ready..."
+              while [[ ! $(oc get cm machineautoscaler -n openshift-gitops 2>/dev/null) ]]; do
+                echo -ne .
+              done
+              echo
+              MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)
+              echo "Create a MachineAutoScaler for each infra MachineSet coming out-of-the-box in the lab."
+              for MS in $(oc get machineset -n openshift-machine-api -o json | jq -r '.items[] | select(.spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-role"] == "infra") | .metadata.name'); do
+                echo "$MAS_TEMPLATE"| yq '.metadata.name = "'$MS'"' | yq '.spec.scaleTargetRef.name = "'$MS'"' \
+                | oc apply -f - 
+              done
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
