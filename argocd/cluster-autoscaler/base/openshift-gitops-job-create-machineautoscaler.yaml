@@ -3,6 +3,7 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
+    argocd.argoproj.io/sync-wave: '1'
   name: create-machineautoscaler
   namespace: openshift-gitops
 spec:
@@ -18,11 +19,6 @@ spec:
             - '-c'
             - |
               set -e
-              echo "Wait for the machineautoscaler configmap to be ready..."
-              while [[ ! $(oc get cm machineautoscaler -n openshift-gitops 2>/dev/null) ]]; do
-                echo -ne .
-              done
-              echo
               MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)
               echo "Create a MachineAutoScaler for each infra MachineSet coming out-of-the-box in the lab."
               for MS in $(oc get machineset -n openshift-machine-api -o json | jq -r '.items[] | select(.spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-role"] == "infra") | .metadata.name'); do
