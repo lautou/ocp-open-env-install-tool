@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - cluster-clusterrole-edit-autoscaler.yaml
+  - cluster-clusterrole-edit-cluster-autoscaler.yaml
   - cluster-crb-edit-autoscaler-openshift-gitops-argocd-application-controller.yaml
   - openshift-gitops-configmap-machineautoscaler.yaml 
   - openshift-gitops-job-create-machineautoscaler.yaml
