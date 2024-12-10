@@ -22,7 +22,7 @@ spec:
               MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)
               echo "Create a MachineAutoScaler for each infra MachineSet coming out-of-the-box in the lab."
               for MS in $(oc get machineset -n openshift-machine-api -o json | jq -r '.items[] | select(.spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-role"] == "infra") | .metadata.name'); do
-                echo "$MAS_TEMPLATE"| yq '.metadata.name = "'$MS'"' | yq '.spec.scaleTargetRef.name = "'$MS'"' \
+                echo "$MAS_TEMPLATE"| yq '.metadata.name = "'$MS'"' | yq '.spec.scaleTargetRef.name = "'$MS'"' | yq '.spec.maxReplicas = 2' \
                 | oc apply -f - 
               done
               echo "Create a MachineAutoScaler for each worker MachineSet coming out-of-the-box in the lab."
