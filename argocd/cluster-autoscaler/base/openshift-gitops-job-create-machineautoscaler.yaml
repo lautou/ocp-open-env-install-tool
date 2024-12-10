@@ -27,7 +27,7 @@ spec:
               done
               echo "Create a MachineAutoScaler for each worker MachineSet coming out-of-the-box in the lab."
               for MS in $(oc get machineset -n openshift-machine-api -o json | jq -r '.items[] | select(.spec.template.metadata.labels["machine.openshift.io/cluster-api-machine-role"] == "worker") | .metadata.name'); do
-                echo "$MAS_TEMPLATE"| yq '.metadata.name = "'$MS'"' | yq '.spec.scaleTargetRef.name = "'$MS'"' | yq '.spec.minReplicas = 4' \
+                echo "$MAS_TEMPLATE"| yq '.metadata.name = "'$MS'"' | yq '.spec.scaleTargetRef.name = "'$MS'"' | yq '.spec.maxReplicas = 4' \
                 | oc apply -f -
               done
       restartPolicy: Never
