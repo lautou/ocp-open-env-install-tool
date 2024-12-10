@@ -12,7 +12,6 @@ spec:
     enablement: true
     disableDistributedWorkloads: false
     disableProjects: false
-    disableBiasMetrics: true
     disableSupport: false
     disableHome: false
     disablePipelines: false
@@ -22,7 +21,6 @@ spec:
     disableAcceleratorProfiles: false
     disableCustomServingRuntimes: false
     disableModelMesh: false
-    disableConnectionTypes: true
     disableKServeAuth: false
     disableISVBadges: false
     disableInfo: false
