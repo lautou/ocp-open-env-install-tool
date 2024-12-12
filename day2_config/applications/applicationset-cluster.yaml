@@ -9,6 +9,7 @@ spec:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
       elements:
       - item: cert-manager
+      # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
       - item: cluster-autoscaler
       - item: cluster-images-registry
       - item: cluster-ingress
