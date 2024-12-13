@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: enable-odf-console-plugins
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: enable-console-plugins
+    spec:
+      containers:
+        - name: enable-console-plugins
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-console")') ]]; then
+                oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-console"}]'
+                echo "Plugin odf-console added successfully."
+              else
+                echo "Plugin odf-console already exists. Nothing changed"
+              fi
+              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-client-console")') ]]; then
+                oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-client-console"}]'
+                echo "Plugin odf-client-console added successfully."
+              else
+                echo "Plugin odf-client-console already exists. Nothing changed"
+              fi
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

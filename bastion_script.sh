@@ -78,9 +78,6 @@ cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
 echo "Adding network configuration manifests..."
 cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
 
-echo "Adding gitops operator configuration manifests..."
-cp day1_config/gitops/*.yaml $INSTALL_DIRNAME/manifests
-
 echo "Creating the cluster..."
 ./openshift-install create cluster --dir $INSTALL_DIRNAME
 
@@ -95,12 +92,13 @@ oc wait sub openshift-gitops-operator -n openshift-gitops-operator --for jsonpat
 INSTALL_PLAN_NAME=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
 CSV_NAME=$(oc get ip $INSTALL_PLAN_NAME -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
 echo "Found InstallPlan: $INSTALL_PLAN_NAME for ClusterServiceVersion: $CSV_NAME."
-echo "Waiting the OpenShift GitOps installation to complete..."
-oc wait --for jsonpath='{.status.phase}'=Succeeded csv/$CSV_NAME -n openshift-gitops-operator
+echo -n "Waiting the OpenShift GitOps installation to complete..."
+while [[ $(oc get csv $CSV_NAME -n openshift-gitops-operator -o jsonpath='{.status.phase}' 2>/dev/null) != "Succeeded" ]];
+do
+  echo -ne .
+done 
+echo
 echo "OpenShift GitOps Operator successfully installed"
-
-echo "Remove kubeadmin user"
-oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
   echo "Create git repository credentials template secret for ArgoCD repo"
@@ -116,8 +114,11 @@ fi
 
 echo "Run day2 config through GitOps"
 mkdir day2_config/_generated
-yq ".spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/application-patch.yaml > day2_config/_generated/application-patch.yaml
+yq ".spec.template.spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/applicationset-patch.yaml > day2_config/_generated/applicationset-patch.yaml
 oc create -k day2_config
+
+echo "Remove kubeadmin user"
+oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
 
 echo "----------------------------"
 echo "Your cluster API URL is:"

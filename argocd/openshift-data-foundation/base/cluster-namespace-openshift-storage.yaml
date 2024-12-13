@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    openshift.io/node-selector: "cluster.ocs.openshift.io/openshift-storage="
+    scheduler.alpha.kubernetes.io/defaultTolerations: >-
+      [{"operator": "Exists", "key":
+      "node.ocs.openshift.io/storage"}]
+  name: openshift-storage
+  labels:
+    openshift.io/cluster-monitoring: "true"

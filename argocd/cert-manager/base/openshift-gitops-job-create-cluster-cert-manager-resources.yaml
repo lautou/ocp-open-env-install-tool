@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: create-cluster-cert-manager-resources
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: create-cluster-cert-manager-resources
+    spec:
+      containers:
+        - name: create-cluster-cert-manager-resources
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              echo "Waiting the cert manager to be ready"
+              oc wait certmanager cluster --for condition=cert-manager-controller-deploymentAvailable --for condition=cert-manager-cainjector-deploymentAvailable --for condition=cert-manager-webhook-deploymentAvailable --timeout -1s -n cert-manager
+              echo "Read the secret for AWS cloud provider"
+              while ! oc get secret aws-creds -n kube-system 2>/dev/null 1>&2; do echo "Waiting for secret aws-creds in namespace kube-system."; done
+              ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
+              SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
+              echo "Create the aws-acme secret"
+              oc delete secret generic aws-acme -n cert-manager --ignore-not-found
+              oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
+              INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
+              CLUSTER_ISSUER_CLUSTER_TEMPLATE=$(oc extract cm/clusterissuer-cluster --keys cluster-clusterissuer-cluster.yaml --to - -n openshift-gitops)
+              CERTIFICATE_INGRESS_TEMPLATE=$(oc extract cm/openshift-ingress-certificate-ingress --keys openshift-ingress-certificate-ingress.yaml --to - -n openshift-gitops)
+              echo $CERTIFICATE_INGRESS_TEMPLATE
+              CERTIFICATE_API_TEMPLATE=$(oc extract cm/openshift-config-certificate-api --keys openshift-config-certificate-api.yaml --to - -n openshift-gitops)
+              export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region')
+              echo REGION=$REGION
+              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain')
+              echo BASEDOMAIN=$BASEDOMAIN
+              export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
+              echo CLUSTERNAME=$CLUSTERNAME
+              export TIMESTAMP=$(date +%s)
+              echo TIMESTAMP=$TIMESTAMP
+              echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
+                | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
+                | oc apply -f -
+              echo "$CERTIFICATE_INGRESS_TEMPLATE" \
+                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
+                | oc apply -f -
+              echo "$CERTIFICATE_API_TEMPLATE" \
+                | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' | oc apply -f -
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-crb-collect-application-logs-collector.yaml
+  - cluster-crb-collect-infrastructure-logs-collector.yaml
+  - cluster-crb-logging-collector-logs-writer-collector.yaml
+  - cluster-namespace-openshift-logging.yaml
+  - openshift-gitops-job-create-secret-loki-s3.yaml
+  - openshift-logging-clusterlogforwarder-instance.yaml
+  - openshift-logging-lokistack-logging-loki.yaml
+  - openshift-logging-obc-logging-loki.yaml
+  - openshift-logging-operatorgroup-cluster-logging.yaml
+  - openshift-logging-rb-edit-openshift-gitops-argocd-application-controller.yaml
+  - openshift-logging-sa-collector.yaml
+  - openshift-logging-subscription-cluster-logging.yaml
