@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
+  - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
+  - cert-manager-rb-edit-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-clusterissuers.cert-manager.io-v1-admin-openshift-gitops-argocd-application-controller.yaml
+  - cluster-certmanager-cluster.yaml
+  - cluster-namespace-cert-manager.yaml
+  - cluster-namespace-cert-manager-operator.yaml
+  - openshift-gitops-configmap-clusterissuer-cluster.yaml
+  - openshift-gitops-configmap-openshift-config-certificate-api.yaml
+  - openshift-gitops-configmap-openshift-ingress-certificate-ingress.yaml
+  - openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+  - openshift-gitops-job-update-cluster-apiserver-cluster.yaml
+  - openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
+  - openshift-ingress-rb-edit-openshift-gitops-argocd-application-controller.yaml

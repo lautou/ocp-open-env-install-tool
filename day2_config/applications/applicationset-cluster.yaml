@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster
+  namespace: openshift-gitops
+spec:
+  generators:
+  - list:
+      # Comment / Uncomment the ArgoCD applications you don't want / want to install
+      elements:
+      # Sometimes, cert manager installation stucks due to a CertManager CR initilization issue.
+      # Until it is definitively solved, we prefer to disable this.
+      # - item: cert-manager
+      # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
+      - item: cluster-autoscaler
+      - item: cluster-images-registry
+      - item: cluster-ingress
+      - item: cluster-monitoring
+      # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
+      - item: cluster-oauth
+      - item: cluster-observability
+      # - item: developer-gitops
+      - item: loki
+      - item: network-observability
+      # - item: nfd
+      # - item: nvidia-gpu-operator
+      # - item: openshift-builds
+      # - item: openshift-ai
+      - item: openshift-console
+      - item: openshift-data-foundation
+      # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
+      - item: openshift-gitops
+      - item: openshift-logging
+      - item: openshift-operators
+      # - item: openshift-pipelines
+      # - item: openshift-serverless
+      # - item: openshift-service-mesh
+      - item: opentelemetry
+      - item: sealed-secrets
+      - item: tempo
+      - item: user-workload-monitoring
+      - item: webterminal
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background
+      name: '{{item}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
+        path: argocd/{{item}}/overlays/default
+        targetRevision: modularization
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      ignoreDifferences:
+      - group: operator.openshift.io
+        kind: IngressController
+        name: default
+        jsonPointers:
+        - /spec/defaultCertificate

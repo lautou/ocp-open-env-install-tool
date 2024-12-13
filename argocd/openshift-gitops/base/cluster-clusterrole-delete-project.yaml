@@ -1,0 +1,13 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
+  name: delete-project
+rules:
+  - apiGroups:
+      - project.openshift.io
+    resources:
+      - projects
+    verbs:
+      - delete

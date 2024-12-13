@@ -1,8 +1,0 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: cluster
-  namespace: openshift-gitops
-spec:
-  source:
-    repoURL: $GIT_REPO_BASE_URL/$GIT_REPO_PATH

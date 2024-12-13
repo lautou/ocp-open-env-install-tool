@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: update-openshift-ingress-operator-ingresscontroller-default
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: update-openshift-ingress-operator-ingresscontroller-default
+    spec:
+      containers:
+        - name: update-openshift-ingress-operator-ingresscontroller-default
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              while ! oc get certificate ingress -n openshift-ingress 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
+              echo "Wait for certificate to be ready"
+              oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
+              echo "Update ingress controller config"
+              oc patch ingresscontroller default -n openshift-ingress-operator --type merge -p '{"spec":{"defaultCertificate":{"name":"ingress-certificates"}}}'
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

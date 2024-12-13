@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-namespace-openshift-storage.yaml
+  - openshift-gitops-job-disable-odf-console-plugins.yaml
+  - openshift-gitops-job-enable-odf-console-plugins.yaml
+  - openshift-storage-operatorgroup-openshift-storage.yaml
+  - openshift-storage-rb-edit-openshift-gitops-argocd-application-controller.yaml
+  - openshift-storage-storagecluster-ocs-storagecluster.yaml
+  - openshift-storage-subscription-openshift-storage.yaml

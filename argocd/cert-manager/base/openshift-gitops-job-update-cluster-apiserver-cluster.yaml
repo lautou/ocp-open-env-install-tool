@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: update-cluster-apiserver-cluster
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: update-cluster-apiserver-cluster
+    spec:
+      containers:
+        - name: update-cluster-apiserver-cluster
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
+              echo "INSTALL_CONFIG content:"
+              echo "$INSTALL_CONFIG"
+              BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain')
+              echo BASEDOMAIN=$BASEDOMAIN
+              CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
+              echo CLUSTERNAME=$CLUSTERNAME
+              while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
+              echo "Wait for certificate to be ready"
+              oc wait --for=condition=Ready --timeout -1s certificate/api -n openshift-config
+              echo "Update api config"
+              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["api.'$CLUSTERNAME'.'$BASEDOMAIN'"],"servingCertificate":{"name":"api-certificates"}}]}}}' 
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

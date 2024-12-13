@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PostDelete
+    argocd.argoproj.io/sync-options: Force=true
+  name: disable-odf-console-plugins
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: disable-odf-console-plugins
+    spec:
+      containers:
+        - name: disable-console-plugins
+          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+              if [[ -n $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-console")') ]]; then
+                echo "Plugin odf-console exists. Disable it..."
+                PLUGIN_INDEX=$(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins | to_entries | .[] | select(.value == "odf-console") | .key')
+                oc patch console.operator.openshift.io cluster --type=json -p="[{'op': 'remove', 'path': '/spec/plugins/$PLUGIN_INDEX'}]"
+                echo "Plugin odf-console successfully removed"
+              else
+                echo "Plugin odf-console not found. Nothing to delete."
+              fi
+              if [[ -n $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-client-console")') ]]; then
+                echo "Plugin pipelines-console-plugin exists. Disable it..."
+                PLUGIN_INDEX=$(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins | to_entries | .[] | select(.value == "odf-client-console") | .key')
+                oc patch console.operator.openshift.io cluster --type=json -p="[{'op': 'remove', 'path': '/spec/plugins/$PLUGIN_INDEX'}]"
+                echo "Plugin odf-client-console successfully removed"
+              else
+                echo "Plugin odf-client-console not found. Nothing to delete."
+              fi
+      restartPolicy: OnFailure
+      serviceAccountName: openshift-gitops-argocd-application-controller
