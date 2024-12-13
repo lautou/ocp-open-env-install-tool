@@ -8,7 +8,9 @@ spec:
   - list:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
       elements:
-      - item: cert-manager
+      # Sometimes, cert manager installation stucks due to a CertManager CR initilization issue.
+      # Until it is definitively solved, we prefer to disable this.
+      # - item: cert-manager
       # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
       - item: cluster-autoscaler
       - item: cluster-images-registry
@@ -17,7 +19,7 @@ spec:
       # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
       - item: cluster-oauth
       - item: cluster-observability
-      - item: developer-gitops
+      # - item: developer-gitops
       - item: loki
       - item: network-observability
       # - item: nfd
@@ -30,9 +32,9 @@ spec:
       - item: openshift-gitops
       - item: openshift-logging
       - item: openshift-operators
-      - item: openshift-pipelines
-      - item: openshift-serverless
-      - item: openshift-service-mesh
+      # - item: openshift-pipelines
+      # - item: openshift-serverless
+      # - item: openshift-service-mesh
       - item: opentelemetry
       - item: sealed-secrets
       - item: tempo
