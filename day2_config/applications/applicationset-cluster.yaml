@@ -50,7 +50,7 @@ spec:
       source:
         repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
         path: argocd/{{item}}/overlays/default
-        targetRevision: modularization
+        targetRevision: master
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
