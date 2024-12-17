@@ -3,9 +3,9 @@ kind: Kustomization
 
 resources:
   - cluster-clusterrole-delete-project.yaml
-  - cluster-clusterrole-edit-crd.yaml
+  #- cluster-clusterrole-edit-crd.yaml
   - cluster-crb-delete-project-openshift-gitops-argocd-application-controller.yaml
-  - cluster-crb-edit-crd-openshift-gitops-argocd-application-controller.yaml
+  #- cluster-crb-edit-crd-openshift-gitops-argocd-application-controller.yaml
   - cluster-group-cluster-admins.yaml
-  - openshift-gitops-argocd-openshift-gitops.yaml
-  - openshift-gitops-job-enable-gitops-console-plugin.yaml
+  #- openshift-gitops-argocd-openshift-gitops.yaml
+  #- openshift-gitops-job-enable-gitops-console-plugin.yaml
