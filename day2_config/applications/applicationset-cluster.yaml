@@ -10,12 +10,12 @@ spec:
       elements:
       # Sometimes, cert manager installation stucks due to a CertManager CR initilization issue.
       # Until it is definitively solved, we prefer to disable this.
-      # - item: cert-manager
+      - item: cert-manager
       # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
-      - item: cluster-autoscaler
+      # - item: cluster-autoscaler
       - item: cluster-images-registry
       - item: cluster-ingress
-      - item: cluster-monitoring
+      # - item: cluster-monitoring
       # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
       - item: cluster-oauth
       - item: cluster-observability
@@ -29,7 +29,7 @@ spec:
       - item: openshift-console
       - item: openshift-data-foundation
       # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
-      - item: openshift-gitops
+      - item: openshift-gitops-admin-config
       - item: openshift-logging
       - item: openshift-operators
       # - item: openshift-pipelines
@@ -38,7 +38,7 @@ spec:
       - item: opentelemetry
       - item: sealed-secrets
       - item: tempo
-      - item: user-workload-monitoring
+      # - item: user-workload-monitoring
       - item: webterminal
   template:
     metadata:
