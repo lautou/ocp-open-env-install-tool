@@ -9,3 +9,6 @@ spec:
     overrideArgs:
       - '--dns01-recursive-nameservers-only'
       - '--dns01-recursive-nameservers=1.1.1.1:53'
+  # Workaround for OCPBUGS-34004
+  logLevel: Normal
+  operatorLogLevel: Normal

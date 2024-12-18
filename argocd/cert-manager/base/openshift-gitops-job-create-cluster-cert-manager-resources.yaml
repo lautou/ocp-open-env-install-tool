@@ -18,27 +18,18 @@ spec:
             - '-c'
             - |
               set -e
-              echo "Waiting the cert manager to be ready"
-              while true; do
-                set +e
-                oc wait certmanager cluster \
+              echo -n "Waiting the cert manager to be created..."
+              while ! oc get certmanager cluster &>/dev/null; do echo -n .; done
+              echo
+              echo -n "Waiting the cert manager to initialized..."
+              oc wait certmanager cluster \
                   --for condition=cert-manager-controller-deploymentAvailable \
                   --for condition=cert-manager-cainjector-deploymentAvailable \
                   --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout 1m -n cert-manager
-                if [ $? -eq 0 ]; then
-                  echo "CertManager CR has been initialized successfully"
-                  break;
-                else
-                  # The CertManager CR has been stuck. This is a known issue.
-                  echo "CertManager seems to be stuck. Recreating it..."
-                  oc delete certmanager cluster
-                  sleep 10
-                fi
-              done
-              set -e
+                  --timeout -1s -n cert-manager
+              echo
               echo "Read the secret for AWS cloud provider"
-              while ! oc get secret aws-creds -n kube-system 2>/dev/null 1>&2; do echo "Waiting for secret aws-creds in namespace kube-system."; done
+              while ! oc get secret aws-creds -n kube-system &>/dev/null; do echo "Waiting for secret aws-creds in namespace kube-system."; done
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
               SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
               echo "Create the aws-acme secret"
