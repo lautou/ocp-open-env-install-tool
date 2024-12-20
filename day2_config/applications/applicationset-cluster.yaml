@@ -23,6 +23,7 @@ spec:
       - item: loki
       - item: network-observability
       # - item: nfd
+      # - item: nfs
       # - item: nvidia-gpu-operator
       # - item: openshift-builds
       # - item: openshift-ai
