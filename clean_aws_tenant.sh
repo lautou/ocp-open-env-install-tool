@@ -36,8 +36,9 @@ echo Check and delete previous EIPs...
 for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id $i; done
 
 echo Check and delete previous route53 materials...
-check_and_delete_previous_r53_hzr $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
-check_and_delete_previous_r53_hzr ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}
+check_and_delete_previous_r53_hzr_all $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
+check_and_delete_previous_r53_hz $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
+check_and_delete_previous_r53_hzr_all ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1} 
 
 echo Check and delete previous instances...
 INSTANCE_ID=$(aws_ec2_get instance Reservations[].Instances[].InstanceId)
