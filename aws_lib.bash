@@ -4,13 +4,30 @@ function get_r53_hz {
   aws route53 list-hosted-zones --query "HostedZones[?Name=='$1.'].Id" --output text
 }
 
-function check_and_delete_previous_r53_hzr {
-  json_file=delete_records_$1.json
-  echo "Check and delete previous Route53 hosted zones records on $1 zone..." 
+function check_and_delete_previous_r53_hz {
+  echo "Check and delete previous Route53 $1 hosted zones..."
   for hzid in $(get_r53_hz "$1")
   do
     if [[ ! -z "$hzid" ]]; then
-      rrs=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Type=='A'].Name" --output text)
+      aws route53 delete-hosted-zone --id $hzid
+    fi
+  done
+}
+
+function check_and_delete_previous_r53_hzr_all {
+  for type in A TXT;
+  do
+    check_and_delete_previous_r53_hzr $1 $type
+  done
+}
+
+function check_and_delete_previous_r53_hzr {
+  json_file=delete_records_$1_$2.json
+  echo "Check and delete previous Route53 hosted zones $2 records on $1 zone..." 
+  for hzid in $(get_r53_hz "$1")
+  do
+    if [[ ! -z "$hzid" ]]; then
+      rrs=$(aws route53 list-resource-record-sets --hosted-zone-id $hzid --query "ResourceRecordSets[?Type=='$2'].Name" --output text)
       if [[ ! -z "$rrs" ]]; then
         cat > $json_file << EOF_json1_head
 {
