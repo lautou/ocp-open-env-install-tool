@@ -1,0 +1,11 @@
+apiVersion: cache.jhouse.com/v1alpha1
+kind: NFSProvisioner
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: nfsprovisioner-sample
+  namespace: nfsprovisioner-operator
+spec:
+  scForNFS: nfs
+  scForNFSPvc: gp3-csi
+  storageSize: 500Gi
