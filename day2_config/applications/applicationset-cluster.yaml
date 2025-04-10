@@ -15,14 +15,14 @@ spec:
       # - item: cluster-autoscaler
       - item: cluster-images-registry
       - item: cluster-ingress
-      # - item: cluster-monitoring
+      - item: cluster-monitoring
       # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
       - item: cluster-oauth
       - item: cluster-observability
       # - item: developer-gitops
       - item: loki
       - item: network-observability
-      # - item: nfd
+      - item: nfd
       # - item: nfs
       # - item: nvidia-gpu-operator
       # - item: openshift-builds
@@ -33,13 +33,13 @@ spec:
       - item: openshift-gitops-admin-config
       - item: openshift-logging
       - item: openshift-operators
-      # - item: openshift-pipelines
-      # - item: openshift-serverless
-      # - item: openshift-service-mesh
+      - item: openshift-pipelines
+      - item: openshift-serverless
+      - item: openshift-service-mesh
       - item: opentelemetry
       - item: sealed-secrets
       - item: tempo
-      # - item: user-workload-monitoring
+      - item: user-workload-monitoring
       - item: webterminal
   template:
     metadata:
