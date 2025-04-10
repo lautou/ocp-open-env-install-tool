@@ -4,7 +4,7 @@ metadata:
   name: cluster-observability-operator
   namespace: openshift-operators
 spec:
-  channel: development
+  channel: stable
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
