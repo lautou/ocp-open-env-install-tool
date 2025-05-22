@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates OpenShift Node Group (Worker, Infra or Storage) based on RHCOS AMI
+Parameters:
+  InfrastructureName:
+    Type: String
+  NodeGroupName:
+    Type: String
+  AZSuffix:
+    Type: String
+    Description: The Availability Zone suffix (e.g., 1a, 1b, 1c)
+  RhcosAmi:
+    Type: AWS::EC2::Image::Id
+  Subnet:
+    Type: AWS::EC2::Subnet::Id
+  NodeSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  IgnitionLocation:
+    Type: String
+  CertificateAuthorities:
+    Type: String
+  NodeInstanceProfileName:
+    Type: String
+  InstanceType:
+    Type: String
+  DesiredNodeCount:
+    Type: Number
+    Default: "1"
+
+Conditions:
+  IsInfraNodeGroup: !Equals [!Ref NodeGroupName, "infra"]
+  IsStorageNodeGroup: !Equals [!Ref NodeGroupName, "storage"]
+
+Resources:
+  NodeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${InfrastructureName}-${NodeGroupName}-${AZSuffix}-template"
+      LaunchTemplateData:
+        ImageId: !Ref RhcosAmi
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !Ref NodeInstanceProfileName
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: false
+            DeviceIndex: 0
+            Groups:
+              - !Ref NodeSecurityGroupId
+            SubnetId: !Ref Subnet
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "${InfrastructureName}-${NodeGroupName}-${AZSuffix}"
+              - Key: !Sub "kubernetes.io/cluster/${InfrastructureName}"
+                Value: owned
+              - Key: NodeGroup
+                Value: !Ref NodeGroupName
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: !Sub "${InfrastructureName}-${NodeGroupName}-${AZSuffix}-root"
+              - Key: !Sub "kubernetes.io/cluster/${InfrastructureName}"
+                Value: owned
+        UserData:
+          Fn::Base64: !Sub
+            - |
+              {
+                "ignition": {
+                  "version": "3.2.0",
+                  "config": {
+                    "merge": [
+                      {
+                        "source": "${IgnitionLocation}"
+                      }
+                    ]
+                  },
+                  "security": {
+                    "tls": {
+                      "certificateAuthorities": [
+                        {
+                          "source": "${CertificateAuthorities}"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            - IgnitionLocation: !Ref IgnitionLocation
+              CertificateAuthorities: !Ref CertificateAuthorities
+  NodeAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${InfrastructureName}-${NodeGroupName}-${AZSuffix}-asg"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref NodeLaunchTemplate
+        Version: !GetAtt NodeLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref DesiredNodeCount
+      MaxSize: !Ref DesiredNodeCount
+      DesiredCapacity: !Ref DesiredNodeCount
+      VPCZoneIdentifier:
+        - !Ref Subnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${InfrastructureName}-${NodeGroupName}-${AZSuffix}"
+          PropagateAtLaunch: true
+        - Key: !Sub "kubernetes.io/cluster/${InfrastructureName}"
+          Value: owned
+          PropagateAtLaunch: true
+        - Key: k8s.io/cluster-autoscaler/enabled
+          Value: "true"
+          PropagateAtLaunch: true
+        - Key: !Sub "k8s.io/cluster-autoscaler/${InfrastructureName}"
+          Value: owned
+          PropagateAtLaunch: true
+        - Key: NodeGroupRole
+          Value: !Ref NodeGroupName
+          PropagateAtLaunch: true
+
+Outputs:
+  NodeAutoScalingGroupName:
+    Description: Name of the Auto Scaling Group for the node group
+    Value: !Ref NodeAutoScalingGroup

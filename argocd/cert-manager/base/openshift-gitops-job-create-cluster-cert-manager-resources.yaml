@@ -18,6 +18,25 @@ spec:
             - '-c'
             - |
               set -e
+              echo -n "Waiting for the cert-manager CRD (certmanagers.operator.openshift.io) to be established..."
+              until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
+                echo -n "."
+                sleep 5
+              done
+              echo " CRD established."
+
+              echo -n "Waiting for the initial CertManager 'cluster' CR to be created by ArgoCD..."
+              until oc get certmanager cluster &>/dev/null; do
+                echo -n "."
+                sleep 5
+              done
+              echo " Initial CertManager 'cluster' CR found."
+
+              echo "Applying workaround: Deleting and recreating CertManager 'cluster' CR."
+
+              oc delete certmanager cluster --ignore-not-found
+              echo "CertManager 'cluster' CR deleted."
+
               echo -n "Waiting the cert manager to be created..."
               while ! oc get certmanager cluster &>/dev/null; do echo -n .; done
               echo
