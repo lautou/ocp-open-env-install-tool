@@ -8,8 +8,7 @@ spec:
   - list:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
       elements:
-      # Sometimes, cert manager installation stucks due to a CertManager CR initilization issue.
-      # Until it is definitively solved, we prefer to disable this.
+      - item: authorino
       - item: cert-manager
       # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
       # - item: cluster-autoscaler

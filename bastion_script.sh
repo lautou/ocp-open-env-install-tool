@@ -1,131 +1,747 @@
+#!/bin/bash
 set -e
-if [[ $# -lt 8 ]]; then
-  echo "Incorrect number of found arguments: $# - Expected: 8"
+
+BASTION_EXECUTION_LOG="bastion_execution.log"
+exec &> >(tee -a "$BASTION_EXECUTION_LOG")
+
+echo "Starting bastion_script.sh execution..."
+echo "Date: $(date)"
+echo "Script running as user: $(whoami) in directory: $(pwd)"
+
+if [[ ! -f ocp_rhdp.config ]]; then
+  echo "ERROR: ocp_rhdp.config not found on bastion!"
   exit 1
 fi
-OCP_DOWNLOAD_BASE_URL=$1
-OPENSHIFT_VERSION=$2
-AWS_INSTANCE_TYPE_INFRA_NODES=$3
-AWS_INSTANCE_TYPE_STORAGE_NODES=$4
-GIT_CREDENTIALS_TEMPLATE_URL=$5
-GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=$6
-GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=$7
-GIT_REPO_URL=$8
-GIT_REPO_TOKEN_NAME=$9
-GIT_REPO_TOKEN_SECRET=${10}
+. ocp_rhdp.config
+echo "Successfully sourced ocp_rhdp.config."
 
-OC_TARGZ_FILE=openshift-client-linux-$OPENSHIFT_VERSION.tar.gz
-INSTALLER_TARGZ_FILE=openshift-install-linux-$OPENSHIFT_VERSION.tar.gz
-INSTALL_DIRNAME=cluster-install
+if [[ -f aws_lib.sh ]]; then
+    . aws_lib.sh
+    echo "Successfully sourced aws_lib.sh."
+else
+    echo "ERROR: aws_lib.sh not found. Make sure it's in the same directory as bastion_script.sh or adjust the path."
+    exit 1
+fi
 
-echo "Installing wget package..."
-sudo yum install -y wget
+PULL_SECRET_FILE_PATH="$HOME/pull-secret.txt"
+if [ ! -f "$PULL_SECRET_FILE_PATH" ]; then
+  echo "ERROR: Pull secret file not found at $PULL_SECRET_FILE_PATH."
+  exit 2
+fi
+PULL_SECRET_CONTENT=$(cat "$PULL_SECRET_FILE_PATH")
 
-echo "Install yq package..."
-sudo wget -nv -O /usr/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+GITOPS_OPERATOR_FILE="day2_config/gitops/openshift-gitops-operator.yaml"
+
+echo "INSTALL_TYPE set to: $INSTALL_TYPE"
+echo "OPENSHIFT_VERSION set to: $OPENSHIFT_VERSION"
+echo "AWS_DEFAULT_REGION set to: $AWS_DEFAULT_REGION"
+echo "CLUSTER_NAME set to: $CLUSTER_NAME"
+
+echo "AWS_WORKERS_COUNT is: $AWS_WORKERS_COUNT"
+echo "AWS_INFRA_NODES_COUNT is: $AWS_INFRA_NODES_COUNT"
+echo "AWS_STORAGE_NODES_COUNT is: $AWS_STORAGE_NODES_COUNT"
+echo "ENABLE_DAY2_GITOPS_CONFIG is: $ENABLE_DAY2_GITOPS_CONFIG"
+
+echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES set to: $AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
+echo "AWS_INSTANCE_TYPE_COMPUTE_NODES set to: $AWS_INSTANCE_TYPE_COMPUTE_NODES"
+echo "AWS_INSTANCE_TYPE_INFRA_NODES set to: $AWS_INSTANCE_TYPE_INFRA_NODES"
+echo "AWS_INSTANCE_TYPE_STORAGE_NODES set to: $AWS_INSTANCE_TYPE_STORAGE_NODES"
+
+export AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY
+export AWS_DEFAULT_REGION
+
+INSTALL_DIRNAME="cluster-install"
+OCP_INSTALL_PATH="./openshift-install"
+CFN_TEMPLATES_DIR="cloudformation_templates"
+CFN_GENERATED_PARAMS_DIR="cfn_generated_parameters"
+mkdir -p "$CFN_GENERATED_PARAMS_DIR"
+
+echo "Installing required packages..."
+sudo dnf install -y wget jq unzip
+echo "Required packages installed."
+
+echo "Installing yq..."
+if ! sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq; then
+  echo "ERROR: Failed to download yq"
+  exit 5
+fi
 sudo chmod +x /usr/bin/yq
+echo "yq installed."
 
-echo "Installing OpenShift CLI..."
-wget -nv -O $OC_TARGZ_FILE $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE
-if [[ $? -ne 0 ]]; then
-  echo "Something was wrong when downloading OpenShift CLI for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
+echo "Installing AWS CLI v2..."
+if ! wget -q "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -O "awscliv2.zip"; then
+  echo "ERROR: Failed to download awscliv2.zip"
+  exit 6
+fi
+unzip -q awscliv2.zip
+if ! sudo ./aws/install; then
+  echo "ERROR: Failed to install AWS CLI v2"
+  exit 7
+fi
+echo "AWS CLI v2 installed."
+
+echo "Creating AWS credentials file..."
+mkdir -p ~/.aws
+cat <<EOF > ~/.aws/credentials
+[default]
+aws_access_key_id = $AWS_ACCESS_KEY_ID
+aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
+EOF
+chmod 600 ~/.aws/credentials
+echo "AWS credentials file created."
+
+echo "Configuring AWS CLI defaults..."
+aws configure set default.region "$AWS_DEFAULT_REGION"
+aws configure set default.output json
+echo "AWS CLI defaults configured."
+
+echo "Verifying AWS CLI identity..."
+if ! aws sts get-caller-identity > /dev/null; then
+  echo "ERROR: AWS STS GetCallerIdentity failed."
+  exit 8
+fi
+echo "AWS CLI identity verified."
+
+echo "Downloading OpenShift tools..."
+OC_TARGZ_FILE="openshift-client-linux-$OPENSHIFT_VERSION.tar.gz"
+INSTALLER_TARGZ_FILE="openshift-install-linux-$OPENSHIFT_VERSION.tar.gz"
+
+if ! wget -nv -O "$OC_TARGZ_FILE" "$OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE"; then
+  echo "ERROR: Failed to download OpenShift CLI."
+  exit 9
+fi
+sudo tar -xf "$OC_TARGZ_FILE" -C /usr/local/bin oc kubectl
+echo "OpenShift Client installed."
+
+if ! wget -nv -O "$INSTALLER_TARGZ_FILE" "$OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE"; then
+  echo "ERROR: Failed to download OpenShift Installer."
   exit 10
 fi
-sudo tar -xvf $OC_TARGZ_FILE -C /usr/bin oc kubectl
+tar -xf "$INSTALLER_TARGZ_FILE"
+chmod +x "./openshift-install"
+echo "OpenShift Installer extracted."
 
-echo "Set up bash completion for the OpenShift CLI"
-sudo sh -c '/usr/bin/oc completion bash >/etc/bash_completion.d/openshift'
+echo "Generating SSH key..."
+mkdir -p "$HOME/.ssh"
+rm -f "$HOME/.ssh/id_rsa" "$HOME/.ssh/id_rsa.pub"
+ssh-keygen -q -N "" -f "$HOME/.ssh/id_rsa" <<<y >/dev/null 2>&1
+echo "SSH key generated."
 
-echo "Installing the installer..."
-wget -nv -O $INSTALLER_TARGZ_FILE $OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE
-if [[ $? -ne 0 ]]; then
-  echo "Something was wrong when downloading installer for OpenShift version: $OPENSHIFT_VERSION. Ensure version exists."
-  exit 11
+echo "Creating installation directory: $INSTALL_DIRNAME"
+rm -rf "$INSTALL_DIRNAME"
+mkdir -p "$INSTALL_DIRNAME"
+
+echo "Preparing install-config.yaml..."
+SSH_PUB_KEY_FILE_PATH="$HOME/.ssh/id_rsa.pub"
+SSH_KEY_CONTENT=$(cat "$SSH_PUB_KEY_FILE_PATH")
+
+cat <<EOF > "$INSTALL_DIRNAME/install-config.yaml"
+apiVersion: v1
+baseDomain: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN#.}
+metadata:
+  name: $CLUSTER_NAME
+platform:
+  aws:
+    region: $AWS_DEFAULT_REGION
+pullSecret: '$(echo "$PULL_SECRET_CONTENT" | sed "s/'/'\\\\''/g")'
+sshKey: |
+  $SSH_KEY_CONTENT
+EOF
+
+if [ "$INSTALL_TYPE" == "IPI" ]; then
+  cat <<EOF_IPI >> "$INSTALL_DIRNAME/install-config.yaml"
+controlPlane:
+  name: master
+  platform:
+    aws:
+      type: $AWS_INSTANCE_TYPE_CONTROLPLANE_NODES
+compute:
+- name: worker
+  platform:
+    aws:
+      type: $AWS_INSTANCE_TYPE_COMPUTE_NODES
+  replicas: $AWS_WORKERS_COUNT
+EOF_IPI
 fi
-tar -xvf $INSTALLER_TARGZ_FILE openshift-install
 
-echo "Generating manifests..."
-./openshift-install create manifests --dir $INSTALL_DIRNAME
-
-echo "Creating the MachineSet for infra nodes..."
-for i in {0..2}; do
-  MS_INFRA_NAME=$(yq '.metadata.name' $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml | sed s/worker/infra/)
-  MS_STORAGE_NAME=$(yq '.metadata.name' $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml | sed s/worker/storage/)
-  yq ".metadata.name = \"$MS_INFRA_NAME\" \
-    | .spec.selector.matchLabels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_INFRA_NAME\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_INFRA_NAME\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-role\"] = \"infra\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\" \
-    | .spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\" \
-    | .spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_INFRA_NODES\" \
-    | .spec.template.spec.taints += [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"},{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoExecute\"}]" \
-    $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_infra-machineset-$i.yaml
-  yq ".metadata.name = \"$MS_STORAGE_NAME\" \
-    | .spec.selector.matchLabels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_STORAGE_NAME\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_STORAGE_NAME\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-role\"] = \"infra\" \
-    | .spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\" \
-    | .spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\" \
-    | .spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\" \
-    | .spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\" \
-    | .spec.template.spec.taints += [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"},{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoExecute\"}]" \
-    $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_worker-machineset-$i.yaml > $INSTALL_DIRNAME/openshift/99_openshift-cluster-api_storage-machineset-$i.yaml
-done
-
-echo "Adding MachineConfig configuration..."
-cp day1_config/machineconfig/*.yaml $INSTALL_DIRNAME/openshift
-
-echo "Adding network configuration manifests..."
-cp day1_config/network/*.yaml $INSTALL_DIRNAME/manifests
-
-echo "Creating the cluster..."
-./openshift-install create cluster --dir $INSTALL_DIRNAME
-
-echo "Exporting admin TLS credentials..."
-echo "export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig" >> .bashrc
-export KUBECONFIG=$HOME/$INSTALL_DIRNAME/auth/kubeconfig
-
-echo "Installing OpenShift GitOps..."
-oc create -f day2_config/gitops/openshift-gitops-operator.yaml
-echo "Waiting the OpenShift GitOps Operator Subscription to generate the InstallPlan for the Operator..."
-oc wait sub openshift-gitops-operator -n openshift-gitops-operator --for jsonpath='{.status.installPlanRef.name}' --timeout -1s
-INSTALL_PLAN_NAME=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
-CSV_NAME=$(oc get ip $INSTALL_PLAN_NAME -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
-echo "Found InstallPlan: $INSTALL_PLAN_NAME for ClusterServiceVersion: $CSV_NAME."
-echo -n "Waiting the OpenShift GitOps installation to complete..."
-while [[ $(oc get csv $CSV_NAME -n openshift-gitops-operator -o jsonpath='{.status.phase}' 2>/dev/null) != "Succeeded" ]];
-do
-  echo -ne .
-done 
+echo "Generated $INSTALL_DIRNAME/install-config.yaml."
+yq e 'del(.pullSecret)' "$INSTALL_DIRNAME/install-config.yaml"
 echo
-echo "OpenShift GitOps Operator successfully installed"
 
-if [[ $GIT_CREDENTIALS_TEMPLATE_URL ]]; then
-  echo "Create git repository credentials template secret for ArgoCD repo"
-  oc create secret generic creds-cluster --from-literal username=$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME --from-literal password=$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET --from-literal url=$GIT_CREDENTIALS_TEMPLATE_URL -n openshift-gitops
-  oc label secret creds-cluster argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops
+configure_day2_gitops() {
+  echo "--- Starting Day2 GitOps/ArgoCD Configuration ---"
+  local day2_success=false
+
+  if ! oc whoami &> /dev/null; then
+    echo "ERROR: Day2: Cannot connect to cluster."
+    return 1
+  fi
+  oc whoami
+
+  echo "Day2: Installing OpenShift GitOps Operator..."
+  if ! oc create -f "$GITOPS_OPERATOR_FILE"; then
+    echo "ERROR: Day2: Failed to apply $GITOPS_OPERATOR_FILE."
+    return 1
+  fi
+
+  echo "Day2: Waiting for OpenShift GitOps Operator Subscription..."
+  if ! oc wait sub openshift-gitops-operator -n openshift-gitops-operator --for jsonpath='{.status.installPlanRef.name}' --timeout 300s; then
+    echo "ERROR: Day2: Timeout waiting for GitOps Subscription InstallPlan."
+    return 1
+  fi
+  local day2_install_plan_name=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
+  local day2_csv_name=$(oc get ip "$day2_install_plan_name" -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
+  echo "Day2: Found InstallPlan: $day2_install_plan_name for CSV: $day2_csv_name."
+
+  echo -n "Day2: Waiting for CSV '$day2_csv_name' to be created..."
+  local csv_exists_timeout=120
+  while ! oc get csv "$day2_csv_name" -n openshift-gitops-operator > /dev/null 2>&1; do
+    csv_exists_timeout=$((csv_exists_timeout - 5))
+    if [ "$csv_exists_timeout" -le 0 ]; then
+      echo "ERROR: Day2: Timeout waiting for CSV '$day2_csv_name' to be created."
+      return 1
+    fi
+    echo -n "."
+    sleep 5
+  done
+  echo " CSV '$day2_csv_name' created."
+
+  echo -n "Day2: Waiting for OpenShift GitOps Operator CSV '$day2_csv_name' to succeed..."
+  if ! oc wait csv "$day2_csv_name" -n openshift-gitops-operator --for jsonpath='{.status.phase}'=Succeeded --timeout 600s > /dev/null; then
+    echo "ERROR: Day2: Timeout waiting for GitOps CSV '$day2_csv_name'."
+    return 1
+  fi
+  echo " Day2: OpenShift GitOps Operator successfully installed."
+
+  if [[ -n "$GIT_CREDENTIALS_TEMPLATE_URL" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
+    echo "Day2: Creating/Updating git repository credentials template secret..."
+    oc create secret generic creds-cluster \
+      --from-literal=username="$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" \
+      --from-literal=password="$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" \
+      --from-literal=url="$GIT_CREDENTIALS_TEMPLATE_URL" -n openshift-gitops --dry-run=client -o yaml | oc apply -f -
+    oc label secret creds-cluster argocd.argoproj.io/secret-type=repo-creds -n openshift-gitops --overwrite
+  fi
+
+  if [[ -n "$GIT_REPO_TOKEN_NAME" ]] && [[ -n "$GIT_REPO_TOKEN_SECRET" ]]; then
+    echo "Day2: Creating/Updating git repository secret for GitOps repo..."
+    oc create secret generic git-app-cluster \
+      --from-literal=username="$GIT_REPO_TOKEN_NAME" \
+      --from-literal=password="$GIT_REPO_TOKEN_SECRET" \
+      --from-literal=type=git \
+      --from-literal=url="$GIT_REPO_URL" \
+      --from-literal=project=default -n openshift-gitops --dry-run=client -o yaml | oc apply -f -
+    oc label secret git-app-cluster argocd.argoproj.io/secret-type=repository -n openshift-gitops --overwrite
+  fi
+
+  echo "Day2: Applying Day2 config through GitOps ApplicationSet..."
+  if [ ! -d day2_config/_generated ]; then
+    mkdir -p day2_config/_generated
+  fi
+  cat <<EOF_PATCH > day2_config/_generated/applicationset-patch.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster
+  namespace: openshift-gitops
+spec:
+  template:
+    spec:
+      source:
+        repoURL: "$GIT_REPO_URL"
+EOF_PATCH
+  echo "Day2: Generated patch file day2_config/_generated/applicationset-patch.yaml"
+
+  if oc apply -k day2_config; then
+    echo "Day2: Day2 GitOps ApplicationSet applied successfully."
+    day2_success=true
+  else
+    echo "ERROR: Day2: Failed to apply Day2 kustomization."
+    oc kustomize day2_config || echo "Day2: oc kustomize day2_config also failed."
+    return 1
+  fi
+
+  if [[ "$day2_success" == "true" ]]; then
+    echo "Day2: Configuration successful. Removing kubeadmin secret..."
+    oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
+  else
+    echo "WARN: Day2: Configuration did not fully succeed. Kubeadmin secret will not be removed by this function."
+  fi
+  echo "--- Day2 GitOps/ArgoCD Configuration Finished ---"
+  return 0
+}
+
+distribute_nodes() {
+  local total_nodes=$1
+  local num_distributions=$2
+  local base_nodes_per_dist=$((total_nodes / num_distributions))
+  local remainder_nodes=$((total_nodes % num_distributions))
+  local distribution_array=()
+  for i in $(seq 1 "$num_distributions"); do
+    distribution_array+=($base_nodes_per_dist)
+  done
+  for i in $(seq 1 "$remainder_nodes"); do
+    local index_to_update=$((i - 1))
+    distribution_array[$index_to_update]=$((${distribution_array[$index_to_update]} + 1))
+  done
+  echo "${distribution_array[@]}"
+}
+
+configure_upi_node_roles_and_taints() {
+  echo "--- Starting UPI Node Role and Taint Configuration ---"
+  if ! oc whoami &> /dev/null; then
+    echo "ERROR: UPI Node Config: Cannot connect to cluster. KUBECONFIG: $KUBECONFIG"
+    return 1
+  fi
+  oc whoami
+
+  local MAX_NODE_CHECK_RETRIES=12
+  local NODE_CHECK_INTERVAL=10
+
+  echo "UPI Node Config: Identifying and configuring infra nodes..."
+  local infra_nodes_found=false
+  local INFRA_NODES
+  for i in $(seq 1 $MAX_NODE_CHECK_RETRIES); do
+    INFRA_NODES=$(oc get nodes -l NodeGroup=infra --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null)
+    if [ -n "$INFRA_NODES" ]; then
+      infra_nodes_found=true
+      break
+    fi
+    echo "UPI Node Config: Waiting for infra nodes to be labeled with NodeGroup=infra... (Attempt $i/$MAX_NODE_CHECK_RETRIES)"
+    sleep $NODE_CHECK_INTERVAL
+  done
+
+  if ! $infra_nodes_found; then
+    echo "UPI Node Config: No infra nodes found with label NodeGroup=infra after $MAX_NODE_CHECK_RETRIES attempts. Skipping infra node configuration."
+  else
+    echo "UPI Node Config: Found infra nodes: $INFRA_NODES"
+    for node_name in $INFRA_NODES; do
+      echo "UPI Node Config: Configuring infra node: $node_name"
+      oc label node "$node_name" node-role.kubernetes.io/infra="" --overwrite || echo "WARN: Failed to apply infra label to $node_name"
+      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to $node_name"
+      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute infra taint to $node_name"
+      echo "UPI Node Config: Finished configuring infra node: $node_name"
+    done
+  fi
+
+  echo "UPI Node Config: Identifying and configuring storage nodes..."
+  local storage_nodes_found=false
+  local STORAGE_NODES
+  for i in $(seq 1 $MAX_NODE_CHECK_RETRIES); do
+    STORAGE_NODES=$(oc get nodes -l NodeGroup=storage --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null)
+    if [ -n "$STORAGE_NODES" ]; then
+      storage_nodes_found=true
+      break
+    fi
+    echo "UPI Node Config: Waiting for storage nodes to be labeled with NodeGroup=storage... (Attempt $i/$MAX_NODE_CHECK_RETRIES)"
+    sleep $NODE_CHECK_INTERVAL
+  done
+
+  if ! $storage_nodes_found; then
+    echo "UPI Node Config: No storage nodes found with label NodeGroup=storage after $MAX_NODE_CHECK_RETRIES attempts. Skipping storage node configuration."
+  else
+    echo "UPI Node Config: Found storage nodes: $STORAGE_NODES"
+    for node_name in $STORAGE_NODES; do
+      echo "UPI Node Config: Configuring storage node: $node_name"
+      oc label node "$node_name" node-role.kubernetes.io/infra="" --overwrite || echo "WARN: Failed to apply infra label to storage node $node_name"
+      oc label node "$node_name" cluster.ocs.openshift.io/openshift-storage="" --overwrite || echo "WARN: Failed to apply ocs-storage label to $node_name"
+      
+      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to storage node $node_name"
+      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute infra taint to storage node $node_name"
+      
+      oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule OCS taint to $node_name"
+      oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute OCS taint to $node_name"
+      
+      # Cleanup potentially conflicting taints if they were set by older methods
+      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoSchedule-  --overwrite=true >/dev/null 2>&1 || true
+      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoExecute- --overwrite=true >/dev/null 2>&1 || true
+      echo "UPI Node Config: Finished configuring storage node: $node_name"
+    done
+  fi
+  echo "--- UPI Node Role and Taint Configuration Finished ---"
+  return 0
+}
+
+if [ "$INSTALL_TYPE" == "IPI" ]; then
+  echo "-----------------------------------------------------"
+  echo "Starting IPI Installation Process"
+  echo "-----------------------------------------------------"
+  echo "Generating manifests..."
+  "$OCP_INSTALL_PATH" create manifests --dir "$INSTALL_DIRNAME"
+
+  mapfile -t AZ_WORKER_MS_FILES < <(find "$INSTALL_DIRNAME/openshift/" -name "99_openshift-cluster-api_worker-machineset-*.yaml" | sort)
+  NUM_AZ_WORKER_MS_FILES=${#AZ_WORKER_MS_FILES[@]}
+  echo "Found $NUM_AZ_WORKER_MS_FILES base worker MachineSet files."
+
+  echo "Worker distribution is handled by install-config.yaml replicas and installer defaults."
+
+  echo "Creating MachineSets for infra nodes..."
+  if [[ "$AWS_INFRA_NODES_COUNT" -gt 0 ]] && [[ "$NUM_AZ_WORKER_MS_FILES" -gt 0 ]]; then
+    INFRA_DISTRIBUTION=($(distribute_nodes "$AWS_INFRA_NODES_COUNT" "$NUM_AZ_WORKER_MS_FILES"))
+    for i in $(seq 0 $(($NUM_AZ_WORKER_MS_FILES - 1)) ); do
+      REPLICAS_FOR_THIS_AZ_MS=${INFRA_DISTRIBUTION[$i]:-0}
+      if [[ "$REPLICAS_FOR_THIS_AZ_MS" -eq 0 ]]; then continue; fi
+
+      MS_INFRA_BASE_FILE="${AZ_WORKER_MS_FILES[$i]}"
+      if [ -f "$MS_INFRA_BASE_FILE" ]; then
+        BASE_MS_NAME=$(yq '.metadata.name' "$MS_INFRA_BASE_FILE")
+        MS_INFRA_NAME="${BASE_MS_NAME/worker/infra}"
+        MS_INFRA_TARGET_FILE="$INSTALL_DIRNAME/openshift/98_openshift-cluster-api_infra-machineset-$i.yaml"
+        cp "$MS_INFRA_BASE_FILE" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".metadata.name = \"$MS_INFRA_NAME\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.replicas = $REPLICAS_FOR_THIS_AZ_MS" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.selector.matchLabels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_INFRA_NAME\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_INFRA_NAME\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-role\"] = \"infra\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_INFRA_NODES\"" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.spec.taints = [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"},{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoExecute\"}]" "$MS_INFRA_TARGET_FILE"
+        echo "Generated infra MachineSet: $MS_INFRA_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
+      else
+        echo "WARNING: Base worker machineset $MS_INFRA_BASE_FILE not found."
+      fi
+    done
+  else
+    echo "AWS_INFRA_NODES_COUNT is 0 or no base worker MS files. Skipping infra MachineSet."
+  fi
+
+  echo "Creating MachineSet for storage nodes..."
+  if [[ "$AWS_STORAGE_NODES_COUNT" -gt 0 ]] && [[ "$NUM_AZ_WORKER_MS_FILES" -gt 0 ]]; then
+    STORAGE_DISTRIBUTION=($(distribute_nodes "$AWS_STORAGE_NODES_COUNT" "$NUM_AZ_WORKER_MS_FILES"))
+    for i in $(seq 0 $(($NUM_AZ_WORKER_MS_FILES - 1)) ); do
+      REPLICAS_FOR_THIS_AZ_MS=${STORAGE_DISTRIBUTION[$i]:-0}
+      if [[ "$REPLICAS_FOR_THIS_AZ_MS" -eq 0 ]]; then continue; fi
+
+      MS_STORAGE_BASE_FILE="${AZ_WORKER_MS_FILES[$i]}"
+      if [ -f "$MS_STORAGE_BASE_FILE" ]; then
+        BASE_MS_NAME=$(yq '.metadata.name' "$MS_STORAGE_BASE_FILE")
+        MS_STORAGE_NAME="${BASE_MS_NAME/worker/storage}"
+        MS_STORAGE_TARGET_FILE="$INSTALL_DIRNAME/openshift/98_openshift-cluster-api_storage-machineset-$i.yaml"
+        cp "$MS_STORAGE_BASE_FILE" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".metadata.name = \"$MS_STORAGE_NAME\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.replicas = $REPLICAS_FOR_THIS_AZ_MS" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.selector.matchLabels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_STORAGE_NAME\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machineset\"] = \"$MS_STORAGE_NAME\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-role\"] = \"infra\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\"" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}, {\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoExecute\"}]" "$MS_STORAGE_TARGET_FILE"
+        echo "Generated storage MachineSet: $MS_STORAGE_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
+      else
+        echo "WARNING: Base worker machineset $MS_STORAGE_BASE_FILE not found."
+      fi
+    done
+  else
+    echo "AWS_STORAGE_NODES_COUNT is 0 or no base worker MS files. Skipping storage MachineSet."
+  fi
+
+  echo "Adding Day1 MachineConfig manifests..."
+  if [ -d "day1_config/machineconfig" ] && [ -n "$(ls -A day1_config/machineconfig/*.yaml 2>/dev/null)" ]; then
+    cp day1_config/machineconfig/*.yaml "$INSTALL_DIRNAME/openshift/"
+  fi
+
+  echo "Adding Day1 network configuration manifests..."
+  if [ -d "day1_config/network" ] && [ -n "$(ls -A day1_config/network/*.yaml 2>/dev/null)" ]; then
+    cp day1_config/network/*.yaml "$INSTALL_DIRNAME/manifests/"
+  fi
+
+  echo "Creating the cluster..."
+  "$OCP_INSTALL_PATH" create cluster --dir "$INSTALL_DIRNAME" --log-level=info
+  echo "Cluster installation finished."
+
+  KUBECONFIG_PATH="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+  echo "Exporting KUBECONFIG to $KUBECONFIG_PATH..."
+  export KUBECONFIG="$KUBECONFIG_PATH"
+  echo "export KUBECONFIG=$KUBECONFIG_PATH" >> "$HOME/.bashrc"
+
+elif [ "$INSTALL_TYPE" == "UPI" ]; then
+  echo "-----------------------------------------------------"
+  echo "Starting UPI Installation Process"
+  echo "-----------------------------------------------------"
+
+  UPI_S3_BUCKET_NAME="${CLUSTER_NAME,,}-$(date +%s)-infra"
+  CLUSTER_FQDN_BASE="${CLUSTER_NAME}${RHDP_TOP_LEVEL_ROUTE53_DOMAIN}"
+  UPI_MASTER_COUNT=3
+  CFN_STACK_PREFIX="${CLUSTER_NAME,,}-cfn"
+
+  echo "Determining RHCOS AMI ID..."
+  RHCOS_AMI_ID=$("$OCP_INSTALL_PATH" coreos print-stream-json | jq -r ".architectures.x86_64.images.aws.regions[\"$AWS_DEFAULT_REGION\"].image")
+  if [ -z "$RHCOS_AMI_ID" ] || [ "$RHCOS_AMI_ID" == "null" ]; then echo "ERROR: Failed to determine RHCOS AMI ID."; exit 16; fi
+  echo "Using RHCOS AMI ID: $RHCOS_AMI_ID."
+
+  echo "Generating installation manifests..."
+  "$OCP_INSTALL_PATH" create manifests --dir "$INSTALL_DIRNAME" --log-level=info
+  echo "Installation manifests generated."
+
+  echo "Removing managed control plane and worker Machine manifest files..."
+  rm -f "$INSTALL_DIRNAME"/openshift/99_openshift-cluster-api_master-machines-*.yaml
+  rm -f "$INSTALL_DIRNAME"/openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml
+  rm -f "$INSTALL_DIRNAME"/openshift/99_openshift-cluster-api_worker-machineset-*.yaml
+  echo "Managed manifest files removed."
+
+  echo "Generating ignition configs..."
+  "$OCP_INSTALL_PATH" create ignition-configs --dir "$INSTALL_DIRNAME" --log-level=info
+  echo "Ignition configs generated."
+
+  INFRASTRUCTURE_NAME=$(jq -r .infraID "$INSTALL_DIRNAME/metadata.json")
+  if [ -z "$INFRASTRUCTURE_NAME" ]; then echo "ERROR: Failed to extract infraID."; exit 18; fi
+  echo "Using InfrastructureName: $INFRASTRUCTURE_NAME"
+
+  echo "Creating S3 bucket '$UPI_S3_BUCKET_NAME' and uploading bootstrap.ign..."
+  aws s3 mb "s3://${UPI_S3_BUCKET_NAME}" --region "$AWS_DEFAULT_REGION"
+  aws s3 cp "$INSTALL_DIRNAME/bootstrap.ign" "s3://${UPI_S3_BUCKET_NAME}/bootstrap.ign"
+  echo "Bootstrap ignition uploaded to S3."
+
+  echo "Initiating CloudFormation stack deployments for UPI..."
+  HOSTED_ZONE_NAME_R53="${RHDP_TOP_LEVEL_ROUTE53_DOMAIN#.}"
+
+  VPC_NETWORK_STACK_NAME="${CFN_STACK_PREFIX}-network"
+  VPC_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/01-vpc-network.yaml"
+  VPC_PARAMETERS_JSON_FILE="${CFN_TEMPLATES_DIR}/vpc-parameters.json"
+  if [ ! -f "$VPC_TEMPLATE_FILE" ] || [ ! -f "$VPC_PARAMETERS_JSON_FILE" ]; then echo "ERROR: VPC template or parameters missing."; exit 19; fi
+  create_stack_and_wait "$VPC_NETWORK_STACK_NAME" "$VPC_TEMPLATE_FILE" "$VPC_PARAMETERS_JSON_FILE" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=Network"
+  NETWORK_STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name "$VPC_NETWORK_STACK_NAME" --query "Stacks[0].Outputs")
+  VPC_ID_FROM_CFN=$(echo "$NETWORK_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="VpcId") | .OutputValue')
+  PUBLIC_SUBNET_IDS_FROM_CFN_STR=$(echo "$NETWORK_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="PublicSubnetIds") | .OutputValue')
+  PRIVATE_SUBNET_IDS_FROM_CFN_STR=$(echo "$NETWORK_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="PrivateSubnetIds") | .OutputValue')
+  IFS=',' read -r -a PUBLIC_SUBNET_IDS_ARRAY <<< "$PUBLIC_SUBNET_IDS_FROM_CFN_STR"
+  IFS=',' read -r -a PRIVATE_SUBNET_IDS_ARRAY <<< "$PRIVATE_SUBNET_IDS_FROM_CFN_STR"
+  NUM_UPI_AZS=${#PRIVATE_SUBNET_IDS_ARRAY[@]}
+  echo "Network stack deployed. Found $NUM_UPI_AZS private subnets."
+
+  LOADBALANCER_STACK_NAME="${CFN_STACK_PREFIX}-loadbalancer"
+  LOADBALANCER_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/02-loadbalancer.yaml"
+  LOADBALANCER_PARAMETERS_JSON_FILE_TEMP="${CFN_GENERATED_PARAMS_DIR}/loadbalancer-params.json"
+  HOSTED_ZONE_ID_R53=$(aws route53 list-hosted-zones-by-name --dns-name "$HOSTED_ZONE_NAME_R53" --query "HostedZones[?Name=='$HOSTED_ZONE_NAME_R53.'].Id" --output text | sed 's#.*/##')
+  if [ -z "$HOSTED_ZONE_ID_R53" ]; then echo "ERROR: Hosted Zone ID for $HOSTED_ZONE_NAME_R53 not found."; exit 20; fi
+  jq -n --arg cn "$CLUSTER_NAME" --arg in "$INFRASTRUCTURE_NAME" --arg hzi "$HOSTED_ZONE_ID_R53" --arg hzn "$HOSTED_ZONE_NAME_R53" --arg psids "$PUBLIC_SUBNET_IDS_FROM_CFN_STR" --arg pvids "$PRIVATE_SUBNET_IDS_FROM_CFN_STR" --arg vpcid "$VPC_ID_FROM_CFN" '[{"ParameterKey":"ClusterName","ParameterValue":$cn},{"ParameterKey":"InfrastructureName","ParameterValue":$in},{"ParameterKey":"HostedZoneId","ParameterValue":$hzi},{"ParameterKey":"HostedZoneName","ParameterValue":$hzn},{"ParameterKey":"PublicSubnets","ParameterValue":$psids},{"ParameterKey":"PrivateSubnets","ParameterValue":$pvids},{"ParameterKey":"VpcId","ParameterValue":$vpcid}]' > "$LOADBALANCER_PARAMETERS_JSON_FILE_TEMP"
+  if [ ! -f "$LOADBALANCER_TEMPLATE_FILE" ]; then echo "ERROR: LoadBalancer template missing."; exit 21; fi
+  create_stack_and_wait "$LOADBALANCER_STACK_NAME" "$LOADBALANCER_TEMPLATE_FILE" "$LOADBALANCER_PARAMETERS_JSON_FILE_TEMP" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=LoadBalancer"
+  LOADBALANCER_STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name "$LOADBALANCER_STACK_NAME" --query "Stacks[0].Outputs")
+  EXTERNAL_API_TARGET_GROUP_ARN=$(echo "$LOADBALANCER_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="ExternalApiTargetGroupArn") | .OutputValue')
+  INTERNAL_API_TARGET_GROUP_ARN=$(echo "$LOADBALANCER_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="InternalApiTargetGroupArn") | .OutputValue')
+  INTERNAL_SERVICE_TARGET_GROUP_ARN=$(echo "$LOADBALANCER_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="InternalServiceTargetGroupArn") | .OutputValue')
+  REGISTER_NLB_IP_TARGETS_LAMBDA_ARN=$(echo "$LOADBALANCER_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="RegisterNlbIpTargetsLambda") | .OutputValue')
+  PRIVATE_HOSTED_ZONE_ID_FROM_LB_STACK=$(echo "$LOADBALANCER_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="PrivateHostedZoneId") | .OutputValue')
+  echo "LoadBalancer stack deployed."
+
+  SECURITY_STACK_NAME="${CFN_STACK_PREFIX}-security"
+  SECURITY_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/03-security.yaml"
+  SECURITY_PARAMETERS_JSON_FILE_TEMP="${CFN_GENERATED_PARAMS_DIR}/security-params.json"
+  VPC_CIDR_FOR_SECURITY_STACK=$(jq -r '.[] | select(.ParameterKey=="VpcCidr") | .ParameterValue' "$VPC_PARAMETERS_JSON_FILE")
+  jq -n --arg infra_name "$INFRASTRUCTURE_NAME" --arg vpc_cidr "$VPC_CIDR_FOR_SECURITY_STACK" --arg private_subnets "$PRIVATE_SUBNET_IDS_FROM_CFN_STR" --arg vpc_id "$VPC_ID_FROM_CFN" '[{"ParameterKey":"InfrastructureName","ParameterValue":$infra_name},{"ParameterKey":"VpcCidr","ParameterValue":$vpc_cidr},{"ParameterKey":"PrivateSubnets","ParameterValue":$private_subnets},{"ParameterKey":"VpcId","ParameterValue":$vpc_id}]' > "$SECURITY_PARAMETERS_JSON_FILE_TEMP"
+  if [ ! -f "$SECURITY_TEMPLATE_FILE" ]; then echo "ERROR: Security template missing."; exit 22; fi
+  create_stack_and_wait "$SECURITY_STACK_NAME" "$SECURITY_TEMPLATE_FILE" "$SECURITY_PARAMETERS_JSON_FILE_TEMP" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=Security"
+  SECURITY_STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name "$SECURITY_STACK_NAME" --query "Stacks[0].Outputs")
+  MASTER_SECURITY_GROUP_ID=$(echo "$SECURITY_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="MasterSecurityGroupId") | .OutputValue')
+  WORKER_SECURITY_GROUP_ID=$(echo "$SECURITY_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="WorkerSecurityGroupId") | .OutputValue')
+  MASTER_INSTANCE_PROFILE_NAME_PARAM_VAL=$(echo "$SECURITY_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="MasterInstanceProfile") | .OutputValue')
+  WORKER_INSTANCE_PROFILE_NAME_PARAM_VAL=$(echo "$SECURITY_STACK_OUTPUTS" | jq -r '.[] | select(.OutputKey=="WorkerInstanceProfile") | .OutputValue')
+  echo "Security stack deployed."
+
+  echo "Initiating parallel CloudFormation stack deployments for UPI (Bootstrap, Masters, Nodegroups)..."
+  declare -a STACK_PIDS=()
+
+  BOOTSTRAP_STACK_NAME="${CFN_STACK_PREFIX}-bootstrap"
+  BOOTSTRAP_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/04-bootstrap.yaml"
+  BOOTSTRAP_PARAMETERS_JSON_FILE_TEMP="${CFN_GENERATED_PARAMS_DIR}/bootstrap-params.json"
+  PUBLIC_SUBNET_FOR_BOOTSTRAP=${PUBLIC_SUBNET_IDS_ARRAY[0]}
+  jq -n --arg infra_name "$INFRASTRUCTURE_NAME" --arg rhcos_ami "$RHCOS_AMI_ID" --arg ssh_cidr "0.0.0.0/0" --arg pub_subnet "$PUBLIC_SUBNET_FOR_BOOTSTRAP" --arg master_sgid "$MASTER_SECURITY_GROUP_ID" --arg vpc_id "$VPC_ID_FROM_CFN" --arg bootstrap_ign_loc "s3://${UPI_S3_BUCKET_NAME}/bootstrap.ign" --arg auto_reg_elb "yes" --arg reg_lambda_arn "$REGISTER_NLB_IP_TARGETS_LAMBDA_ARN" --arg ext_api_tg_arn "$EXTERNAL_API_TARGET_GROUP_ARN" --arg int_api_tg_arn "$INTERNAL_API_TARGET_GROUP_ARN" --arg int_svc_tg_arn "$INTERNAL_SERVICE_TARGET_GROUP_ARN" '[{"ParameterKey":"InfrastructureName","ParameterValue":$infra_name},{"ParameterKey":"RhcosAmi","ParameterValue":$rhcos_ami},{"ParameterKey":"AllowedBootstrapSshCidr","ParameterValue":$ssh_cidr},{"ParameterKey":"PublicSubnet","ParameterValue":$pub_subnet},{"ParameterKey":"MasterSecurityGroupId","ParameterValue":$master_sgid},{"ParameterKey":"VpcId","ParameterValue":$vpc_id},{"ParameterKey":"BootstrapIgnitionLocation","ParameterValue":$bootstrap_ign_loc},{"ParameterKey":"AutoRegisterELB","ParameterValue":$auto_reg_elb},{"ParameterKey":"RegisterNlbIpTargetsLambdaArn","ParameterValue":$reg_lambda_arn},{"ParameterKey":"ExternalApiTargetGroupArn","ParameterValue":$ext_api_tg_arn},{"ParameterKey":"InternalApiTargetGroupArn","ParameterValue":$int_api_tg_arn},{"ParameterKey":"InternalServiceTargetGroupArn","ParameterValue":$int_svc_tg_arn}]' > "$BOOTSTRAP_PARAMETERS_JSON_FILE_TEMP"
+  if [ ! -f "$BOOTSTRAP_TEMPLATE_FILE" ]; then echo "ERROR: Bootstrap template missing."; exit 23; fi
+
+  echo "Starting Bootstrap stack ($BOOTSTRAP_STACK_NAME) deployment in background..."
+  create_stack_and_wait "$BOOTSTRAP_STACK_NAME" "$BOOTSTRAP_TEMPLATE_FILE" "$BOOTSTRAP_PARAMETERS_JSON_FILE_TEMP" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=Bootstrap" &
+  STACK_PIDS+=($!)
+  echo "Bootstrap stack ($BOOTSTRAP_STACK_NAME) deployment initiated in background (PID: ${STACK_PIDS[${#STACK_PIDS[@]}-1]})."
+
+  MASTERS_STACK_NAME="${CFN_STACK_PREFIX}-masters"
+  MASTERS_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/05-control-plane.yaml"
+  MASTERS_PARAMETERS_JSON_FILE_TEMP="${CFN_GENERATED_PARAMS_DIR}/masters-params.json"
+  PRIVATE_HOSTED_ZONE_NAME_FOR_MASTERS="${CLUSTER_NAME}.${HOSTED_ZONE_NAME_R53}"
+  CERTIFICATE_AUTHORITIES_DATA=$(jq -r '.ignition.security.tls.certificateAuthorities[0].source // ""' "$INSTALL_DIRNAME/master.ign")
+  jq -n --arg infra_name "$INFRASTRUCTURE_NAME" --arg rhcos_ami "$RHCOS_AMI_ID" --arg auto_dns "yes" --arg priv_hz_id "$PRIVATE_HOSTED_ZONE_ID_FROM_LB_STACK" --arg priv_hz_name "$PRIVATE_HOSTED_ZONE_NAME_FOR_MASTERS" --arg master0_subnet "${PRIVATE_SUBNET_IDS_ARRAY[0]}" --arg master1_subnet "${PRIVATE_SUBNET_IDS_ARRAY[1]}" --arg master2_subnet "${PRIVATE_SUBNET_IDS_ARRAY[2]}" --arg master_sgid "$MASTER_SECURITY_GROUP_ID" --arg ign_loc "https://api-int.${CLUSTER_FQDN_BASE}:22623/config/master" --arg cert_auth "$CERTIFICATE_AUTHORITIES_DATA" --arg master_profile_name "$MASTER_INSTANCE_PROFILE_NAME_PARAM_VAL" --arg master_inst_type "$AWS_INSTANCE_TYPE_CONTROLPLANE_NODES" --arg auto_reg_elb "yes" --arg reg_lambda_arn "$REGISTER_NLB_IP_TARGETS_LAMBDA_ARN" --arg ext_api_tg_arn "$EXTERNAL_API_TARGET_GROUP_ARN" --arg int_api_tg_arn "$INTERNAL_API_TARGET_GROUP_ARN" --arg int_svc_tg_arn "$INTERNAL_SERVICE_TARGET_GROUP_ARN" '[{"ParameterKey":"InfrastructureName","ParameterValue":$infra_name},{"ParameterKey":"RhcosAmi","ParameterValue":$rhcos_ami},{"ParameterKey":"AutoRegisterDNS","ParameterValue":$auto_dns},{"ParameterKey":"PrivateHostedZoneId","ParameterValue":$priv_hz_id},{"ParameterKey":"PrivateHostedZoneName","ParameterValue":$priv_hz_name},{"ParameterKey":"Master0Subnet","ParameterValue":$master0_subnet},{"ParameterKey":"Master1Subnet","ParameterValue":$master1_subnet},{"ParameterKey":"Master2Subnet","ParameterValue":$master2_subnet},{"ParameterKey":"MasterSecurityGroupId","ParameterValue":$master_sgid},{"ParameterKey":"IgnitionLocation","ParameterValue":$ign_loc},{"ParameterKey":"CertificateAuthorities","ParameterValue":$cert_auth},{"ParameterKey":"MasterInstanceProfileName","ParameterValue":$master_profile_name},{"ParameterKey":"MasterInstanceType","ParameterValue":$master_inst_type},{"ParameterKey":"AutoRegisterELB","ParameterValue":$auto_reg_elb},{"ParameterKey":"RegisterNlbIpTargetsLambdaArn","ParameterValue":$reg_lambda_arn},{"ParameterKey":"ExternalApiTargetGroupArn","ParameterValue":$ext_api_tg_arn},{"ParameterKey":"InternalApiTargetGroupArn","ParameterValue":$int_api_tg_arn},{"ParameterKey":"InternalServiceTargetGroupArn","ParameterValue":$int_svc_tg_arn}]' > "$MASTERS_PARAMETERS_JSON_FILE_TEMP"
+  if [ ! -f "$MASTERS_TEMPLATE_FILE" ]; then echo "ERROR: Masters template missing."; exit 24; fi
+
+  echo "Starting Masters stack ($MASTERS_STACK_NAME) deployment in background..."
+  create_stack_and_wait "$MASTERS_STACK_NAME" "$MASTERS_TEMPLATE_FILE" "$MASTERS_PARAMETERS_JSON_FILE_TEMP" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=Masters" &
+  STACK_PIDS+=($!)
+  echo "Masters stack ($MASTERS_STACK_NAME) deployment initiated in background (PID: ${STACK_PIDS[${#STACK_PIDS[@]}-1]})."
+
+  NODEGROUP_TEMPLATE_FILE="${CFN_TEMPLATES_DIR}/06-nodegroup.yaml"
+  NODE_ROLES=("worker" "infra" "storage")
+  NODE_COUNTS=("$AWS_WORKERS_COUNT" "$AWS_INFRA_NODES_COUNT" "$AWS_STORAGE_NODES_COUNT")
+  INSTANCE_TYPES=("$AWS_INSTANCE_TYPE_COMPUTE_NODES" "$AWS_INSTANCE_TYPE_INFRA_NODES" "$AWS_INSTANCE_TYPE_STORAGE_NODES")
+
+  for idx in ${!NODE_ROLES[@]}; do
+    ROLE_NAME=${NODE_ROLES[$idx]}
+    TOTAL_DESIRED_NODES=${NODE_COUNTS[$idx]}
+    INSTANCE_TYPE=${INSTANCE_TYPES[$idx]}
+
+    if [[ "$TOTAL_DESIRED_NODES" -gt 0 ]] && [[ "$NUM_UPI_AZS" -gt 0 ]]; then
+      echo "Distributing $TOTAL_DESIRED_NODES $ROLE_NAME nodes across $NUM_UPI_AZS AZs for parallel deployment..."
+      NODE_DISTRIBUTION_PER_AZ=($(distribute_nodes "$TOTAL_DESIRED_NODES" "$NUM_UPI_AZS"))
+
+      for az_idx in $(seq 0 $(($NUM_UPI_AZS - 1)) ); do
+        DESIRED_COUNT_FOR_THIS_AZ=${NODE_DISTRIBUTION_PER_AZ[$az_idx]:-0}
+        if [[ "$DESIRED_COUNT_FOR_THIS_AZ" -eq 0 ]]; then continue; fi
+
+        CURRENT_SUBNET_ID=${PRIVATE_SUBNET_IDS_ARRAY[$az_idx]}
+        AZ_NAME_SUFFIX=$(aws ec2 describe-subnets --subnet-ids "$CURRENT_SUBNET_ID" --query "Subnets[0].AvailabilityZone" --output text | sed 's/.*-//')
+        NODE_GROUP_STACK_NAME="${CFN_STACK_PREFIX}-nodegroup-${ROLE_NAME}-${AZ_NAME_SUFFIX}"
+        NODE_GROUP_PARAMETERS_FILE="${CFN_GENERATED_PARAMS_DIR}/nodegroup-${ROLE_NAME}-${AZ_NAME_SUFFIX}-params.json"
+        safe_cert_auth_data_ng="${CERTIFICATE_AUTHORITIES_DATA:-" "}"
+
+        jq_args_ng=(
+            -n
+            --arg infra_name "$INFRASTRUCTURE_NAME"
+            --arg node_group_name "$ROLE_NAME"
+            --arg az_suffix_val "$AZ_NAME_SUFFIX"
+            --arg rhcos_ami "$RHCOS_AMI_ID"
+            --arg subnet_id "$CURRENT_SUBNET_ID"
+            --arg node_sgid "$WORKER_SECURITY_GROUP_ID"
+            --arg ign_loc "https://api-int.${CLUSTER_FQDN_BASE}:22623/config/worker"
+            --arg cert_auth "$safe_cert_auth_data_ng"
+            --arg node_profile_name "$WORKER_INSTANCE_PROFILE_NAME_PARAM_VAL"
+            --arg instance_type "$INSTANCE_TYPE"
+            --arg desired_count "$DESIRED_COUNT_FOR_THIS_AZ"
+        )
+        json_template_ng='
+        [
+          {"ParameterKey":"InfrastructureName",    "ParameterValue":$infra_name},
+          {"ParameterKey":"NodeGroupName",         "ParameterValue":$node_group_name},
+          {"ParameterKey":"AZSuffix",              "ParameterValue":$az_suffix_val},
+          {"ParameterKey":"RhcosAmi",              "ParameterValue":$rhcos_ami},
+          {"ParameterKey":"Subnet",                "ParameterValue":$subnet_id},
+          {"ParameterKey":"NodeSecurityGroupId",   "ParameterValue":$node_sgid},
+          {"ParameterKey":"IgnitionLocation",      "ParameterValue":$ign_loc},
+          {"ParameterKey":"CertificateAuthorities","ParameterValue":$cert_auth},
+          {"ParameterKey":"NodeInstanceProfileName","ParameterValue":$node_profile_name},
+          {"ParameterKey":"InstanceType",          "ParameterValue":$instance_type},
+          {"ParameterKey":"DesiredNodeCount",      "ParameterValue":$desired_count}
+        ]
+        '
+        jq "${jq_args_ng[@]}" "$json_template_ng" > "$NODE_GROUP_PARAMETERS_FILE"
+        if [ ! -f "$NODEGROUP_TEMPLATE_FILE" ]; then echo "ERROR: Node Group template missing for $ROLE_NAME."; exit 250; fi
+
+        echo "Starting Node Group stack ($NODE_GROUP_STACK_NAME) deployment in background..."
+        create_stack_and_wait "$NODE_GROUP_STACK_NAME" "$NODEGROUP_TEMPLATE_FILE" "$NODE_GROUP_PARAMETERS_FILE" "Key=ClusterName,Value=$CLUSTER_NAME Key=InstallType,Value=UPI Key=Role,Value=$ROLE_NAME Key=NodeGroup,Value=$ROLE_NAME Key=AZSuffix,Value=$AZ_NAME_SUFFIX" &
+        STACK_PIDS+=($!)
+        echo "Node Group stack ($NODE_GROUP_STACK_NAME) deployment initiated in background (PID: ${STACK_PIDS[${#STACK_PIDS[@]}-1]})."
+      done
+    else
+      echo "Total desired $ROLE_NAME nodes is 0 or no AZs available. Skipping $ROLE_NAME node group for parallel deployment."
+    fi
+  done
+
+  echo "Waiting for all parallel stack deployments (Bootstrap, Masters, Nodegroups) to complete..."
+  PARALLEL_FAILURES=0
+  for pid in "${STACK_PIDS[@]}"; do
+    if wait "$pid"; then
+      echo "Background stack deployment (PID: $pid) completed successfully."
+    else
+      echo "ERROR: Background stack deployment (PID: $pid) failed."
+      PARALLEL_FAILURES=$((PARALLEL_FAILURES + 1))
+    fi
+  done
+
+  if [ "$PARALLEL_FAILURES" -gt 0 ]; then
+    echo "ERROR: $PARALLEL_FAILURES parallel stack deployment(s) failed. Check logs above. Aborting."
+    exit 30
+  fi
+  echo "All parallel stack deployments (Bootstrap, Masters, Nodegroups) completed."
+
+  KUBECONFIG_PATH="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+  echo "Exporting KUBECONFIG to $KUBECONFIG_PATH..."
+  export KUBECONFIG="$KUBECONFIG_PATH"
+  echo "export KUBECONFIG=$KUBECONFIG_PATH" >> "$HOME/.bashrc"
+
+  echo "Waiting for cluster bootstrap to complete..."
+  "$OCP_INSTALL_PATH" wait-for bootstrap-complete --dir "$INSTALL_DIRNAME" --log-level=info
+
+  EXPECTED_NODES_TOTAL=$((UPI_MASTER_COUNT + AWS_WORKERS_COUNT + AWS_INFRA_NODES_COUNT + AWS_STORAGE_NODES_COUNT))
+  echo "Expecting $EXPECTED_NODES_TOTAL nodes."
+  CSR_COUNT=0
+  MAX_CSR_CHECKS=120 
+  CSR_CHECK_INTERVAL=30 
+  echo "Approving pending CSRs..."
+  while true; do
+    if [ ! -f "$KUBECONFIG_PATH" ]; then
+        echo "WARN: Kubeconfig not found."
+        sleep "$CSR_CHECK_INTERVAL"; MAX_CSR_CHECKS=$((MAX_CSR_CHECKS - 1))
+        if [ "$MAX_CSR_CHECKS" -le 0 ]; then echo "ERROR: Kubeconfig unavailable."; exit 271; fi
+        continue
+    fi
+    export KUBECONFIG="$KUBECONFIG_PATH"
+    PENDING_CSRS=$(oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' 2>/dev/null)
+    OC_GET_CSR_EXIT_CODE=$?
+    NODES_READY_COUNT=$(oc get nodes --no-headers 2>/dev/null | awk '$2 == "Ready" {print $1}' | wc -l)
+    OC_GET_NODES_EXIT_CODE=$?
+
+    if [ $OC_GET_CSR_EXIT_CODE -ne 0 ]; then echo "WARN: 'oc get csr' failed."; NODES_READY_COUNT=0; fi
+    if [ $OC_GET_NODES_EXIT_CODE -ne 0 ]; then echo "WARN: 'oc get nodes' failed."; NODES_READY_COUNT=0; fi
+
+    if [ -z "$PENDING_CSRS" ] && [ $OC_GET_CSR_EXIT_CODE -eq 0 ]; then
+      echo "No pending CSRs."
+      if [ "$NODES_READY_COUNT" -ge "$EXPECTED_NODES_TOTAL" ]; then echo "All $EXPECTED_NODES_TOTAL nodes Ready. Breaking."; break;
+      else echo "$NODES_READY_COUNT/$EXPECTED_NODES_TOTAL nodes Ready. Waiting..."; fi
+    elif [ $OC_GET_CSR_EXIT_CODE -eq 0 ]; then
+      echo "Pending CSRs:" && echo "$PENDING_CSRS" && echo "$PENDING_CSRS" | xargs -r oc adm certificate approve && echo "Approved." && CSR_COUNT=$((CSR_COUNT + 1))
+    fi
+    echo "$NODES_READY_COUNT/$EXPECTED_NODES_TOTAL Ready. $MAX_CSR_CHECKS checks left."
+    MAX_CSR_CHECKS=$((MAX_CSR_CHECKS - 1))
+    if [ "$MAX_CSR_CHECKS" -le 0 ]; then echo "WARN: Max CSR checks. Proceeding."; break; fi
+    sleep "$CSR_CHECK_INTERVAL"
+  done
+
+  echo "Deleting bootstrap node CloudFormation stack: $BOOTSTRAP_STACK_NAME ..."
+  if aws cloudformation delete-stack --stack-name "$BOOTSTRAP_STACK_NAME"; then
+    aws cloudformation wait stack-delete-complete --stack-name "$BOOTSTRAP_STACK_NAME"
+    echo "Bootstrap stack $BOOTSTRAP_STACK_NAME deleted."
+  else
+    echo "WARN: Failed to delete bootstrap stack $BOOTSTRAP_STACK_NAME."
+  fi
+
+  echo "Finalizing installation with '$OCP_INSTALL_PATH wait-for install-complete'..."
+  "$OCP_INSTALL_PATH" wait-for install-complete --dir "$INSTALL_DIRNAME" --log-level=info
+  echo "OpenShift UPI Cluster installation successfully completed."
+
+  # Configure UPI Node Roles and Taints
+  if ! configure_upi_node_roles_and_taints; then
+    echo "ERROR: UPI Node Role and Taint Configuration failed. This might impact Day2 operations."
+    exit 28
+  fi
+
+else
+  echo "ERROR: Unknown INSTALL_TYPE: '$INSTALL_TYPE'."
+  exit 29
 fi
 
-if [[ $GIT_REPO_TOKEN_NAME ]]; then
-  echo "Create git repository secret for GitOps git repo"
-  oc create secret generic git-app-cluster --from-literal username=$GIT_REPO_TOKEN_NAME --from-literal password=$GIT_REPO_TOKEN_SECRET --from-literal type=git --from-literal url=$GIT_REPO_URL --from-literal project=default -n openshift-gitops
-  oc label secret git-app-cluster argocd.argoproj.io/secret-type=repository -n openshift-gitops
+if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
+  if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
+    export KUBECONFIG="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+    if ! configure_day2_gitops; then
+        echo "ERROR: Day2 GitOps Configuration failed."
+    fi
+  else
+    echo "WARN: Kubeconfig not found. Skipping Day2 GitOps configuration."
+  fi
+else
+  echo "Day2 GitOps Configuration is disabled."
 fi
 
-echo "Run day2 config through GitOps"
-mkdir day2_config/_generated
-yq ".spec.template.spec.source.repoURL = \"$GIT_REPO_URL\"" day2_config/patch_templates/applicationset-patch.yaml > day2_config/_generated/applicationset-patch.yaml
-oc create -k day2_config
+echo "--------------------------------------------"
+echo "OpenShift installation script on bastion finished."
+echo "Log file: $HOME/$BASTION_EXECUTION_LOG"
 
-echo "Remove kubeadmin user"
-oc delete secrets kubeadmin -n kube-system --ignore-not-found=true
-
-echo "----------------------------"
-echo "Your cluster API URL is:"
-oc whoami --show-server
-echo "----------------------------"
-echo "Your cluster console URL is:"
-oc whoami --show-console
-echo "----------------------------"
-
-
+if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
+  echo "KUBECONFIG: $HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+  echo "Cluster API URL: $(oc --kubeconfig="$HOME/$INSTALL_DIRNAME/auth/kubeconfig" whoami --show-server || echo "Error retrieving API URL")"
+  echo "Cluster Console URL: $(oc --kubeconfig="$HOME/$INSTALL_DIRNAME/auth/kubeconfig" whoami --show-console || echo "Error retrieving Console URL")"
+else
+  echo "Kubeconfig not found."
+fi
+echo "Date: $(date)"
+echo "Bastion script finished."
