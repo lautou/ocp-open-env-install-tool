@@ -1,9 +1,0 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - cluster-crb-clusterpolicies.nvidia.com-v1-admin-openshift-gitops-argocd-application-controller.yaml
-  - cluster-clusterpolicy-cluster-policy.yaml
-  - cluster-namespace-nvidia-gpu-operator.yaml
-  - nvidia-gpu-operator-operatorgroup-nvidia-gpu-operator-group.yaml
-  - nvidia-gpu-operator-subscription-gpu-operator-certified.yaml

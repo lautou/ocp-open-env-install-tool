@@ -23,9 +23,7 @@ spec:
       - item: network-observability
       - item: nfd
       # - item: nfs
-      # - item: nvidia-gpu-operator
       # - item: openshift-builds
-      # - item: openshift-ai
       - item: openshift-console
       - item: openshift-data-foundation
       # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
