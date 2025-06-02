@@ -295,27 +295,61 @@ configure_upi_node_roles_and_taints() {
   fi
   oc whoami
 
-  local MAX_NODE_CHECK_RETRIES=12
-  local NODE_CHECK_INTERVAL=10
+  echo "UPI Node Config: Identifying nodes by checking their EC2 instance tags..."
+  ALL_NODES_JSON=$(oc get nodes -o json 2>/dev/null)
+  if [ -z "$ALL_NODES_JSON" ]; then
+    echo "ERROR: UPI Node Config: Could not get list of nodes from the cluster."
+    return 1
+  fi
 
-  echo "UPI Node Config: Identifying and configuring infra nodes..."
-  local infra_nodes_found=false
-  local INFRA_NODES
-  for i in $(seq 1 $MAX_NODE_CHECK_RETRIES); do
-    INFRA_NODES=$(oc get nodes -l NodeGroup=infra --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null)
-    if [ -n "$INFRA_NODES" ]; then
-      infra_nodes_found=true
-      break
+  INFRA_NODES_TO_CONFIGURE=""
+  STORAGE_NODES_TO_CONFIGURE=""
+
+  # Loop through all nodes fetched from Kubernetes
+  for node_name in $(echo "$ALL_NODES_JSON" | jq -r '.items[].metadata.name'); do
+    provider_id=$(echo "$ALL_NODES_JSON" | jq -r ".items[] | select(.metadata.name==\"$node_name\") | .spec.providerID")
+    
+    if [ -z "$provider_id" ] || [[ "$provider_id" != aws* ]]; then
+      echo "UPI Node Config: Skipping node $node_name, providerID ('$provider_id') not found or not an AWS instance."
+      continue
     fi
-    echo "UPI Node Config: Waiting for infra nodes to be labeled with NodeGroup=infra... (Attempt $i/$MAX_NODE_CHECK_RETRIES)"
-    sleep $NODE_CHECK_INTERVAL
+    
+    instance_id=$(basename "$provider_id")
+    if [ -z "$instance_id" ]; then
+        echo "UPI Node Config: Could not extract instance ID from providerID '$provider_id' for node $node_name."
+        continue
+    fi
+
+    echo "UPI Node Config: Checking EC2 tags for node $node_name (Instance ID: $instance_id)..."
+    
+    instance_tags_json=$(aws ec2 describe-instances --instance-ids "$instance_id" --query "Reservations[].Instances[].Tags[]" --output json 2>/dev/null)
+    if [ -z "$instance_tags_json" ]; then
+        echo "UPI Node Config: Could not retrieve tags for instance $instance_id (node $node_name)."
+        continue
+    fi
+
+    node_group_tag_value=$(echo "$instance_tags_json" | jq -r '.[] | select(.Key=="NodeGroup") | .Value')
+
+    if [ "$node_group_tag_value" == "infra" ]; then
+      echo "UPI Node Config: Node $node_name (Instance ID: $instance_id) identified as INFRA via EC2 tag 'NodeGroup=infra'."
+      INFRA_NODES_TO_CONFIGURE="$INFRA_NODES_TO_CONFIGURE $node_name"
+    elif [ "$node_group_tag_value" == "storage" ]; then
+      echo "UPI Node Config: Node $node_name (Instance ID: $instance_id) identified as STORAGE via EC2 tag 'NodeGroup=storage'."
+      STORAGE_NODES_TO_CONFIGURE="$STORAGE_NODES_TO_CONFIGURE $node_name"
+    else
+      echo "UPI Node Config: Node $node_name (Instance ID: $instance_id) is not an infra or storage node based on 'NodeGroup' EC2 tag (value: '$node_group_tag_value'). Skipping role-specific configuration."
+    fi
   done
 
-  if ! $infra_nodes_found; then
-    echo "UPI Node Config: No infra nodes found with label NodeGroup=infra after $MAX_NODE_CHECK_RETRIES attempts. Skipping infra node configuration."
+  # Trim leading/trailing whitespace from the accumulated node lists
+  INFRA_NODES_TO_CONFIGURE=$(echo "$INFRA_NODES_TO_CONFIGURE" | xargs)
+  STORAGE_NODES_TO_CONFIGURE=$(echo "$STORAGE_NODES_TO_CONFIGURE" | xargs)
+
+  if [ -z "$INFRA_NODES_TO_CONFIGURE" ]; then
+    echo "UPI Node Config: No infra nodes identified to configure based on EC2 tags."
   else
-    echo "UPI Node Config: Found infra nodes: $INFRA_NODES"
-    for node_name in $INFRA_NODES; do
+    echo "UPI Node Config: Will configure infra nodes: [$INFRA_NODES_TO_CONFIGURE]"
+    for node_name in $INFRA_NODES_TO_CONFIGURE; do
       echo "UPI Node Config: Configuring infra node: $node_name"
       oc label node "$node_name" node-role.kubernetes.io/infra="" --overwrite || echo "WARN: Failed to apply infra label to $node_name"
       oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to $node_name"
@@ -324,40 +358,30 @@ configure_upi_node_roles_and_taints() {
     done
   fi
 
-  echo "UPI Node Config: Identifying and configuring storage nodes..."
-  local storage_nodes_found=false
-  local STORAGE_NODES
-  for i in $(seq 1 $MAX_NODE_CHECK_RETRIES); do
-    STORAGE_NODES=$(oc get nodes -l NodeGroup=storage --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null)
-    if [ -n "$STORAGE_NODES" ]; then
-      storage_nodes_found=true
-      break
-    fi
-    echo "UPI Node Config: Waiting for storage nodes to be labeled with NodeGroup=storage... (Attempt $i/$MAX_NODE_CHECK_RETRIES)"
-    sleep $NODE_CHECK_INTERVAL
-  done
-
-  if ! $storage_nodes_found; then
-    echo "UPI Node Config: No storage nodes found with label NodeGroup=storage after $MAX_NODE_CHECK_RETRIES attempts. Skipping storage node configuration."
+  if [ -z "$STORAGE_NODES_TO_CONFIGURE" ]; then
+    echo "UPI Node Config: No storage nodes identified to configure based on EC2 tags."
   else
-    echo "UPI Node Config: Found storage nodes: $STORAGE_NODES"
-    for node_name in $STORAGE_NODES; do
+    echo "UPI Node Config: Will configure storage nodes: [$STORAGE_NODES_TO_CONFIGURE]"
+    for node_name in $STORAGE_NODES_TO_CONFIGURE; do
       echo "UPI Node Config: Configuring storage node: $node_name"
       oc label node "$node_name" node-role.kubernetes.io/infra="" --overwrite || echo "WARN: Failed to apply infra label to storage node $node_name"
       oc label node "$node_name" cluster.ocs.openshift.io/openshift-storage="" --overwrite || echo "WARN: Failed to apply ocs-storage label to $node_name"
       
+      # Apply infra taints as storage nodes can also run infra workloads
       oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to storage node $node_name"
       oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute infra taint to storage node $node_name"
       
+      # Apply OCS/ODF specific taints (consistent with IPI and ODF operator expectations)
       oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule OCS taint to $node_name"
       oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute OCS taint to $node_name"
       
-      # Cleanup potentially conflicting taints if they were set by older methods
-      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoSchedule-  --overwrite=true >/dev/null 2>&1 || true
+      # Clean up potentially older/different OCS taints if necessary
+      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoSchedule- --overwrite=true >/dev/null 2>&1 || true
       oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoExecute- --overwrite=true >/dev/null 2>&1 || true
       echo "UPI Node Config: Finished configuring storage node: $node_name"
     done
   fi
+
   echo "--- UPI Node Role and Taint Configuration Finished ---"
   return 0
 }
