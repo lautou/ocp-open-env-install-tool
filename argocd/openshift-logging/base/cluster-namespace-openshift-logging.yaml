@@ -7,6 +7,6 @@ metadata:
       "node-role.kubernetes.io/infra"}]
   name: openshift-logging
   labels:
-    #argocd.argoproj.io/managed-by: openshift-gitops
+    argocd.argoproj.io/managed-by: openshift-gitops
     openshift.io/cluster-monitoring: "true"
     openshift.io/cluster-logging: "true"
