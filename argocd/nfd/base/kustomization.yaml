@@ -5,5 +5,4 @@ resources:
   - cluster-namespace-openshift-nfd.yaml
   - openshift-nfd-nodefeaturediscovery-nfd-instance.yaml
   - openshift-nfd-operatorgroup-openshift-nfd.yaml
-  - openshift-nfd-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - openshift-nfd-subscription-nfd.yaml
