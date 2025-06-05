@@ -6,6 +6,6 @@ metadata:
     scheduler.alpha.kubernetes.io/defaultTolerations: >-
       [{"operator": "Exists", "key":
       "node-role.kubernetes.io/infra"}]
-  name: openshift-operators
   labels:
     openshift.io/cluster-monitoring: "true"
+  name: openshift-operators

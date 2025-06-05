@@ -6,7 +6,7 @@ metadata:
     scheduler.alpha.kubernetes.io/defaultTolerations: >-
       [{"operator": "Exists", "key":
       "node.ocs.openshift.io/storage"}]
-  name: openshift-storage
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
     openshift.io/cluster-monitoring: "true"
+  name: openshift-storage
