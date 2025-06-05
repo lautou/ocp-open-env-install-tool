@@ -4,5 +4,4 @@ kind: Kustomization
 resources:
   - cluster-namespace-nfsprovisioner-operator.yaml
   - nfsprovisioner-operator-nfsprovisioner-nfsprovisioner-sample.yaml
-  - nfsprovisioner-operator-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - openshift-operators-subscription-nfs-provisioner-operator.yaml
