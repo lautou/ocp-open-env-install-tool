@@ -11,6 +11,5 @@ resources:
   - openshift-logging-lokistack-logging-loki.yaml
   - openshift-logging-obc-logging-loki.yaml
   - openshift-logging-operatorgroup-cluster-logging.yaml
-#  - openshift-logging-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - openshift-logging-sa-collector.yaml
   - openshift-logging-subscription-cluster-logging.yaml
