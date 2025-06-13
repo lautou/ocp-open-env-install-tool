@@ -6,3 +6,4 @@ resources:
   - openshift-gitops-job-enable-pipelines-console-plugin.yaml
   - openshift-gitops-job-disable-pipelines-console-plugin.yaml
   - openshift-pipelines-subscription-openshift-pipelines-operator.yaml
+  - TEMPORARY-FIX-openshift-gitops-job-regenerate-certficates-tekton-results.yaml
