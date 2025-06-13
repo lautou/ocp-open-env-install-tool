@@ -58,4 +58,4 @@ spec:
 
           echo "INFO: Hack job finished."
       restartPolicy: OnFailure
-      serviceAccountName: openshift-gitops-argocd-application-controller-api
+      serviceAccountName: openshift-gitops-argocd-application-controller
