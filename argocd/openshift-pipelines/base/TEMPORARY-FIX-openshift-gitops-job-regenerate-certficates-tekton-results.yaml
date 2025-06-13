@@ -6,7 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: regenerate-certficates-tekton-results
-  namespace: openshift-pipelines
+  namespace: openshift-gitops
 spec:
   template:
     metadata:
