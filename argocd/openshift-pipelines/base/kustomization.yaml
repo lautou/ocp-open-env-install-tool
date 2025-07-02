@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-openshift-pipelines.yaml
+  - cluster-tektonconfig-config.yaml
   - openshift-gitops-job-enable-pipelines-console-plugin.yaml
   - openshift-gitops-job-disable-pipelines-console-plugin.yaml
   - openshift-pipelines-subscription-openshift-pipelines-operator.yaml
