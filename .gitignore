@@ -1,4 +1,5 @@
-delete_records_*.json
 bastion.pem
+delete_records_*.json
+ocp_rhdp.config
 pull-secret.txt
 _upload_to_bastion

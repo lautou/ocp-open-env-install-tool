@@ -1,0 +1,60 @@
+# CHECK VARIABLE VALUES ARE BETWEEN DOUBLE QUOTES!
+
+# Installation type: "IPI" (Installer-Provisioned Infrastructure) or "UPI" (User-Provisioned Infrastructure)
+INSTALL_TYPE="IPI"
+
+# OpenShift version (must be 4.x.z format)
+OPENSHIFT_VERSION="4.18.12"
+
+# Enter here your Red Hat Demo Platform Lab Top Level Route53 Domain including the dot prefix at the beginning. Example: .sandbox1234.opentlc.com
+RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXXX.opentlc.com"
+
+# Enter here your cluster name
+CLUSTER_NAME="myocp"
+    
+# AWS credentials
+AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXXXXXXX"  # AWS Access Key ID
+AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  # AWS Secret Access Key
+
+# AWS Region. Change according to your location
+AWS_DEFAULT_REGION="eu-central-1"
+
+# General Node Counts
+AWS_WORKERS_COUNT="3"
+AWS_INFRA_NODES_COUNT="3"
+AWS_STORAGE_NODES_COUNT="3"
+
+# AWS Instance Type for Control Plane nodes.
+AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
+
+# AWS Instance Type for default Compute nodes.
+AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.xlarge"
+
+# At least m6i.2xlarge is required for the basic setup.
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+
+# At least m6i.xlarge is required for the MultiCloud Gateway deployment.
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+
+# Day2 GitOps/ArgoCD Configuration
+ENABLE_DAY2_GITOPS_CONFIG="true" # Set to "false" to disable Day2 GitOps/ArgoCD setup
+
+# Git credentials template for ArgoCD. This will allow to reuse your credentials for others repositories on ArgoCD. Leave it empty if not needed.
+# We only support HTTP(S) method.
+GIT_CREDENTIALS_TEMPLATE_URL="https://gitlab.consulting.redhat.com"
+# Fill your Git credentials here for the credentials template. Don't use your username/password! Use a generated token having read_repository scope only.
+GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=""
+GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=""
+
+# The URL for GitOps repository. Change these if using another repo for your GitOps configuration.
+# We only support HTTP(S) method to connect to Git. Don't forget to add .git extension at the end of the path, otherwise the script will stop.
+GIT_REPO_URL="https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git"
+
+# GitOps repository credentials. Leave them empty if using the credentials template above.
+# Don't use your username/password! Use a generated token having read_repository scope only.
+GIT_REPO_TOKEN_NAME=""
+GIT_REPO_TOKEN_SECRET=""
+
+# This is the base URL to download both CLI and installer. You are not supposed to modify it unless you need to experiment nightly releases.
+OCP_DOWNLOAD_BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp"
+
