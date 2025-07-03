@@ -9,42 +9,43 @@ cd $(dirname $0)
 echo "Clean temporary directories..."
 rm -rf "$UPLOAD_TO_BASTION_DIR"
 
+echo "Check if ocp_rhdp.config is present..."
+if [[ ! -f ocp_rhdp.config ]]; then
+  echo "ERROR: Cannot find ocp_rhdp.config file in $(pwd)!"
+  echo "Please copy 'ocp_rhdp.config.example' to 'ocp_rhdp.config' and fill in your details."
+  exit 1
+fi
+. ocp_rhdp.config
+
 echo "Check if aws CLI is installed..."
 if ! hash aws 2>/dev/null; then
   echo "aws CLI is not installed on your workstation! Ensure aws CLI is installed."
-  exit 1
+  exit 2
 fi
 
 echo "Check if podman is installed..."
 if ! hash podman 2>/dev/null; then
   echo "podman is needed to check Red Hat credentials! Ensure podman is installed."
-  exit 2
+  exit 3
 fi
 
 echo "Check if git is installed..."
 if ! hash git 2>/dev/null; then
   echo "git is required in order to check git connectivity to the git repository hosting GitOps resources! Ensure git is installed."
-  exit 3
+  exit 4
 fi
 
 echo "Check if yq is installed..."
 if ! hash yq 2>/dev/null; then
   echo "yq is required in order to inject proper yaml configuration files! Ensure yq is installed."
-  exit 4
+  exit 5
 fi
 
 echo "Check if pull-secret.txt file is present..."
 if [[ ! -f pull-secret.txt ]]; then
   echo "Cannot find pull-secret.txt file on $(dirname "$0")! Get this file from console.redhat.com using your Red Hat credentials and drop it into this directory."
-  exit 5
-fi
-
-echo "Check if ocp_rhdp.config is present..."
-if [[ ! -f ocp_rhdp.config ]]; then
-  echo "Cannot find ocp_rhdp.config file on $(dirname $0)"
   exit 6
 fi
-. ocp_rhdp.config 
 
 if [[ "$INSTALL_TYPE" != "IPI" && "$INSTALL_TYPE" != "UPI" ]]; then
   echo "Invalid INSTALL_TYPE in ocp_rhdp.config. Must be \"IPI\" or \"UPI\"."
