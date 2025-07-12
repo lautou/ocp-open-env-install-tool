@@ -2,11 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
+    argocd.argoproj.io/hook: PostDelete
     argocd.argoproj.io/sync-options: Force=true
   name: delete-openshift-builds-resources
   namespace: openshift-gitops
-  annotations:
-    argocd.argoproj.io/hook: PostDelete
 spec:
   template:
     metadata:
