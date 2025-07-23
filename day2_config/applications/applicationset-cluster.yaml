@@ -5,50 +5,76 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-  - list:
+    - list:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
-      elements:
-      - item: authorino
-      - item: cert-manager
-      # You should left the cluster-autoscaler enabled to allow the cluster to autoscale.
-      # - item: cluster-autoscaler
-      - item: cluster-images-registry
-      - item: cluster-ingress
-      - item: cluster-monitoring
-      # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
-      - item: cluster-oauth
-      - item: cluster-observability
-      # - item: developer-gitops
-      - item: loki
-      - item: network-observability
-      - item: nfd
-      # - item: nfs
-      # - item: openshift-builds
-      - item: openshift-console
-      - item: openshift-data-foundation
-      # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
-      - item: openshift-gitops-admin-config
-      - item: openshift-logging
-      - item: openshift-operators
-      - item: openshift-pipelines
-      - item: openshift-serverless
-      - item: openshift-service-mesh
-      - item: opentelemetry
-      - item: sealed-secrets
-      - item: tempo
-      - item: user-workload-monitoring
-      - item: webterminal
+        elements:
+          - branch: master
+            item: authorino
+          - branch: master
+            item: cert-manager
+        # - branch: master
+        #   item: cluster-autoscaler
+          - branch: master
+            item: cluster-images-registry
+          - branch: master
+            item: cluster-ingress
+          - branch: master
+            item: cluster-monitoring
+          # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
+          - branch: master
+            item: cluster-oauth
+          - branch: master
+            item: cluster-observability
+        # - branch: master
+        #   item: developer-gitops
+          - branch: master
+            item: loki
+          - branch: master
+            item: network-observability
+          - branch: master
+            item: nfd
+        # - branch: master
+        #   item: nfs
+        # - branch: master
+        #   item: openshift-builds
+          - branch: master
+            item: openshift-console
+          - branch: master
+            item: openshift-data-foundation
+        # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
+          - branch: master
+            item: openshift-gitops-admin-config
+          - branch: master
+            item: openshift-logging
+          - branch: master
+            item: openshift-operators
+          - branch: master
+            item: openshift-pipelines
+          - branch: master
+            item: openshift-serverless
+          - branch: master
+            item: openshift-service-mesh
+          - branch: master
+            item: opentelemetry
+          - branch: master
+            item: sealed-secrets
+          - branch: master
+            item: tempo
+          - branch: master
+            item: user-workload-monitoring
+          - branch: master
+            item: webterminal
   template:
     metadata:
       finalizers:
-      - resources-finalizer.argocd.argoproj.io/background
+        - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
       project: default
       source:
         repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
         path: argocd/{{item}}/overlays/default
-        targetRevision: master
+        targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
@@ -56,8 +82,8 @@ spec:
           prune: true
           selfHeal: true
       ignoreDifferences:
-      - group: operator.openshift.io
-        kind: IngressController
-        name: default
-        jsonPointers:
-        - /spec/defaultCertificate
+        - group: operator.openshift.io
+          kind: IngressController
+          name: default
+          jsonPointers:
+            - /spec/defaultCertificate
