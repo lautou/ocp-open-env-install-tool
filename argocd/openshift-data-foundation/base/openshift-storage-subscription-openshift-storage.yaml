@@ -7,7 +7,7 @@ spec:
   channel: "stable-4.18"
   config:
     nodeSelector:
-      node.ocs.openshift.io/storage: ''
+      cluster.ocs.openshift.io/openshift-storage: ''
     tolerations:
       - key: node.ocs.openshift.io/storage
         operator: Equal
