@@ -7,7 +7,7 @@ spec:
   channel: stable
   config:
     nodeSelector:
-      node-role.kubernetes.io/infra
+      node-role.kubernetes.io/infra:
     tolerations:
       - key: node.ocs.openshift.io/storage
         operator: Equal
