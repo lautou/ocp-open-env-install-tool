@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - cluster-namespace-openshift-local-storage.yaml
   - openshift-local-storage-localvolumediscovery-auto-discover-devices.yaml
+  - openshift-local-storage-localvolumeset-main.yaml
   - openshift-local-storage-operatorgroup-openshift-local-storage.yaml
   - openshift-local-storage-rb-edit-openshift-gitops-argocd-application-controller.yaml
   - openshift-local-storage-subscription-local-storage-operator.yaml
