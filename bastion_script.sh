@@ -373,11 +373,7 @@ configure_upi_node_roles_and_taints() {
       
       # Apply OCS/ODF specific taints (consistent with IPI and ODF operator expectations)
       oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule OCS taint to $node_name"
-      oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute OCS taint to $node_name"
       
-      # Clean up potentially older/different OCS taints if necessary
-      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoSchedule- --overwrite=true >/dev/null 2>&1 || true
-      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoExecute- --overwrite=true >/dev/null 2>&1 || true
       echo "UPI Node Config: Finished configuring storage node: $node_name"
     done
   fi
@@ -452,7 +448,7 @@ if [ "$INSTALL_TYPE" == "IPI" ]; then
         yq e -i ".spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\"" "$MS_STORAGE_TARGET_FILE"
-        yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}, {\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoExecute\"}]" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}]" "$MS_STORAGE_TARGET_FILE"
         echo "Generated storage MachineSet: $MS_STORAGE_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
       else
         echo "WARNING: Base worker machineset $MS_STORAGE_BASE_FILE not found."
