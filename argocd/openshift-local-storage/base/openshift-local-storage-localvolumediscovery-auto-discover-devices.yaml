@@ -7,8 +7,15 @@ spec:
   nodeSelector:
     nodeSelectorTerms:
       - matchExpressions:
-          - key: cluster.ocs.openshift.io/openshift-storage
-            operator: Exists
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+              - ip-10-0-36-141.eu-central-1.compute.internal
+              - ip-10-0-12-128.eu-central-1.compute.internal
+              - ip-10-0-91-193.eu-central-1.compute.internal
+              - ip-10-0-62-164.eu-central-1.compute.internal
+              - ip-10-0-27-46.eu-central-1.compute.internal
+              - ip-10-0-69-45.eu-central-1.compute.internal
   tolerations:
     - effect: NoSchedule
       key: node.ocs.openshift.io/storage
