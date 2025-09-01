@@ -449,6 +449,7 @@ if [ "$INSTALL_TYPE" == "IPI" ]; then
         yq e -i ".spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}]" "$MS_STORAGE_TARGET_FILE"
+        yq e -i '.spec.template.spec.providerSpec.value.blockDevices += [{"deviceName": "/dev/sdf", "ebs": {"volumeSize": 200, "volumeType": "gp3"}}]' "$MS_STORAGE_TARGET_FILE"
         echo "Generated storage MachineSet: $MS_STORAGE_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
       else
         echo "WARNING: Base worker machineset $MS_STORAGE_BASE_FILE not found."
