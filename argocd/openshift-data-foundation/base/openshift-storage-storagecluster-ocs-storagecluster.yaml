@@ -6,20 +6,6 @@ metadata:
   name: ocs-storagecluster
   namespace: openshift-storage
 spec:
-  managedResources:
-    cephFilesystems:
-      dataPoolSpec:
-        erasureCoded:
-          codingChunks: 0
-          dataChunks: 0
-        replicated:
-          size: 0
-    cephNonResilientPools:
-      count: 1
-    cephRBDMirror:
-      daemonCount: 1
-  monDataDirHostPath: /var/lib/rook
-  resourceProfile: balanced
   storageDeviceSets:
     - count: 1
       dataPVCTemplate:
@@ -29,7 +15,7 @@ spec:
           resources:
             requests:
               storage: '1'
-          storageClassName: local
+          storageClassName: local-volume-odf
           volumeMode: Block
       name: ocs-deviceset-local
       replica: 3
