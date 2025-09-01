@@ -9,7 +9,7 @@ resources:
   - openshift-gitops-job-create-secret-loki-s3.yaml
   - openshift-logging-clusterlogforwarder-instance.yaml
   - openshift-logging-lokistack-logging-loki.yaml
-  - openshift-logging-obc-logging-loki.yaml
+#  - openshift-logging-obc-logging-loki.yaml
   - openshift-logging-operatorgroup-cluster-logging.yaml
   - openshift-logging-sa-collector.yaml
   - openshift-logging-subscription-cluster-logging.yaml
