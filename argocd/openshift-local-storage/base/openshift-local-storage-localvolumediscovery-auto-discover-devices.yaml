@@ -1,6 +1,8 @@
 apiVersion: local.storage.openshift.io/v1alpha1
 kind: LocalVolumeDiscovery
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: auto-discover-devices
   namespace: openshift-local-storage
 spec:
