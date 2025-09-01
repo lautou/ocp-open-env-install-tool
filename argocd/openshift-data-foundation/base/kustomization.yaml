@@ -5,6 +5,7 @@ resources:
   - cluster-namespace-openshift-storage.yaml
   - openshift-gitops-job-disable-odf-console-plugins.yaml
   - openshift-gitops-job-enable-odf-console-plugins.yaml
+  - openshift-local-storage-localvolumeset-odf.yaml
   - openshift-storage-operatorgroup-openshift-storage.yaml
   - openshift-storage-rb-edit-openshift-gitops-argocd-application-controller.yaml
 #  - openshift-storage-storagecluster-ocs-storagecluster.yaml
