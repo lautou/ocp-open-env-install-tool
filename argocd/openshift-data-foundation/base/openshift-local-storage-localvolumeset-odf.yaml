@@ -13,8 +13,6 @@ spec:
             operator: Exists
   storageClassName: local-volume-odf
   tolerations:
-    - effect: NoSchedule
-      key: node.ocs.openshift.io/storage
-      operator: Equal
-      value: 'true'
+    - key: node.ocs.openshift.io/storage
+      operator: Exists
   volumeMode: Block
