@@ -13,3 +13,4 @@ spec:
             operator: Exists
   tolerations:
     - key: node.ocs.openshift.io/storage
+      operator: Exists
