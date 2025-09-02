@@ -6,6 +6,18 @@ metadata:
   name: ocs-storagecluster
   namespace: openshift-storage
 spec:
+  managedResources:
+    cephFilesystems:
+      dataPoolSpec:
+        erasureCoded:
+          codingChunks: 0
+          dataChunks: 0
+        replicated:
+          size: 0
+    cephNonResilientPools:
+      count: 1
+    cephRBDMirror:
+      daemonCount: 1
   resourceProfile: balanced
   storageDeviceSets:
     - count: 1
