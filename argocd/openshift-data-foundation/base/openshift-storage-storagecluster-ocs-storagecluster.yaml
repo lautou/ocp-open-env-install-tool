@@ -19,6 +19,7 @@ spec:
     cephRBDMirror:
       daemonCount: 1
   monDataDirHostPath: /var/lib/rook
+  resourceProfile: balanced
   storageDeviceSets:
     - count: 1
       dataPVCTemplate:
