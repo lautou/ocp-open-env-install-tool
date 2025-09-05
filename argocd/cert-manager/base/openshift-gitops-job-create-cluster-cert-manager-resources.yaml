@@ -19,7 +19,7 @@ spec:
             - |
               #!/bin/bash
               set -e
-              set -o pipefail # Important pour que les erreurs dans les pipes soient détectées
+              set -o pipefail # Important to catch errors in piped commands
 
               CERT_MANAGER_NAMESPACE="cert-manager"
               CERT_MANAGER_CR_NAME="cluster"
@@ -30,7 +30,7 @@ spec:
               done
               echo "CRD established."
 
-              # --- BOUCLE DE VÉRIFICATION ET DE RÉPARATION ROBUSTE ---
+              # --- ROBUST VERIFICATION AND REPAIR LOOP ---
               while true; do
                 echo "--- Starting new validation cycle for CertManager ---"
                 
@@ -41,37 +41,75 @@ spec:
                 echo "CertManager CR found."
 
                 echo "Entering health check loop for CertManager components (timeout: 5 minutes)..."
-                HEALTHY=false
-                # On se donne 5 minutes (30 * 10s = 300s) pour que tout devienne sain
-                for i in $(seq 1 9); do
-                  echo "Health check attempt ${i}/9..."
+                OVERALL_HEALTHY=false
+                # Timeout loop: 30 attempts * 10s sleep = 300s = 5 minutes
+                for i in $(seq 1 30); do
+                  echo "Health check attempt ${i}/30..."
                   
-                  # 1. Vérifier que les déploiements existent et sont disponibles
-                  # oc wait retourne 0 si c'est bon, 1 sinon. Le "&&" continue seulement si la commande précédente réussit.
-                  (oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager --for=condition=Available --timeout=0s 2>/dev/null && \
-                   oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-cainjector --for=condition=Available --timeout=0s 2>/dev/null && \
-                   oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook --for=condition=Available --timeout=0s 2>/dev/null) >/dev/null
-                  DEPLOYMENTS_READY=$?
-
-                  # 2. Vérifier que le service webhook a des endpoints
-                  # On récupère les adresses des subsets. S'il n'y en a pas, la commande renvoie une chaîne vide.
-                  WEBHOOK_ENDPOINTS=$(oc get endpoints -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook -o jsonpath='{.subsets[?(@.addresses)].addresses}')
-                  
-                  if [ ${DEPLOYMENTS_READY} -eq 0 ] && [ -n "${WEBHOOK_ENDPOINTS}" ]; then
-                    echo "SUCCESS: All deployments are available and the webhook service has endpoints."
-                    HEALTHY=true
-                    break # Sort de la boucle for
+                  # -- Component Status Check --
+                  # 1. Check cert-manager-controller deployment
+                  if oc get deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager &>/dev/null; then
+                    if oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager --for=condition=Available --timeout=0s &>/dev/null; then
+                      CONTROLLER_STATUS="READY"
+                    else
+                      CONTROLLER_STATUS="WAITING FOR READY"
+                    fi
                   else
-                    [ ${DEPLOYMENTS_READY} -ne 0 ] && echo "  - Waiting for deployments to become available..."
-                    [ -z "${WEBHOOK_ENDPOINTS}" ] && echo "  - Waiting for cert-manager-webhook service to get endpoints..."
-                    sleep 10
+                    CONTROLLER_STATUS="PENDING (Not created yet)"
                   fi
+
+                  # 2. Check cert-manager-cainjector deployment
+                  if oc get deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-cainjector &>/dev/null; then
+                    if oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-cainjector --for=condition=Available --timeout=0s &>/dev/null; then
+                      CAINJECTOR_STATUS="READY"
+                    else
+                      CAINJECTOR_STATUS="WAITING FOR READY"
+                    fi
+                  else
+                    CAINJECTOR_STATUS="PENDING (Not created yet)"
+                  fi
+                  
+                  # 3. Check cert-manager-webhook deployment
+                  if oc get deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook &>/dev/null; then
+                    if oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook --for=condition=Available --timeout=0s &>/dev/null; then
+                      WEBHOOK_DEPLOYMENT_STATUS="READY"
+                    else
+                      WEBHOOK_DEPLOYMENT_STATUS="WAITING FOR READY"
+                    fi
+                  else
+                    WEBHOOK_DEPLOYMENT_STATUS="PENDING (Not created yet)"
+                  fi
+                  
+                  # 4. Check that the webhook service has active endpoints
+                  WEBHOOK_ENDPOINTS=$(oc get endpoints -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook -o jsonpath='{.subsets[?(@.addresses)].addresses}')
+                  if [[ -n "${WEBHOOK_ENDPOINTS}" ]]; then
+                    WEBHOOK_SERVICE_STATUS="READY (Endpoints available)"
+                  else
+                    WEBHOOK_SERVICE_STATUS="PENDING (No endpoints)"
+                  fi
+
+                  # -- Print Status --
+                  echo "  - Controller Deployment: ${CONTROLLER_STATUS}"
+                  echo "  - Cainjector Deployment: ${CAINJECTOR_STATUS}"
+                  echo "  - Webhook Deployment:    ${WEBHOOK_DEPLOYMENT_STATUS}"
+                  echo "  - Webhook Service:       ${WEBHOOK_SERVICE_STATUS}"
+
+                  # -- Overall Health Decision --
+                  if [[ "${CONTROLLER_STATUS}" == "READY" && \
+                        "${CAINJECTOR_STATUS}" == "READY" && \
+                        "${WEBHOOK_DEPLOYMENT_STATUS}" == "READY" && \
+                        "${WEBHOOK_SERVICE_STATUS}" == "READY (Endpoints available)" ]]; then
+                    echo "SUCCESS: All CertManager components are healthy."
+                    OVERALL_HEALTHY=true
+                    break # Exit the 'for' loop
+                  fi
+                  
+                  sleep 10
                 done
 
-                # 3. Si après 5 minutes, ce n'est toujours pas sain, on supprime et on recommence
-                if [ "$HEALTHY" = "true" ]; then
-                  echo "CertManager is healthy. Proceeding with resource creation."
-                  break # Sort de la boucle while
+                if [ "$OVERALL_HEALTHY" = "true" ]; then
+                  echo "CertManager is fully operational. Proceeding with resource creation."
+                  break # Exit the 'while' loop
                 else
                   echo "FAILURE: CertManager did not become healthy after 5 minutes."
                   echo "Deleting CertManager CR '${CERT_MANAGER_CR_NAME}' to force a redeployment."
@@ -80,7 +118,7 @@ spec:
                   sleep 30
                 fi
               done
-              # --- FIN DE LA BOUCLE ---
+              # --- END OF LOOP ---
 
               echo "Read the secret for AWS cloud provider"
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
@@ -97,7 +135,7 @@ spec:
 
               export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region' -)
               echo "REGION=$REGION"
-              export BASEDOMAIN=$(echo "$INSTALL_config" | yq -r '.baseDomain' -)
+              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain' -)
               export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name' -)
               echo "CLUSTERNAME=$CLUSTERNAME"
               export TIMESTAMP=$(date +%s)
@@ -105,7 +143,7 @@ spec:
               
               echo "Applying ClusterIssuer..."
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | yq -y '.spec.acme.solvers[0].dns01.route53.region = "'"$REGION"'"' - \
+                | yq -y '.spec.acme.solvers[0].dns01.route5s3.region = "'"$REGION"'"' - \
                 | oc apply -f -
 
               echo "Applying Ingress Certificate..."
@@ -123,6 +161,6 @@ spec:
                 | yq -y '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
 
-              echo "CertManager setup completed successfully."          
+              echo "CertManager setup completed successfully."        
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
