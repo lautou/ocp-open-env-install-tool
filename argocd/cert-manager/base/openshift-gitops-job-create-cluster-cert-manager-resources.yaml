@@ -43,8 +43,8 @@ spec:
                 echo "Entering health check loop for CertManager components (timeout: 5 minutes)..."
                 HEALTHY=false
                 # On se donne 5 minutes (30 * 10s = 300s) pour que tout devienne sain
-                for i in $(seq 1 30); do
-                  echo "Health check attempt ${i}/30..."
+                for i in $(seq 1 9); do
+                  echo "Health check attempt ${i}/9..."
                   
                   # 1. Vérifier que les déploiements existent et sont disponibles
                   # oc wait retourne 0 si c'est bon, 1 sinon. Le "&&" continue seulement si la commande précédente réussit.
