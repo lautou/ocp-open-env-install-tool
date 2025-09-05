@@ -38,14 +38,16 @@ spec:
                   --for condition=cert-manager-controller-deploymentAvailable \
                   --for condition=cert-manager-cainjector-deploymentAvailable \
                   --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout=60s
-                if [ $? -ne 0 ]; then
-                  echo "Timeout waiting for available conditions. Retrying."
-                else
+                  --timeout=60s || true # Ignore timeout error to continue the loop
+                # Check if CertManager is degraded
+                degraded_count=$(oc get certmanager cluster -o yaml | yq '[.status.conditions[] | select(.type | endswith("Degraded") and .status == "True")] | length')
+                if [ $degraded_count -eq 0 ]; then
+                  echo "CertManager is not degraded and all conditions are met. Proceeding."
                   break
-                fi
-                oc delete certmanager cluster --ignore-not-found
-                echo "CertManager 'cluster' CR deleted."
+                else
+                  echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
+                  oc delete certmanager cluster --ignore-not-found
+                  echo "CertManager 'cluster' CR deleted."
               done
 
               echo
