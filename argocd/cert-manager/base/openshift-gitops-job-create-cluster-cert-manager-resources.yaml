@@ -48,6 +48,7 @@ spec:
                   echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
                   oc delete certmanager cluster --ignore-not-found
                   echo "CertManager 'cluster' CR deleted."
+                fi
               done
 
               echo
