@@ -19,87 +19,76 @@ spec:
             - |
               #!/bin/bash
               set -e
+              set -o pipefail # Important pour que les erreurs dans les pipes soient détectées
 
-              echo -n "Waiting for the cert-manager CRD (certmanagers.operator.openshift.io) to be established..."
+              CERT_MANAGER_NAMESPACE="cert-manager"
+              CERT_MANAGER_CR_NAME="cluster"
+
+              echo "Waiting for the cert-manager CRD (certmanagers.operator.openshift.io) to be established..."
               until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
-                echo -n "."
                 sleep 5
               done
-              echo " CRD established."
+              echo "CRD established."
 
-              echo "Applying workaround for CertManager race condition."
+              # --- BOUCLE DE VÉRIFICATION ET DE RÉPARATION ROBUSTE ---
               while true; do
-                echo -n "Waiting for CertManager 'cluster' CR to be created..."
-                until oc get certmanager cluster &>/dev/null; do
-                  echo -n "."
+                echo "--- Starting new validation cycle for CertManager ---"
+                
+                echo "Waiting for CertManager CR '${CERT_MANAGER_CR_NAME}' to be created..."
+                until oc get certmanager ${CERT_MANAGER_CR_NAME} &>/dev/null; do
                   sleep 10
                 done
-                echo " CR found."
+                echo "CertManager CR found."
 
-                echo -n "Waiting for CertManager to initialize..."
-                oc_wait_status=0
-                oc wait certmanager cluster \
-                  --for condition=cert-manager-controller-deploymentAvailable \
-                  --for condition=cert-manager-cainjector-deploymentAvailable \
-                  --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout=90s || oc_wait_status=$?
+                echo "Entering health check loop for CertManager components (timeout: 5 minutes)..."
+                HEALTHY=false
+                # On se donne 5 minutes (30 * 10s = 300s) pour que tout devienne sain
+                for i in $(seq 1 30); do
+                  echo "Health check attempt ${i}/30..."
+                  
+                  # 1. Vérifier que les déploiements existent et sont disponibles
+                  # oc wait retourne 0 si c'est bon, 1 sinon. Le "&&" continue seulement si la commande précédente réussit.
+                  (oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager --for=condition=Available --timeout=0s 2>/dev/null && \
+                   oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-cainjector --for=condition=Available --timeout=0s 2>/dev/null && \
+                   oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook --for=condition=Available --timeout=0s 2>/dev/null) >/dev/null
+                  DEPLOYMENTS_READY=$?
 
-                if [ $oc_wait_status -eq 0 ]; then
-                  echo "CertManager conditions met."
-                  certmanager_yaml=$(oc get certmanager cluster -o yaml 2>/dev/null || echo "")
-                  if [ -z "$certmanager_yaml" ]; then
-                    echo "CertManager CR 'cluster' not found or inaccessible. Retrying."
+                  # 2. Vérifier que le service webhook a des endpoints
+                  # On récupère les adresses des subsets. S'il n'y en a pas, la commande renvoie une chaîne vide.
+                  WEBHOOK_ENDPOINTS=$(oc get endpoints -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook -o jsonpath='{.subsets[?(@.addresses)].addresses}')
+                  
+                  if [ ${DEPLOYMENTS_READY} -eq 0 ] && [ -n "${WEBHOOK_ENDPOINTS}" ]; then
+                    echo "SUCCESS: All deployments are available and the webhook service has endpoints."
+                    HEALTHY=true
+                    break # Sort de la boucle for
                   else
-                    degraded_count=$(echo "$certmanager_yaml" | yq '.status.conditions[] | select(.type | test("Degraded")) | select(.status == "True") | .type' | wc -l | tr -d ' ' 2>/dev/null || echo "error")
-                    if [ "$degraded_count" == "error" ]; then
-                      echo "Error parsing CertManager status with yq. YAML content:"
-                      echo "$certmanager_yaml"
-                      echo "Retrying after deletion."
-                    elif [ "$degraded_count" -eq 0 ]; then
-                      echo "CertManager is not degraded and all conditions are met. Proceeding."
-                      break
-                    else
-                      echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
-                    fi
+                    [ ${DEPLOYMENTS_READY} -ne 0 ] && echo "  - Waiting for deployments to become available..."
+                    [ -z "${WEBHOOK_ENDPOINTS}" ] && echo "  - Waiting for cert-manager-webhook service to get endpoints..."
+                    sleep 10
                   fi
+                done
+
+                # 3. Si après 5 minutes, ce n'est toujours pas sain, on supprime et on recommence
+                if [ "$HEALTHY" = "true" ]; then
+                  echo "CertManager is healthy. Proceeding with resource creation."
+                  break # Sort de la boucle while
                 else
-                  echo "CertManager initialization timed out (exit status: $oc_wait_status). Checking status..."
-                  certmanager_yaml=$(oc get certmanager cluster -o yaml 2>/dev/null || echo "")
-                  if [ -z "$certmanager_yaml" ]; then
-                    echo "CertManager CR 'cluster' not found or inaccessible. Retrying."
-                  else
-                    degraded_count=$(echo "$certmanager_yaml" | yq '.status.conditions[] | select(.type | test("Degraded")) | select(.status == "True") | .type' | wc -l | tr -d ' ' 2>/dev/null || echo "error")
-                    if [ "$degraded_count" == "error" ]; then
-                      echo "Error parsing CertManager status with yq. YAML content:"
-                      echo "$certmanager_yaml"
-                      echo "Retrying after deletion."
-                    elif [ "$degraded_count" -eq 0 ]; then
-                      echo "CertManager is not degraded despite timeout. Proceeding."
-                      break
-                    else
-                      echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
-                    fi
-                  fi
+                  echo "FAILURE: CertManager did not become healthy after 5 minutes."
+                  echo "Deleting CertManager CR '${CERT_MANAGER_CR_NAME}' to force a redeployment."
+                  oc delete certmanager ${CERT_MANAGER_CR_NAME} --ignore-not-found
+                  echo "Waiting 30 seconds before retrying..."
+                  sleep 30
                 fi
-
-                oc delete certmanager cluster --ignore-not-found
-                echo "CertManager 'cluster' CR deleted."
-                echo "Waiting for CertManager CR to be recreated..."
-                sleep 15
               done
+              # --- FIN DE LA BOUCLE ---
 
               echo "Read the secret for AWS cloud provider"
-              while ! oc get secret aws-creds -n kube-system &>/dev/null; do
-                echo "Waiting for secret aws-creds in namespace kube-system."
-                sleep 5
-              done
-
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
               SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
 
               echo "Create the aws-acme secret"
-              oc delete secret generic aws-acme -n cert-manager --ignore-not-found
-              oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
+              oc delete secret generic aws-acme -n ${CERT_MANAGER_NAMESPACE} --ignore-not-found
+              oc create secret generic aws-acme -n ${CERT_MANAGER_NAMESPACE} --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
 
               INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
               CLUSTER_ISSUER_CLUSTER_TEMPLATE=$(oc extract cm/clusterissuer-cluster --keys cluster-clusterissuer-cluster.yaml --to - -n openshift-gitops)
@@ -108,30 +97,32 @@ spec:
 
               export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region' -)
               echo "REGION=$REGION"
-              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain' -)
+              export BASEDOMAIN=$(echo "$INSTALL_config" | yq -r '.baseDomain' -)
               export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name' -)
               echo "CLUSTERNAME=$CLUSTERNAME"
-
               export TIMESTAMP=$(date +%s)
               echo "TIMESTAMP=$TIMESTAMP"
               
+              echo "Applying ClusterIssuer..."
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
                 | yq -y '.spec.acme.solvers[0].dns01.route53.region = "'"$REGION"'"' - \
                 | oc apply -f -
 
+              echo "Applying Ingress Certificate..."
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
                 | yq -y '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | yq -y '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | yq -y '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | yq -y '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
-
+              
+              echo "Applying API Certificate..."
               echo "$CERTIFICATE_API_TEMPLATE" \
                 | yq -y '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | yq -y '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | yq -y '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
 
-              echo "CertManager setup completed successfully."
+              echo "CertManager setup completed successfully."          
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
