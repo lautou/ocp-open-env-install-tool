@@ -42,7 +42,7 @@ spec:
                   --for condition=cert-manager-controller-deploymentAvailable \
                   --for condition=cert-manager-cainjector-deploymentAvailable \
                   --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout=300s || oc_wait_status=$?
+                  --timeout=90s || oc_wait_status=$?
 
                 if [ $oc_wait_status -eq 0 ]; then
                   echo "CertManager conditions met."
@@ -115,7 +115,7 @@ spec:
               echo TIMESTAMP=$TIMESTAMP
 
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | yq '.spec.acme.solvers[0].dns01.route53.region = '\"$REGION\"'' - \
+                | yq ".spec.acme.solvers[0].dns01.route53.region = \"$REGION\"" - \
                 | oc apply -f -
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
                 | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
