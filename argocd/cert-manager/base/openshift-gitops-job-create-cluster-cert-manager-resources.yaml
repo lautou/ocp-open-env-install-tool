@@ -39,17 +39,25 @@ spec:
                   --for condition=cert-manager-cainjector-deploymentAvailable \
                   --for condition=cert-manager-webhook-deploymentAvailable \
                   --timeout=60s || true # Ignore timeout error to continue the loop
-                # Check if CertManager is degraded
-                degraded_count=$(echo "$certmanager_yaml" | yq e '[.status.conditions[] | select(.type | test("Degraded$") and .status == "True")] | length' - 2>/dev/null || echo "error")
-                if [ "$degraded_count" == "error" ]; then
-                  echo "Error parsing CertManager status. YAML content:"
-                  echo "$certmanager_yaml"
-                  echo "Retrying after deletion."
-                elif [ "$degraded_count" -eq 0 ]; then
-                  echo "CertManager is not degraded and all conditions are met. Proceeding."
-                  break
+
+                # Check if CertManager CR exists and get its status
+                echo "Checking CertManager status..."
+                certmanager_yaml=$(oc get certmanager cluster -o yaml 2>/dev/null || echo "")
+                if [ -z "$certmanager_yaml" ]; then
+                  echo "CertManager CR 'cluster' not found or inaccessible. Retrying."
                 else
-                  echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
+                  # Check for degraded conditions using a simpler yq command
+                  degraded_count=$(echo "$certmanager_yaml" | yq '.status.conditions | map(select(.type | contains("Degraded") and .status == "True")) | length' 2>/dev/null || echo "error")
+                  if [ "$degraded_count" == "error" ]; then
+                    echo "Error parsing CertManager status. YAML content:"
+                    echo "$certmanager_yaml"
+                    echo "Retrying after deletion."
+                  elif [ "$degraded_count" -eq 0 ]; then
+                    echo "CertManager is not degraded and all conditions are met. Proceeding."
+                    break
+                  else
+                    echo "CertManager is degraded (degraded conditions: $degraded_count). Deleting and retrying."
+                  fi
                 fi
               done
 
