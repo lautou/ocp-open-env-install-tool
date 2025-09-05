@@ -106,27 +106,30 @@ spec:
               CERTIFICATE_INGRESS_TEMPLATE=$(oc extract cm/openshift-ingress-certificate-ingress --keys openshift-ingress-certificate-ingress.yaml --to - -n openshift-gitops)
               CERTIFICATE_API_TEMPLATE=$(oc extract cm/openshift-config-certificate-api --keys openshift-config-certificate-api.yaml --to - -n openshift-gitops)
 
-              export REGION=$(echo "$INSTALL_CONFIG" | yq '.platform.aws.region' -)
-              echo REGION=$REGION
-              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq '.baseDomain' -)
-              export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq '.metadata.name' -)
-              echo CLUSTERNAME=$CLUSTERNAME
-              export TIMESTAMP=$(date +%s)
-              echo TIMESTAMP=$TIMESTAMP
+              export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region' -)
+              echo "REGION=$REGION"
+              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain' -)
+              export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name' -)
+              echo "CLUSTERNAME=$CLUSTERNAME"
 
+              export TIMESTAMP=$(date +%s)
+              echo "TIMESTAMP=$TIMESTAMP"
+              
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | yq '.spec.acme.solvers[0].dns01.route53.region = "'"$REGION"'"' - \
+                | yq -y '.spec.acme.solvers[0].dns01.route53.region = "'"$REGION"'"' - \
                 | oc apply -f -
+
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
-                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
-                | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
-                | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
-                | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
+
               echo "$CERTIFICATE_API_TEMPLATE" \
-                | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
-                | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
-                | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
+                | yq -y '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
 
               echo "CertManager setup completed successfully."
