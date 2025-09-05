@@ -25,27 +25,29 @@ spec:
               done
               echo " CRD established."
 
-              echo -n "Waiting for the initial CertManager 'cluster' CR to be created by ArgoCD..."
-              until oc get certmanager cluster &>/dev/null; do
-                echo -n "."
-                sleep 5
-              done
-              echo " Initial CertManager 'cluster' CR found."
-
-              echo "Applying workaround: Deleting and recreating CertManager 'cluster' CR."
-
-              oc delete certmanager cluster --ignore-not-found
-              echo "CertManager 'cluster' CR deleted."
-
-              echo -n "Waiting the cert manager to be created..."
-              while ! oc get certmanager cluster &>/dev/null; do echo -n .; done
-              echo
-              echo -n "Waiting the cert manager to initialized..."
-              oc wait certmanager cluster \
+              while true; do
+                echo -n "Waiting for CertManager 'cluster' CR to be created..."
+                until oc get certmanager cluster &>/dev/null; do
+                  echo -n "."
+                  sleep 5
+                done
+                echo
+                echo "CertManager 'cluster' CR found."
+                echo -n "Waiting for CertManager to initialize..."
+                oc wait certmanager cluster \
                   --for condition=cert-manager-controller-deploymentAvailable \
                   --for condition=cert-manager-cainjector-deploymentAvailable \
                   --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout -1s -n cert-manager
+                  --timeout=60s
+                if [ $? -ne 0 ]; then
+                  echo "Timeout waiting for available conditions. Retrying."
+                else
+                  break
+                fi
+                oc delete certmanager cluster --ignore-not-found
+                echo "CertManager 'cluster' CR deleted."
+              done
+
               echo
               echo "Read the secret for AWS cloud provider"
               while ! oc get secret aws-creds -n kube-system &>/dev/null; do echo "Waiting for secret aws-creds in namespace kube-system."; done
