@@ -40,6 +40,7 @@ echo "CLUSTER_NAME set to: $CLUSTER_NAME"
 echo "AWS_WORKERS_COUNT is: $AWS_WORKERS_COUNT"
 echo "AWS_INFRA_NODES_COUNT is: $AWS_INFRA_NODES_COUNT"
 echo "AWS_STORAGE_NODES_COUNT is: $AWS_STORAGE_NODES_COUNT"
+echo "ODF_FULL_INSTALL is: $ODF_FULL_INSTALL"
 echo "ENABLE_DAY2_GITOPS_CONFIG is: $ENABLE_DAY2_GITOPS_CONFIG"
 
 echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES set to: $AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
@@ -271,6 +272,31 @@ EOF_PATCH
   return 0
 }
 
+configure_day2_odf_kustomize() {
+  echo "--- Configuring Day2 ODF using Kustomize overlays (ODF_FULL_INSTALL=${ODF_FULL_INSTALL}) ---"
+
+  local applicationset_file="day2_config/applications/applicationset-cluster.yaml"
+
+  if [[ "$ODF_FULL_INSTALL" == "true" ]]; then
+    echo "Setting ODF path to 'full' overlay."
+    # Use yq to find the 'openshift-data-foundation' item and set its path
+    yq e -i '(.spec.generators[].list.elements[] | select(.item == "openshift-data-foundation")).path = "argocd/openshift-data-foundation/overlays/full"' "$applicationset_file"
+    
+    echo "Enabling openshift-local-storage application."
+    # Use sed to uncomment the line containing 'item: openshift-local-storage'
+    sed -i '/item: openshift-local-storage/s/^ *# *//' "$applicationset_file"
+  else
+    echo "Setting ODF path to 'mcg-only' overlay."
+    yq e -i '(.spec.generators[].list.elements[] | select(.item == "openshift-data-foundation")).path = "argocd/openshift-data-foundation/overlays/mcg-only"' "$applicationset_file"
+    
+    echo "Disabling openshift-local-storage application."
+    # Use sed to comment out the line if it's not already
+    sed -i '/item: openshift-local-storage/s/^/#/' "$applicationset_file"
+  fi
+
+  echo "--- ODF Kustomize Configuration Finished ---"
+}
+
 distribute_nodes() {
   local total_nodes=$1
   local num_distributions=$2
@@ -449,7 +475,9 @@ if [ "$INSTALL_TYPE" == "IPI" ]; then
         yq e -i ".spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}]" "$MS_STORAGE_TARGET_FILE"
-        yq e -i '.spec.template.spec.providerSpec.value.blockDevices += [{"deviceName": "/dev/sdf", "ebs": {"volumeSize": 200, "volumeType": "gp3"}}]' "$MS_STORAGE_TARGET_FILE"
+        if [[ "$ODF_FULL_INSTALL" == "true" ]]; then
+          yq e -i '.spec.template.spec.providerSpec.value.blockDevices += [{"deviceName": "/dev/sdf", "ebs": {"volumeSize": 200, "volumeType": "gp3"}}]' "$MS_STORAGE_TARGET_FILE"
+        fi
         echo "Generated storage MachineSet: $MS_STORAGE_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
       else
         echo "WARNING: Base worker machineset $MS_STORAGE_BASE_FILE not found."
@@ -743,6 +771,7 @@ fi
 if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
   if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
     export KUBECONFIG="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+    configure_day2_odf_kustomize
     if ! configure_day2_gitops; then
         echo "ERROR: Day2 GitOps Configuration failed."
     fi

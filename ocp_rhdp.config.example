@@ -47,6 +47,10 @@ AWS_WORKERS_COUNT="3"
 AWS_INFRA_NODES_COUNT="2"
 AWS_STORAGE_NODES_COUNT="3"
 
+# --- OpenShift Data Foundation (ODF) Configuration ---
+# Set to "true" for a full ODF deployment with block storage, or "false" for a Multi-Cloud Gateway (MCG) only deployment.
+ODF_FULL_INSTALL="false"
+
 # --- Day 2 GitOps Configuration ---
 # Set to "true" to automatically deploy Day 2 components (ArgoCD, Logging, Monitoring, etc.)
 ENABLE_DAY2_GITOPS_CONFIG="true"

@@ -39,13 +39,13 @@ spec:
         #   item: openshift-builds
           - branch: master
             item: openshift-console
-          - branch: odf-full
+          - branch: master
             item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
           - branch: master
             item: openshift-gitops-admin-config
-          - branch: odf-full
-            item: openshift-local-storage
+        # - branch: master # Local storage is only needed for full ODF
+        #   item: openshift-local-storage
           - branch: master
             item: openshift-logging
           - branch: master

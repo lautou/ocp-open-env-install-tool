@@ -8,5 +8,4 @@ resources:
   - openshift-local-storage-localvolumeset-odf.yaml
   - openshift-storage-operatorgroup-openshift-storage.yaml
   - openshift-storage-rb-edit-openshift-gitops-argocd-application-controller.yaml
-  - openshift-storage-storagecluster-ocs-storagecluster.yaml
   - openshift-storage-subscription-openshift-storage.yaml

@@ -1,0 +1,35 @@
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: ocs-storagecluster
+  namespace: openshift-storage
+spec:
+  managedResources:
+    cephFilesystems:
+      dataPoolSpec:
+        erasureCoded:
+          codingChunks: 0
+          dataChunks: 0
+        replicated:
+          size: 0
+    cephNonResilientPools:
+      count: 1
+    cephRBDMirror:
+      daemonCount: 1
+  monDataDirHostPath: /var/lib/rook
+  resourceProfile: balanced
+  storageDeviceSets:
+    - count: 1
+      dataPVCTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: '1'
+          storageClassName: local-volume-odf
+          volumeMode: Block
+      name: ocs-deviceset-local
+      replica: 3
