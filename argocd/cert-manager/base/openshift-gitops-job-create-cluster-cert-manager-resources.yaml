@@ -18,8 +18,10 @@ spec:
             - '-c'
             - |
               #!/bin/bash
+              # This script will wait for cert-manager to be fully operational,
+              # handling race conditions by retrying if it fails to initialize correctly.
               set -e
-              set -o pipefail # Important to catch errors in piped commands
+              set -o pipefail
 
               CERT_MANAGER_NAMESPACE="cert-manager"
               CERT_MANAGER_CR_NAME="cluster"
@@ -46,7 +48,6 @@ spec:
                 for i in $(seq 1 30); do
                   echo "Health check attempt ${i}/30..."
                   
-                  # -- Component Status Check --
                   # 1. Check cert-manager-controller deployment
                   if oc get deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager &>/dev/null; then
                     if oc wait deployment -n ${CERT_MANAGER_NAMESPACE} cert-manager --for=condition=Available --timeout=0s &>/dev/null; then
@@ -80,21 +81,22 @@ spec:
                     WEBHOOK_DEPLOYMENT_STATUS="PENDING (Not created yet)"
                   fi
                   
-                  # 4. Check that the webhook service has active endpoints
-                  WEBHOOK_ENDPOINTS=$(oc get endpoints -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook -o jsonpath='{.subsets[?(@.addresses)].addresses}')
+                  # 4. Check that the webhook service has active endpoints.
+                  # Use --ignore-not-found to prevent the script from exiting if the endpoints object doesn't exist yet.
+                  WEBHOOK_ENDPOINTS=$(oc get endpoints -n ${CERT_MANAGER_NAMESPACE} cert-manager-webhook --ignore-not-found -o jsonpath='{.subsets[?(@.addresses)].addresses}')
                   if [[ -n "${WEBHOOK_ENDPOINTS}" ]]; then
                     WEBHOOK_SERVICE_STATUS="READY (Endpoints available)"
                   else
                     WEBHOOK_SERVICE_STATUS="PENDING (No endpoints)"
                   fi
 
-                  # -- Print Status --
+                  # Print Status
                   echo "  - Controller Deployment: ${CONTROLLER_STATUS}"
                   echo "  - Cainjector Deployment: ${CAINJECTOR_STATUS}"
                   echo "  - Webhook Deployment:    ${WEBHOOK_DEPLOYMENT_STATUS}"
                   echo "  - Webhook Service:       ${WEBHOOK_SERVICE_STATUS}"
 
-                  # -- Overall Health Decision --
+                  # Overall Health Decision
                   if [[ "${CONTROLLER_STATUS}" == "READY" && \
                         "${CAINJECTOR_STATUS}" == "READY" && \
                         "${WEBHOOK_DEPLOYMENT_STATUS}" == "READY" && \
@@ -118,7 +120,6 @@ spec:
                   sleep 30
                 fi
               done
-              # --- END OF LOOP ---
 
               echo "Read the secret for AWS cloud provider"
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
@@ -143,7 +144,7 @@ spec:
               
               echo "Applying ClusterIssuer..."
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | yq -y '.spec.acme.solvers[0].dns01.route5s3.region = "'"$REGION"'"' - \
+                | yq -y '.spec.acme.solvers[0].dns01.route53.region = "'"$REGION"'"' - \
                 | oc apply -f -
 
               echo "Applying Ingress Certificate..."
@@ -161,6 +162,6 @@ spec:
                 | yq -y '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' - \
                 | oc apply -f -
 
-              echo "CertManager setup completed successfully."        
+              echo "CertManager setup completed successfully."    
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
