@@ -10,7 +10,7 @@ spec:
         elements:
           - branch: master
             item: authorino
-          - branch: master
+          - branch: odf-full
             item: cert-manager
         # - branch: master
         #   item: cluster-autoscaler
@@ -39,14 +39,14 @@ spec:
         #   item: openshift-builds
           - branch: master
             item: openshift-console
-          - branch: master
+          - branch: odf-full
             item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
-          - branch: master
+          - branch: odf-full
             item: openshift-gitops-admin-config
-        # - branch: master # Local storage is only needed for full ODF
+        # - branch: odf-full # Local storage is only needed for full ODF
         #   item: openshift-local-storage
-          - branch: master
+          - branch: odf-full
             item: openshift-logging
           - branch: master
             item: openshift-operators
