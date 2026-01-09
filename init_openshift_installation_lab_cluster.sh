@@ -87,48 +87,53 @@ echo "OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL"
 echo "------------------------------------"
 
 echo "Check if a credential template URL is filled..."
-if [[ "$GIT_CREDENTIALS_TEMPLATE_URL" ]]; then
-  if [[ ! "$GIT_CREDENTIALS_TEMPLATE_URL" =~ ^https?://.+$ ]]; then
-    echo "Git credential template URL: $GIT_CREDENTIALS_TEMPLATE_URL is invalid. Ensure it is correctly filled and only uses HTTP(S) method."
-    exit 9
-  elif [[ -z "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]]; then
-    echo "No Git token name provided for credential template! Please provide a token name."
-    exit 10
-  elif [[ -z "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
-    echo "No Git token secret provided for credential template! Please provide a token secret."
-    exit 11
+if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
+  if [[ "$GIT_CREDENTIALS_TEMPLATE_URL" ]]; then
+    if [[ ! "$GIT_CREDENTIALS_TEMPLATE_URL" =~ ^https?://.+$ ]]; then
+      echo "Git credential template URL: $GIT_CREDENTIALS_TEMPLATE_URL is invalid. Ensure it is correctly filled and only uses HTTP(S) method."
+      exit 9
+    elif [[ -z "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]]; then
+      echo "No Git token name provided for credential template! Please provide a token name."
+      exit 10
+    elif [[ -z "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
+      echo "No Git token secret provided for credential template! Please provide a token secret."
+      exit 11
+    fi
   fi
-fi
 
-echo "Check if git repo URL is valid..."
-if [[ "$GIT_REPO_URL" =~ ^(https?)://(.+/.+\.git)$ ]]; then
-  GIT_REPO_URL_SCHEME=${BASH_REMATCH[1]}
-  GIT_REPO_URL_DOMAIN_PATH=${BASH_REMATCH[2]}
+  echo "Check if git repo URL is valid..."
+  if [[ "$GIT_REPO_URL" =~ ^(https?)://(.+/.+\.git)$ ]]; then
+    GIT_REPO_URL_SCHEME=${BASH_REMATCH[1]}
+    GIT_REPO_URL_DOMAIN_PATH=${BASH_REMATCH[2]}
+  else
+    echo "Git base URL: $GIT_REPO_URL is invalid. Ensure it is filled, it only uses HTTP(S) method and '.git' extension is added at the end to the path."
+    exit 12
+  fi
+
+  echo "Check if a repo token is required..."
+  if [[ "$GIT_REPO_TOKEN_NAME" ]] && [[ -z "$GIT_REPO_TOKEN_SECRET" ]]; then
+      echo "No Git token secret provided for the GitOps git repository! Please provide a token secret."
+      exit 13
+  fi
+
+  echo "Check if we can connect to the repository..."
+  if [[ -n "$GIT_REPO_TOKEN_NAME" ]]; then
+    echo "We use the explicitely provided git repo token to check the connectivity"
+    GIT_URL_TO_CHECK="$GIT_REPO_URL_SCHEME://$GIT_REPO_TOKEN_NAME:$GIT_REPO_TOKEN_SECRET@$GIT_REPO_URL_DOMAIN_PATH"
+  elif [[ "$GIT_REPO_URL" =~ ^"$GIT_CREDENTIALS_TEMPLATE_URL" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
+    echo "The git repo URL matches the git credential URL, so we use the credential template token to check the connectivity..."
+    GIT_URL_TO_CHECK="$GIT_REPO_URL_SCHEME://$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME:$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET@$GIT_REPO_URL_DOMAIN_PATH"
+  else
+    echo "No specific credential provided for this repo URL, or template credentials incomplete. Trying anonymous connectivity..."
+    GIT_URL_TO_CHECK="$GIT_REPO_URL"
+  fi
+  if ! git ls-remote -q "$GIT_URL_TO_CHECK" &>/dev/null; then
+    echo "Unable to connect to the repo $GIT_REPO_URL. Check the credentials and/or the repository path."
+    exit 14
+  fi
+
 else
-  echo "Git base URL: $GIT_REPO_URL is invalid. Ensure it is filled, it only uses HTTP(S) method and '.git' extension is added at the end to the path."
-  exit 12
-fi
-
-echo "Check if a repo token is required..."
-if [[ "$GIT_REPO_TOKEN_NAME" ]] && [[ -z "$GIT_REPO_TOKEN_SECRET" ]]; then
-    echo "No Git token secret provided for the GitOps git repository! Please provide a token secret."
-    exit 13
-fi
-
-echo "Check if we can connect to the repository..."
-if [[ -n "$GIT_REPO_TOKEN_NAME" ]]; then
-  echo "We use the explicitely provided git repo token to check the connectivity"
-  GIT_URL_TO_CHECK="$GIT_REPO_URL_SCHEME://$GIT_REPO_TOKEN_NAME:$GIT_REPO_TOKEN_SECRET@$GIT_REPO_URL_DOMAIN_PATH"
-elif [[ "$GIT_REPO_URL" =~ ^"$GIT_CREDENTIALS_TEMPLATE_URL" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
-  echo "The git repo URL matches the git credential URL, so we use the credential template token to check the connectivity..."
-  GIT_URL_TO_CHECK="$GIT_REPO_URL_SCHEME://$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME:$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET@$GIT_REPO_URL_DOMAIN_PATH"
-else
-  echo "No specific credential provided for this repo URL, or template credentials incomplete. Trying anonymous connectivity..."
-  GIT_URL_TO_CHECK="$GIT_REPO_URL"
-fi
-if ! git ls-remote -q "$GIT_URL_TO_CHECK" &>/dev/null; then
-  echo "Unable to connect to the repo $GIT_REPO_URL. Check the credentials and/or the repository path."
-  exit 14
+  echo "Day 2 GitOps configuration is disabled. Skipping Git credentials and repository checks."
 fi
 
 echo "Check if Route53 base domain is valid..."
