@@ -8,10 +8,10 @@ spec:
     - list:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
         elements:
-          - branch: master
-            item: authorino
-          - branch: master
-            item: cert-manager
+        #  - branch: master
+        #    item: authorino
+        #  - branch: master
+        #    item: cert-manager
         # - branch: master
         #   item: cluster-autoscaler
           - branch: master
@@ -21,8 +21,8 @@ spec:
           - branch: master
             item: cluster-monitoring
           # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
-          - branch: master
-            item: cluster-oauth
+        #  - branch: master
+        #    item: cluster-oauth
           - branch: master
             item: cluster-observability
         # - branch: master
@@ -37,8 +37,8 @@ spec:
         #   item: nfs
         # - branch: master
         #   item: openshift-builds
-          - branch: master
-            item: openshift-console
+        #  - branch: master
+        #    item: openshift-console
           - branch: master
             item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
@@ -50,14 +50,14 @@ spec:
             item: openshift-operators
           - branch: master
             item: openshift-pipelines
-          - branch: master
-            item: openshift-serverless
-          - branch: master
-            item: openshift-service-mesh
+        #  - branch: master
+        #    item: openshift-serverless
+        #  - branch: master
+        #    item: openshift-service-mesh
           - branch: master
             item: opentelemetry
-          - branch: master
-            item: sealed-secrets
+        #  - branch: master
+        #    item: sealed-secrets
           - branch: master
             item: tempo
           - branch: master
@@ -72,7 +72,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
         path: argocd/{{item}}/overlays/default
         targetRevision: '{{branch}}'
       destination:
