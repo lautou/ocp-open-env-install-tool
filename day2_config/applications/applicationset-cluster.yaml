@@ -21,8 +21,8 @@ spec:
           - branch: master
             item: cluster-monitoring
           # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
-        #  - branch: master
-        #    item: cluster-oauth
+          - branch: master
+            item: cluster-oauth
           - branch: master
             item: cluster-observability
         # - branch: master
