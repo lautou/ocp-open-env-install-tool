@@ -58,7 +58,7 @@ CFN_GENERATED_PARAMS_DIR="cfn_generated_parameters"
 mkdir -p "$CFN_GENERATED_PARAMS_DIR"
 
 echo "Installing required packages..."
-sudo dnf install -y wget jq unzip
+sudo dnf install -y wget jq unzip httpd-tools
 echo "Required packages installed."
 
 echo "Installing yq..."
@@ -168,6 +168,48 @@ fi
 echo "Generated $INSTALL_DIRNAME/install-config.yaml."
 yq e 'del(.pullSecret)' "$INSTALL_DIRNAME/install-config.yaml"
 echo
+
+configure_oauth_secret() {
+  echo "--- Configuring OAuth htpasswd secret ---"
+  
+  if [[ -z "$OCP_ADMIN_PASSWORD" ]] || [[ -z "$OCP_NON_ADMIN_PASSWORD" ]]; then
+    echo "ERROR: OCP_ADMIN_PASSWORD or OCP_NON_ADMIN_PASSWORD not set in ocp_rhdp.config."
+    return 1
+  fi
+
+  local htpasswd_file="users.htpasswd"
+  rm -f "$htpasswd_file"
+
+  echo "Generating htpasswd file..."
+  # Create file with admin user
+  htpasswd -c -B -b "$htpasswd_file" admin "$OCP_ADMIN_PASSWORD"
+
+  # Append non-admin users
+  local users=("karla" "andrew" "bob" "marina")
+  for user in "${users[@]}"; do
+    htpasswd -B -b "$htpasswd_file" "$user" "$OCP_NON_ADMIN_PASSWORD"
+  done
+
+  echo "Creating/Updating htpass-secret in openshift-config namespace..."
+  # Ensure the namespace exists (it should, but safety first)
+  if ! oc get ns openshift-config &> /dev/null; then
+    echo "ERROR: Namespace openshift-config not found."
+    return 1
+  fi
+
+  # Create the secret imperatively. Using dry-run | apply allows it to update if it exists.
+  # We add the annotation to prevent ArgoCD from pruning it if you decide to enable pruning later,
+  # though simply removing it from ArgoCD's view is usually enough.
+  oc create secret generic htpass-secret \
+    --from-file=htpasswd="$htpasswd_file" \
+    -n openshift-config \
+    --dry-run=client -o yaml | \
+    oc annotate -f - --local "argocd.argoproj.io/sync-options=Delete=false" | \
+    oc apply -f -
+
+  rm -f "$htpasswd_file"
+  echo "--- OAuth secret configured successfully ---"
+}
 
 configure_day2_gitops() {
   echo "--- Starting Day2 GitOps/ArgoCD Configuration ---"
@@ -746,6 +788,10 @@ fi
 if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
   if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
     export KUBECONFIG="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+    if ! configure_oauth_secret; then
+        echo "ERROR: Failed to configure OAuth secret."
+        exit 1
+    fi
     if ! configure_day2_gitops; then
         echo "ERROR: Day2 GitOps Configuration failed."
     fi

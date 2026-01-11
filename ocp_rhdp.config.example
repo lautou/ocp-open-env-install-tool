@@ -67,3 +67,10 @@ GIT_REPO_TOKEN_SECRET=""
 GIT_CREDENTIALS_TEMPLATE_URL="https://gitlab.consulting.redhat.com"
 GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME="ocp"
 GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET="XXXXXXXXXXXXXXXXXXXXX"
+
+# --- OAuth Security Configuration ---
+# Passwords for the cluster OAuth users.
+# These will be used to generate the htpasswd secret on the bastion.
+OCP_ADMIN_PASSWORD="XXXXXXXXXX"
+OCP_NON_ADMIN_PASSWORD="XXXXXXXX"
+
