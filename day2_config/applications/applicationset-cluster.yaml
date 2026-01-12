@@ -10,8 +10,8 @@ spec:
         elements:
         #  - branch: master
         #    item: authorino
-        #  - branch: master
-        #    item: cert-manager
+          - branch: master
+            item: cert-manager
         # - branch: master
         #   item: cluster-autoscaler
           - branch: master
