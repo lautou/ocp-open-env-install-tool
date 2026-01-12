@@ -11,11 +11,11 @@
 # =================================================================
 
 # --- Installation Parameters ---
-# Installation Type: "IPI" (Installer Provisioned Infrastructure) or "UPI" (User Provisioned Infrastructure)
+# Installation type: "IPI" (Installer Provisioned Infrastructure) or "UPI" (User Provisioned Infrastructure)
 INSTALL_TYPE="IPI"
 
-# OpenShift version (e.g., "4.18.17")
-OPENSHIFT_VERSION="4.18.17"
+# OpenShift version (must be 4.x.z format)
+OPENSHIFT_VERSION="4.20.8"
 
 # --- Red Hat Demo Platform (RHDP) Configuration ---
 # Your RHDP Lab Top Level Route53 Domain, including the leading dot.
@@ -39,13 +39,13 @@ AWS_DEFAULT_REGION="eu-central-1"
 # Instance types for OCP nodes.
 AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
 AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.4xlarge"
-AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.4xlarge"
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.2xlarge"
 
 # Node counts for the cluster.
 AWS_WORKERS_COUNT="3"
-AWS_INFRA_NODES_COUNT="2"
-AWS_STORAGE_NODES_COUNT="3"
+AWS_INFRA_NODES_COUNT="3"
+AWS_STORAGE_NODES_COUNT="1"
 
 # --- Day 2 GitOps Configuration ---
 # Set to "true" to automatically deploy Day 2 components (ArgoCD, Logging, Monitoring, etc.)
@@ -53,7 +53,7 @@ ENABLE_DAY2_GITOPS_CONFIG="true"
 
 # The Git URL for this repository (ocp-open-env-install-tool).
 # This is used by ArgoCD to manage Day 2 components.
-GIT_REPO_URL="https://gitlab.consulting.redhat.com/openshift-toolkit/ocp-open-env-install-tool.git"
+GIT_REPO_URL="https://github.com/lautou/ocp-open-env-install-tool.git"
 
 # --- Git Credentials (Optional) ---
 # Provide these only if the Git repository specified in GIT_REPO_URL is private.
@@ -64,7 +64,7 @@ GIT_REPO_TOKEN_SECRET=""
 
 # A URL for a generic Git credential template for ArgoCD.
 # This allows ArgoCD to access other repositories (e.g., from other toolkits).
-GIT_CREDENTIALS_TEMPLATE_URL="https://gitlab.consulting.redhat.com"
+GIT_CREDENTIALS_TEMPLATE_URL="https://github.com"
 GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME="ocp"
 GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET="XXXXXXXXXXXXXXXXXXXXX"
 
@@ -74,3 +74,5 @@ GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET="XXXXXXXXXXXXXXXXXXXXX"
 OCP_ADMIN_PASSWORD="XXXXXXXXXX"
 OCP_NON_ADMIN_PASSWORD="XXXXXXXX"
 
+# This is the base URL to download both CLI and installer. You are not supposed to modify it unless you need to experiment nightly releases.
+OCP_DOWNLOAD_BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp"
