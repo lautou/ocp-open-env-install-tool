@@ -15,3 +15,17 @@ spec:
       tolerations:
         - key: node-role.kubernetes.io/infra
           operator: Exists
+  webhookConfig:
+    overrideScheduling:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+  cainjectorConfig:
+    overrideScheduling:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
