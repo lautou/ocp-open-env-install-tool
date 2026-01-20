@@ -1,0 +1,12 @@
+apiVersion: controller.devfile.io/v1alpha1
+kind: DevWorkspaceOperatorConfig
+metadata:
+  name: devworkspace-operator-config
+  namespace: openshift-operators
+config:
+  webhook:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
