@@ -3,7 +3,4 @@ kind: Namespace
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
-    scheduler.alpha.kubernetes.io/defaultTolerations: >-
-      [{"operator": "Exists", "key":
-      "node-role.kubernetes.io/infra"}]
   name: openshift-builds
