@@ -5,6 +5,14 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: cluster
 spec:
+  consolePlugin:
+    advanced:
+      scheduling:
+        nodeSelector:
+          node-role.kubernetes.io/infra: ''
+        tolerations:
+          - key: node-role.kubernetes.io/infra
+            operator: Exists
   loki:
     enable: false
 
