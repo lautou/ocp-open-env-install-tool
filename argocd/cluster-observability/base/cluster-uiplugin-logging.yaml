@@ -5,9 +5,15 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: logging
 spec:
-  type: Logging
+  deployment:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
   logging:
     lokiStack:
       name: logging-loki
     logsLimit: 50
     timeout: 30s
+  type: Logging
