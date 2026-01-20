@@ -45,6 +45,8 @@ spec:
           - branch: master
             item: openshift-logging
           - branch: master
+            item: openshift-operators
+          - branch: master
             item: openshift-pipelines
         #  - branch: master
         #    item: openshift-serverless
