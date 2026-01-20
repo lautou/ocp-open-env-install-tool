@@ -1,7 +1,7 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: collect-application-logs-collector
+  name: logging-collector-logs-writer-openshift-logging-collector
 subjects:
   - kind: ServiceAccount
     name: collector
@@ -9,4 +9,4 @@ subjects:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: collect-application-logs
+  name: logging-collector-logs-writer

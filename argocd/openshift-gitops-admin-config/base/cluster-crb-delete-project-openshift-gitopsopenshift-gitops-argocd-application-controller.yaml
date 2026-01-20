@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
-  name: edit-crd-openshift-gitops-argocd-application-controller
+  name: delete-project-openshift-gitops-openshift-gitops-argocd-application-controller
 subjects:
   - kind: ServiceAccount
     name: openshift-gitops-argocd-application-controller
@@ -11,4 +11,4 @@ subjects:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: edit-crd
+  name: delete-project
