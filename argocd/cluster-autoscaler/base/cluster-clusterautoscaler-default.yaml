@@ -3,6 +3,7 @@ kind: ClusterAutoscaler
 metadata:
   name: default
 spec:
+  enabled: true
   resourceLimits:
     gpus:
     - type: nvidia
