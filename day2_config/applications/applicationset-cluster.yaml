@@ -8,8 +8,6 @@ spec:
     - list:
       # Comment / Uncomment the ArgoCD applications you don't want / want to install
         elements:
-        #  - branch: master
-        #    item: authorino
           - branch: master
             item: cert-manager
           - branch: master
@@ -20,6 +18,8 @@ spec:
             item: cluster-ingress
           - branch: master
             item: cluster-monitoring
+          - branch: master
+            item: cluster-network
           # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
           - branch: master
             item: cluster-oauth
@@ -48,10 +48,6 @@ spec:
             item: openshift-operators
           - branch: master
             item: openshift-pipelines
-        #  - branch: master
-        #    item: openshift-serverless
-        #  - branch: master
-        #    item: openshift-service-mesh
           - branch: master
             item: opentelemetry
         #  - branch: master
