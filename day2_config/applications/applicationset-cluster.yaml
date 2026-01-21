@@ -12,8 +12,8 @@ spec:
         #    item: authorino
           - branch: master
             item: cert-manager
-        # - branch: master
-        #   item: cluster-autoscaler
+          - branch: master
+            item: cluster-autoscaler
           - branch: master
             item: cluster-images-registry
           - branch: master

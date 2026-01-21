@@ -2,4 +2,11 @@ apiVersion: autoscaling.openshift.io/v1
 kind: ClusterAutoscaler
 metadata:
   name: default
-spec: {}
+spec:
+  resourceLimits:
+    gpus:
+    - type: nvidia
+      min: 0
+      max: 8
+  scaleDown:
+    delayAfterAdd: 20m
