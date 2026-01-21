@@ -17,3 +17,10 @@ spec:
           - matchExpressions:
             - key: cluster.ocs.openshift.io/openshift-storage
               operator: Exists
+    metrics-exporter:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: cluster.ocs.openshift.io/openshift-storage
+              operator: Exists
