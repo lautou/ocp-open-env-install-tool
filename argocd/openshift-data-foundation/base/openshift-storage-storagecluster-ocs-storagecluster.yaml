@@ -9,7 +9,3 @@ spec:
   multiCloudGateway:
     dbStorageClassName: gp3-csi
     reconcileStrategy: standalone
-  placement:
-    noobaa-core:
-      nodeSelector:
-        node-role.kubernetes.io/infra: ""
