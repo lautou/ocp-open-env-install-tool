@@ -11,13 +11,5 @@ spec:
     reconcileStrategy: standalone
   placement:
     noobaa-core:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-          - matchExpressions:
-            - key: node-role.kubernetes.io/infra
-              operator: Exists
-      tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/infra
-        operator: Exists
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
