@@ -3,7 +3,6 @@ kind: ClusterAutoscaler
 metadata:
   name: default
 spec:
-  enabled: true
   resourceLimits:
     gpus:
     - type: nvidia
@@ -11,3 +10,4 @@ spec:
       max: 8
   scaleDown:
     delayAfterAdd: 20m
+    enabled: true
