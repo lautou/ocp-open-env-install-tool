@@ -14,8 +14,10 @@ resources:
   - openshift-storage-subscription-ocs-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-odf-csi-addons-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-odf-dependencies.yaml
-  - openshift-storage-subscription-odf-external-snapshotter-operator.yaml
+  # We disable this due to https://issues.redhat.com/browse/DFBUGS-5355
+  # - openshift-storage-subscription-odf-external-snapshotter-operator.yaml
   - openshift-storage-subscription-odf-operator.yaml
-  - openshift-storage-subscription-odf-prometheus-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
+  # We disable this due to https://issues.redhat.com/browse/DFBUGS-5355
+  # - openshift-storage-subscription-odf-prometheus-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-recipe-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-rook-ceph-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
