@@ -6,7 +6,6 @@ resources:
 #  - openshift-gitops-job-disable-odf-console-plugins.yaml
 #  - openshift-gitops-job-enable-odf-console-plugins.yaml
   - openshift-storage-operatorgroup-openshift-storage.yaml
-#  - openshift-storage-rb-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - openshift-storage-storagecluster-ocs-storagecluster.yaml
   - openshift-storage-subscription-cephcsi-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-mcg-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
