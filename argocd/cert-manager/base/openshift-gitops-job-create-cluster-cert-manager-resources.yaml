@@ -1,10 +1,10 @@
-apiVersion: batch/v1
 kind: Job
+apiVersion: batch/v1
 metadata:
-  annotations:
-    argocd.argoproj.io/sync-options: Force=true
   name: create-cluster-cert-manager-resources
   namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
 spec:
   template:
     metadata:
@@ -12,67 +12,103 @@ spec:
     spec:
       containers:
         - name: create-cluster-cert-manager-resources
-          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              echo -n "Waiting for the cert-manager CRD (certmanagers.operator.openshift.io) to be established..."
-              until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
-                echo -n "."
-                sleep 5
+              
+              wait_for_crd() {
+                echo -n "Waiting for the cert-manager CRD..."
+                until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
+                  echo -n "."
+                  sleep 5
+                done
+                echo " CRD established."
+              }
+
+              wait_for_initial_cr() {
+                echo -n "Waiting for the initial CertManager 'cluster' CR..."
+                until oc get certmanager cluster &>/dev/null; do
+                  echo -n "."
+                  sleep 5
+                done
+                echo " Initial CR found."
+              }
+
+
+              wait_for_crd
+              wait_for_initial_cr
+
+              MAX_RETRIES=5
+              ATTEMPT=1
+              SUCCESS=false
+
+              while [ $ATTEMPT -le $MAX_RETRIES ]; do
+                echo "=== Attempt $ATTEMPT/$MAX_RETRIES to initialize CertManager ==="
+                
+                echo "Deleting CertManager 'cluster' CR to trigger reconciliation..."
+                oc delete certmanager cluster --ignore-not-found
+                
+                echo -n "Waiting for CertManager CR to be recreated (by ArgoCD/Operator)..."
+                while ! oc get certmanager cluster &>/dev/null; do 
+                  echo -n "."
+                  sleep 5
+                done
+                echo " CR Recreated."
+
+                echo "Waiting for CertManager pods/deployments to be ready..."
+                if oc wait certmanager cluster \
+                    --for condition=cert-manager-controller-deploymentAvailable \
+                    --for condition=cert-manager-cainjector-deploymentAvailable \
+                    --for condition=cert-manager-webhook-deploymentAvailable \
+                    --timeout=120s -n cert-manager; then
+                    echo "CertManager is ready!"
+                    SUCCESS=true
+                    break
+                else
+                    echo "WARNING: Timeout waiting for CertManager. It might be stuck."
+                    echo "Retrying loop (will delete CR again)..."
+                    ATTEMPT=$((ATTEMPT + 1))
+                fi
               done
-              echo " CRD established."
 
-              echo -n "Waiting for the initial CertManager 'cluster' CR to be created by ArgoCD..."
-              until oc get certmanager cluster &>/dev/null; do
-                echo -n "."
-                sleep 5
-              done
-              echo " Initial CertManager 'cluster' CR found."
+              if [ "$SUCCESS" = false ]; then
+                echo "ERROR: Failed to initialize CertManager after $MAX_RETRIES attempts."
+                exit 1
+              fi
 
-              echo "Applying workaround: Deleting and recreating CertManager 'cluster' CR."
-
-              oc delete certmanager cluster --ignore-not-found
-              echo "CertManager 'cluster' CR deleted."
-
-              echo -n "Waiting the cert manager to be created..."
-              while ! oc get certmanager cluster &>/dev/null; do echo -n .; done
-              echo
-              echo -n "Waiting the cert manager to initialized..."
-              oc wait certmanager cluster \
-                  --for condition=cert-manager-controller-deploymentAvailable \
-                  --for condition=cert-manager-cainjector-deploymentAvailable \
-                  --for condition=cert-manager-webhook-deploymentAvailable \
-                  --timeout -1s -n cert-manager
-              echo
               echo "Read the secret for AWS cloud provider"
               while ! oc get secret aws-creds -n kube-system &>/dev/null; do echo "Waiting for secret aws-creds in namespace kube-system."; done
               ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
               SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
+              
               echo "Create the aws-acme secret"
               oc delete secret generic aws-acme -n cert-manager --ignore-not-found
               oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
+              
               INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
               CLUSTER_ISSUER_CLUSTER_TEMPLATE=$(oc extract cm/clusterissuer-cluster --keys cluster-clusterissuer-cluster.yaml --to - -n openshift-gitops)
               CERTIFICATE_INGRESS_TEMPLATE=$(oc extract cm/openshift-ingress-certificate-ingress --keys openshift-ingress-certificate-ingress.yaml --to - -n openshift-gitops)
-              echo $CERTIFICATE_INGRESS_TEMPLATE
               CERTIFICATE_API_TEMPLATE=$(oc extract cm/openshift-config-certificate-api --keys openshift-config-certificate-api.yaml --to - -n openshift-gitops)
+              
               export REGION=$(echo "$INSTALL_CONFIG" | yq -r '.platform.aws.region')
-              echo REGION=$REGION
               export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain')
-              echo BASEDOMAIN=$BASEDOMAIN
               export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
-              echo CLUSTERNAME=$CLUSTERNAME
               export TIMESTAMP=$(date +%s)
-              echo TIMESTAMP=$TIMESTAMP
+              
+              echo "Applying ClusterIssuer..."
               echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
                 | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
                 | oc apply -f -
+              
+              echo "Applying Ingress Certificate..."
               echo "$CERTIFICATE_INGRESS_TEMPLATE" \
                 | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
                 | oc apply -f -
+              
+              echo "Applying API Certificate..."
               echo "$CERTIFICATE_API_TEMPLATE" \
                 | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' | oc apply -f -
       restartPolicy: Never
