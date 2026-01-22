@@ -3,4 +3,3 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-openshift-operators.yaml
-  # - openshift-operators-rb-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
