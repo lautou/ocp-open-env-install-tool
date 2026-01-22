@@ -14,6 +14,7 @@ spec:
             item: cluster-autoscaler
           - branch: master
             item: cluster-images-registry
+           # DON'T COMMENT cluster-ingress or it could break other modules installation!
           - branch: master
             item: cluster-ingress
           - branch: master
@@ -37,6 +38,9 @@ spec:
         #   item: nfs
           - branch: master
             item: openshift-builds
+          # DON'T COMMENT openshift-config or it could break other modules installation!
+          - branch: master
+            item: openshift-config
           - branch: master
             item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
@@ -44,6 +48,7 @@ spec:
             item: openshift-gitops-admin-config
           - branch: master
             item: openshift-logging
+          # DON'T COMMENT openshift-operators or it could break other modules installation!
           - branch: master
             item: openshift-operators
           - branch: master
