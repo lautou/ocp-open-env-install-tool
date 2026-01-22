@@ -4,4 +4,3 @@ kind: Kustomization
 resources:
   - cluster-crb-cluster-admin-admin.yaml 
   - cluster-oauth-cluster.yaml
-  - openshift-config-rb-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
