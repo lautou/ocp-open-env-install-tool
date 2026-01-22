@@ -7,11 +7,7 @@ spec:
   channel: "stable-4.20"
   config:
     nodeSelector:
-      node-role.kubernetes.io/infra: ''
-    tolerations:
-      - key: node.ocs.openshift.io/storage
-        operator: Equal
-        value: "true"
+      cluster.ocs.openshift.io/openshift-storage: ""
   name: odf-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace

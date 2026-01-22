@@ -1,0 +1,13 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: mcg-operator-stable-4.20-redhat-operators-openshift-marketplace
+  namespace: openshift-storage
+spec:
+  channel: "stable-4.20"
+  config:
+    nodeSelector:
+      cluster.ocs.openshift.io/openshift-storage: ""
+  name: mcg-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
