@@ -38,6 +38,8 @@ spec:
           - branch: master
             item: openshift-builds
           - branch: master
+            item: openshift-config
+          - branch: master
             item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
           - branch: master
