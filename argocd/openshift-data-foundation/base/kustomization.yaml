@@ -8,4 +8,5 @@ resources:
   - openshift-storage-operatorgroup-openshift-storage.yaml
   - openshift-storage-rb-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - openshift-storage-storagecluster-ocs-storagecluster.yaml
-  - openshift-storage-subscription-openshift-storage.yaml
+  - openshift-storage-subscription-mcg-operator.yaml
+  - openshift-storage-subscription-odf-operator.yaml
