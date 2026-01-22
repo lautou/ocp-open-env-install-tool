@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - cluster-crb-cluster-image-registry-operator-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-imagepruner-cluster.yaml
   - cluster-imageregistry-config-cluster.yaml

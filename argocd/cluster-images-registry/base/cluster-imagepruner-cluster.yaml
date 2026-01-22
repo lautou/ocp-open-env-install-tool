@@ -1,0 +1,12 @@
+apiVersion: imageregistry.operator.openshift.io/v1
+kind: ImagePruner
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
+  name: cluster
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/infra: ''
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
