@@ -13,4 +13,5 @@ resources:
   - openshift-storage-subscription-odf-csi-addons-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-odf-operator.yaml
   - openshift-storage-subscription-odf-prometheus-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
+  - openshift-storage-subscription-recipe-stable-4.20-redhat-operators-openshift-marketplace.yaml
   - openshift-storage-subscription-rook-ceph-operator-stable-4.20-redhat-operators-openshift-marketplace.yaml
