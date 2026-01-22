@@ -7,11 +7,8 @@ metadata:
   namespace: openshift-logging
 spec:
   collector:
-    tolerations:
-    - key: node-role.kubernetes.io/infra
-      operator: Exists
-    - key: node.ocs.openshift.io/storage
-      operator: Exists
+    tolerations: 
+    - operator: Exists
   outputs:
   - name: default-lokistack
     type: lokiStack
