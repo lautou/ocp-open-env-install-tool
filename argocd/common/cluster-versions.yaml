@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-versions
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+data:
+  # Observability
+  cluster-logging: "stable-6.4"
+  loki: "stable-6.4"
+  network-observability: "stable"
+  opentelemetry: "stable"
+  tempo: "stable"
+
+  # CI/CD & Dev Tools
+  cert-manager: "stable-v1.18"
+  openshift-pipelines: "pipelines-1.21"
+  openshift-builds: "builds-1.6"
+  web-terminal: "fast"
+  devworkspace: "fast"  # Usually coupled with Web Terminal
+
+  # Infrastructure & Storage
+  nfd: "stable"  # Node Feature Discovery
+  nfs-provisioner: "alpha"
+  
+  # OpenShift Data Foundation (ODF)
+  # All ODF components typically share the same version lifecycle
+  odf: "stable-4.20"
