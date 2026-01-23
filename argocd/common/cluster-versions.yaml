@@ -2,8 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cluster-versions
-  annotations:
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  namespace: openshift-gitops
 data:
   # Observability
   cluster-logging: "stable-6.4"
