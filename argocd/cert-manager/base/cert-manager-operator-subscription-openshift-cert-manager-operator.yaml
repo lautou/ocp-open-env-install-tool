@@ -4,7 +4,7 @@ metadata:
   name: openshift-cert-manager-operator
   namespace: cert-manager-operator
 spec:
-  channel: stable-v1
+  channel: stable-v1.18
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''

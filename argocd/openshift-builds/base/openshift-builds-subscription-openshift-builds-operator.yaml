@@ -4,7 +4,7 @@ metadata:
   name: openshift-builds-operator
   namespace: openshift-builds
 spec:
-  channel: latest
+  channel: builds-1.6
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
