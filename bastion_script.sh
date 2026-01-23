@@ -178,13 +178,12 @@ configure_oauth_secret() {
   fi
 
   local htpasswd_file="users.htpasswd"
-  rm -f "$htpasswd_file"
+  trap 'rm -f "$htpasswd_file"' RETURN
 
   echo "Generating htpasswd file..."
-  # Create file with admin user
-  htpasswd -c -B -b "$htpasswd_file" admin "$OCP_ADMIN_PASSWORD"
 
-  # Append non-admin users
+  # Generate the file
+  htpasswd -c -B -b "$htpasswd_file" admin "$OCP_ADMIN_PASSWORD"
   local users=("karla" "andrew" "bob" "marina")
   for user in "${users[@]}"; do
     htpasswd -B -b "$htpasswd_file" "$user" "$OCP_NON_ADMIN_PASSWORD"
@@ -207,7 +206,6 @@ configure_oauth_secret() {
     oc annotate -f - --local "argocd.argoproj.io/sync-options=Delete=false" | \
     oc apply -f -
 
-  rm -f "$htpasswd_file"
   echo "--- OAuth secret configured successfully ---"
 }
 
