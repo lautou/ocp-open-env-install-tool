@@ -86,3 +86,10 @@ spec:
           name: default
           jsonPointers:
             - /spec/defaultCertificate
+        - group: ""
+          kind: ConfigMap
+          name: cluster-versions
+          jsonPointers:
+            - /metadata/labels
+            - /metadata/annotations
+            - /metadata/ownerReferences
