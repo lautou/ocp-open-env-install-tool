@@ -2,6 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - ../../common
   - openshift-operators-devworkspaceoperatorconfig-devworkspace-operator-config.yaml
   - openshift-operators-subscription-devworkspace-operator.yaml
   - openshift-operators-subscription-web-terminal.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.web-terminal
+    targets:
+      - select:
+          kind: Subscription
+          name: web-terminal
+        fieldPaths:
+          - spec.channel

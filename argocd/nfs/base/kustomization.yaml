@@ -2,6 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - ../../common
   - cluster-namespace-nfsprovisioner-operator.yaml
   - nfsprovisioner-operator-nfsprovisioner-nfsprovisioner-sample.yaml
   - openshift-operators-subscription-nfs-provisioner-operator.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.nfs
+    targets:
+      - select:
+          kind: Subscription
+          name: nfs-provisioner-operator
+        fieldPaths:
+          - spec.channel

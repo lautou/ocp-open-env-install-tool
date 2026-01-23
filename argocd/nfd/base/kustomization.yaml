@@ -2,7 +2,20 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - ../../common
   - cluster-namespace-openshift-nfd.yaml
   - openshift-nfd-nodefeaturediscovery-nfd-instance.yaml
   - openshift-nfd-operatorgroup-openshift-nfd.yaml
   - openshift-nfd-subscription-nfd.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.nfd
+    targets:
+      - select:
+          kind: Subscription
+          name: openshift-nfd
+        fieldPaths:
+          - spec.channel

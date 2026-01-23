@@ -2,7 +2,20 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - ../../common
   - cluster-namespace-openshift-redhat-operators.yaml
   - openshift-operators-redhat-operatorgroup-openshift-operators-redhat.yaml
   - openshift-operators-redhat-subscription-loki-operator.yaml
   - TEMPORARY-FIX-openshift-operators-redhat-secret-loki-operator-controller-manager-metrics-token.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.loki
+    targets:
+      - select:
+          kind: Subscription
+          name: loki-operator
+        fieldPaths:
+          - spec.channel
