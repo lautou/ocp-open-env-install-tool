@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../common/cluster-versions.yaml
+  - ../../common
   - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
   - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
   - cluster-crb-clusterissuers.cert-manager.io-v1-edit-openshift-gitops-openshift-gitops-argocd-application.yaml
