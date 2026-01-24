@@ -64,9 +64,10 @@ GIT_REPO_TOKEN_SECRET=""
 
 # A URL for a generic Git credential template for ArgoCD.
 # This allows ArgoCD to access other repositories (e.g., from other toolkits).
-GIT_CREDENTIALS_TEMPLATE_URL="https://github.com"
-GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME="ocp"
-GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET="XXXXXXXXXXXXXXXXXXXXX"
+# DO NOT FILL this if all the expected repositories are public.
+GIT_CREDENTIALS_TEMPLATE_URL=""
+GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=""
+GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=""
 
 # --- OAuth Security Configuration ---
 # Passwords for the cluster OAuth users.
