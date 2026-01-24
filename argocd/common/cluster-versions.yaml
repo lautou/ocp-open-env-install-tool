@@ -16,6 +16,7 @@ data:
   # CI/CD & Dev Tools
   cert-manager: "stable-v1.18"
   openshift-pipelines: "pipelines-1.21"
+  openshift-gitops: "gitops-1.19"
   openshift-builds: "builds-1.6"
   web-terminal: "fast"
   devworkspace: "fast"  # Usually coupled with Web Terminal

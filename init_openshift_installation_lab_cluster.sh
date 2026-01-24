@@ -255,13 +255,14 @@ aws ec2 wait system-status-ok --instance-ids "$INSTANCE_ID"
 echo " Done."
 
 echo "Prepare files to send to the bastion..."
-mkdir -p "$UPLOAD_TO_BASTION_DIR"
+mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
 
 echo "Copy required files to the bastion..."
 if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
   echo "Copied $CLOUDFORMATION_TEMPLATES_DIR directory to bastion upload directory."
 fi
+cp argocd/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
 cp -r day1_config day2_config bastion_script.sh aws_lib.sh ocp_rhdp.config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
 echo "Transferring files to bastion host $PUBLIC_DNS_NAME..."

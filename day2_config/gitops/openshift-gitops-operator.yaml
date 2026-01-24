@@ -19,7 +19,7 @@ metadata:
   name: openshift-gitops-operator
   namespace: openshift-gitops-operator
 spec:
-  channel: gitops-1.19
+  channel: latest
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ""

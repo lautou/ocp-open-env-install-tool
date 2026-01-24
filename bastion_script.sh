@@ -219,6 +219,15 @@ configure_day2_gitops() {
   fi
   oc whoami
 
+  local cluster_versions_file="argocd/common/cluster-versions.yaml"
+  local gitops_version=$(yq '.data.openshift-gitops' "$cluster_versions_file")
+
+  if [[ -n "$gitops_version" ]] && [[ "$gitops_version" != "null" ]]; then
+    yq -i 'select(.kind == "Subscription").spec.channel = "'"$gitops_version"'"' "$GITOPS_OPERATOR_FILE"
+  else
+    echo "WARN: Could not find 'openshift-gitops' version in $cluster_versions_file. Using default from manifest."
+  fi
+
   echo "Day2: Installing OpenShift GitOps Operator..."
   if ! oc create -f "$GITOPS_OPERATOR_FILE"; then
     echo "ERROR: Day2: Failed to apply $GITOPS_OPERATOR_FILE."
