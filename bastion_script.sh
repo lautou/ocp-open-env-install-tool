@@ -804,16 +804,54 @@ else
   echo "Day2 GitOps Configuration is disabled."
 fi
 
-echo "--------------------------------------------"
-echo "OpenShift installation script on bastion finished."
-echo "Log file: $HOME/$BASTION_EXECUTION_LOG"
+SUMMARY_FILE="$HOME/cluster_summary.txt"
 
-if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
-  echo "KUBECONFIG: $HOME/$INSTALL_DIRNAME/auth/kubeconfig"
-  echo "Cluster API URL: $(oc --kubeconfig="$HOME/$INSTALL_DIRNAME/auth/kubeconfig" whoami --show-server || echo "Error retrieving API URL")"
-  echo "Cluster Console URL: $(oc --kubeconfig="$HOME/$INSTALL_DIRNAME/auth/kubeconfig" whoami --show-console || echo "Error retrieving Console URL")"
-else
-  echo "Kubeconfig not found."
-fi
-echo "Date: $(date)"
+{
+  echo ""
+  echo "========================================================================"
+  echo "                   CLUSTER INSTALLATION SUMMARY                         "
+  echo "========================================================================"
+  echo "Cluster Name: $CLUSTER_NAME"
+  echo "Date: $(date)"
+  echo ""
+
+  if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeconfig" ]; then
+    export KUBECONFIG="$HOME/$INSTALL_DIRNAME/auth/kubeconfig"
+    
+    API_URL=$(oc whoami --show-server 2>/dev/null || echo "Unknown")
+    CONSOLE_URL=$(oc whoami --show-console 2>/dev/null || echo "Unknown")
+
+    echo "API URL:     $API_URL"
+    echo "Console URL: $CONSOLE_URL"
+    echo ""
+    echo "------------------------------------------------------------------------"
+    echo "🔑  CREDENTIALS"
+    echo "------------------------------------------------------------------------"
+
+    # Check for kubeadmin password (standard IPI/UPI artifact)
+    if [ -f "$HOME/$INSTALL_DIRNAME/auth/kubeadmin-password" ]; then
+      KUBEADMIN_PASS=$(cat "$HOME/$INSTALL_DIRNAME/auth/kubeadmin-password")
+      echo "User:     kubeadmin"
+      echo "Password: $KUBEADMIN_PASS"
+      echo ""
+      echo "NOTE: If Day 2 GitOps ran successfully, this user might have been removed."
+    else
+      echo "User 'kubeadmin': Password file not found (or removed)."
+    fi
+
+    # Display OAuth info if Day 2 Config was enabled
+    if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
+        echo ""
+        echo "User:     admin (OAuth htpasswd)"
+        echo "Password: (Hidden - See OCP_ADMIN_PASSWORD in your config file)"
+    fi
+
+  else
+    echo "❌ ERROR: Kubeconfig not found. Installation likely failed."
+  fi
+  echo "========================================================================"
+} | tee "$SUMMARY_FILE"
+
+echo ""
+echo "Summary saved to: $SUMMARY_FILE"
 echo "Bastion script finished."

@@ -7,6 +7,24 @@ SESSION_STATE_FILE=".bastion_session.info"
 
 cd $(dirname $0)
 
+retrieve_and_display_summary() {
+  local bastion_host="$1"
+  local key_file="$2"
+
+  echo ""
+  echo "📥 Retrieving installation summary from bastion..."
+  # Try to download the summary file
+  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:cluster_summary.txt" .; then
+    echo ""
+    # Display it to the user
+    cat cluster_summary.txt
+    echo ""
+    echo "✅ Summary saved locally to: $(pwd)/cluster_summary.txt"
+  else
+    echo "⚠️  Could not retrieve 'cluster_summary.txt'. The installation might have failed or the file was not generated."
+  fi
+}
+
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
   if [[ -n "$BASTION_HOST" ]]; then
@@ -31,6 +49,8 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
       # If 255: Network error or SSH failure. We keep the file to allow resuming again.
       if [ $? -eq 0 ]; then
         echo "✅ Session completed cleanly. Cleaning up state file."
+        retrieve_and_display_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
+
         rm -f "$SESSION_STATE_FILE"
         exit 0
       else
@@ -341,8 +361,18 @@ SSH_EXIT_CODE=$?
 set -e
 
 if [ $SSH_EXIT_CODE -eq 0 ]; then
-  # SSH exited normally -> User pressed Enter -> Script finished
-  rm -f "$SESSION_STATE_FILE"
+  if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "tmux has-session -t ocp_install 2>/dev/null"; then
+    echo ""
+    echo "⏸️  Session detached but still running on bastion."
+    echo "    The state file '$SESSION_STATE_FILE' has been kept."
+    echo "    You can close this terminal. Run the script again to resume watching."
+    # We keep the file, exit with success, but do not clean it up.
+    exit 0
+  else
+    # SSH exited normally -> User pressed Enter -> Script finished
+    echo "✅ Session completed cleanly. Cleaning up state file."
+    rm -f "$SESSION_STATE_FILE"
+  fi
 else
   # SSH exited with error (e.g. network drop) -> Keep file for resume
   echo ""
@@ -359,6 +389,8 @@ echo "Bastion script execution finished."
 echo "--------------------------------------------------------"
 echo "⏱️  Bastion Software Init & Install: $((SCRIPT_DURATION / 60)) min $((SCRIPT_DURATION % 60)) sec"
 echo "--------------------------------------------------------"
+
+retrieve_and_display_summary "$PUBLIC_DNS_NAME" "$BASTION_KEY_PEM_FILE"
 
 echo "The local script has completed its tasks. Bastion key '$BASTION_KEY_PEM_FILE' is kept locally at $(pwd)/$BASTION_KEY_PEM_FILE for potential debugging."
 if [ "$INSTALL_TYPE" == "IPI" ]; then
