@@ -26,9 +26,7 @@ spec:
               echo "Discovering cluster infrastructure..."
               INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
               
-              # Get the first available worker MachineSet to use as a template
-              BASE_MS=$(oc get machinesets -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=worker -o json | jq '.items[0]')
-              
+              BASE_MS=$(oc get machinesets -n openshift-machine-api -o json | jq '.items | map(select(.metadata.name | contains("-worker-"))) | .[0]')
               if [[ -z "$BASE_MS" || "$BASE_MS" == "null" ]]; then
                 echo "ERROR: No worker MachineSet found to clone!"
                 exit 1
