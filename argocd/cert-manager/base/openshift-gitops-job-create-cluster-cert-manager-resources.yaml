@@ -111,5 +111,10 @@ spec:
               echo "Applying API Certificate..."
               echo "$CERTIFICATE_API_TEMPLATE" \
                 | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' | oc apply -f -
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

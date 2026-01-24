@@ -10,4 +10,4 @@ resources:
   - cluster-gitopsservice-cluster.yaml
   - cluster-group-cluster-admins.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
-  #- openshift-gitops-job-enable-gitops-console-plugin.yaml
+  - openshift-gitops-job-enable-gitops-console-plugin.yaml

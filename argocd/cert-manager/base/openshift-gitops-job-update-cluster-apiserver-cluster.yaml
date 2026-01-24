@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: update-cluster-apiserver-cluster
-          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
           command:
             - /bin/bash
             - '-c'
@@ -30,5 +30,10 @@ spec:
               oc wait --for=condition=Ready --timeout -1s certificate/api -n openshift-config
               echo "Update api config"
               oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["api.'$CLUSTERNAME'.'$BASEDOMAIN'"],"servingCertificate":{"name":"api-certificates"}}]}}}' 
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

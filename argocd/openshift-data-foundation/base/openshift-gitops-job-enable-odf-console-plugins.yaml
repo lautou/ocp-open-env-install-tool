@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: enable-console-plugins
-          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
           command:
             - /bin/bash
             - '-c'
@@ -30,5 +30,10 @@ spec:
               else
                 echo "Plugin odf-client-console already exists. Nothing changed"
               fi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

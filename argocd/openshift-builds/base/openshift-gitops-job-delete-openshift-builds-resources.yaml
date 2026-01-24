@@ -19,6 +19,11 @@ spec:
         - '-c'
         - |
           oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found
-          oc delete project openshift-builds --ignore-not-found 
+          oc delete project openshift-builds --ignore-not-found
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

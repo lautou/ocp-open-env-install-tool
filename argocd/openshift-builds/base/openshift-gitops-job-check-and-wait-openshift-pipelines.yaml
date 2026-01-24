@@ -30,5 +30,10 @@ spec:
               else
                 echo "No OpenShift Pipeline subscription found, we will let OpenShift Build Operator to manage its own OpenShift Pipeline installation."
               fi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

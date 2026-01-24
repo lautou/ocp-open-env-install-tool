@@ -23,5 +23,10 @@ spec:
               oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
               echo "Update ingress controller config"
               oc patch ingresscontroller default -n openshift-ingress-operator --type merge -p '{"spec":{"defaultCertificate":{"name":"ingress-certificates"}}}'
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
