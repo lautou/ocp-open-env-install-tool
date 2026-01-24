@@ -3,8 +3,49 @@ set -e
 
 UPLOAD_TO_BASTION_DIR="_upload_to_bastion"
 BASTION_KEY_PEM_FILE="bastion.pem" 
+SESSION_STATE_FILE=".bastion_session.info"
 
 cd $(dirname $0)
+
+if [[ -f "$SESSION_STATE_FILE" ]]; then
+  source "$SESSION_STATE_FILE"
+  if [[ -n "$BASTION_HOST" ]]; then
+    echo ""
+    echo "⚠️  WARNING: AN INTERRUPTED INSTALLATION SESSION WAS DETECTED."
+    echo "   Bastion Host: $BASTION_HOST"
+    echo "   State File:   $(pwd)/$SESSION_STATE_FILE"
+    echo ""
+    echo -n "❓ Do you want to RESUME the existing connection? (Default: Yes) [Y/n]: "
+    read -r response
+    response=${response:-Y} # Default to Yes
+
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+      echo "🔄 Resuming session on $BASTION_HOST..."
+
+      # Attempt to attach to the existing tmux session
+      ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" \
+        "tmux attach-session -t ocp_install"
+
+      # Check exit code of SSH:
+      # If 0: The session closed cleanly (user saw "Script Finished" and pressed Enter).
+      # If 255: Network error or SSH failure. We keep the file to allow resuming again.
+      if [ $? -eq 0 ]; then
+        echo "✅ Session completed cleanly. Cleaning up state file."
+        rm -f "$SESSION_STATE_FILE"
+        exit 0
+      else
+        echo "❌ Connection dropped again. State file kept. Run this script again to resume."
+        exit 1
+      fi
+    else
+      echo "🗑️  Abandoning previous session. Proceeding with a fresh installation..."
+      rm -f "$SESSION_STATE_FILE"
+    fi
+  else
+    echo "WARN: State file found but empty. Ignoring."
+    rm -f "$SESSION_STATE_FILE"
+  fi
+fi
 
 echo "Clean temporary directories..."
 rm -rf "$UPLOAD_TO_BASTION_DIR"
@@ -242,6 +283,7 @@ aws ec2 create-key-pair --key-name "$BASTION_KEY_PAIR_NAME" --query KeyMaterial 
 chmod 600 "$BASTION_KEY_PEM_FILE"
 
 echo "Creating the bastion instance using AMI $AWS_BASTION_AMI..."
+BASTION_START_TIME=$(date +%s)
 INSTANCE_ID=$(aws ec2 run-instances --image-id "$AWS_BASTION_AMI" --instance-type t2.large --subnet-id "$SUBNET_ID" --key-name "$BASTION_KEY_PAIR_NAME" --security-group-ids "$SG_ID" --associate-public-ip-address --query Instances[].InstanceId --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$BASTION_INSTANCE_TAG_NAME}]" --output text)
 echo "Bastion INSTANCE_ID=$INSTANCE_ID"
 echo -n "Waiting the bastion instance state is running..."
@@ -253,6 +295,12 @@ echo "Bastion PUBLIC_DNS_NAME=$PUBLIC_DNS_NAME"
 echo -n "Waiting the system status for bastion instance is OK..."
 aws ec2 wait system-status-ok --instance-ids "$INSTANCE_ID"
 echo " Done."
+
+BASTION_END_TIME=$(date +%s)
+BASTION_DURATION=$((BASTION_END_TIME - BASTION_START_TIME))
+echo "--------------------------------------------------------"
+echo "⏱️  Bastion Provisioning & Boot Time: $((BASTION_DURATION / 60)) min $((BASTION_DURATION % 60)) sec"
+echo "--------------------------------------------------------"
 
 echo "Prepare files to send to the bastion..."
 mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
@@ -269,9 +317,49 @@ echo "Transferring files to bastion host $PUBLIC_DNS_NAME..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"
 
 echo "Running the ocp installation script on the bastion (this may take a while)..."
-ssh -T -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" ./bastion_script.sh
+SCRIPT_START_TIME=$(date +%s)
+echo "BASTION_HOST=$PUBLIC_DNS_NAME" > "$SESSION_STATE_FILE"
+
+echo "Installing tmux for session persistence..."
+ssh -T -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "sudo dnf install -y tmux" &> /dev/null
+
+echo ""
+echo "========================================================================"
+echo "🚀  SESSION PERSISTENCE ENABLED"
+echo "    The script is launching inside a 'tmux' session."
+echo ""
+echo "ℹ️   IF YOUR CONNECTION DROPS:"
+echo "    1. Rerun: ./init_openshift_installation_lab_cluster.sh"
+echo "    2. Say 'YES' to resume."
+echo "========================================================================"
+sleep 2
+
+set +e
+ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
+  "tmux new-session -A -s ocp_install './bastion_script.sh; echo \"--- Script Finished (Press ENTER to close) ---\"; read'"
+SSH_EXIT_CODE=$?
+set -e
+
+if [ $SSH_EXIT_CODE -eq 0 ]; then
+  # SSH exited normally -> User pressed Enter -> Script finished
+  rm -f "$SESSION_STATE_FILE"
+else
+  # SSH exited with error (e.g. network drop) -> Keep file for resume
+  echo ""
+  echo "⚠️  SSH connection terminated unexpectedly (Code: $SSH_EXIT_CODE)."
+  echo "    The state file '$SESSION_STATE_FILE' has been kept."
+  echo "    Run the script again to resume."
+  exit $SSH_EXIT_CODE
+fi
+
+SCRIPT_END_TIME=$(date +%s)
+SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
 
 echo "Bastion script execution finished."
+echo "--------------------------------------------------------"
+echo "⏱️  Bastion Software Init & Install: $((SCRIPT_DURATION / 60)) min $((SCRIPT_DURATION % 60)) sec"
+echo "--------------------------------------------------------"
+
 echo "The local script has completed its tasks. Bastion key '$BASTION_KEY_PEM_FILE' is kept locally at $(pwd)/$BASTION_KEY_PEM_FILE for potential debugging."
 if [ "$INSTALL_TYPE" == "IPI" ]; then
   echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"

@@ -196,15 +196,16 @@ configure_oauth_secret() {
     return 1
   fi
 
-  # Create the secret imperatively. Using dry-run | apply allows it to update if it exists.
-  # We add the annotation to prevent ArgoCD from pruning it if you decide to enable pruning later,
-  # though simply removing it from ArgoCD's view is usually enough.
   oc create secret generic htpass-secret \
     --from-file=htpasswd="$htpasswd_file" \
     -n openshift-config \
     --dry-run=client -o yaml | \
-    oc annotate -f - --local "argocd.argoproj.io/sync-options=Delete=false" | \
     oc apply -f -
+
+  oc annotate secret htpass-secret \
+    -n openshift-config \
+    "argocd.argoproj.io/sync-options=Delete=false" \
+    --overwrite
 
   echo "--- OAuth secret configured successfully ---"
 }
@@ -240,7 +241,7 @@ configure_day2_gitops() {
     return 1
   fi
   local day2_install_plan_name=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
-  local day2_csv_name=$(oc get ip "$day2_install_plan_name" -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
+  local day2_csv_name=$(oc get installplan "$day2_install_plan_name" -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
   echo "Day2: Found InstallPlan: $day2_install_plan_name for CSV: $day2_csv_name."
 
   echo -n "Day2: Waiting for CSV '$day2_csv_name' to be created..."
@@ -402,7 +403,6 @@ configure_upi_node_roles_and_taints() {
       echo "UPI Node Config: Configuring infra node: $node_name"
       oc label node "$node_name" node-role.kubernetes.io/infra="" --overwrite || echo "WARN: Failed to apply infra label to $node_name"
       oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to $node_name"
-      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute infra taint to $node_name"
       echo "UPI Node Config: Finished configuring infra node: $node_name"
     done
   fi
@@ -418,15 +418,10 @@ configure_upi_node_roles_and_taints() {
       
       # Apply infra taints as storage nodes can also run infra workloads
       oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule infra taint to storage node $node_name"
-      oc adm taint node "$node_name" node-role.kubernetes.io/infra=:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute infra taint to storage node $node_name"
       
       # Apply OCS/ODF specific taints (consistent with IPI and ODF operator expectations)
       oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoSchedule --overwrite || echo "WARN: Failed to apply NoSchedule OCS taint to $node_name"
-      oc adm taint node "$node_name" node.ocs.openshift.io/storage=true:NoExecute --overwrite || echo "WARN: Failed to apply NoExecute OCS taint to $node_name"
       
-      # Clean up potentially older/different OCS taints if necessary
-      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoSchedule- --overwrite=true >/dev/null 2>&1 || true
-      oc adm taint node "$node_name" cluster.ocs.openshift.io/openshift-storage=:NoExecute- --overwrite=true >/dev/null 2>&1 || true
       echo "UPI Node Config: Finished configuring storage node: $node_name"
     done
   fi
@@ -469,7 +464,7 @@ if [ "$INSTALL_TYPE" == "IPI" ]; then
         yq e -i ".spec.template.metadata.labels[\"machine.openshift.io/cluster-api-machine-type\"] = \"infra\"" "$MS_INFRA_TARGET_FILE"
         yq e -i ".spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\"" "$MS_INFRA_TARGET_FILE"
         yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_INFRA_NODES\"" "$MS_INFRA_TARGET_FILE"
-        yq e -i ".spec.template.spec.taints = [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"},{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoExecute\"}]" "$MS_INFRA_TARGET_FILE"
+        yq e -i ".spec.template.spec.taints = [{\"key\": \"node-role.kubernetes.io/infra\", \"effect\": \"NoSchedule\"}]" "$MS_INFRA_TARGET_FILE"
         echo "Generated infra MachineSet: $MS_INFRA_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
       else
         echo "WARNING: Base worker machineset $MS_INFRA_BASE_FILE not found."
@@ -501,7 +496,7 @@ if [ "$INSTALL_TYPE" == "IPI" ]; then
         yq e -i ".spec.template.spec.metadata.labels.\"node-role.kubernetes.io/infra\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.metadata.labels.\"cluster.ocs.openshift.io/openshift-storage\" = \"\"" "$MS_STORAGE_TARGET_FILE"
         yq e -i ".spec.template.spec.providerSpec.value.instanceType = \"$AWS_INSTANCE_TYPE_STORAGE_NODES\"" "$MS_STORAGE_TARGET_FILE"
-        yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}, {\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoExecute\"}]" "$MS_STORAGE_TARGET_FILE"
+        yq e -i ".spec.template.spec.taints = [{\"key\": \"node.ocs.openshift.io/storage\", \"value\": \"true\", \"effect\": \"NoSchedule\"}]" "$MS_STORAGE_TARGET_FILE"
         echo "Generated storage MachineSet: $MS_STORAGE_TARGET_FILE with $REPLICAS_FOR_THIS_AZ_MS replicas."
       else
         echo "WARNING: Base worker machineset $MS_STORAGE_BASE_FILE not found."
