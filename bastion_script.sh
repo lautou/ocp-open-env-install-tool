@@ -786,7 +786,7 @@ SUMMARY_FILE="$HOME/cluster_summary.txt"
     echo "❌ ERROR: Kubeconfig not found. Installation likely failed."
   fi
   echo "========================================================================"
-} | tee "$SUMMARY_FILE"
+} > "$SUMMARY_FILE"
 
 echo ""
 echo "Summary saved to: $SUMMARY_FILE"

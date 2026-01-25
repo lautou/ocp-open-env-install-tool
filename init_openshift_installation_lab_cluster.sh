@@ -513,7 +513,7 @@ sleep 2
 
 set +e
 ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
-  "echo 'set -g mouse on' > ~/.tmux.conf; tmux new-session -A -s ocp_install './bastion_script.sh; echo \"--- Script Finished (Press ENTER to close) ---\"; read'"
+  "echo 'set -g mouse on' > ~/.tmux.conf; tmux new-session -A -s ocp_install './bastion_script.sh || (echo \"\" && echo \"❌ SCRIPT FAILED. Press ENTER to close session...\" && read)'"
 SSH_EXIT_CODE=$?
 set -e
 
