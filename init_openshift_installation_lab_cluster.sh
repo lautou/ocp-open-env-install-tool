@@ -1,11 +1,68 @@
 #!/bin/bash
 set -e
 
-UPLOAD_TO_BASTION_DIR="_upload_to_bastion"
-BASTION_KEY_PEM_FILE="bastion.pem" 
-SESSION_STATE_FILE=".bastion_session.info"
-
 cd $(dirname $0)
+
+# --- HELPER: USAGE ---
+show_usage() {
+  echo "Usage: $(basename $0) [OPTIONS] [PROFILE_CONFIG]"
+  echo ""
+  echo "Description:"
+  echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
+  echo "  Supports resuming sessions, multi-profile configurations, and parallel executions."
+  echo ""
+  echo "Options:"
+  echo "  -h, --help         Show this help message and exit"
+  echo "  --profile-file     Specify a configuration profile file (looks in current dir or 'profiles/')"
+  echo ""
+  echo "Examples:"
+  echo "  ./$(basename $0)                                          # Run with default 'ocp_rhdp.config'"
+  echo "  ./$(basename $0) --profile-file profiles/odf-full.config  # Run with specific profile"
+  echo "  ./$(basename $0) profiles/odf-full.config                 # Legacy style support"
+  exit 0
+}
+
+# --- 1. ARGUMENT PARSING ---
+# Check for help immediately
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_usage
+fi
+
+PROFILE_ARG=""
+if [[ "$1" == "--profile-file" && -n "$2" ]]; then
+    PROFILE_ARG="$2"
+elif [[ -n "$1" && "$1" != -* ]]; then
+    # Legacy support: ./init.sh myprofile.config
+    PROFILE_ARG="$1"
+fi
+
+# Define Target Config
+if [[ -z "$PROFILE_ARG" ]]; then
+    # Default behavior: look for ocp_rhdp.config
+    TARGET_CONFIG="ocp_rhdp.config"
+else
+    # Smart search for the profile
+    if [[ -f "$PROFILE_ARG" ]]; then
+        TARGET_CONFIG="$PROFILE_ARG"
+    elif [[ -f "profiles/$PROFILE_ARG" ]]; then
+        TARGET_CONFIG="profiles/$PROFILE_ARG"
+    else
+        echo "❌ ERROR: Profile configuration file not found."
+        echo "   Checked: $PROFILE_ARG"
+        echo "   Checked: profiles/$PROFILE_ARG"
+        echo "   Use -h for help."
+        exit 1
+    fi
+fi
+
+# Extract Profile Name for Session Isolation (e.g. 'only-odf-full-aws')
+PROFILE_NAME=$(basename "$TARGET_CONFIG" .config)
+echo "✅ Selected Profile: $PROFILE_NAME (File: $TARGET_CONFIG)"
+
+# --- 2. DYNAMIC SESSION & FILE PATHS ---
+UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${PROFILE_NAME}"
+BASTION_KEY_PEM_FILE="bastion_${PROFILE_NAME}.pem" 
+SESSION_STATE_FILE=".bastion_session_${PROFILE_NAME}.info"
 
 generate_user_data() {
   cat <<EOF | base64 -w 0
@@ -32,7 +89,6 @@ unzip -q awscliv2.zip
 rm -rf aws awscliv2.zip
 
 # 4. Install OpenShift Tools
-# We use the variables injected from the local script
 OCP_VERSION="$OPENSHIFT_VERSION"
 BASE_URL="$OCP_DOWNLOAD_BASE_URL"
 
@@ -56,29 +112,33 @@ EOF
 retrieve_logs_and_summary() {
   local bastion_host="$1"
   local key_file="$2"
+  
+  # Determine local filenames based on the profile to prevent overwriting
+  local local_summary_file="cluster_summary_${PROFILE_NAME}.txt"
+  local local_log_file="bastion_execution_${PROFILE_NAME}.log"
 
   echo ""
   echo "📥 Retrieving logs and summary from bastion..."
 
   # 1. Retrieve Execution Log (Debug info)
-  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:bastion_execution.log" .; then
-    echo "📄 Execution log saved to: $(pwd)/bastion_execution.log"
+  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:bastion_execution.log" "$local_log_file"; then
+    echo "📄 Execution log saved to: $(pwd)/$local_log_file"
   else
     echo "⚠️  Could not retrieve 'bastion_execution.log'."
   fi
 
   # 2. Retrieve Summary (Credentials/URLs)
-  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:cluster_summary.txt" .; then
+  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:cluster_summary.txt" "$local_summary_file"; then
     echo ""
-    cat cluster_summary.txt
+    cat "$local_summary_file"
     echo ""
-    echo "✅ Summary saved to: $(pwd)/cluster_summary.txt"
+    echo "✅ Summary saved to: $(pwd)/$local_summary_file"
   else
     echo "⚠️  Could not retrieve 'cluster_summary.txt'."
   fi
 }
 
-# --- ROBUST SESSION MANAGEMENT ---
+# --- 3. ROBUST SESSION MANAGEMENT ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
   
@@ -93,7 +153,7 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
   if [[ "$SESSION_ALIVE" == "true" ]]; then
     # CAS 1: Session is active -> Prompt to Resume
     echo ""
-    echo "⚠️  WARNING: AN INTERRUPTED INSTALLATION SESSION WAS DETECTED."
+    echo "⚠️  WARNING: AN INTERRUPTED SESSION WAS DETECTED FOR PROFILE: $PROFILE_NAME"
     echo "   Bastion Host: $BASTION_HOST"
     echo ""
     echo -n "❓ Do you want to RESUME the existing connection? (Default: Yes) [Y/n]: "
@@ -108,12 +168,13 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
       # Returned from tmux (Detach or Exit)
       if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
           echo "⏸️  Session detached. State file kept."
+          exit 0
       else
           echo "✅ Session completed cleanly."
           retrieve_logs_and_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
           rm -f "$SESSION_STATE_FILE"
+          exit 0
       fi
-      exit 0
     else
       echo "🗑️  Abandoning previous session. Proceeding with a fresh installation..."
       rm -f "$SESSION_STATE_FILE"
@@ -140,13 +201,35 @@ fi
 
 echo "Clean temporary directories..."
 rm -rf "$UPLOAD_TO_BASTION_DIR"
+mkdir -p "$UPLOAD_TO_BASTION_DIR"
 
-echo "Check if ocp_rhdp.config is present..."
-if [[ ! -f ocp_rhdp.config ]]; then
-  echo "ERROR: ocp_rhdp.config not found!"
+# --- 4. CONFIGURATION LOADING & FLATTENING ---
+COMMON_CONFIG="common.config"
+MERGED_CONFIG_FILE="$UPLOAD_TO_BASTION_DIR/ocp_rhdp.config"
+
+echo "# MERGED CONFIGURATION FOR BASTION" > "$MERGED_CONFIG_FILE"
+
+# A. Load Common (if exists)
+if [[ -f "$COMMON_CONFIG" ]]; then
+    echo "   Loading common configuration..."
+    source "$COMMON_CONFIG"
+    cat "$COMMON_CONFIG" >> "$MERGED_CONFIG_FILE"
+    echo "" >> "$MERGED_CONFIG_FILE" # Newline safety
+fi
+
+# B. Load Profile (Overrides common)
+echo "   Loading profile configuration..."
+# Check if file exists (handled at step 1, but good practice)
+if [[ ! -f "$TARGET_CONFIG" ]]; then
+  echo "ERROR: Configuration file $TARGET_CONFIG not found."
   exit 1
 fi
-. ocp_rhdp.config
+source "$TARGET_CONFIG"
+cat "$TARGET_CONFIG" >> "$MERGED_CONFIG_FILE"
+
+# At this point:
+# 1. Variables are sourced locally (so checks below work)
+# 2. Variables are written to MERGED_CONFIG_FILE (so Bastion gets them)
 
 echo "Check if aws CLI is installed..."
 if ! hash aws 2>/dev/null; then
@@ -195,7 +278,7 @@ fi
 
 echo
 echo "------------------------------------"
-echo "Configuration variables from ocp_rhdp.config"
+echo "Configuration variables (Merged Profile: $PROFILE_NAME)"
 echo "------------------------------------"
 echo "INSTALL_TYPE=$INSTALL_TYPE"
 echo "OPENSHIFT_VERSION=$OPENSHIFT_VERSION"
@@ -304,6 +387,7 @@ fi
 echo "Check and clean the AWS tenant..."
 ./clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
 
+# Note: Using single quotes for Tags in AWS CLI command to ensure variable expansion works inside double quotes
 BASTION_VPC_TAG_NAME="${CLUSTER_NAME}-bastion-vpc${RHDP_TOP_LEVEL_ROUTE53_DOMAIN}"
 BASTION_SUBNET_TAG_NAME="${CLUSTER_NAME}-bastion-subnet"
 BASTION_SG_TAG_NAME="${CLUSTER_NAME}-bastion-sg"
@@ -411,7 +495,9 @@ if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
 fi
 cp argocd/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
-cp -r day1_config day2_config bastion_script.sh aws_lib.sh ocp_rhdp.config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
+# Note: we do NOT copy ocp_rhdp.config here because we already generated a merged version 
+# inside $UPLOAD_TO_BASTION_DIR at step 4.
+cp -r day1_config day2_config bastion_script.sh aws_lib.sh pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
 echo "Transferring files..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"

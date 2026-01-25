@@ -1,7 +1,9 @@
-.bastion_session.info
-bastion.pem
-cluster_summary.txt
+*.config
+*.info
+*.log
+*.pem
+cluster_summary_*.txt
 delete_records_*.json
-ocp_rhdp.config
+profiles/*.config
 pull-secret.txt
-_upload_to_bastion
+_upload_to_bastion_*
