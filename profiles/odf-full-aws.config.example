@@ -1,8 +1,7 @@
 # ==============================================================================
-# DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster.
-# Copy this to 'ocp_rhdp.config' and customize.
-#
+# ODF FULL PROFILE CONFIGURATION (EXAMPLE)
+# Specialized profile for ODF Full isntallation using AWS storage integration.
+# Copy this to 'profiles/odf-full-aws.config' and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -25,6 +24,13 @@ AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 AWS_INFRA_NODES_COUNT=3
 AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
-# Storage Nodes
+# Dedicated Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+
+# --- SOFTWARE PROFILES ---
+# Pointing to the specific branch for this profile
+GIT_REPO_REVISION="odf-full-aws"
+
+# Enable Full ODF deployment logic in bastion_script.sh
+ODF_PROFILE="FULL"

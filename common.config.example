@@ -4,39 +4,46 @@
 # Copy this to 'common.config' and customize.
 # ==============================================================================
 
+# --- CLUSTER IDENTITY (DEFAULTS) ---
+# Default cluster name (can be overridden in specific profiles)
+CLUSTER_NAME="myocp"
+
 # --- OPENSHIFT VERSION ---
 # The specific version of OpenShift to install.
-export OPENSHIFT_VERSION="4.20.10"
-
-# --- CLUSTER IDENTITY ---
-export CLUSTER_NAME="myocp"
+OPENSHIFT_VERSION="4.20.10"
 
 # Base URL to download the openshift-install and oc binaries
-export OCP_DOWNLOAD_BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp"
+OCP_DOWNLOAD_BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp"
 
 # --- INSTALLATION TYPE ---
 # "IPI" (Installer Provisioned Infrastructure) or "UPI" (User Provisioned Infrastructure)
-export INSTALL_TYPE="IPI"
+INSTALL_TYPE="IPI"
 
 # --- CREDENTIALS ---
 # These passwords will be used if creating htpasswd users or standard kubeadmin.
-export OCP_ADMIN_PASSWORD="XXXXXXXXXXXXXXX"
-export OCP_NON_ADMIN_PASSWORD="XXXXXXXXXXXXXXX"
+OCP_ADMIN_PASSWORD="XXXXXXXXXXXXXXX"
+OCP_NON_ADMIN_PASSWORD="XXXXXXXXXXXXXXX"
 
 # --- DAY 2 GITOPS ---
 # Set to "true" to automatically configure ArgoCD and apply Day 2 configs.
-export ENABLE_DAY2_GITOPS_CONFIG="true"
+ENABLE_DAY2_GITOPS_CONFIG="true"
+
+# --- SOFTWARE PROFILES (DEFAULTS) ---
+# Git Branch/Tag to use for ArgoCD (Day 2)
+GIT_REPO_REVISION="main"
+
+# ODF Profile: "MCG" (Default, lightweight) or "FULL" (Dedicated nodes)
+ODF_PROFILE="MCG"
 
 # --- GIT CREDENTIALS (GLOBAL) ---
 # If all your clusters use the same Git repo/credentials, define them here.
-# Otherwise, move them to the specific profile config.
 
 # Template for Git Credentials (e.g. for ArgoCD to pull from private repos)
-export GIT_CREDENTIALS_TEMPLATE_URL=""
-export GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=""
-export GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=""
+GIT_CREDENTIALS_TEMPLATE_URL=""
+GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=""
+GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=""
 
 # The specific GitOps Repository
-export GIT_REPO_URL="https://github.com/lautou/ocp-open-env-install-tool.git"
-export GIT_REPO_TOKEN_NAME=""
-export GIT_REPO_TOKEN_SECRET=""
+GIT_REPO_URL="https://github.com/lautou/ocp-open-env-install-tool.git"
+GIT_REPO_TOKEN_NAME=""
+GIT_REPO_TOKEN_SECRET=""

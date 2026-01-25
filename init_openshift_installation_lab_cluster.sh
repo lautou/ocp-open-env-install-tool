@@ -17,8 +17,8 @@ show_usage() {
   echo ""
   echo "Examples:"
   echo "  ./$(basename $0)                                          # Run with default 'ocp_rhdp.config'"
-  echo "  ./$(basename $0) --profile-file profiles/odf-full.config  # Run with specific profile"
-  echo "  ./$(basename $0) profiles/odf-full.config                 # Legacy style support"
+  echo "  ./$(basename $0) --profile-file profiles/odf-full-aws.config  # Run with specific profile"
+  echo "  ./$(basename $0) profiles/odf-full-aws.config                 # Legacy style support"
   exit 0
 }
 
