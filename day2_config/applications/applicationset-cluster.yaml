@@ -10,8 +10,8 @@ spec:
         elements:
           - branch: master
             item: cert-manager
-          - branch: master
-            item: cluster-autoscaler
+          #- branch: master
+          #  item: cluster-autoscaler
           - branch: master
             item: cluster-images-registry
            # DON'T COMMENT cluster-ingress or it could break other modules installation!
@@ -26,18 +26,18 @@ spec:
             item: cluster-oauth
           - branch: master
             item: cluster-observability
-        # - branch: master
-        #   item: developer-gitops
+          #- branch: master
+          #  item: developer-gitops
           - branch: master
             item: loki
-          - branch: master
-            item: network-observability
-          - branch: master
-            item: nfd
-        # - branch: master
-        #   item: nfs
-          - branch: master
-            item: openshift-builds
+          #- branch: master
+          #  item: network-observability
+          #- branch: master
+          #  item: nfd
+          #- branch: master
+          #   item: nfs
+          #- branch: master
+          #  item: openshift-builds
           # DON'T COMMENT openshift-config or it could break other modules installation!
           - branch: master
             item: openshift-config
@@ -51,14 +51,14 @@ spec:
           # DON'T COMMENT openshift-operators or it could break other modules installation!
           - branch: master
             item: openshift-operators
-          - branch: master
-            item: openshift-pipelines
-          - branch: master
-            item: opentelemetry
-        #  - branch: master
-        #    item: sealed-secrets
-          - branch: master
-            item: tempo
+          #- branch: master
+          #  item: openshift-pipelines
+          #- branch: master
+          #  item: opentelemetry
+          #- branch: master
+          #  item: sealed-secrets
+          #- branch: master
+          #  item: tempo
           - branch: master
             item: user-workload-monitoring
           - branch: master
