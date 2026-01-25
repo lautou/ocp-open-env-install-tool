@@ -6,82 +6,57 @@ exec &> >(tee -a "$BASTION_EXECUTION_LOG")
 
 echo "Starting bastion_script.sh execution..."
 echo "Date: $(date)"
-echo "Script running as user: $(whoami) in directory: $(pwd)"
 
+check_prerequisites() {
+  echo "--- Checking Prerequisites (Software installed by UserData) ---"
+  local missing_tools=0
+  local tools=("wget" "jq" "unzip" "htpasswd" "yq" "aws" "oc" "openshift-install" "tmux")
+
+  for tool in "${tools[@]}"; do
+    if ! command -v "$tool" &> /dev/null; then
+      echo "❌ ERROR: Required tool '$tool' is missing."
+      missing_tools=$((missing_tools + 1))
+    else
+      echo "✅ Found $tool: $(command -v $tool)"
+    fi
+  done
+
+  if [ "$missing_tools" -gt 0 ]; then
+    echo "⛔ CRITICAL: $missing_tools required tools are missing. UserData provisioning might have failed."
+    echo "   Check /var/log/cloud-init-output.log for installation errors."
+    exit 1
+  fi
+  echo "--- All prerequisites met. Proceeding... ---"
+}
+
+# 1. Source Config
 if [[ ! -f ocp_rhdp.config ]]; then
-  echo "ERROR: ocp_rhdp.config not found on bastion!"
+  echo "ERROR: ocp_rhdp.config not found!"
   exit 1
 fi
 . ocp_rhdp.config
-echo "Successfully sourced ocp_rhdp.config."
 
 if [[ -f aws_lib.sh ]]; then
     . aws_lib.sh
-    echo "Successfully sourced aws_lib.sh."
 else
-    echo "ERROR: aws_lib.sh not found. Make sure it's in the same directory as bastion_script.sh or adjust the path."
+    echo "ERROR: aws_lib.sh not found."
     exit 1
 fi
 
 PULL_SECRET_FILE_PATH="$HOME/pull-secret.txt"
 if [ ! -f "$PULL_SECRET_FILE_PATH" ]; then
-  echo "ERROR: Pull secret file not found at $PULL_SECRET_FILE_PATH."
+  echo "ERROR: Pull secret file not found."
   exit 2
 fi
 PULL_SECRET_CONTENT=$(cat "$PULL_SECRET_FILE_PATH")
 
 GITOPS_OPERATOR_FILE="day2_config/gitops/openshift-gitops-operator.yaml"
 
-echo "INSTALL_TYPE set to: $INSTALL_TYPE"
-echo "OPENSHIFT_VERSION set to: $OPENSHIFT_VERSION"
-echo "AWS_DEFAULT_REGION set to: $AWS_DEFAULT_REGION"
-echo "CLUSTER_NAME set to: $CLUSTER_NAME"
+# 2. RUN CHECKS (Before doing anything else)
+check_prerequisites
 
-echo "AWS_WORKERS_COUNT is: $AWS_WORKERS_COUNT"
-echo "AWS_INFRA_NODES_COUNT is: $AWS_INFRA_NODES_COUNT"
-echo "AWS_STORAGE_NODES_COUNT is: $AWS_STORAGE_NODES_COUNT"
-echo "ENABLE_DAY2_GITOPS_CONFIG is: $ENABLE_DAY2_GITOPS_CONFIG"
-
-echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES set to: $AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
-echo "AWS_INSTANCE_TYPE_COMPUTE_NODES set to: $AWS_INSTANCE_TYPE_COMPUTE_NODES"
-echo "AWS_INSTANCE_TYPE_INFRA_NODES set to: $AWS_INSTANCE_TYPE_INFRA_NODES"
-echo "AWS_INSTANCE_TYPE_STORAGE_NODES set to: $AWS_INSTANCE_TYPE_STORAGE_NODES"
-
-export AWS_ACCESS_KEY_ID
-export AWS_SECRET_ACCESS_KEY
-export AWS_DEFAULT_REGION
-
-INSTALL_DIRNAME="cluster-install"
-OCP_INSTALL_PATH="./openshift-install"
-CFN_TEMPLATES_DIR="cloudformation_templates"
-CFN_GENERATED_PARAMS_DIR="cfn_generated_parameters"
-mkdir -p "$CFN_GENERATED_PARAMS_DIR"
-
-echo "Installing required packages..."
-sudo dnf install -y wget jq unzip httpd-tools
-echo "Required packages installed."
-
-echo "Installing yq..."
-if ! sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq; then
-  echo "ERROR: Failed to download yq"
-  exit 5
-fi
-sudo chmod +x /usr/bin/yq
-echo "yq installed."
-
-echo "Installing AWS CLI v2..."
-if ! wget -q "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -O "awscliv2.zip"; then
-  echo "ERROR: Failed to download awscliv2.zip"
-  exit 6
-fi
-unzip -q awscliv2.zip
-if ! sudo ./aws/install; then
-  echo "ERROR: Failed to install AWS CLI v2"
-  exit 7
-fi
-echo "AWS CLI v2 installed."
-
-echo "Creating AWS credentials file..."
+# 3. Setup AWS Credentials (User Data runs as root, this runs as ec2-user, so we need config)
+echo "Configuring AWS CLI for user $(whoami)..."
 mkdir -p ~/.aws
 cat <<EOF > ~/.aws/credentials
 [default]
@@ -89,44 +64,28 @@ aws_access_key_id = $AWS_ACCESS_KEY_ID
 aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
 EOF
 chmod 600 ~/.aws/credentials
-echo "AWS credentials file created."
 
-echo "Configuring AWS CLI defaults..."
 aws configure set default.region "$AWS_DEFAULT_REGION"
 aws configure set default.output json
-echo "AWS CLI defaults configured."
 
 echo "Verifying AWS CLI identity..."
 if ! aws sts get-caller-identity > /dev/null; then
-  echo "ERROR: AWS STS GetCallerIdentity failed."
+  echo "ERROR: AWS STS GetCallerIdentity failed. Check keys."
   exit 8
 fi
-echo "AWS CLI identity verified."
 
-echo "Downloading OpenShift tools..."
-OC_TARGZ_FILE="openshift-client-linux-$OPENSHIFT_VERSION.tar.gz"
-INSTALLER_TARGZ_FILE="openshift-install-linux-$OPENSHIFT_VERSION.tar.gz"
-
-if ! wget -nv -O "$OC_TARGZ_FILE" "$OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$OC_TARGZ_FILE"; then
-  echo "ERROR: Failed to download OpenShift CLI."
-  exit 9
-fi
-sudo tar -xf "$OC_TARGZ_FILE" -C /usr/local/bin oc kubectl
-echo "OpenShift Client installed."
-
-if ! wget -nv -O "$INSTALLER_TARGZ_FILE" "$OCP_DOWNLOAD_BASE_URL/$OPENSHIFT_VERSION/$INSTALLER_TARGZ_FILE"; then
-  echo "ERROR: Failed to download OpenShift Installer."
-  exit 10
-fi
-tar -xf "$INSTALLER_TARGZ_FILE"
-chmod +x "./openshift-install"
-echo "OpenShift Installer extracted."
-
+# 4. Generate SSH Key
 echo "Generating SSH key..."
 mkdir -p "$HOME/.ssh"
 rm -f "$HOME/.ssh/id_rsa" "$HOME/.ssh/id_rsa.pub"
 ssh-keygen -q -N "" -f "$HOME/.ssh/id_rsa" <<<y >/dev/null 2>&1
-echo "SSH key generated."
+
+# 5. Start Installation Logic
+INSTALL_DIRNAME="cluster-install"
+OCP_INSTALL_PATH="openshift-install" # Now in path
+CFN_TEMPLATES_DIR="cloudformation_templates"
+CFN_GENERATED_PARAMS_DIR="cfn_generated_parameters"
+mkdir -p "$CFN_GENERATED_PARAMS_DIR"
 
 echo "Creating installation directory: $INSTALL_DIRNAME"
 rm -rf "$INSTALL_DIRNAME"
@@ -165,53 +124,35 @@ compute:
 EOF_IPI
 fi
 
-echo "Generated $INSTALL_DIRNAME/install-config.yaml."
+echo "Generated install-config.yaml"
 yq e 'del(.pullSecret)' "$INSTALL_DIRNAME/install-config.yaml"
-echo
 
 configure_oauth_secret() {
   echo "--- Configuring OAuth htpasswd secret ---"
-  
+
   if [[ -z "$OCP_ADMIN_PASSWORD" ]] || [[ -z "$OCP_NON_ADMIN_PASSWORD" ]]; then
-    echo "ERROR: OCP_ADMIN_PASSWORD or OCP_NON_ADMIN_PASSWORD not set in ocp_rhdp.config."
+    echo "ERROR: OCP passwords not set."
     return 1
   fi
 
   local htpasswd_file="users.htpasswd"
   trap 'rm -f "$htpasswd_file"' RETURN
-
-  echo "Generating htpasswd file..."
-
-  # Generate the file
   htpasswd -c -B -b "$htpasswd_file" admin "$OCP_ADMIN_PASSWORD"
   local users=("karla" "andrew" "bob" "marina")
   for user in "${users[@]}"; do
     htpasswd -B -b "$htpasswd_file" "$user" "$OCP_NON_ADMIN_PASSWORD"
   done
-
-  echo "Creating/Updating htpass-secret in openshift-config namespace..."
-  # Ensure the namespace exists (it should, but safety first)
   if ! oc get ns openshift-config &> /dev/null; then
     echo "ERROR: Namespace openshift-config not found."
     return 1
   fi
-
-  oc create secret generic htpass-secret \
-    --from-file=htpasswd="$htpasswd_file" \
-    -n openshift-config \
-    --dry-run=client -o yaml | \
-    oc apply -f -
-
-  oc annotate secret htpass-secret \
-    -n openshift-config \
-    "argocd.argoproj.io/sync-options=Delete=false" \
-    --overwrite
-
-  echo "--- OAuth secret configured successfully ---"
+  oc create secret generic htpass-secret --from-file=htpasswd="$htpasswd_file" -n openshift-config --dry-run=client -o yaml | oc apply -f -
+  oc annotate secret htpass-secret -n openshift-config "argocd.argoproj.io/sync-options=Delete=false" --overwrite
+  echo "--- OAuth configured ---"
 }
 
 configure_day2_gitops() {
-  echo "--- Starting Day2 GitOps/ArgoCD Configuration ---"
+  echo "--- Starting Day2 GitOps ---"
   local day2_success=false
 
   if ! oc whoami &> /dev/null; then
@@ -318,7 +259,7 @@ EOF_PATCH
     echo "WARN: Day2: Configuration did not fully succeed. Kubeadmin secret will not be removed by this function."
   fi
   echo "--- Day2 GitOps/ArgoCD Configuration Finished ---"
-  return 0
+  return 0 
 }
 
 distribute_nodes() {
@@ -327,13 +268,8 @@ distribute_nodes() {
   local base_nodes_per_dist=$((total_nodes / num_distributions))
   local remainder_nodes=$((total_nodes % num_distributions))
   local distribution_array=()
-  for i in $(seq 1 "$num_distributions"); do
-    distribution_array+=($base_nodes_per_dist)
-  done
-  for i in $(seq 1 "$remainder_nodes"); do
-    local index_to_update=$((i - 1))
-    distribution_array[$index_to_update]=$((${distribution_array[$index_to_update]} + 1))
-  done
+  for i in $(seq 1 "$num_distributions"); do distribution_array+=($base_nodes_per_dist); done
+  for i in $(seq 1 "$remainder_nodes"); do local idx=$((i - 1)); distribution_array[$idx]=$((${distribution_array[$idx]} + 1)); done
   echo "${distribution_array[@]}"
 }
 
@@ -728,7 +664,7 @@ elif [ "$INSTALL_TYPE" == "UPI" ]; then
 
   echo "Waiting for cluster bootstrap to complete..."
   "$OCP_INSTALL_PATH" wait-for bootstrap-complete --dir "$INSTALL_DIRNAME" --log-level=info
-
+  
   EXPECTED_NODES_TOTAL=$((UPI_MASTER_COUNT + AWS_WORKERS_COUNT + AWS_INFRA_NODES_COUNT + AWS_STORAGE_NODES_COUNT))
   echo "Expecting $EXPECTED_NODES_TOTAL nodes."
   CSR_COUNT=0

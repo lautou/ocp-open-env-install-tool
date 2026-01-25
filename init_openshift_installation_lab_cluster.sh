@@ -7,63 +7,134 @@ SESSION_STATE_FILE=".bastion_session.info"
 
 cd $(dirname $0)
 
-retrieve_and_display_summary() {
+generate_user_data() {
+  cat <<EOF | base64 -w 0
+#!/bin/bash
+set -x
+exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+echo "--- STARTING BASTION PROVISIONING (USER DATA) ---"
+
+# 1. System Updates & Base Tools
+echo "Installing base packages..."
+dnf install -y wget jq unzip httpd-tools tmux tar gzip
+
+# 2. Install YQ
+echo "Installing yq..."
+wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+chmod +x /usr/local/bin/yq
+
+# 3. Install AWS CLI v2
+echo "Installing AWS CLI..."
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip -q awscliv2.zip
+./aws/install
+rm -rf aws awscliv2.zip
+
+# 4. Install OpenShift Tools
+# We use the variables injected from the local script
+OCP_VERSION="$OPENSHIFT_VERSION"
+BASE_URL="$OCP_DOWNLOAD_BASE_URL"
+
+echo "Downloading OpenShift Clients (Version: \$OCP_VERSION)..."
+wget -nv -O "openshift-client.tar.gz" "\$BASE_URL/\$OCP_VERSION/openshift-client-linux-\$OCP_VERSION.tar.gz"
+tar -xf "openshift-client.tar.gz" -C /usr/local/bin oc kubectl
+rm -f openshift-client.tar.gz
+
+echo "Downloading OpenShift Installer..."
+wget -nv -O "openshift-install.tar.gz" "\$BASE_URL/\$OCP_VERSION/openshift-install-linux-\$OCP_VERSION.tar.gz"
+tar -xf "openshift-install.tar.gz" -C /usr/local/bin openshift-install
+rm -f openshift-install.tar.gz
+
+# 5. Finalize
+echo "--- BASTION PROVISIONING COMPLETE ---"
+# Create a marker file for the local script to detect completion
+touch /var/lib/cloud/instance/boot-finished-custom
+EOF
+}
+
+retrieve_logs_and_summary() {
   local bastion_host="$1"
   local key_file="$2"
 
   echo ""
-  echo "📥 Retrieving installation summary from bastion..."
-  # Try to download the summary file
+  echo "📥 Retrieving logs and summary from bastion..."
+
+  # 1. Retrieve Execution Log (Debug info)
+  if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:bastion_execution.log" .; then
+    echo "📄 Execution log saved to: $(pwd)/bastion_execution.log"
+  else
+    echo "⚠️  Could not retrieve 'bastion_execution.log'."
+  fi
+
+  # 2. Retrieve Summary (Credentials/URLs)
   if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:cluster_summary.txt" .; then
     echo ""
-    # Display it to the user
     cat cluster_summary.txt
     echo ""
-    echo "✅ Summary saved locally to: $(pwd)/cluster_summary.txt"
+    echo "✅ Summary saved to: $(pwd)/cluster_summary.txt"
   else
-    echo "⚠️  Could not retrieve 'cluster_summary.txt'. The installation might have failed or the file was not generated."
+    echo "⚠️  Could not retrieve 'cluster_summary.txt'."
   fi
 }
 
+# --- ROBUST SESSION MANAGEMENT ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
+  
+  SESSION_ALIVE=false
+  # 1. Check if session is really alive on bastion
   if [[ -n "$BASTION_HOST" ]]; then
+      if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
+          SESSION_ALIVE=true
+      fi
+  fi
+
+  if [[ "$SESSION_ALIVE" == "true" ]]; then
+    # CAS 1: Session is active -> Prompt to Resume
     echo ""
     echo "⚠️  WARNING: AN INTERRUPTED INSTALLATION SESSION WAS DETECTED."
     echo "   Bastion Host: $BASTION_HOST"
-    echo "   State File:   $(pwd)/$SESSION_STATE_FILE"
     echo ""
     echo -n "❓ Do you want to RESUME the existing connection? (Default: Yes) [Y/n]: "
     read -r response
-    response=${response:-Y} # Default to Yes
+    response=${response:-Y}
 
     if [[ "$response" =~ ^[Yy]$ ]]; then
       echo "🔄 Resuming session on $BASTION_HOST..."
-
-      # Attempt to attach to the existing tmux session
       ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" \
         "tmux attach-session -t ocp_install"
 
-      # Check exit code of SSH:
-      # If 0: The session closed cleanly (user saw "Script Finished" and pressed Enter).
-      # If 255: Network error or SSH failure. We keep the file to allow resuming again.
-      if [ $? -eq 0 ]; then
-        echo "✅ Session completed cleanly. Cleaning up state file."
-        retrieve_and_display_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
-
-        rm -f "$SESSION_STATE_FILE"
-        exit 0
+      # Returned from tmux (Detach or Exit)
+      if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
+          echo "⏸️  Session detached. State file kept."
       else
-        echo "❌ Connection dropped again. State file kept. Run this script again to resume."
-        exit 1
+          echo "✅ Session completed cleanly."
+          retrieve_logs_and_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
+          rm -f "$SESSION_STATE_FILE"
       fi
+      exit 0
     else
       echo "🗑️  Abandoning previous session. Proceeding with a fresh installation..."
       rm -f "$SESSION_STATE_FILE"
     fi
+
   else
-    echo "WARN: State file found but empty. Ignoring."
-    rm -f "$SESSION_STATE_FILE"
+    # CAS 2: Local file exists, but tmux session is DEAD.
+    # We check if it finished successfully in the background.
+    echo "ℹ️  Session 'ocp_install' not found on bastion. Checking for success artifacts..."
+    
+    if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "test -f cluster_summary.txt"; then
+        echo "✅ SUCCESS: Installation finished successfully while you were away!"
+        retrieve_logs_and_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
+        echo "🧹 Cleaning up stale session file (Next run will be a fresh install)."
+        rm -f "$SESSION_STATE_FILE"
+        exit 0
+    else
+        echo "⚠️  No success artifacts found. Assuming the previous installation crashed."
+        echo "🗑️  Cleaning up state file and restarting..."
+        rm -f "$SESSION_STATE_FILE"
+    fi
   fi
 fi
 
@@ -72,8 +143,7 @@ rm -rf "$UPLOAD_TO_BASTION_DIR"
 
 echo "Check if ocp_rhdp.config is present..."
 if [[ ! -f ocp_rhdp.config ]]; then
-  echo "ERROR: Cannot find ocp_rhdp.config file in $(pwd)!"
-  echo "Please copy 'ocp_rhdp.config.example' to 'ocp_rhdp.config' and fill in your details."
+  echo "ERROR: ocp_rhdp.config not found!"
   exit 1
 fi
 . ocp_rhdp.config
@@ -230,23 +300,6 @@ if [[ -z "$(get_r53_hz_id_by_name "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}")" ]]; the
   exit 18
 fi
 
-echo "Determining latest RHEL 9 AMI for bastion in region $AWS_DEFAULT_REGION..."
-AWS_BASTION_AMI=$(aws ec2 describe-images \
-  --owners 309956199498 \
-  --filters \
-    "Name=name,Values=RHEL-9*x86_64*Hourly*" \
-    "Name=architecture,Values=x86_64" \
-    "Name=virtualization-type,Values=hvm" \
-    "Name=root-device-type,Values=ebs" \
-    "Name=state,Values=available" \
-  --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
-  --output text)
-if [ -z "$AWS_BASTION_AMI" ] || [ "$AWS_BASTION_AMI" == "None" ]; then
-  echo "ERROR: Could not automatically determine a suitable RHEL 9 for the bastion in region $AWS_DEFAULT_REGION."
-  echo "Please check AWS filters or specify AWS_BASTION_AMI manually if this problem persists."
-  exit 19
-fi
-echo "Using RHEL 9 AMI for bastion: $AWS_BASTION_AMI"
 
 echo "Check and clean the AWS tenant..."
 ./clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
@@ -261,96 +314,114 @@ BASTION_INSTANCE_TAG_NAME="${CLUSTER_NAME}-bastion"
 
 echo "------------------------------------"
 echo "Creating the Bastion VPC..."
-VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value=$BASTION_VPC_TAG_NAME}]" --output text --query Vpc.VpcId --cidr-block 192.168.0.0/16)
-echo "Bastion VPC_ID=$VPC_ID"
-
-echo "Enable DNS Hostnames in the Bastion VPC..."
+VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value='$BASTION_VPC_TAG_NAME'}]" --output text --query Vpc.VpcId --cidr-block 192.168.0.0/16)
+echo "Enable DNS Hostnames..."
 aws ec2 modify-vpc-attribute --enable-dns-hostnames --vpc-id "$VPC_ID"
-
-echo "Creating the subnet for Bastion VPC id $VPC_ID..."
-SUBNET_ID=$(aws ec2 create-subnet --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=$BASTION_SUBNET_TAG_NAME}]" --output text --query Subnet.SubnetId --cidr-block 192.168.0.0/24 --vpc-id="$VPC_ID")
-echo "Bastion SUBNET_ID=$SUBNET_ID"
-
-echo "Creating the security group for Bastion VPC id $VPC_ID..."
-SG_ID=$(aws ec2 create-security-group --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value=$BASTION_SG_TAG_NAME}]" --output text --query GroupId --group-name "$BASTION_SG_TAG_NAME" --description "Bastion Host security group for $CLUSTER_NAME" --vpc-id "$VPC_ID")
-echo "Bastion SG_ID=$SG_ID"
-
-echo "Creating the TCP port 22 ingress rule for security group id $SG_ID..." 
+echo "Creating Subnet..."
+SUBNET_ID=$(aws ec2 create-subnet --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value='$BASTION_SUBNET_TAG_NAME'}]" --output text --query Subnet.SubnetId --cidr-block 192.168.0.0/24 --vpc-id="$VPC_ID")
+echo "Creating Security Group..."
+SG_ID=$(aws ec2 create-security-group --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value='$BASTION_SG_TAG_NAME'}]" --output text --query GroupId --group-name "$BASTION_SG_TAG_NAME" --description "Bastion SG" --vpc-id "$VPC_ID")
 aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --cidr 0.0.0.0/0 --protocol tcp --port 22 > /dev/null
-echo "------------------------------------"
-echo
 
-echo "Creating an Internet Gateway for Bastion VPC..."
-IGW_ID=$(aws ec2 create-internet-gateway --tag-specifications "ResourceType=internet-gateway,Tags=[{Key=Name,Value=$BASTION_IGW_TAG_NAME}]" --output text --query InternetGateway.InternetGatewayId)
-echo "Bastion IGW_ID=$IGW_ID"
-
-echo "Attaching Internet Gateway id $IGW_ID to Bastion vpc id $VPC_ID..."
+echo "Creating Internet Gateway..."
+IGW_ID=$(aws ec2 create-internet-gateway --tag-specifications "ResourceType=internet-gateway,Tags=[{Key=Name,Value='$BASTION_IGW_TAG_NAME'}]" --output text --query InternetGateway.InternetGatewayId)
 aws ec2 attach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID"
-
-echo "Creating a route table for Bastion vpc id $VPC_ID..."
-RT_ID=$(aws ec2 create-route-table --vpc-id "$VPC_ID" --tag-specifications "ResourceType=route-table,Tags=[{Key=Name,Value=$BASTION_RT_TAG_NAME}]" --output text --query RouteTable.RouteTableId)
-echo "Bastion RT_ID=$RT_ID"
-
-echo "Associate route table id $RT_ID to subnet $SUBNET_ID..."
+echo "Creating Route Table..."
+RT_ID=$(aws ec2 create-route-table --vpc-id "$VPC_ID" --tag-specifications "ResourceType=route-table,Tags=[{Key=Name,Value='$BASTION_RT_TAG_NAME'}]" --output text --query RouteTable.RouteTableId)
 aws ec2 associate-route-table --route-table-id "$RT_ID" --subnet-id "$SUBNET_ID" > /dev/null
-
-echo "Create route in table id $RT_ID for internet gateway $IGW_ID..."
 aws ec2 create-route --route-table-id "$RT_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" > /dev/null
 
-echo "Creating the EC2 key pair for the bastion: $BASTION_KEY_PAIR_NAME..."
-aws ec2 delete-key-pair --key-name "$BASTION_KEY_PAIR_NAME" > /dev/null
+echo "Creating EC2 Key Pair..."
+aws ec2 delete-key-pair --key-name "$BASTION_KEY_PAIR_NAME" > /dev/null 2>&1
 aws ec2 create-key-pair --key-name "$BASTION_KEY_PAIR_NAME" --query KeyMaterial --output text > "$BASTION_KEY_PEM_FILE" 2> /dev/null
 chmod 600 "$BASTION_KEY_PEM_FILE"
 
-echo "Creating the bastion instance using AMI $AWS_BASTION_AMI..."
+echo "Determining AMI..."
+AWS_BASTION_AMI=$(aws ec2 describe-images \
+  --owners 309956199498 \
+  --filters \
+    "Name=name,Values=RHEL-9*x86_64*Hourly*" \
+    "Name=architecture,Values=x86_64" \
+    "Name=virtualization-type,Values=hvm" \
+    "Name=root-device-type,Values=ebs" \
+    "Name=state,Values=available" \
+  --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+  --output text)
+
+echo "Generating UserData for Bastion Provisioning..."
+USER_DATA_BASE64=$(generate_user_data)
+
+echo "Launching Bastion Instance with UserData..."
 BASTION_START_TIME=$(date +%s)
-INSTANCE_ID=$(aws ec2 run-instances --image-id "$AWS_BASTION_AMI" --instance-type t2.large --subnet-id "$SUBNET_ID" --key-name "$BASTION_KEY_PAIR_NAME" --security-group-ids "$SG_ID" --associate-public-ip-address --query Instances[].InstanceId --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$BASTION_INSTANCE_TAG_NAME}]" --output text)
+INSTANCE_ID=$(aws ec2 run-instances \
+  --image-id "$AWS_BASTION_AMI" \
+  --instance-type t2.large \
+  --subnet-id "$SUBNET_ID" \
+  --key-name "$BASTION_KEY_PAIR_NAME" \
+  --security-group-ids "$SG_ID" \
+  --associate-public-ip-address \
+  --user-data "$USER_DATA_BASE64" \
+  --query Instances[].InstanceId \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value='$BASTION_INSTANCE_TAG_NAME'}]" \
+  --output text)
+
 echo "Bastion INSTANCE_ID=$INSTANCE_ID"
-echo -n "Waiting the bastion instance state is running..."
+echo -n "Waiting for running state..."
 aws ec2 wait instance-running --filters Name=instance-id,Values="$INSTANCE_ID"
 echo " Done."
 
 PUBLIC_DNS_NAME=$(aws_ec2_get instance Reservations[].Instances[].PublicDnsName instance-id "$INSTANCE_ID")
 echo "Bastion PUBLIC_DNS_NAME=$PUBLIC_DNS_NAME"
-echo -n "Waiting the system status for bastion instance is OK..."
+echo -n "Waiting for system status check..."
 aws ec2 wait system-status-ok --instance-ids "$INSTANCE_ID"
 echo " Done."
 
+echo "--------------------------------------------------------"
+echo "📡  Streaming Bastion UserData Logs (Software Installation)..."
+echo "--------------------------------------------------------"
+
+# Loop until the marker file created by UserData exists
+# We use StrictHostKeyChecking=no to avoid issues as the instance just came up
+set +e
+while true; do
+    # 1. Check if finished
+    ssh -o "ConnectTimeout=5" -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
+        "test -f /var/lib/cloud/instance/boot-finished-custom" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✅ Bastion Software Installation Complete."
+        break
+    fi
+
+    # 2. Tail the last 5 lines of the log to show progress
+    ssh -o "ConnectTimeout=5" -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
+        "tail -n 2 /var/log/cloud-init-output.log" 2>/dev/null
+    
+    sleep 5
+done
+set -e
+
 BASTION_END_TIME=$(date +%s)
 BASTION_DURATION=$((BASTION_END_TIME - BASTION_START_TIME))
-echo "--------------------------------------------------------"
-echo "⏱️  Bastion Provisioning & Boot Time: $((BASTION_DURATION / 60)) min $((BASTION_DURATION % 60)) sec"
-echo "--------------------------------------------------------"
+echo "⏱️  Bastion Ready Time: $((BASTION_DURATION / 60)) min $((BASTION_DURATION % 60)) sec"
 
-echo "Prepare files to send to the bastion..."
+echo "Prepare files..."
 mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
-
-echo "Copy required files to the bastion..."
 if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
-  echo "Copied $CLOUDFORMATION_TEMPLATES_DIR directory to bastion upload directory."
 fi
 cp argocd/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
 cp -r day1_config day2_config bastion_script.sh aws_lib.sh ocp_rhdp.config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
-echo "Transferring files to bastion host $PUBLIC_DNS_NAME..."
+echo "Transferring files..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"
 
-echo "Running the ocp installation script on the bastion (this may take a while)..."
-SCRIPT_START_TIME=$(date +%s)
+echo "Running ocp installation script..."
 echo "BASTION_HOST=$PUBLIC_DNS_NAME" > "$SESSION_STATE_FILE"
-
-echo "Installing tmux for session persistence..."
-ssh -T -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "sudo dnf install -y tmux" &> /dev/null
 
 echo ""
 echo "========================================================================"
-echo "🚀  SESSION PERSISTENCE ENABLED"
-echo "    The script is launching inside a 'tmux' session."
-echo ""
-echo "ℹ️   IF YOUR CONNECTION DROPS:"
-echo "    1. Rerun: ./init_openshift_installation_lab_cluster.sh"
-echo "    2. Say 'YES' to resume."
+echo "🚀  LAUNCHING INSTALLATION SESSION"
 echo "========================================================================"
 sleep 2
 
@@ -363,36 +434,15 @@ set -e
 if [ $SSH_EXIT_CODE -eq 0 ]; then
   if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "tmux has-session -t ocp_install 2>/dev/null"; then
     echo ""
-    echo "⏸️  Session detached but still running on bastion."
-    echo "    The state file '$SESSION_STATE_FILE' has been kept."
-    echo "    You can close this terminal. Run the script again to resume watching."
-    # We keep the file, exit with success, but do not clean it up.
+    echo "⏸️  Session detached. State file kept."
     exit 0
   else
-    # SSH exited normally -> User pressed Enter -> Script finished
-    echo "✅ Session completed cleanly. Cleaning up state file."
+    echo "✅ Session completed cleanly."
+    retrieve_logs_and_summary "$PUBLIC_DNS_NAME" "$BASTION_KEY_PEM_FILE"
     rm -f "$SESSION_STATE_FILE"
   fi
 else
-  # SSH exited with error (e.g. network drop) -> Keep file for resume
   echo ""
-  echo "⚠️  SSH connection terminated unexpectedly (Code: $SSH_EXIT_CODE)."
-  echo "    The state file '$SESSION_STATE_FILE' has been kept."
-  echo "    Run the script again to resume."
+  echo "⚠️  SSH terminated unexpectedly (Code: $SSH_EXIT_CODE)."
   exit $SSH_EXIT_CODE
-fi
-
-SCRIPT_END_TIME=$(date +%s)
-SCRIPT_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
-
-echo "Bastion script execution finished."
-echo "--------------------------------------------------------"
-echo "⏱️  Bastion Software Init & Install: $((SCRIPT_DURATION / 60)) min $((SCRIPT_DURATION % 60)) sec"
-echo "--------------------------------------------------------"
-
-retrieve_and_display_summary "$PUBLIC_DNS_NAME" "$BASTION_KEY_PEM_FILE"
-
-echo "The local script has completed its tasks. Bastion key '$BASTION_KEY_PEM_FILE' is kept locally at $(pwd)/$BASTION_KEY_PEM_FILE for potential debugging."
-if [ "$INSTALL_TYPE" == "IPI" ]; then
-  echo "Wait few minutes the OAuth initialization before authenticating to the Web Console using htpassw identity provider!!"
 fi
