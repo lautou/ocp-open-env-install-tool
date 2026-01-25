@@ -1,6 +1,8 @@
 apiVersion: controller.devfile.io/v1alpha1
 kind: DevWorkspaceOperatorConfig
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: devworkspace-operator-config
   namespace: openshift-operators
 config:
