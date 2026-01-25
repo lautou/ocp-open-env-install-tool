@@ -229,6 +229,11 @@ configure_day2_gitops() {
   if [ ! -d day2_config/_generated ]; then
     mkdir -p day2_config/_generated
   fi
+
+  SAFE_REVISION="${GIT_REPO_REVISION:-HEAD}"
+
+  echo "Day2: Targeting Git Revision: $SAFE_REVISION"
+
   cat <<EOF_PATCH > day2_config/_generated/applicationset-patch.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -240,6 +245,7 @@ spec:
     spec:
       source:
         repoURL: "$GIT_REPO_URL"
+        targetRevision: "$SAFE_REVISION"
 EOF_PATCH
   echo "Day2: Generated patch file day2_config/_generated/applicationset-patch.yaml"
 
