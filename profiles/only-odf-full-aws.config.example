@@ -1,13 +1,14 @@
 # ==============================================================================
-# DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster (Standard Lab).
-# Copy this to 'ocp_rhdp.config' and customize.
+# ODF FULL PROFILE CONFIGURATION (EXAMPLE)
+# Specialized profile for ODF Performance Testing on a separate AWS Account.
+# Copy this to 'profiles/odf-full.config' and customize.
 # ==============================================================================
 
-# --- CLUSTER IDENTITY ---
-export RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXX.opentlc.com"
+# Different domain for this environment
+export RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXXX.opentlc.com"
 
-# --- AWS CREDENTIALS (DEFAULT ACCOUNT) ---
+# --- AWS CREDENTIALS (SEPARATE ACCOUNT) ---
+# Overriding the default credentials to deploy on a specific tenant
 export AWS_DEFAULT_REGION="eu-central-1"
 export AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXX"
 export AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXX"
@@ -29,8 +30,8 @@ export AWS_STORAGE_NODES_COUNT=3
 export AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Git Branch/Tag to use for ArgoCD (Day 2)
-export GIT_REPO_REVISION="master"
+# Pointing to a specific feature branch for GitOps
+export GIT_REPO_REVISION="only-odf-full-aws"
 
-# ODF Profile: "MCG" (Default, lightweight) or "FULL" (Dedicated nodes)
-export ODF_PROFILE="MCG"
+# Enable Full ODF deployment logic in bastion_script.sh
+export ODF_PROFILE="FULL"
