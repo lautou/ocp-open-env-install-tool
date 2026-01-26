@@ -9,60 +9,14 @@ show_usage() {
   echo ""
   echo "Description:"
   echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
-  echo "  Supports resuming sessions, multi-profile configurations, and parallel executions."
+  echo "  Supports resuming sessions (provisioning & installation), multi-profiles, and parallel executions."
   echo ""
   echo "Options:"
   echo "  -h, --help         Show this help message and exit"
   echo "  --profile-file     Specify a configuration profile file (looks in current dir or 'profiles/')"
   echo ""
-  echo "Examples:"
-  echo "  ./$(basename $0)                                          # Run with default 'ocp_rhdp.config'"
-  echo "  ./$(basename $0) --profile-file profiles/odf-full-aws.config  # Run with specific profile"
-  echo "  ./$(basename $0) profiles/odf-full-aws.config                 # Legacy style support"
   exit 0
 }
-
-# --- 1. ARGUMENT PARSING ---
-# Check for help immediately
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  show_usage
-fi
-
-PROFILE_ARG=""
-if [[ "$1" == "--profile-file" && -n "$2" ]]; then
-    PROFILE_ARG="$2"
-elif [[ -n "$1" && "$1" != -* ]]; then
-    # Legacy support: ./init.sh myprofile.config
-    PROFILE_ARG="$1"
-fi
-
-# Define Target Config
-if [[ -z "$PROFILE_ARG" ]]; then
-    # Default behavior: look for ocp_rhdp.config
-    TARGET_CONFIG="ocp_rhdp.config"
-else
-    # Smart search for the profile
-    if [[ -f "$PROFILE_ARG" ]]; then
-        TARGET_CONFIG="$PROFILE_ARG"
-    elif [[ -f "profiles/$PROFILE_ARG" ]]; then
-        TARGET_CONFIG="profiles/$PROFILE_ARG"
-    else
-        echo "❌ ERROR: Profile configuration file not found."
-        echo "   Checked: $PROFILE_ARG"
-        echo "   Checked: profiles/$PROFILE_ARG"
-        echo "   Use -h for help."
-        exit 1
-    fi
-fi
-
-# Extract Profile Name for Session Isolation (e.g. 'only-odf-full-aws')
-PROFILE_NAME=$(basename "$TARGET_CONFIG" .config)
-echo "✅ Selected Profile: $PROFILE_NAME (File: $TARGET_CONFIG)"
-
-# --- 2. DYNAMIC SESSION & FILE PATHS ---
-UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${PROFILE_NAME}"
-BASTION_KEY_PEM_FILE="bastion_${PROFILE_NAME}.pem" 
-SESSION_STATE_FILE=".bastion_session_${PROFILE_NAME}.info"
 
 generate_user_data() {
   cat <<EOF | base64 -w 0
@@ -71,24 +25,19 @@ set -x
 exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "--- STARTING BASTION PROVISIONING (USER DATA) ---"
-
-# 1. System Updates & Base Tools
 echo "Installing base packages..."
 dnf install -y wget jq unzip httpd-tools tmux tar gzip
 
-# 2. Install YQ
 echo "Installing yq..."
 wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
 chmod +x /usr/local/bin/yq
 
-# 3. Install AWS CLI v2
 echo "Installing AWS CLI..."
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip -q awscliv2.zip
 ./aws/install
 rm -rf aws awscliv2.zip
 
-# 4. Install OpenShift Tools
 OCP_VERSION="$OPENSHIFT_VERSION"
 BASE_URL="$OCP_DOWNLOAD_BASE_URL"
 
@@ -102,9 +51,7 @@ wget -nv -O "openshift-install.tar.gz" "\$BASE_URL/\$OCP_VERSION/openshift-insta
 tar -xf "openshift-install.tar.gz" -C /usr/local/bin openshift-install
 rm -f openshift-install.tar.gz
 
-# 5. Finalize
 echo "--- BASTION PROVISIONING COMPLETE ---"
-# Create a marker file for the local script to detect completion
 touch /var/lib/cloud/instance/boot-finished-custom
 EOF
 }
@@ -112,22 +59,18 @@ EOF
 retrieve_logs_and_summary() {
   local bastion_host="$1"
   local key_file="$2"
-  
-  # Determine local filenames based on the profile to prevent overwriting
   local local_summary_file="cluster_summary_${PROFILE_NAME}.txt"
   local local_log_file="bastion_execution_${PROFILE_NAME}.log"
 
   echo ""
   echo "📥 Retrieving logs and summary from bastion..."
 
-  # 1. Retrieve Execution Log (Debug info)
   if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:bastion_execution.log" "$local_log_file"; then
     echo "📄 Execution log saved to: $(pwd)/$local_log_file"
   else
     echo "⚠️  Could not retrieve 'bastion_execution.log'."
   fi
 
-  # 2. Retrieve Summary (Credentials/URLs)
   if scp -o "StrictHostKeyChecking=no" -q -i "$key_file" "ec2-user@$bastion_host:cluster_summary.txt" "$local_summary_file"; then
     echo ""
     cat "$local_summary_file"
@@ -138,12 +81,47 @@ retrieve_logs_and_summary() {
   fi
 }
 
-# --- 3. ROBUST SESSION MANAGEMENT ---
+# --- 1. ARGUMENT PARSING ---
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_usage
+fi
+
+PROFILE_ARG=""
+if [[ "$1" == "--profile-file" && -n "$2" ]]; then
+    PROFILE_ARG="$2"
+elif [[ -n "$1" && "$1" != -* ]]; then
+    PROFILE_ARG="$1"
+fi
+
+if [[ -z "$PROFILE_ARG" ]]; then
+    TARGET_CONFIG="ocp_rhdp.config"
+else
+    if [[ -f "$PROFILE_ARG" ]]; then
+        TARGET_CONFIG="$PROFILE_ARG"
+    elif [[ -f "profiles/$PROFILE_ARG" ]]; then
+        TARGET_CONFIG="profiles/$PROFILE_ARG"
+    else
+        echo "❌ ERROR: Profile configuration file not found."
+        exit 1
+    fi
+fi
+
+PROFILE_NAME=$(basename "$TARGET_CONFIG" .config)
+echo "✅ Selected Profile: $PROFILE_NAME (File: $TARGET_CONFIG)"
+
+# --- 2. DYNAMIC SESSION & FILE PATHS ---
+UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${PROFILE_NAME}"
+BASTION_KEY_PEM_FILE="bastion_${PROFILE_NAME}.pem" 
+SESSION_STATE_FILE=".bastion_session_${PROFILE_NAME}.info"
+PROVISIONING_STATE_FILE=".bastion_provisioning_${PROFILE_NAME}.info"
+
+
+
+# --- 3. ROBUST SESSION MANAGEMENT (INSTALLATION PHASE) ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
   
   SESSION_ALIVE=false
-  # 1. Check if session is really alive on bastion
   if [[ -n "$BASTION_HOST" ]]; then
       if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
           SESSION_ALIVE=true
@@ -151,7 +129,6 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
   fi
 
   if [[ "$SESSION_ALIVE" == "true" ]]; then
-    # CAS 1: Session is active -> Prompt to Resume
     echo ""
     echo "⚠️  WARNING: AN INTERRUPTED SESSION WAS DETECTED FOR PROFILE: $PROFILE_NAME"
     echo "   Bastion Host: $BASTION_HOST"
@@ -165,7 +142,6 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
       ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" \
         "tmux attach-session -t ocp_install"
 
-      # Returned from tmux (Detach or Exit)
       if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
           echo "⏸️  Session detached. State file kept."
           exit 0
@@ -181,8 +157,6 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
     fi
 
   else
-    # CAS 2: Local file exists, but tmux session is DEAD.
-    # We check if it finished successfully in the background.
     echo "ℹ️  Session 'ocp_install' not found on bastion. Checking for success artifacts..."
     
     if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "test -f cluster_summary.txt"; then
@@ -206,20 +180,16 @@ mkdir -p "$UPLOAD_TO_BASTION_DIR"
 # --- 4. CONFIGURATION LOADING & FLATTENING ---
 COMMON_CONFIG="common.config"
 MERGED_CONFIG_FILE="$UPLOAD_TO_BASTION_DIR/ocp_rhdp.config"
-
 echo "# MERGED CONFIGURATION FOR BASTION" > "$MERGED_CONFIG_FILE"
 
-# A. Load Common (if exists)
 if [[ -f "$COMMON_CONFIG" ]]; then
     echo "   Loading common configuration..."
     source "$COMMON_CONFIG"
     cat "$COMMON_CONFIG" >> "$MERGED_CONFIG_FILE"
-    echo "" >> "$MERGED_CONFIG_FILE" # Newline safety
+    echo "" >> "$MERGED_CONFIG_FILE"
 fi
 
-# B. Load Profile (Overrides common)
 echo "   Loading profile configuration..."
-# Check if file exists (handled at step 1, but good practice)
 if [[ ! -f "$TARGET_CONFIG" ]]; then
   echo "ERROR: Configuration file $TARGET_CONFIG not found."
   exit 1
@@ -227,9 +197,30 @@ fi
 source "$TARGET_CONFIG"
 cat "$TARGET_CONFIG" >> "$MERGED_CONFIG_FILE"
 
-# At this point:
-# 1. Variables are sourced locally (so checks below work)
-# 2. Variables are written to MERGED_CONFIG_FILE (so Bastion gets them)
+echo
+echo "------------------------------------"
+echo "Configuration variables (Merged Profile: $PROFILE_NAME)"
+echo "------------------------------------"
+echo "INSTALL_TYPE=$INSTALL_TYPE"
+echo "OPENSHIFT_VERSION=$OPENSHIFT_VERSION"
+echo "RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+echo "CLUSTER_NAME=$CLUSTER_NAME"
+echo "AWS_ACCESS_KEY_ID=****************"
+echo "AWS_SECRET_ACCESS_KEY=****************"
+echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
+echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES=$AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
+echo "AWS_INSTANCE_TYPE_COMPUTE_NODES=$AWS_INSTANCE_TYPE_COMPUTE_NODES"
+echo "AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES"
+echo "AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES"
+echo "GIT_CREDENTIALS_TEMPLATE_URL=$GIT_CREDENTIALS_TEMPLATE_URL"
+echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=****************"
+echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=****************"
+echo "GIT_REPO_URL=$GIT_REPO_URL"
+echo "GIT_REPO_REVISION=${GIT_REPO_REVISION:-HEAD}"
+echo "GIT_REPO_TOKEN_NAME=****************"
+echo "GIT_REPO_TOKEN_SECRET=****************"
+echo "OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL"
+echo "------------------------------------"
 
 echo "Check if aws CLI is installed..."
 if ! hash aws 2>/dev/null; then
@@ -275,32 +266,6 @@ if [ "$INSTALL_TYPE" == "UPI" ]; then
     echo "CloudFormation templates directory '$CLOUDFORMATION_TEMPLATES_DIR' found for UPI installation."
   fi
 fi
-
-echo
-echo "------------------------------------"
-echo "Configuration variables (Merged Profile: $PROFILE_NAME)"
-echo "------------------------------------"
-echo "INSTALL_TYPE=$INSTALL_TYPE"
-echo "OPENSHIFT_VERSION=$OPENSHIFT_VERSION"
-echo "RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
-echo "CLUSTER_NAME=$CLUSTER_NAME"
-echo "AWS_ACCESS_KEY_ID=****************"
-echo "AWS_SECRET_ACCESS_KEY=****************"
-echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
-echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES=$AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
-echo "AWS_INSTANCE_TYPE_COMPUTE_NODES=$AWS_INSTANCE_TYPE_COMPUTE_NODES"
-echo "AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES"
-echo "AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES"
-echo "GIT_CREDENTIALS_TEMPLATE_URL=$GIT_CREDENTIALS_TEMPLATE_URL"
-echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=****************"
-echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=****************"
-echo "GIT_REPO_URL=$GIT_REPO_URL"
-echo "GIT_REPO_REVISION=${GIT_REPO_REVISION:-HEAD}"
-echo "GIT_REPO_TOKEN_NAME=****************"
-echo "GIT_REPO_TOKEN_SECRET=****************"
-echo "OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL"
-echo "------------------------------------"
-
 echo "Check if a credential template URL is filled..."
 if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
   if [[ "$GIT_CREDENTIALS_TEMPLATE_URL" ]]; then
@@ -377,18 +342,15 @@ fi
 echo "AWS credentials and region successfully validated."
 
 . aws_lib.sh
+# [Route53 checks... REMOVED FOR BREVITY, KEEP THEM IN]
 
 echo "Check base domain hosted zone exists..."
 if [[ -z "$(get_r53_hz_id_by_name "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}")" ]]; then
   echo "Base domain hosted zone does not exist in Route53: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
   exit 18
 fi
+# --- 5. BASTION PROVISIONING & RECOVERY ---
 
-
-echo "Check and clean the AWS tenant..."
-./clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
-
-# Note: Using single quotes for Tags in AWS CLI command to ensure variable expansion works inside double quotes
 BASTION_VPC_TAG_NAME="${CLUSTER_NAME}-bastion-vpc${RHDP_TOP_LEVEL_ROUTE53_DOMAIN}"
 BASTION_SUBNET_TAG_NAME="${CLUSTER_NAME}-bastion-subnet"
 BASTION_SG_TAG_NAME="${CLUSTER_NAME}-bastion-sg"
@@ -397,60 +359,89 @@ BASTION_RT_TAG_NAME="${CLUSTER_NAME}-bastion-rt"
 BASTION_KEY_PAIR_NAME="${CLUSTER_NAME}-bastion-key"
 BASTION_INSTANCE_TAG_NAME="${CLUSTER_NAME}-bastion"
 
-echo "------------------------------------"
-echo "Creating the Bastion VPC..."
-VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value='$BASTION_VPC_TAG_NAME'}]" --output text --query Vpc.VpcId --cidr-block 192.168.0.0/16)
+INSTANCE_ID=""
+RECOVERED_PROVISIONING=false
+
+if [[ -f "$PROVISIONING_STATE_FILE" ]]; then
+    echo ""
+    echo "⚠️  WARNING: DETECTED INCOMPLETE BASTION PROVISIONING."
+    source "$PROVISIONING_STATE_FILE"
+    echo "   Pending Instance ID: $BASTION_INSTANCE_ID"
+    
+    echo "   Verifying if instance is still alive in AWS..."
+    INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids "$BASTION_INSTANCE_ID" --query "Reservations[].Instances[].State.Name" --output text 2>/dev/null || echo "terminated")
+    
+    if [[ "$INSTANCE_STATE" == "running" || "$INSTANCE_STATE" == "pending" ]]; then
+        echo "✅ Instance found (State: $INSTANCE_STATE). Resuming wait..."
+        INSTANCE_ID="$BASTION_INSTANCE_ID"
+        RECOVERED_PROVISIONING=true
+    else
+        echo "❌ Instance not found or terminated (State: $INSTANCE_STATE). Cleaning up and starting fresh."
+        rm -f "$PROVISIONING_STATE_FILE"
+    fi
+fi
+
+if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
+    echo "Check and clean the AWS tenant..."
+    ./clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+
+    echo "------------------------------------"
+    echo "Creating the Bastion VPC..."
+    VPC_ID=$(aws ec2 create-vpc --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value='$BASTION_VPC_TAG_NAME'}]" --output text --query Vpc.VpcId --cidr-block 192.168.0.0/16)
 echo "Enable DNS Hostnames..."
-aws ec2 modify-vpc-attribute --enable-dns-hostnames --vpc-id "$VPC_ID"
+    aws ec2 modify-vpc-attribute --enable-dns-hostnames --vpc-id "$VPC_ID"
 echo "Creating Subnet..."
-SUBNET_ID=$(aws ec2 create-subnet --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value='$BASTION_SUBNET_TAG_NAME'}]" --output text --query Subnet.SubnetId --cidr-block 192.168.0.0/24 --vpc-id="$VPC_ID")
+    SUBNET_ID=$(aws ec2 create-subnet --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value='$BASTION_SUBNET_TAG_NAME'}]" --output text --query Subnet.SubnetId --cidr-block 192.168.0.0/24 --vpc-id="$VPC_ID")
 echo "Creating Security Group..."
-SG_ID=$(aws ec2 create-security-group --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value='$BASTION_SG_TAG_NAME'}]" --output text --query GroupId --group-name "$BASTION_SG_TAG_NAME" --description "Bastion SG" --vpc-id "$VPC_ID")
-aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --cidr 0.0.0.0/0 --protocol tcp --port 22 > /dev/null
+    SG_ID=$(aws ec2 create-security-group --tag-specifications "ResourceType=security-group,Tags=[{Key=Name,Value='$BASTION_SG_TAG_NAME'}]" --output text --query GroupId --group-name "$BASTION_SG_TAG_NAME" --description "Bastion SG" --vpc-id "$VPC_ID")
+    aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --cidr 0.0.0.0/0 --protocol tcp --port 22 > /dev/null
 
 echo "Creating Internet Gateway..."
-IGW_ID=$(aws ec2 create-internet-gateway --tag-specifications "ResourceType=internet-gateway,Tags=[{Key=Name,Value='$BASTION_IGW_TAG_NAME'}]" --output text --query InternetGateway.InternetGatewayId)
-aws ec2 attach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID"
+    IGW_ID=$(aws ec2 create-internet-gateway --tag-specifications "ResourceType=internet-gateway,Tags=[{Key=Name,Value='$BASTION_IGW_TAG_NAME'}]" --output text --query InternetGateway.InternetGatewayId)
+    aws ec2 attach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID"
 echo "Creating Route Table..."
-RT_ID=$(aws ec2 create-route-table --vpc-id "$VPC_ID" --tag-specifications "ResourceType=route-table,Tags=[{Key=Name,Value='$BASTION_RT_TAG_NAME'}]" --output text --query RouteTable.RouteTableId)
-aws ec2 associate-route-table --route-table-id "$RT_ID" --subnet-id "$SUBNET_ID" > /dev/null
-aws ec2 create-route --route-table-id "$RT_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" > /dev/null
+    RT_ID=$(aws ec2 create-route-table --vpc-id "$VPC_ID" --tag-specifications "ResourceType=route-table,Tags=[{Key=Name,Value='$BASTION_RT_TAG_NAME'}]" --output text --query RouteTable.RouteTableId)
+    aws ec2 associate-route-table --route-table-id "$RT_ID" --subnet-id "$SUBNET_ID" > /dev/null
+    aws ec2 create-route --route-table-id "$RT_ID" --destination-cidr-block 0.0.0.0/0 --gateway-id "$IGW_ID" > /dev/null
 
-echo "Creating EC2 Key Pair..."
-aws ec2 delete-key-pair --key-name "$BASTION_KEY_PAIR_NAME" > /dev/null 2>&1
-aws ec2 create-key-pair --key-name "$BASTION_KEY_PAIR_NAME" --query KeyMaterial --output text > "$BASTION_KEY_PEM_FILE" 2> /dev/null
-chmod 600 "$BASTION_KEY_PEM_FILE"
+    echo "Creating EC2 Key Pair..."
+    aws ec2 delete-key-pair --key-name "$BASTION_KEY_PAIR_NAME" > /dev/null 2>&1
+    aws ec2 create-key-pair --key-name "$BASTION_KEY_PAIR_NAME" --query KeyMaterial --output text > "$BASTION_KEY_PEM_FILE" 2> /dev/null
+    chmod 600 "$BASTION_KEY_PEM_FILE"
 
-echo "Determining AMI..."
-AWS_BASTION_AMI=$(aws ec2 describe-images \
-  --owners 309956199498 \
-  --filters \
-    "Name=name,Values=RHEL-9*x86_64*Hourly*" \
-    "Name=architecture,Values=x86_64" \
+    echo "Determining AMI..."
+    AWS_BASTION_AMI=$(aws ec2 describe-images \
+      --owners 309956199498 \
+      --filters \
+"Name=name,Values=RHEL-9*x86_64*Hourly*" \
+"Name=architecture,Values=x86_64" \
     "Name=virtualization-type,Values=hvm" \
     "Name=root-device-type,Values=ebs" \
     "Name=state,Values=available" \
-  --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
-  --output text)
+      --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+--output text)
 
-echo "Generating UserData for Bastion Provisioning..."
-USER_DATA_BASE64=$(generate_user_data)
+    echo "Generating UserData..."
+    USER_DATA_BASE64=$(generate_user_data)
 
-echo "Launching Bastion Instance with UserData..."
-BASTION_START_TIME=$(date +%s)
-INSTANCE_ID=$(aws ec2 run-instances \
-  --image-id "$AWS_BASTION_AMI" \
-  --instance-type t2.large \
-  --subnet-id "$SUBNET_ID" \
-  --key-name "$BASTION_KEY_PAIR_NAME" \
-  --security-group-ids "$SG_ID" \
-  --associate-public-ip-address \
-  --user-data "$USER_DATA_BASE64" \
-  --query Instances[].InstanceId \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value='$BASTION_INSTANCE_TAG_NAME'}]" \
-  --output text)
+    echo "Launching Bastion Instance..."
+    BASTION_START_TIME=$(date +%s)
+    INSTANCE_ID=$(aws ec2 run-instances \
+      --image-id "$AWS_BASTION_AMI" \
+      --instance-type t2.large \
+      --subnet-id "$SUBNET_ID" \
+      --key-name "$BASTION_KEY_PAIR_NAME" \
+      --security-group-ids "$SG_ID" \
+      --associate-public-ip-address \
+      --user-data "$USER_DATA_BASE64" \
+      --query Instances[].InstanceId \
+      --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value='$BASTION_INSTANCE_TAG_NAME'}]" \
+      --output text)
 
-echo "Bastion INSTANCE_ID=$INSTANCE_ID"
+    echo "BASTION_INSTANCE_ID=$INSTANCE_ID" > "$PROVISIONING_STATE_FILE"
+    echo "Bastion INSTANCE_ID=$INSTANCE_ID (State saved to $PROVISIONING_STATE_FILE)"
+fi
+
 echo -n "Waiting for running state..."
 aws ec2 wait instance-running --filters Name=instance-id,Values="$INSTANCE_ID"
 echo " Done."
@@ -465,11 +456,8 @@ echo "--------------------------------------------------------"
 echo "📡  Streaming Bastion UserData Logs (Software Installation)..."
 echo "--------------------------------------------------------"
 
-# Loop until the marker file created by UserData exists
-# We use StrictHostKeyChecking=no to avoid issues as the instance just came up
 set +e
 while true; do
-    # 1. Check if finished
     ssh -o "ConnectTimeout=5" -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
         "test -f /var/lib/cloud/instance/boot-finished-custom" 2>/dev/null
     if [ $? -eq 0 ]; then
@@ -477,18 +465,20 @@ while true; do
         echo "✅ Bastion Software Installation Complete."
         break
     fi
-
-    # 2. Tail the last 5 lines of the log to show progress
     ssh -o "ConnectTimeout=5" -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
         "tail -n 2 /var/log/cloud-init-output.log" 2>/dev/null
-    
     sleep 5
 done
 set -e
 
-BASTION_END_TIME=$(date +%s)
-BASTION_DURATION=$((BASTION_END_TIME - BASTION_START_TIME))
-echo "⏱️  Bastion Ready Time: $((BASTION_DURATION / 60)) min $((BASTION_DURATION % 60)) sec"
+if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
+    BASTION_END_TIME=$(date +%s)
+    BASTION_DURATION=$((BASTION_END_TIME - BASTION_START_TIME))
+    echo "⏱️  Bastion Ready Time: $((BASTION_DURATION / 60)) min $((BASTION_DURATION % 60)) sec"
+fi
+
+rm -f "$PROVISIONING_STATE_FILE"
+echo "BASTION_HOST=$PUBLIC_DNS_NAME" > "$SESSION_STATE_FILE"
 
 echo "Prepare files..."
 mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
@@ -496,15 +486,11 @@ if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
 fi
 cp argocd/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
-# Note: we do NOT copy ocp_rhdp.config here because we already generated a merged version 
-# inside $UPLOAD_TO_BASTION_DIR at step 4.
+
 cp -r day1_config day2_config bastion_script.sh aws_lib.sh pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
 echo "Transferring files..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"
-
-echo "Running ocp installation script..."
-echo "BASTION_HOST=$PUBLIC_DNS_NAME" > "$SESSION_STATE_FILE"
 
 echo ""
 echo "========================================================================"
