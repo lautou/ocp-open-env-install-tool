@@ -26,7 +26,7 @@ AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
 # Dedicated Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
-AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.2xlarge"
 
 # --- SOFTWARE PROFILES ---
 # Override Path for Full ODF
