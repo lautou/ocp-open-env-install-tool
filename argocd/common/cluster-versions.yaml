@@ -13,6 +13,9 @@ data:
   opentelemetry: "stable"
   tempo: "stable"
 
+  # Integration
+  openshift-service-mesh: "stable-3.2"
+  
   # CI/CD & Dev Tools
   cert-manager: "stable-v1.18"
   openshift-pipelines: "pipelines-1.21"

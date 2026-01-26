@@ -54,6 +54,8 @@ spec:
           - branch: master
             item: openshift-pipelines
           - branch: master
+            item: openshift-service-mesh
+          - branch: master
             item: opentelemetry
         #  - branch: master
         #    item: sealed-secrets
