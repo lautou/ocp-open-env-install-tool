@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: enable-console-plugin
-          image: quay.io/devfile/universal-developer-image:ubi8-latest
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
           command:
             - /bin/bash
             - '-c'

@@ -5,8 +5,8 @@ resources:
   - ../../common
   - cluster-crb-tektonconfigs.operator.tekton.dev-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-tektonconfig-config.yaml
-#  - openshift-gitops-job-enable-pipelines-console-plugin.yaml
-#  - openshift-gitops-job-disable-pipelines-console-plugin.yaml
+  - openshift-gitops-job-enable-pipelines-console-plugin.yaml
+  - openshift-gitops-job-disable-pipelines-console-plugin.yaml
   - openshift-operators-subscription-openshift-pipelines-operator.yaml
 
 replacements:
