@@ -485,7 +485,7 @@ mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
 if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
 fi
-cp argocd/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
+cp components/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
 
 cp -r day1_config day2_config bastion_script.sh aws_lib.sh pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
