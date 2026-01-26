@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - openshift-storage-storagecluster-ocs-storagecluster.yaml

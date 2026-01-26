@@ -17,11 +17,12 @@ EXPORT_DIR="$PARENT_DIR/export_gemini"
 EXCLUDES=(
     "--exclude=.git/"
     "--exclude=pull-secret.txt"
-    "--exclude=ocp_rhdp.config"
-    "--exclude=_upload_to_bastion/"
-    "--exclude=bastion.pem"
-    "--exclude=sanitize_before_gemini.sh"
-    "--exclude=.DS_Store"
+    "--exclude=*.config"               # Excludes secrets in common.config, ocp_rhdp.config, profiles/*.config
+    "--exclude=*.log"                  # Excludes execution logs
+    "--exclude=*.pem"                  # Excludes SSH private keys
+    "--exclude=*.info"                 # Excludes session state files (.bastion_session_*.info)
+    "--exclude=cluster_summary_*.txt"  # Excludes generated cluster summaries
+    "--exclude=_upload_to_bastion_*/"  # Excludes all temporary upload directories
 )
 
 # --- 2. Execution ---

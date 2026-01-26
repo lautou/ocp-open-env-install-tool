@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-profile
+  namespace: openshift-gitops
+  # This annotation ensures ArgoCD doesn't delete this app if the parent (if any) is synced
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
+spec:
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  project: default
+  source:
+    # These values are placeholders. They will be overwritten by bastion_script.sh
+    repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+    targetRevision: master
+    path: gitops-profiles/standard
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

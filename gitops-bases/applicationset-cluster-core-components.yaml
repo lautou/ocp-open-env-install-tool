@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: cluster
+  name: cluster-core-components
   namespace: openshift-gitops
 spec:
   generators:
@@ -41,8 +41,6 @@ spec:
           # DON'T COMMENT openshift-config or it could break other modules installation!
           - branch: master
             item: openshift-config
-          - branch: master
-            item: openshift-data-foundation
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
           - branch: master
             item: openshift-gitops-admin-config
@@ -74,7 +72,7 @@ spec:
       project: default
       source:
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: argocd/{{item}}/overlays/default
+        path: components/{{item}}/overlays/default
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc

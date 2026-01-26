@@ -1,5 +1,5 @@
 resources:
-- applications/applicationset-cluster.yaml
+- applications/bootstrap-application.yaml
 
 patches:
-- path: _generated/applicationset-patch.yaml
+- path: _generated/application-patch.yaml

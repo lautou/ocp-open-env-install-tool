@@ -29,8 +29,5 @@ AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Pointing to the specific branch for this profile
-GIT_REPO_REVISION="odf-full-aws"
-
-# Enable Full ODF deployment logic in bastion_script.sh
-ODF_PROFILE="FULL"
+# Override Path for Full ODF
+GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws"

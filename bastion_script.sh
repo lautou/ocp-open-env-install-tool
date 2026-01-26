@@ -231,26 +231,27 @@ configure_day2_gitops() {
   fi
 
   SAFE_REVISION="${GIT_REPO_REVISION:-HEAD}"
-
   echo "Day2: Targeting Git Revision: $SAFE_REVISION"
 
-  cat <<EOF_PATCH > day2_config/_generated/applicationset-patch.yaml
+  SAFE_PATH="${GITOPS_PROFILE_PATH:-gitops-profiles/standard}"
+  echo "Day2: Targeting Git Path: $SAFE_PATH"
+
+  cat <<EOF_PATCH > day2_config/_generated/application-patch.yaml
 apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
+kind: Application
 metadata:
-  name: cluster
+  name: cluster-profile
   namespace: openshift-gitops
 spec:
-  template:
-    spec:
-      source:
-        repoURL: "$GIT_REPO_URL"
-        targetRevision: "$SAFE_REVISION"
+  source:
+    path: "$SAFE_PATH"
+    repoURL: "$GIT_REPO_URL"
+    targetRevision: "$SAFE_REVISION"
 EOF_PATCH
-  echo "Day2: Generated patch file day2_config/_generated/applicationset-patch.yaml"
+  echo "Day2: Generated patch file day2_config/_generated/application-patch.yaml"
 
   if oc apply -k day2_config; then
-    echo "Day2: Day2 GitOps ApplicationSet applied successfully."
+    echo "Day2: Day2 GitOps Application applied successfully."
     day2_success=true
   else
     echo "ERROR: Day2: Failed to apply Day2 kustomization."
