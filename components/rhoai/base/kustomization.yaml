@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../common
+  - cluster-datasciencecluster-default-dsc.yaml
+  - cluster-namespace-redhat-ods-operator.yaml
+  - redhat-ods-operator-operatorgroup-rhods-operator.yaml  
+  - redhat-ods-operator-subscription-rhods-operator.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.rhoai
+    targets:
+      - select:
+          kind: Subscription
+          name: rhods-operator
+        fieldPaths:
+          - spec.channel

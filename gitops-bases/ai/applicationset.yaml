@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-ai
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - branch: master
+            item: nvidia-gpu-operator
+          - branch: master
+            item: kueue
+          - branch: master
+            item: rhoai
+  template:
+    metadata:
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io/background
+      name: '{{item}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        path: components/{{item}}/overlays/default
+        targetRevision: '{{branch}}'
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      ignoreDifferences:
+        - group: ""
+          kind: ConfigMap
+          name: cluster-versions
+          jsonPointers:
+            - /metadata/labels
+            - /metadata/annotations
+            - /metadata/ownerReferences

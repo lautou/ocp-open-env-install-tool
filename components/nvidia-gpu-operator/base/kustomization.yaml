@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../common
+  - cluster-clusterpolicy-gpu-cluster-policy.yaml
+  - cluster-crb-clusterpolicies.nvidia.com-v1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-namespace-nvidia-gpu-operator.yaml
+  - nvidia-gpu-operator-operatorgroup-nvidia-gpu-operator-group.yaml  
+  - nvidia-gpu-operator-subscription-gpu-operator-certified.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.nvidia-gpu-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: gpu-operator-certified
+        fieldPaths:
+          - spec.channel

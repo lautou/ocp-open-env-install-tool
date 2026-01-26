@@ -31,3 +31,8 @@ data:
   # OpenShift Data Foundation (ODF)
   # All ODF components typically share the same version lifecycle
   odf: "stable-4.20"
+
+  # AI
+  nvidia-gpu-operator: "v25.10"
+  rhoai: "fast-3.x"
+  kueue: "stable-v1.2"

@@ -1,0 +1,16 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kueue-operator
+  namespace: openshift-kueue-operator
+spec:
+  channel: stable-v1.1
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  name: kueue-operator
+  source: redhat-operators 
+  sourceNamespace: openshift-marketplace 
