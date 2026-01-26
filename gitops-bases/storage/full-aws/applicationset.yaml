@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: cluster-storage-full
+  name: cluster-storage-full-aws
   namespace: openshift-gitops
 spec:
   generators:
@@ -18,7 +18,7 @@ spec:
       project: default
       source:
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/full
+        path: components/{{item}}/overlays/full-aws
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
