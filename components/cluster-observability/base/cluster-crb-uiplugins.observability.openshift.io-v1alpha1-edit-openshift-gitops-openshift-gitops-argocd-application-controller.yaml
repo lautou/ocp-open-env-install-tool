@@ -1,7 +1,7 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: uiplugins.observability.openshift.io-v1alpha1-admin-openshift-gitops-openshift-gitops-argocd-application-controller
+  name: uiplugins.observability.openshift.io-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller
 subjects:
   - kind: ServiceAccount
     name: openshift-gitops-argocd-application-controller
@@ -9,4 +9,4 @@ subjects:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: uiplugins.observability.openshift.io-v1alpha1-admin
+  name: uiplugins.observability.openshift.io-v1alpha1-edit

@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../common
-  - cluster-crb-flowcollectors.flows.netobserv.io-v1beta2-admin-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-flowcollectors.flows.netobserv.io-v1beta2-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-flowcollector-cluster.yaml
   - cluster-namespace-openshift-netobserv-operator.yaml
   - openshift-netobserv-operator-operatorgroup-openshift-netobserv-operator.yaml
