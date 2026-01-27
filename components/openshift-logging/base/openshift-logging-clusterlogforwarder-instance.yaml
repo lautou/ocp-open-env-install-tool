@@ -6,6 +6,14 @@ metadata:
   name: instance
   namespace: openshift-logging
 spec:
+  collector:
+    tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+    - key: node.ocs.openshift.io/storage
+      operator: Exists
+    - key: nvidia.com/gpu
+      operator: Exists
   outputs:
   - name: default-lokistack
     type: lokiStack
