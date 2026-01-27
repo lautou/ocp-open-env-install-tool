@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - ../../gitops-bases/core
   - ../../gitops-bases/storage/mcg-only
+  - ../../gitops-bases/logging/pico

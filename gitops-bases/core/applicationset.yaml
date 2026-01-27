@@ -44,8 +44,6 @@ spec:
         # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
           - branch: master
             item: openshift-gitops-admin-config
-          - branch: master
-            item: openshift-logging
           # DON'T COMMENT openshift-operators or it could break other modules installation!
           - branch: master
             item: openshift-operators
