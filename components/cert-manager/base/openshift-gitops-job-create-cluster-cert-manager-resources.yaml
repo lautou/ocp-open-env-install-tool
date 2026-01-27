@@ -19,6 +19,8 @@ spec:
             - |
               set -e
               
+              # --- Helper Functions ---
+              
               wait_for_crd() {
                 echo -n "Waiting for the cert-manager CRD..."
                 until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
@@ -37,6 +39,29 @@ spec:
                 echo " Initial CR found."
               }
 
+              # Robust apply function that retries indefinitely
+              apply_with_retry() {
+                local description=$1
+                local yaml_content=$2
+                
+                echo "--- Applying $description ---"
+                # Temporarily disable exit-on-error to handle failures in the loop
+                set +e
+                while true; do
+                  echo "$yaml_content" | oc apply -f -
+                  if [ $? -eq 0 ]; then
+                    echo "✅ $description applied successfully."
+                    break
+                  else
+                    echo "⚠️  Failed to apply $description. This is likely due to RBAC propagation or Webhook unavailability."
+                    echo "    Retrying in 10 seconds..."
+                    sleep 10
+                  fi
+                done
+                set -e
+              }
+
+              # --- Main Execution ---
 
               wait_for_crd
               wait_for_initial_cr
@@ -98,19 +123,17 @@ spec:
               export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
               export TIMESTAMP=$(date +%s)
               
-              echo "Applying ClusterIssuer..."
-              echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" \
-                | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"' \
-                | oc apply -f -
+              # --- Applying Resources with Retry Logic ---
               
-              echo "Applying Ingress Certificate..."
-              echo "$CERTIFICATE_INGRESS_TEMPLATE" \
-                | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' \
-                | oc apply -f -
+              CLUSTER_ISSUER_YAML=$(echo "$CLUSTER_ISSUER_CLUSTER_TEMPLATE" | yq '.spec.acme.solvers[0].dns01.route53.region = "'$REGION'"')
+              apply_with_retry "ClusterIssuer" "$CLUSTER_ISSUER_YAML"
               
-              echo "Applying API Certificate..."
-              echo "$CERTIFICATE_API_TEMPLATE" \
-                | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"' | oc apply -f -
+              INGRESS_CERT_YAML=$(echo "$CERTIFICATE_INGRESS_TEMPLATE" | yq '.spec.commonName = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "*.apps.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[2] = "apps.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"')
+              apply_with_retry "Ingress Certificate" "$INGRESS_CERT_YAML"
+              
+              API_CERT_YAML=$(echo "$CERTIFICATE_API_TEMPLATE" | yq '.spec.commonName = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[0] = "api.'$CLUSTERNAME'.'$BASEDOMAIN'"' | yq '.spec.dnsNames[1] = "api.'$TIMESTAMP'.'$CLUSTERNAME'.'$BASEDOMAIN'"')
+              apply_with_retry "API Certificate" "$API_CERT_YAML"
+
       nodeSelector:
         node-role.kubernetes.io/infra: ""
       restartPolicy: Never
