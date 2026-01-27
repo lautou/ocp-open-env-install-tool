@@ -1,0 +1,22 @@
+apiVersion: logging.openshift.io/v1alpha1
+kind: LogFileMetricExporter
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: instance
+  namespace: openshift-logging
+spec:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 200m
+      memory: 128Mi
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+    - key: node.ocs.openshift.io/storage
+      operator: Exists
+    - key: nvidia.com/gpu
+      operator: Exists

@@ -9,6 +9,7 @@ resources:
   - cluster-namespace-openshift-logging.yaml
   - openshift-gitops-job-create-secret-loki-s3.yaml
   - openshift-logging-clusterlogforwarder-instance.yaml
+  - openshift-logging-logfilemetricexporter-instance.yaml
   - openshift-logging-lokistack-logging-loki.yaml
   - openshift-logging-obc-logging-loki.yaml
   - openshift-logging-operatorgroup-cluster-logging.yaml
