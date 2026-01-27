@@ -5,18 +5,63 @@ cd $(dirname $0)
 
 # --- HELPER: USAGE ---
 show_usage() {
-  echo "Usage: $(basename $0) [OPTIONS] [PROFILE_CONFIG]"
+  echo "Usage: $(basename $0) [OPTIONS] [CONFIG_FILE]"
   echo ""
   echo "Description:"
   echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
-  echo "  Supports resuming sessions (provisioning & installation), multi-profiles, and parallel executions."
+  echo "  Supports resuming sessions, multi-configuration, and parallel executions."
   echo ""
   echo "Options:"
   echo "  -h, --help         Show this help message and exit"
-  echo "  --profile-file     Specify a configuration profile file (looks in current dir or 'profiles/')"
+  echo "  --config-file      Specify a configuration file (looks in 'config/' directory)"
   echo ""
+  echo "Examples:"
+  echo "  $(basename $0)                                   # Uses config/ocp-default.config"
+  echo "  $(basename $0) --config-file odf-perf.config     # Uses config/odf-perf.config"
   exit 0
 }
+
+# --- 1. ARGUMENT PARSING ---
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  show_usage
+fi
+
+CONFIG_ARG=""
+if [[ "$1" == "--config-file" && -n "$2" ]]; then
+    CONFIG_ARG="$2"
+elif [[ -n "$1" && "$1" != -* ]]; then
+    CONFIG_ARG="$1"
+fi
+
+# Define the Configuration Directory
+CONFIG_DIR="config"
+
+if [[ -z "$CONFIG_ARG" ]]; then
+    TARGET_CONFIG="$CONFIG_DIR/ocp-default.config"
+else
+    # Check if file exists as provided (absolute path)
+    if [[ -f "$CONFIG_ARG" ]]; then
+        TARGET_CONFIG="$CONFIG_ARG"
+    # Check if file exists in the config directory
+    elif [[ -f "$CONFIG_DIR/$CONFIG_ARG" ]]; then
+        TARGET_CONFIG="$CONFIG_DIR/$CONFIG_ARG"
+    else
+        echo "❌ ERROR: Configuration file not found: $CONFIG_ARG"
+        echo "   Checked paths:"
+        echo "   - $(pwd)/$CONFIG_ARG"
+        echo "   - $(pwd)/$CONFIG_DIR/$CONFIG_ARG"
+        exit 1
+    fi
+fi
+
+CONFIG_NAME=$(basename "$TARGET_CONFIG" .config)
+echo "✅ Selected Configuration: $CONFIG_NAME (File: $TARGET_CONFIG)"
+
+# --- 2. DYNAMIC SESSION & FILE PATHS ---
+UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${CONFIG_NAME}"
+BASTION_KEY_PEM_FILE="bastion_${CONFIG_NAME}.pem" 
+SESSION_STATE_FILE=".bastion_session_${CONFIG_NAME}.info"
+PROVISIONING_STATE_FILE=".bastion_provisioning_${CONFIG_NAME}.info"
 
 generate_user_data() {
   cat <<EOF | base64 -w 0
@@ -59,8 +104,8 @@ EOF
 retrieve_logs_and_summary() {
   local bastion_host="$1"
   local key_file="$2"
-  local local_summary_file="cluster_summary_${PROFILE_NAME}.txt"
-  local local_log_file="bastion_execution_${PROFILE_NAME}.log"
+  local local_summary_file="cluster_summary_${CONFIG_NAME}.txt"
+  local local_log_file="bastion_execution_${CONFIG_NAME}.log"
 
   echo ""
   echo "📥 Retrieving logs and summary from bastion..."
@@ -81,42 +126,6 @@ retrieve_logs_and_summary() {
   fi
 }
 
-# --- 1. ARGUMENT PARSING ---
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  show_usage
-fi
-
-PROFILE_ARG=""
-if [[ "$1" == "--profile-file" && -n "$2" ]]; then
-    PROFILE_ARG="$2"
-elif [[ -n "$1" && "$1" != -* ]]; then
-    PROFILE_ARG="$1"
-fi
-
-if [[ -z "$PROFILE_ARG" ]]; then
-    TARGET_CONFIG="ocp_rhdp.config"
-else
-    if [[ -f "$PROFILE_ARG" ]]; then
-        TARGET_CONFIG="$PROFILE_ARG"
-    elif [[ -f "profiles/$PROFILE_ARG" ]]; then
-        TARGET_CONFIG="profiles/$PROFILE_ARG"
-    else
-        echo "❌ ERROR: Profile configuration file not found."
-        exit 1
-    fi
-fi
-
-PROFILE_NAME=$(basename "$TARGET_CONFIG" .config)
-echo "✅ Selected Profile: $PROFILE_NAME (File: $TARGET_CONFIG)"
-
-# --- 2. DYNAMIC SESSION & FILE PATHS ---
-UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${PROFILE_NAME}"
-BASTION_KEY_PEM_FILE="bastion_${PROFILE_NAME}.pem" 
-SESSION_STATE_FILE=".bastion_session_${PROFILE_NAME}.info"
-PROVISIONING_STATE_FILE=".bastion_provisioning_${PROFILE_NAME}.info"
-
-
-
 # --- 3. ROBUST SESSION MANAGEMENT (INSTALLATION PHASE) ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
@@ -130,7 +139,7 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
 
   if [[ "$SESSION_ALIVE" == "true" ]]; then
     echo ""
-    echo "⚠️  WARNING: AN INTERRUPTED SESSION WAS DETECTED FOR PROFILE: $PROFILE_NAME"
+    echo "⚠️  WARNING: AN INTERRUPTED SESSION WAS DETECTED FOR CONFIG: $CONFIG_NAME"
     echo "   Bastion Host: $BASTION_HOST"
     echo ""
     echo -n "❓ Do you want to RESUME the existing connection? (Default: Yes) [Y/n]: "
@@ -178,18 +187,18 @@ rm -rf "$UPLOAD_TO_BASTION_DIR"
 mkdir -p "$UPLOAD_TO_BASTION_DIR"
 
 # --- 4. CONFIGURATION LOADING & FLATTENING ---
-COMMON_CONFIG="common.config"
+COMMON_CONFIG="$CONFIG_DIR/common.config"
 MERGED_CONFIG_FILE="$UPLOAD_TO_BASTION_DIR/ocp_rhdp.config"
 echo "# MERGED CONFIGURATION FOR BASTION" > "$MERGED_CONFIG_FILE"
 
 if [[ -f "$COMMON_CONFIG" ]]; then
-    echo "   Loading common configuration..."
+    echo "   Loading common configuration ($COMMON_CONFIG)..."
     source "$COMMON_CONFIG"
     cat "$COMMON_CONFIG" >> "$MERGED_CONFIG_FILE"
     echo "" >> "$MERGED_CONFIG_FILE"
 fi
 
-echo "   Loading profile configuration..."
+echo "   Loading target configuration ($TARGET_CONFIG)..."
 if [[ ! -f "$TARGET_CONFIG" ]]; then
   echo "ERROR: Configuration file $TARGET_CONFIG not found."
   exit 1
@@ -199,7 +208,7 @@ cat "$TARGET_CONFIG" >> "$MERGED_CONFIG_FILE"
 
 echo
 echo "------------------------------------"
-echo "Configuration variables (Merged Profile: $PROFILE_NAME)"
+echo "Configuration variables (Merged Config: $CONFIG_NAME)"
 echo "------------------------------------"
 echo "INSTALL_TYPE=$INSTALL_TYPE"
 echo "OPENSHIFT_VERSION=$OPENSHIFT_VERSION"
@@ -253,7 +262,7 @@ if [[ ! -f pull-secret.txt ]]; then
 fi
 
 if [[ "$INSTALL_TYPE" != "IPI" && "$INSTALL_TYPE" != "UPI" ]]; then
-  echo "Invalid INSTALL_TYPE in ocp_rhdp.config. Must be \"IPI\" or \"UPI\"."
+  echo "Invalid INSTALL_TYPE in config. Must be \"IPI\" or \"UPI\"."
   exit 7
 fi
 if [ "$INSTALL_TYPE" == "UPI" ]; then

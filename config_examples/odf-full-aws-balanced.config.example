@@ -30,4 +30,4 @@ AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.4xlarge"
 
 # --- SOFTWARE PROFILES ---
 # Override Path for Full ODF
-GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws"
+GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws-balanced"
