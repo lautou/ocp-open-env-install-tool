@@ -22,7 +22,7 @@ spec:
           - matchExpressions:
             - key: cluster.ocs.openshift.io/openshift-storage
               operator: Exists
-  resourceProfile: balanced
+  resourceProfile: performance
   storageDeviceSets:
     - name: ocs-deviceset
       count: 3

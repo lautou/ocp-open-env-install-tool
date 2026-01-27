@@ -1,0 +1,33 @@
+# ==============================================================================
+# ODF FULL PROFILE CONFIGURATION (EXAMPLE)
+# Specialized profile for ODF Full installation using AWS storage integration.
+# Copy this to 'profiles/odf-full-aws.config' and customize.
+# ==============================================================================
+
+# Domain for this environment
+RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXXX.opentlc.com"
+
+# --- AWS CREDENTIALS ---
+AWS_DEFAULT_REGION="eu-central-1"
+AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXX"
+AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXX"
+
+# --- NODE CONFIGURATION ---
+# Control Plane (Master) Nodes
+AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
+
+# Compute (Worker) Nodes
+AWS_WORKERS_COUNT=3
+AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
+
+# Infra Nodes
+AWS_INFRA_NODES_COUNT=3
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+
+# Dedicated Storage Nodes
+AWS_STORAGE_NODES_COUNT=3
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.4xlarge"
+
+# --- SOFTWARE PROFILES ---
+# Override Path for Full ODF
+GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws"
