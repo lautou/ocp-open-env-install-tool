@@ -4,4 +4,4 @@ resources:
   - ../../gitops-bases/core
   - ../../gitops-bases/storage/mcg-only
   - ../../gitops-bases/logging/small
-  - ../../gitops-bases/netobserv/default
+  - ../../gitops-bases/netobserv/with-loki
