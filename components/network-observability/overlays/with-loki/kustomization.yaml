@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - netobserv-lokistack-netobserv-loki.yaml
+  - netobserv-obc-netobserv-loki.yaml
+  - openshift-gitops-job-create-secret-netobserv-loki-s3.yaml
+
+patches:
+  - target:
+      kind: FlowCollector
+      name: cluster
+    patch: |-
+      - op: replace
+        path: /spec/loki/enable
+        value: true
+      - op: replace
+        path: /spec/loki/mode
+        value: LokiStack
+      - op: replace
+        path: /spec/loki/lokiStack
+        value:
+          name: netobserv-loki
+          namespace: netobserv

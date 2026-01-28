@@ -4,3 +4,4 @@ resources:
   - ../../gitops-bases/core
   - ../../gitops-bases/storage/full-aws-balanced
   - ../../gitops-bases/logging/pico
+  - ../../gitops-bases/netobserv/default

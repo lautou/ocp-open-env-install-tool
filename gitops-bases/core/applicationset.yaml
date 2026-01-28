@@ -31,8 +31,6 @@ spec:
           - branch: master
             item: loki
           - branch: master
-            item: network-observability
-          - branch: master
             item: nfd
         # - branch: master
         #   item: nfs

@@ -1,0 +1,12 @@
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: netobserv-loki
+  namespace: netobserv
+spec:
+  additionalConfig:
+    bucketclass: noobaa-default-bucket-class
+  bucketName: netobserv-loki
+  storageClassName: openshift-storage.noobaa.io
