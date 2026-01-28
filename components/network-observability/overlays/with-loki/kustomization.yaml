@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+  - cluster-namespace-netobserv.yaml
   - netobserv-lokistack-netobserv-loki.yaml
   - netobserv-obc-netobserv-loki.yaml
   - openshift-gitops-job-create-secret-netobserv-loki-s3.yaml
