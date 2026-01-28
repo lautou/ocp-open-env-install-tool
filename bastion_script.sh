@@ -205,6 +205,7 @@ configure_day2_gitops() {
   fi
   echo " Day2: OpenShift GitOps Operator successfully installed."
 
+  
   if [[ -n "$GIT_CREDENTIALS_TEMPLATE_URL" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME" ]] && [[ -n "$GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET" ]]; then
     echo "Day2: Creating/Updating git repository credentials template secret..."
     oc create secret generic creds-cluster \
@@ -225,6 +226,10 @@ configure_day2_gitops() {
     oc label secret git-app-cluster argocd.argoproj.io/secret-type=repository -n openshift-gitops --overwrite
   fi
 
+  ARGOCD_CR_FILE="day2_config/gitops/custom-argocd.yaml"
+  echo "Day2: Pre-applying custom ArgoCD configuration (Memory Limits) from $ARGOCD_CR_FILE"
+  oc apply -f "$ARGOCD_CR_FILE"
+  
   echo "Day2: Applying Day2 config through GitOps ApplicationSet..."
   if [ ! -d day2_config/_generated ]; then
     mkdir -p day2_config/_generated

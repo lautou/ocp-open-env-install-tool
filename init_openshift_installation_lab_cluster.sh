@@ -498,6 +498,9 @@ cp components/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common
 
 cp -r day1_config day2_config bastion_script.sh aws_lib.sh pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
+# Prepare the specific ArgoCD CR for pre-configuration (avoiding OOM)
+cp components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml "$UPLOAD_TO_BASTION_DIR/day2_config/gitops/custom-argocd.yaml"
+
 echo "Transferring files..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"
 
