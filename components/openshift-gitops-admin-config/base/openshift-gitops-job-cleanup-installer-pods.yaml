@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: cleanup-installer-pods
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: cleanup-installer-pods
+    spec:
+      containers:
+        - name: cleanup
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              echo "--- Starting Cleanup of Error Installer Pods ---"
+              TARGET_NS="openshift-kube-controller-manager"
+              echo "Target Namespace: $TARGET_NS"
+              
+              # Find pods with 'Error' or 'Failed' status and label 'app=installer'
+              # We use awk to filter the output of 'oc get'
+              PODS_TO_DELETE=$(oc get pods -n "$TARGET_NS" -l app=installer --no-headers | awk '$3 ~ /Error|Failed/ {print $1}')
+              
+              if [[ -z "$PODS_TO_DELETE" ]]; then
+                echo "✅ No pods found in Error/Failed state. Nothing to clean up."
+              else
+                echo "⚠️  Found the following failed pods:"
+                echo "$PODS_TO_DELETE"
+                
+                echo "--- Deleting Pods ---"
+                # Convert newlines to spaces for the delete command
+                for pod in $PODS_TO_DELETE; do
+                  echo "Deleting pod: $pod"
+                  oc delete pod "$pod" -n "$TARGET_NS"
+                done
+                
+                echo "✅ Cleanup complete."
+              fi
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

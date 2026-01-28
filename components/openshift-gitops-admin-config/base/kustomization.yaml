@@ -9,5 +9,7 @@ resources:
   - cluster-crb-gitopsservices.pipelines.openshift.io-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-gitopsservice-cluster.yaml
   - cluster-group-cluster-admins.yaml
+  - cluster-namespace-openshift-kube-controller-manager.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
+  - openshift-gitops-job-cleanup-installer-pods.yaml
   - openshift-gitops-job-enable-gitops-console-plugin.yaml
