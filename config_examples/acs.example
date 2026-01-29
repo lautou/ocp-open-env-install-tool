@@ -1,6 +1,6 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster with logging Loki stack to 1x.medium size.
+# Specific settings for the ACS cluster.
 # Copy this to 'ocp_rhdp.config' and customize.
 #
 # ==============================================================================
@@ -23,7 +23,7 @@ AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 
 # Infra Nodes
 AWS_INFRA_NODES_COUNT=3
-AWS_INSTANCE_TYPE_INFRA_NODES="m6i.8xlarge"
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
 # Storage Nodes
 AWS_STORAGE_NODES_COUNT=3

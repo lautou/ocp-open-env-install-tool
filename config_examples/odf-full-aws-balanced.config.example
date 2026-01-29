@@ -1,6 +1,6 @@
 # ==============================================================================
 # ODF FULL PROFILE CONFIGURATION (EXAMPLE)
-# Specialized profile for ODF Full installation using AWS storage integration.
+# Specialized profile for ODF Full installation using AWS storage integration with balanced profile.
 # Copy this to 'profiles/odf-full-aws.config' and customize.
 # ==============================================================================
 

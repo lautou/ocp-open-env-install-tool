@@ -1,6 +1,6 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster.
+# Specific settings for the default cluster with logging Loki stack to 1x.extra-small size.
 # Copy this to 'ocp_rhdp.config' and customize.
 #
 # ==============================================================================
