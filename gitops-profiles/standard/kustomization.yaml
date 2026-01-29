@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - ../../gitops-bases/core
   - ../../gitops-bases/storage/mcg-only
-  - ../../gitops-bases/logging/small
-  - ../../gitops-bases/netobserv/with-loki
+  - ../../gitops-bases/logging/pico
+  - ../../gitops-bases/netobserv/default
