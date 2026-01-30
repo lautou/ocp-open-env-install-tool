@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
-  name: open-cluster-management
+  name: open-cluster-management-hub
