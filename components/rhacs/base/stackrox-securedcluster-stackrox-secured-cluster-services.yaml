@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: stackrox-secured-cluster-services
-  namespace: stackrox-secured-cluster-services
+  namespace: stackrox
 spec:
   admissionControl:
     nodeSelector:
