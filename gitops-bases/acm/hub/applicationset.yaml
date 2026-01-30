@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: cluster-acs-central
+  name: cluster-acm-hub
   namespace: openshift-gitops
 spec:
   generators:
     - list:
         elements:
           - branch: master
-            item: rhacs
+            item: rhacm
   template:
     metadata:
       name: '{{item}}'
@@ -16,7 +16,7 @@ spec:
       project: default
       source:
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/central
+        path: components/{{item}}/overlays/hub
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc

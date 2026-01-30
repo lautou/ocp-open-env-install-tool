@@ -16,7 +16,7 @@ spec:
       project: default
       source:
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/rhacs/overlays/secured
+        path: components/{{item}}/overlays/secured
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
