@@ -1,0 +1,63 @@
+apiVersion: platform.stackrox.io/v1alpha1
+kind: Central
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: stackrox-central-services
+  namespace: stackrox
+spec:
+  central:
+    db:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    exposure:
+      route:
+        enabled: true
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  overlays:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: config-controller
+      patches:
+        - path: /spec/template/spec/nodeSelector
+          value: |
+            node-role.kubernetes.io/infra: ""
+  scanner:
+    analyzer:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    db:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+  scannerV4:
+    db:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    indexer:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    matcher:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists

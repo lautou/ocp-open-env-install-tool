@@ -29,5 +29,5 @@ AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Override Path for Full ODF
+# Override Path for AI
 GITOPS_PROFILE_PATH="gitops-profiles/ai"
