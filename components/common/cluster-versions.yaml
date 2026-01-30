@@ -38,4 +38,5 @@ data:
   kueue: "stable-v1.2"
 
   # Cluster management
+  rhacm: "release-2.15"
   rhacs: "rhacs-4.9"
