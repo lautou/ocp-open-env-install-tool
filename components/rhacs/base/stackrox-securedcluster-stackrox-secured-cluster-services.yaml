@@ -12,6 +12,10 @@ spec:
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
+  scanner:
+    scannerComponent: Disabled
+  scannerV4:
+    scannerComponent: Disabled
   sensor:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
