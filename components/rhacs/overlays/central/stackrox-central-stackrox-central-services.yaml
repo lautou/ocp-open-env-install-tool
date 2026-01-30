@@ -22,17 +22,17 @@ spec:
       - key: node-role.kubernetes.io/infra
         operator: Exists
   overlays:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: config-controller
-      patches:
-        - path: /spec/template/spec/nodeSelector
-          value: |
-            node-role.kubernetes.io/infra: ""
-        - path: /spec/template/spec/tolerations
-          value: |
-            - key: node-role.kubernetes.io/infra
-              operator: Exists
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: config-controller
+    patches:
+    - path: spec.template.spec.nodeSelector
+      value: |
+        node-role.kubernetes.io/infra: ""
+    - path: spec.template.spec.tolerations
+      value: |
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
   scanner:
     analyzer:
       nodeSelector:
