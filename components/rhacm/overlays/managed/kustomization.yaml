@@ -2,3 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+  - cluster-namespace-open-cluster-management-agent.yaml
+  - open-cluster-management-agent-klusterlet-klusterlet.yaml

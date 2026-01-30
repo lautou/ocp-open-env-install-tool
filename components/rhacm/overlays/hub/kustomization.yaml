@@ -2,4 +2,21 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+  - cluster-namespace-open-cluster-management.yaml
+  - cluster-namespace-open-cluster-management-hub.yaml
+  - open-cluster-management-agent-addondeploymentconfig-deploy-config.yaml
   - open-cluster-management-multiclusterhub-multiclusterhub.yaml
+  - open-cluster-management-operatorgroup-open-cluster-management.yaml
+  - open-cluster-management-subscription-advanced-cluster-management.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.rhacm
+    targets:
+      - select:
+          kind: Subscription
+          name: advanced-cluster-management
+        fieldPaths:
+          - spec.channel
