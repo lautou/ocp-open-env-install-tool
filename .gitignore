@@ -1,9 +1,4 @@
-*.config
-*.info
-*.log
-*.pem
-cluster_summary_*.txt
 delete_records_*.json
-profiles/*.config
+config/*.config
+output
 pull-secret.txt
-_upload_to_bastion_*

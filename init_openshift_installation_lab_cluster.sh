@@ -58,10 +58,13 @@ CONFIG_NAME=$(basename "$TARGET_CONFIG" .config)
 echo "✅ Selected Configuration: $CONFIG_NAME (File: $TARGET_CONFIG)"
 
 # --- 2. DYNAMIC SESSION & FILE PATHS ---
-UPLOAD_TO_BASTION_DIR="_upload_to_bastion_${CONFIG_NAME}"
-BASTION_KEY_PEM_FILE="bastion_${CONFIG_NAME}.pem" 
-SESSION_STATE_FILE=".bastion_session_${CONFIG_NAME}.info"
-PROVISIONING_STATE_FILE=".bastion_provisioning_${CONFIG_NAME}.info"
+
+mkdir -p output
+
+UPLOAD_TO_BASTION_DIR="output/_upload_to_bastion_${CONFIG_NAME}"
+BASTION_KEY_PEM_FILE="output/bastion_${CONFIG_NAME}.pem" 
+SESSION_STATE_FILE="output/.bastion_session_${CONFIG_NAME}.info"
+PROVISIONING_STATE_FILE="output/.bastion_provisioning_${CONFIG_NAME}.info"
 
 generate_user_data() {
   cat <<EOF | base64 -w 0
@@ -104,8 +107,8 @@ EOF
 retrieve_logs_and_summary() {
   local bastion_host="$1"
   local key_file="$2"
-  local local_summary_file="cluster_summary_${CONFIG_NAME}.txt"
-  local local_log_file="bastion_execution_${CONFIG_NAME}.log"
+  local local_summary_file="output/cluster_summary_${CONFIG_NAME}.txt"
+  local local_log_file="output/bastion_execution_${CONFIG_NAME}.log"
 
   echo ""
   echo "📥 Retrieving logs and summary from bastion..."
@@ -350,8 +353,7 @@ if ! aws sts get-caller-identity > /dev/null; then
 fi
 echo "AWS credentials and region successfully validated."
 
-. aws_lib.sh
-# [Route53 checks... REMOVED FOR BREVITY, KEEP THEM IN]
+. scripts/aws_lib.sh
 
 echo "Check base domain hosted zone exists..."
 if [[ -z "$(get_r53_hz_id_by_name "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}")" ]]; then
@@ -392,7 +394,7 @@ fi
 
 if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
     echo "Check and clean the AWS tenant..."
-    ./clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+    ./scripts/clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
 
     echo "------------------------------------"
     echo "Creating the Bastion VPC..."
@@ -496,10 +498,14 @@ if [ "$INSTALL_TYPE" == "UPI" ]; then
 fi
 cp components/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
 
-cp -r day1_config day2_config bastion_script.sh aws_lib.sh pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
+cp scripts/bastion_script.sh "$UPLOAD_TO_BASTION_DIR"
+cp scripts/aws_lib.sh "$UPLOAD_TO_BASTION_DIR"
+cp -r day1_config day2_config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
+cp -r components "$UPLOAD_TO_BASTION_DIR"
 
-# Prepare the specific ArgoCD CR for pre-configuration (avoiding OOM)
-cp components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml "$UPLOAD_TO_BASTION_DIR/day2_config/gitops/custom-argocd.yaml"
+mkdir -p "$UPLOAD_TO_BASTION_DIR/day2_config/gitops"
+cp components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml \
+   "$UPLOAD_TO_BASTION_DIR/day2_config/gitops/custom-argocd.yaml"
 
 echo "Transferring files..."
 scp -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" -r "$UPLOAD_TO_BASTION_DIR/." "ec2-user@$PUBLIC_DNS_NAME:/home/ec2-user"
