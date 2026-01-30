@@ -15,7 +15,7 @@ spec:
     # These values are placeholders. They will be overwritten by bastion_script.sh
     repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
     targetRevision: master
-    path: gitops-profiles/standard
+    path: gitops-profiles/ocp-standard
   syncPolicy:
     automated:
       prune: true

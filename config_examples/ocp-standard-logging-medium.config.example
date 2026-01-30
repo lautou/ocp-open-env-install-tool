@@ -1,7 +1,7 @@
 # ==============================================================================
-# ODF FULL PROFILE CONFIGURATION (EXAMPLE)
-# Specialized profile for ODF Full installation using AWS storage integration with lean profile.
-# Copy this to 'profiles/odf-full-aws.config' and customize.
+# DEFAULT PROFILE CONFIGURATION (EXAMPLE)
+# Specific settings for the default cluster with logging Loki stack to 1x.medium size.
+# Copy this to config file and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -22,12 +22,12 @@ AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 
 # Infra Nodes
 AWS_INFRA_NODES_COUNT=3
-AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.8xlarge"
 
-# Dedicated Storage Nodes
+# Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
-AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.2xlarge"
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Override Path for Full ODF
-GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws-lean"
+# Override Path for Logging medium size
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard-logging-medium"

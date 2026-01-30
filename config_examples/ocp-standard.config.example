@@ -1,8 +1,7 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster with logging Loki stack to 1x.extra-small size.
-# Copy this to 'ocp_rhdp.config' and customize.
-#
+# Specific settings for the default cluster.
+# Copy this to config file and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -23,8 +22,12 @@ AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 
 # Infra Nodes
 AWS_INFRA_NODES_COUNT=3
-AWS_INSTANCE_TYPE_INFRA_NODES="m6i.4xlarge"
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
 # Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+
+# --- SOFTWARE PROFILES (DEFAULTS) ---
+# Default Path (Standard)
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard"

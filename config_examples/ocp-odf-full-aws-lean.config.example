@@ -1,7 +1,7 @@
 # ==============================================================================
 # ODF FULL PROFILE CONFIGURATION (EXAMPLE)
-# Specialized profile for ODF Full installation using AWS storage integration with performance profile.
-# Copy this to 'profiles/odf-full-aws.config' and customize.
+# Specialized profile for ODF Full installation using AWS storage integration with lean profile.
+# Copy this to config file and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -26,8 +26,8 @@ AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
 # Dedicated Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
-AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.4xlarge"
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.2xlarge"
 
 # --- SOFTWARE PROFILES ---
 # Override Path for Full ODF
-GITOPS_PROFILE_PATH="gitops-profiles/odf-full-aws-performance"
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-odf-full-aws-lean"

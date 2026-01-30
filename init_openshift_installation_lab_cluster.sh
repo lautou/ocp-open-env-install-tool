@@ -16,7 +16,7 @@ show_usage() {
   echo "  --config-file      Specify a configuration file (looks in 'config/' directory)"
   echo ""
   echo "Examples:"
-  echo "  $(basename $0)                                   # Uses config/ocp-default.config"
+  echo "  $(basename $0)                                   # Uses config/ocp-standard.config"
   echo "  $(basename $0) --config-file odf-perf.config     # Uses config/odf-perf.config"
   exit 0
 }
@@ -37,7 +37,7 @@ fi
 CONFIG_DIR="config"
 
 if [[ -z "$CONFIG_ARG" ]]; then
-    TARGET_CONFIG="$CONFIG_DIR/ocp-default.config"
+    TARGET_CONFIG="$CONFIG_DIR/ocp-standard.config"
 else
     # Check if file exists as provided (absolute path)
     if [[ -f "$CONFIG_ARG" ]]; then

@@ -31,8 +31,6 @@ ENABLE_DAY2_GITOPS_CONFIG="true"
 # --- SOFTWARE PROFILES (DEFAULTS) ---
 # Git Branch/Tag to use for ArgoCD (Day 2)
 GIT_REPO_REVISION="master"
-# Default Path (Standard)
-GITOPS_PROFILE_PATH="gitops-profiles/standard"
 
 # --- GIT CREDENTIALS (GLOBAL) ---
 # If all your clusters use the same Git repo/credentials, define them here.

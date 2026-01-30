@@ -1,8 +1,7 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the ACS cluster.
-# Copy this to 'ocp_rhdp.config' and customize.
-#
+# Specific settings for the default cluster with logging Loki stack to 1x.extra-small size.
+# Copy this to config file and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -30,5 +29,5 @@ AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Override Path for ACS Central
-GITOPS_PROFILE_PATH="gitops-profiles/acs-central"
+# Override Path for Logging extra small size
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard-logging-extra-small"

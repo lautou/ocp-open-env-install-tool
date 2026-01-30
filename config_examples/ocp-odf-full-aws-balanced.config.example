@@ -1,7 +1,7 @@
 # ==============================================================================
-# AI PROFILE CONFIGURATION (EXAMPLE)
-# Specialized profile for AI installation using AWS storage integration.
-# Copy this to 'profiles/ai.config' and customize.
+# ODF FULL PROFILE CONFIGURATION (EXAMPLE)
+# Specialized profile for ODF Full installation using AWS storage integration with balanced profile.
+# Copy this to config file and customize.
 # ==============================================================================
 
 # Domain for this environment
@@ -18,7 +18,7 @@ AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
 
 # Compute (Worker) Nodes
 AWS_WORKERS_COUNT=3
-AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.xlarge"
+AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 
 # Infra Nodes
 AWS_INFRA_NODES_COUNT=3
@@ -26,8 +26,8 @@ AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
 
 # Dedicated Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
-AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.4xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Override Path for AI
-GITOPS_PROFILE_PATH="gitops-profiles/ai"
+# Override Path for Full ODF
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-odf-full-aws-balanced"
