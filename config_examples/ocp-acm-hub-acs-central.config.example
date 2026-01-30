@@ -1,6 +1,6 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the ACS cluster.
+# Specific settings for the ACM cluster.
 # Copy this to config file and customize.
 # ==============================================================================
 
@@ -30,4 +30,4 @@ AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
 # Override Path for ACS Central
-GITOPS_PROFILE_PATH="gitops-profiles/ocp-acs-central"
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-acm-hub-acs-central"

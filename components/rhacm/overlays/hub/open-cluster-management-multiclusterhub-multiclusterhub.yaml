@@ -1,0 +1,13 @@
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: multiclusterhub
+  namespace: open-cluster-management
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/infra: ''
+  tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
