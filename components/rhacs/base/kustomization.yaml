@@ -5,3 +5,4 @@ resources:
   - cluster-namespace-stackrox.yaml
   - rhacs-operator-operatorgroup-rhacs-operator.yaml
   - rhacs-operator-subscription-rhacs-operator.yaml
+  - stackrox-securedcluster-stackrox-secured-cluster-services.yaml

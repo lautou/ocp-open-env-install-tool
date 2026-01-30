@@ -3,7 +3,7 @@ kind: SecuredCluster
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  name: management
+  name: stackrox-secured-cluster-services
   namespace: stackrox-secured-cluster-services
 spec:
   admissionControl:
@@ -18,4 +18,4 @@ spec:
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
-  clusterName: management
+  clusterName: default

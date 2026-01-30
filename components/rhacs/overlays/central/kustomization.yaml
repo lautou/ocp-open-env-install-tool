@@ -3,3 +3,12 @@ kind: Kustomization
 resources:
   - ../../base
   - stackrox-central-stackrox-central-services.yaml
+
+patches:
+  - target:
+      kind: SecuredCluster
+      name: stackrox-secured-cluster-services
+    patch: |-
+      - op: replace
+        path: /spec/clusterName
+        value: management
