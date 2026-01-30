@@ -6,3 +6,15 @@ resources:
   - rhacs-operator-operatorgroup-rhacs-operator.yaml
   - rhacs-operator-subscription-rhacs-operator.yaml
   - stackrox-securedcluster-stackrox-secured-cluster-services.yaml
+
+  replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.rhacs
+    targets:
+      - select:
+          kind: Subscription
+          name: rhacs-operator
+        fieldPaths:
+          - spec.channel

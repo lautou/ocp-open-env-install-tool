@@ -36,3 +36,6 @@ data:
   nvidia-gpu-operator: "v25.10"
   rhoai: "fast-3.x"
   kueue: "stable-v1.2"
+
+  # Cluster management
+  rhacs: "rhacs-4.9"
