@@ -7,9 +7,12 @@ It supports both **IPI (Installer-Provisioned Infrastructure)** and **UPI (User-
 The entire installation process, including Day 2 configuration, takes about 1 hour or more.
 
 This OCP installation includes a rich set of optional Day 2 components deployed via a **Profile-Based GitOps Architecture**, such as:
-* **Storage:** OpenShift Data Foundation (ODF) in Managed (MCG) or Full modes.
-* **Integration:** OpenShift Service Mesh
-* **Observability:** Logging, Loki, Monitoring, Tempo, OpenTelemetry, Network Observability.
+* **Storage:** OpenShift Data Foundation (ODF) in MultiCloud Gateway only (MCG) or Full modes (Lean, Balanced, Performance).
+* **Integration:** OpenShift Service Mesh.
+* **Observability:** Logging (Pico, Small, Medium), Loki, Monitoring, Tempo, OpenTelemetry, Network Observability (with or without Loki).
+* **Security:** Red Hat Advanced Cluster Security (ACS) - Central or Secured Cluster modes.
+* **Management:** Red Hat Advanced Cluster Management (ACM) - Hub or Managed modes.
+* **AI/ML:** Red Hat OpenShift AI (RHOAI), Nvidia GPU Operator, Kueue.
 * **CI/CD:** OpenShift GitOps, Pipelines, Builds.
 * **Utilities:** cert-manager, Sealed Secrets, WebTerminal, Node Feature Discovery.
 
@@ -17,12 +20,13 @@ This OCP installation includes a rich set of optional Day 2 components deployed 
 
 ## ✨ Key Features
 
-* **Multi-Profile Support:** Manage different cluster types (e.g., `standard`, `odf-full`, `ai-lab`) from a single codebase.
+* **Multi-Configuration Support:** Manage different cluster types (e.g., `standard`, `odf-full`, `ai`, `acs-central`) from a single codebase using dedicated config files.
+* **Clean Workspace:** All runtime artifacts (keys, logs, sessions) are isolated in an `output/` directory.
 * **Parallel Execution:** Run multiple cluster installations simultaneously on different AWS accounts or regions without conflict.
 * **Robust Recovery:**
     * **Auto-Resume:** If your network drops, simply rerun the script to reattach to the session.
-    * **Provisioning Recovery:** If the script crashes while creating the Bastion, it detects the existing instance and resumes instead of creating a "ghost" bastion.
-* **Modular GitOps:** Uses a Component + Profile architecture (Kustomize) instead of monolithic configuration.
+    * **Provisioning Recovery:** Detects existing Bastion instances to avoid duplication.
+* **Modular GitOps:** Uses a "Lego-like" Component + Base + Profile architecture (Kustomize) for flexible composition.
 
 ---
 
@@ -30,119 +34,150 @@ This OCP installation includes a rich set of optional Day 2 components deployed 
 
 * An active **AWS Blank Open Environment** service from the [Red Hat Demo Platform](https://demo.redhat.com).
 * A `pull-secret.txt` file from the [Red Hat Hybrid Cloud console](https://console.redhat.com/openshift/install). **Place this file in the root of the project.**
-* The following CLI tools installed: `oc`, `git`, `yq` (the [mikefarah/yq](https://github.com/mikefarah/yq) implementation), `podman`, and `aws`.
-* If using Day 2 GitOps with private repositories, ensure you have your Git credentials ready (see Configuration).
+* The following CLI tools installed on your workstation:
+    * `oc` (OpenShift Client)
+    * `git`
+    * `yq` (the [mikefarah/yq](https://github.com/mikefarah/yq) implementation)
+    * `podman` (for checking credentials)
+    * `aws` (AWS CLI)
+* If using Day 2 GitOps with private repositories, ensure you have your Git credentials ready in your configuration file.
+
+---
+
+## 📂 Directory Structure
+
+* **`init_openshift_installation_lab_cluster.sh`**: The main entry point script.
+* **`config/`**: Directory for your active configuration files (`.config`).
+* **`config_examples/`**: Templates for creating new configurations.
+* **`scripts/`**: Helper scripts (`bastion_script.sh`, `clean_aws_tenant.sh`, `approve_cluster_csrs.sh`, etc.).
+* **`output/`**: (Ignored by Git) Stores all runtime artifacts: SSH keys, logs, session info, and upload staging folders.
+* **`components/`**: The "Bricks" - Raw Kustomize definitions for applications.
+* **`gitops-bases/`**: The "Groups" - ApplicationSets grouping components together.
+* **`gitops-profiles/`**: The "Menu" - Kustomize entry points that select specific bases.
 
 ---
 
 ## ⚙️ Configuration
 
-The tool uses a **Split-Configuration** model to support multiple profiles while sharing common variables.
+The tool uses a **Split-Configuration** model to support multiple environments while sharing common variables.
 
-### 1. Common Configuration (`common.config`)
-Put shared variables here (e.g., OpenShift Version, Base Domain, Passwords, generic GitOps settings).
-
-```bash
-cp common.config.example common.config
-# Edit common.config with your preferred defaults
-```
-
-### 2. Profile Configuration (`profiles/*.config`)
-Create specific profiles for different cluster types (e.g., ODF-enabled, GPU nodes, different regions).
-
-**Setup:**
+### 1. Setup Common Configuration
+Shared variables (e.g., OpenShift Version, Base Domain, Passwords) live here.
 
 ```bash
-mkdir -p profiles
-cp profiles/odf-full-aws.config.example profiles/my-odf-lab.config
+cp config_examples/common.config.example config/common.config
+# Edit config/common.config with your preferred defaults and credentials
+```
+### **2\. Create a Cluster Configuration**
+
+Choose an example from `config_examples/` and copy it to `config/`.
+
+**Example: Creating a Full ODF Performance Cluster**
+
+Bash
+
+```
+cp config_examples/ocp-odf-full-aws-performance.config.example config/my-odf-cluster.config
 ```
 
-**Key Variables in Profiles:**
+**Key Variables in Config Files:**
 
-* `CLUSTER_NAME`: Name of your cluster.
+* `CLUSTER_NAME`: Name of your cluster.  
+* `AWS_DEFAULT_REGION`: Target region.  
+* `GITOPS_PROFILE_PATH`: Points to the specific GitOps profile to deploy (e.g., `gitops-profiles/odf-full-aws-performance`).
 
-* `AWS_DEFAULT_REGION`: Target region.
+---
 
-* `GITOPS_PROFILE_PATH`: Points to the GitOps profile to deploy (e.g., `gitops-profiles/odf-full-aws`).
+## **🚀 Usage**
 
-### 3. Default Configuration (`ocp_rhdp.config`)
-This is the legacy default profile used if no argument is provided.
+### **1\. Run with a Specific Configuration (Recommended)**
 
-```Bash
-cp ocp_rhdp.config.example ocp_rhdp.config
+This uses the settings defined in your custom config file inside the `config/` directory.
+
+Bash
+
+```
+./init_openshift_installation_lab_cluster.sh --config-file my-odf-cluster.config
 ```
 
-## 🚀 Usage
-### 1. Default Installation
-Runs using `ocp_rhdp.config` combined with `common.config`.
+### **2\. Run Default Installation**
 
-``` Bash
+If no argument is provided, it defaults to `config/ocp-default.config`.
+
+Bash
+
+```
 ./init_openshift_installation_lab_cluster.sh
 ```
 
-### 2. Specific Profile Installation
-Runs a specific configuration. The script creates unique session files and keys, allowing you to run this in parallel with other clusters.
+### **3\. Help**
 
-``` Bash
-./init_openshift_installation_lab_cluster.sh --profile-file profiles/my-odf-lab.config
+Display available options.
+
+Bash
+
 ```
-
-### 3. Help
-
-``` Bash
 ./init_openshift_installation_lab_cluster.sh --help
 ```
 
-## 🏗️ GitOps Architecture
+---
+
+## **🛠️ Helper Scripts**
+
+The `scripts/` directory contains useful tools for Day 2 operations and maintenance.
+
+### **🛡️ Approve Cluster CSRs (`approve_cluster_csrs.sh`)**
+
+If your cluster certificates expire or nodes are stuck in `NotReady` (e.g., after a shutdown), run this script to auto-approve pending CSRs.
+
+Bash
+
+```
+# Usage: ./scripts/approve_cluster_csrs.sh <BASTION_HOST> <SSH_KEY>
+./scripts/approve_cluster_csrs.sh ec2-x-x-x-x.compute.amazonaws.com output/bastion_mycluster.pem
+```
+
+### **🧹 Clean AWS Tenant (`clean_aws_tenant.sh`)**
+
+This script is automatically called by the init script but can be run manually to force-clean resources related to a cluster name in a region. **Use with caution.**
+
+---
+
+## **🏗️ GitOps Architecture**
+
 This project uses a modular "App of Apps" pattern controlled by Kustomize profiles.
 
-### Directory Structure
-* `components/`: The "Bricks". Contains the raw Kustomize definitions for each application (e.g., `cert-manager`, `loki`, `openshift-storage`).
+1. **Components (`components/`)**: Individual applications (e.g., `rhacs`, `openshift-logging`). They may contain `overlays` for specific flavors (e.g., `logging/overlays/1x.small`).  
+2. **Bases (`gitops-bases/`)**: ArgoCD ApplicationSets that group components. For example, `bases/acs/central` installs the Operator AND the Central instance.  
+3. **Profiles (`gitops-profiles/`)**: The top-level Kustomize file referenced by your config (`GITOPS_PROFILE_PATH`). It mixes and matches bases.
 
-* `components/openshift-storage` contains overlays for `mcg-only` and `full`.
+**Example: "Standard Secured" Profile**
 
-* `gitops-bases/`: The "Groups". Contains `ApplicationSet` definitions that group components together (e.g., `applicationset-core.yaml`, `applicationset-storage-full.yaml`).
+* Base: `core` (System components)  
+* Base: `storage/mcg-only` (Lightweight storage)  
+* Base: `logging/pico` (Minimal logging)  
+* Base: `netobserv/default` (Network Observability without Loki)  
+* Base: `acs/secured` (Sensor connecting to a Central)
 
-* `gitops-profiles/`: The "Menu". These are the Kustomize entry points pointed to by `GITOPS_PROFILE_PATH`.
+## **🔄 Session Recovery**
 
-* `gitops-profiles/standard`: Deploys Core + MCG Storage.
-
-* `gitops-profiles/odf-full-aws`: Deploys Core + Full ODF Storage.
-
-### How to add a new Component?
-* Add the Kustomize manifests to `components/<my-app>`.
-
-* Add the application to `gitops-bases/applicationset-core.yaml` (if standard) or create a new specific ApplicationSet.
-
-* Ensure your target profile in `gitops-profiles/` includes the relevant base.
-
-## 🛠️ How it Works
-* **Initialization**: The script merges `common.config` and your selected profile.
-
-* **Bastion Provisioning**: It provisions an EC2 Bastion with all required tools (oc, aws, yq, etc.) pre-installed via UserData.
-
-* **File Transfer**: It uploads the merged config and the `components/` directory to the Bastion.
-
-* **Execution**: It starts a `tmux` session on the Bastion to run the installation.
-
-* **Bootstrap**: Once OCP is installed, it deploys a single **Bootstrap Application** to ArgoCD, which syncs your selected `gitops-profile`.
-
-## 🔄 Session Recovery
-* **Disconnected?** Just run the exact same command again. The script will detect the active session and ask if you want to resume.
-
+* **Disconnected?** Just run the exact same command again. The script will detect the active session and ask if you want to resume.  
 * **Bastion Provisioning Stuck?** If you killed the script while the Bastion was creating, run it again. It will detect the pending Instance ID and resume waiting for it to be ready.
 
-## FAQ
-### Why on Red Hat Demo Platform Lab?
-* It allows provisioning an OCP environment rapidly with 0 paperwork.
+---
 
-* **Limitation**: AWS Blank Open Environment service lifetime is usually limited (e.g., 30 hours). Be cautious!
+## **FAQ**
 
-### How do I customize the GitOps repo?
-The default configuration points to the upstream repository. To make changes (like pinning specific operator versions):
+### **Why on Red Hat Demo Platform Lab?**
 
-* Fork this repository.
+* It allows provisioning an OCP environment rapidly with zero paperwork.  
+* **Limitation**: AWS Blank Open Environment service lifetime is usually limited (e.g., 30 hours). Be cautious\!
 
-* Update `GIT_REPO_URL` in `common.config` to point to your fork.
+### **How do I customize the GitOps repo?**
 
-* Run the installation. ArgoCD will now sync from your fork.
+The default configuration points to the upstream repository. To make changes (like pinning specific operator versions or adding custom apps):
+
+1. **Fork** this repository.  
+2. Update `GIT_REPO_URL` in `config/common.config` to point to your fork.  
+3. Run the installation. ArgoCD will now sync from your fork.
+
