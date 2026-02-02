@@ -1,0 +1,33 @@
+# ==============================================================================
+# DEFAULT PROFILE CONFIGURATION (EXAMPLE)
+# Specific settings for the default cluster.
+# Copy this to config file and customize.
+# ==============================================================================
+
+# Domain for this environment
+RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXXX.opentlc.com"
+
+# --- AWS CREDENTIALS ---
+AWS_DEFAULT_REGION="eu-central-1"
+AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXX"
+AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXX"
+
+# --- NODE CONFIGURATION ---
+# Control Plane (Master) Nodes
+AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
+
+# Compute (Worker) Nodes
+AWS_WORKERS_COUNT=3
+AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
+
+# Infra Nodes
+AWS_INFRA_NODES_COUNT=3
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+
+# Storage Nodes
+AWS_STORAGE_NODES_COUNT=3
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+
+# --- SOFTWARE PROFILES (DEFAULTS) ---
+# Override Path for ACM Hub
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-acm"
