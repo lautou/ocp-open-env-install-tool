@@ -501,7 +501,6 @@ cp components/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common
 cp scripts/bastion_script.sh "$UPLOAD_TO_BASTION_DIR"
 cp scripts/aws_lib.sh "$UPLOAD_TO_BASTION_DIR"
 cp -r day1_config day2_config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
-cp -r components "$UPLOAD_TO_BASTION_DIR"
 
 mkdir -p "$UPLOAD_TO_BASTION_DIR/day2_config/gitops"
 cp components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml \
