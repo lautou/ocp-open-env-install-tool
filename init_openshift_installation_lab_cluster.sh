@@ -323,6 +323,41 @@ if [[ "$ENABLE_DAY2_GITOPS_CONFIG" == "true" ]]; then
     echo "Unable to connect to the repo $GIT_REPO_URL. Check the credentials and/or the repository path."
     exit 14
   fi
+  
+  echo "Verifying existence of profile path '$GITOPS_PROFILE_PATH' in repository..."
+  TMP_GIT_CHECK=$(mktemp -d)
+
+ (
+    cd "$TMP_GIT_CHECK" || exit 1
+    git init -q
+    git remote add origin "$GIT_URL_TO_CHECK"
+    
+    if ! git fetch --depth 1 origin "$GIT_REPO_REVISION" &>/dev/null; then
+       if ! git fetch --depth 1 origin &>/dev/null; then
+           exit 1
+       fi
+    fi
+
+    if ! git ls-tree -d FETCH_HEAD:"$GITOPS_PROFILE_PATH" &>/dev/null; then
+       exit 2
+    fi
+  )
+
+  CHECK_RESULT=$?
+  rm -rf "$TMP_GIT_CHECK"
+
+if [ $CHECK_RESULT -eq 1 ]; then
+     echo "❌ ERROR: Unable to fetch revision '$GIT_REPO_REVISION' from $GIT_REPO_URL."
+     exit 19
+  elif [ $CHECK_RESULT -eq 2 ]; then
+     echo "❌ ERROR: The path '$GITOPS_PROFILE_PATH' was not found in the repository."
+     echo "   Repository: $GIT_REPO_URL"
+     echo "   Revision:   $GIT_REPO_REVISION"
+     echo "   Please check your config file."
+     exit 20
+  fi
+  
+  echo "✅ Profile path '$GITOPS_PROFILE_PATH' found."
 
 else
   echo "Day 2 GitOps configuration is disabled. Skipping Git credentials and repository checks."
