@@ -3,7 +3,7 @@
 # ==============================================================================
 # Script Name: sanitize_before_gemini.sh
 # Description: Prepares a clean project folder for Gemini ingestion.
-#              Copies files to ../export_gemini while excluding secrets/git.
+#              Copies files to ../export_gemini_<project_name> while excluding secrets/git.
 # ==============================================================================
 
 set -e # Exit on error
@@ -11,7 +11,7 @@ set -e # Exit on error
 # --- 1. Configuration ---
 CURRENT_DIR=$(pwd)
 PARENT_DIR=$(dirname "$CURRENT_DIR")
-EXPORT_DIR="$PARENT_DIR/export_gemini"
+EXPORT_DIR="$PARENT_DIR/export_gemini_$(basename "$CURRENT_DIR")"
 
 # Files/Folders to exclude (Add more here if needed)
 EXCLUDES=(
