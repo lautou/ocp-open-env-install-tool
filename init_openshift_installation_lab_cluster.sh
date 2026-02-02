@@ -518,10 +518,10 @@ sleep 2
 set +e
 ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" \
   "echo 'set -g mouse on' > ~/.tmux.conf; tmux new-session -A -s ocp_install './bastion_script.sh || (echo \"\" && echo \"❌ SCRIPT FAILED. Press ENTER to close session...\" && read)'"
-SSH_EXIT_CODE=$?
+BASTION_STATUS=$?
 set -e
 
-if [ $SSH_EXIT_CODE -eq 0 ]; then
+if [ $BASTION_STATUS -eq 0 ]; then
   if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "tmux has-session -t ocp_install 2>/dev/null"; then
     echo ""
     echo "⏸️  Session detached. State file kept."
@@ -533,6 +533,6 @@ if [ $SSH_EXIT_CODE -eq 0 ]; then
   fi
 else
   echo ""
-  echo "⚠️  SSH terminated unexpectedly (Code: $SSH_EXIT_CODE)."
-  exit $SSH_EXIT_CODE
+  echo "⚠️  SSH terminated unexpectedly (Code: $BASTION_STATUS)."
+  exit $BASTION_STATUS
 fi
