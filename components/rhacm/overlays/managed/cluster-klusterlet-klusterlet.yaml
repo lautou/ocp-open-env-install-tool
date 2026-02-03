@@ -1,29 +1,14 @@
 apiVersion: operator.open-cluster-management.io/v1
 kind: Klusterlet
 metadata:
-  name: "klusterlet"
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: klusterlet
 spec:
-  deployOption:
-    mode: Singleton
-  registrationImagePullSpec: "registry.redhat.io/multicluster-engine/registration-rhel9@sha256:9c645721aad3d1cd25cf37f9a7a62ed6aaca79dc252e2ae7cfda01e956b8feca"
-  workImagePullSpec: "registry.redhat.io/multicluster-engine/work-rhel9@sha256:b2899b556e3dedf28422462de7ef59753149de660add0c03fd3cb294ea0c82cb"
-  imagePullSpec: "registry.redhat.io/multicluster-engine/registration-operator-rhel9@sha256:60aa2309cca7d6ab86f3d7a841b6add9903aad8db55c9c9678cf1cda9d9b5403"
-  clusterName: "laurent"
-  namespace: "open-cluster-management-agent"
-  resourceRequirement:
-    type: Default
+  nodeSelector:
+    node-role.kubernetes.io/infra: ''
   nodePlacement:
-    nodeSelector:
-      node-role.kubernetes.io/infra: ""
     tolerations:
-    - effect: NoSchedule
-      key: node-role.kubernetes.io/infra
-      operator: Exists
-  registrationConfiguration:
-    bootstrapKubeConfigs: {}
-    clusterClaimConfiguration:
-      maxCustomClusterClaims: 0
-      reservedClusterClaimSuffixes:
-      - openshift.io
-      - open-cluster-management.io
-    registrationDriver: {}
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/infra
+        operator: Exists
