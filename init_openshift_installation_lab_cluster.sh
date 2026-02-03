@@ -124,6 +124,15 @@ retrieve_logs_and_summary() {
     cat "$local_summary_file"
     echo ""
     echo "✅ Summary saved to: $(pwd)/$local_summary_file"
+    
+    echo ""
+    echo "------------------------------------------------------------------------"
+    echo "🔌 BASTION ACCESS"
+    echo "------------------------------------------------------------------------"
+    echo "ssh -i $key_file ec2-user@$bastion_host"
+    echo "------------------------------------------------------------------------"
+    echo ""
+
   else
     echo "⚠️  Could not retrieve 'cluster_summary.txt'."
   fi
