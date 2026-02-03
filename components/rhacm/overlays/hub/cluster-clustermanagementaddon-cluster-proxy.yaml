@@ -3,7 +3,7 @@ kind: ClusterManagementAddOn
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  name: work-manager
+  name: cluster-proxy
 spec:
   supportedConfigs:
     - defaultConfig:

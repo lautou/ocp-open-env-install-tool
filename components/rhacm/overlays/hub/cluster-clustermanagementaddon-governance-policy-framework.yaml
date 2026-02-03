@@ -3,7 +3,7 @@ kind: ClusterManagementAddOn
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  name: work-manager
+  name: governance-policy-framework
 spec:
   supportedConfigs:
     - defaultConfig:
