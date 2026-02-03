@@ -2,12 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
-  - cluster-clustermanagementaddon-managed-serviceaccount.yaml
+#  - cluster-clustermanagementaddon-managed-serviceaccount.yaml
   - cluster-clusterrole-edit-clustermanagementaddon.yaml
   - cluster-crb-edit-clustermanagementaddon-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-namespace-open-cluster-management-hub.yaml
   - cluster-namespace-open-cluster-management.yaml
-  - open-cluster-management-hub-addondeploymentconfig-deploy-config.yaml
+#  - open-cluster-management-hub-addondeploymentconfig-deploy-config.yaml
   - open-cluster-management-multiclusterhub-multiclusterhub.yaml
   - open-cluster-management-operatorgroup-open-cluster-management.yaml
   - open-cluster-management-subscription-advanced-cluster-management.yaml
