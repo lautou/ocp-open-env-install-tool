@@ -1,0 +1,14 @@
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: AddOnDeploymentConfig
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: deploy-config-nodeselector-tolerations-infra
+  namespace: open-cluster-management-hub
+spec:
+  nodePlacement:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
