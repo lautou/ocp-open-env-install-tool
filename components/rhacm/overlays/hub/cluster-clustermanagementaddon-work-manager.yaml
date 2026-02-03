@@ -7,7 +7,7 @@ metadata:
 spec:
   supportedConfigs:
     - defaultConfig:
-        name: deploy-config-nodeselector-infra
+        name: deploy-config
         namespace: open-cluster-management-hub
       group: addon.open-cluster-management.io
       resource: addondeploymentconfigs

@@ -8,8 +8,7 @@ resources:
   - cluster-crb-edit-clustermanagementaddon-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-namespace-open-cluster-management-hub.yaml
   - cluster-namespace-open-cluster-management.yaml
-  - open-cluster-management-hub-addondeploymentconfig-deploy-config-nodeselector-infra.yaml
-  - open-cluster-management-hub-addondeploymentconfig-deploy-config-nodeselector-tolerations-infra.yaml
+  - open-cluster-management-hub-addondeploymentconfig-deploy-config.yaml
   - open-cluster-management-multiclusterhub-multiclusterhub.yaml
   - open-cluster-management-operatorgroup-open-cluster-management.yaml
   - open-cluster-management-subscription-advanced-cluster-management.yaml
