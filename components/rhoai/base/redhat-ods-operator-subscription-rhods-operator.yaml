@@ -4,7 +4,7 @@ metadata:
   name: rhods-operator
   namespace: redhat-ods-operator
 spec:
-  channel: stable
+  channel: fast-3.x
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
