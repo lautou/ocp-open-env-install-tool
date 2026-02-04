@@ -6,6 +6,6 @@ rules:
   - verbs:
       - '*'
     apiGroups:
-      - addon.open-cluster-management.io
+      - operator.open-cluster-management.io
     resources:
       - klusterlets
