@@ -38,6 +38,8 @@ spec:
                   - klusterlet
               topologyKey: kubernetes.io/hostname
             weight: 30
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/infra
