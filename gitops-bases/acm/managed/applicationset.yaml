@@ -32,3 +32,8 @@ spec:
             - /metadata/labels
             - /metadata/annotations
             - /metadata/ownerReferences
+        - group: ""
+          kind: ServiceAccount
+          name: klusterlet
+          jqPathExpressions:
+            - '.imagePullSecrets[] | select(.name | startswith("klusterlet-dockercfg-"))'
