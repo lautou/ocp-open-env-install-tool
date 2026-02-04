@@ -11,6 +11,6 @@ resources:
   - cluster-crd-klusterlets.operator.open-cluster-management.io.yaml
   - cluster-klusterlet-klusterlet.yaml
   - cluster-namespace-open-cluster-management-agent.yaml
-  - open-cluster-management-agent-deploy-klusterlet.yaml
+#  - open-cluster-management-agent-deploy-klusterlet.yaml
   - open-cluster-management-agent-sa-klusterlet.yaml
   - open-cluster-management-agent-secret-open-cluster-management-image-pull-credentials.yaml
