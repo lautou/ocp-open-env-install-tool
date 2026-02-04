@@ -6,7 +6,7 @@ resources:
   - cluster-clusterrole-klusterlet-bootstrap-kubeconfig.yaml
   - cluster-clusterrole-klusterlet.yaml
   - cluster-clusterrole-open-cluster-management-klusterlet-admin-aggregate-clusterrole.yaml
-  - cluster-clusterrolebinding-edit-klusterlet-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-edit-klusterlet-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-crb-klusterlet.yaml
   - cluster-crd-klusterlets.operator.open-cluster-management.io.yaml
   - cluster-klusterlet-klusterlet.yaml
