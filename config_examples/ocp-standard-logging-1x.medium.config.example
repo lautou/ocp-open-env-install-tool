@@ -1,6 +1,6 @@
 # ==============================================================================
 # DEFAULT PROFILE CONFIGURATION (EXAMPLE)
-# Specific settings for the default cluster with logging Loki stack to 1x.extra-small size.
+# Specific settings for the default cluster with logging Loki stack to 1x.medium size.
 # Copy this to config file and customize.
 # ==============================================================================
 
@@ -22,12 +22,12 @@ AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
 
 # Infra Nodes
 AWS_INFRA_NODES_COUNT=3
-AWS_INSTANCE_TYPE_INFRA_NODES="m6i.4xlarge"
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.8xlarge"
 
 # Storage Nodes
 AWS_STORAGE_NODES_COUNT=3
 AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
 
 # --- SOFTWARE PROFILES ---
-# Override Path for Logging small size
-GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard-logging-small"
+# Override Path for Logging medium size
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard-logging-1x.medium"
