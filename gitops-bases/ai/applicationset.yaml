@@ -26,8 +26,7 @@ spec:
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
-      syncPolicy:
-        automated: {}
+      syncPolicy: {}
       ignoreDifferences:
         - group: ""
           kind: ConfigMap
