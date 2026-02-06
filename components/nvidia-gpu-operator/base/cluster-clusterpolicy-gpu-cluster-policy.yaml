@@ -11,7 +11,8 @@ spec:
   driver: {}
   devicePlugin: {}
   gfd: {}
-  nodeStatusExporter: {}
+  nodeStatusExporter:
+    enabled: true
   operator:
     defaultRuntime: crio
     use_ocp_driver_toolkit: true

@@ -26,7 +26,10 @@ spec:
         targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
-      syncPolicy: {}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
       ignoreDifferences:
         - group: ""
           kind: ConfigMap
