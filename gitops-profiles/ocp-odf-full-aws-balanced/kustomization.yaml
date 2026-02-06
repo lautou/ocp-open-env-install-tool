@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../gitops-bases/core
+  - ../../gitops-bases/ossm
   - ../../gitops-bases/storage/full-aws-balanced
   - ../../gitops-bases/logging/pico
   - ../../gitops-bases/netobserv/default
