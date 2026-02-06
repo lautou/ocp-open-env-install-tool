@@ -29,7 +29,6 @@ spec:
                 "ocs-operator-stable-4.20-redhat-operators-openshift-marketplace"
                 "odf-csi-addons-operator-stable-4.20-redhat-operators-openshift-marketplace"
                 "odf-dependencies"
-                "odf-prometheus-operator-stable-4.20-redhat-operators-openshift-marketplace"
                 "recipe-stable-4.20-redhat-operators-openshift-marketplace"
                 "rook-ceph-operator-stable-4.20-redhat-operators-openshift-marketplace"
               )
