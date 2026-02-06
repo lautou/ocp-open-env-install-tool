@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../common
+  - cluster-crb-datascienceclusters.datasciencecluster.opendatahub.io-v2-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-datasciencecluster-default-dsc.yaml
   - cluster-namespace-redhat-ods-operator.yaml
   - redhat-ods-operator-operatorgroup-rhods-operator.yaml  
