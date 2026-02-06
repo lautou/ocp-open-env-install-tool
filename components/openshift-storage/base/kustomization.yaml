@@ -6,6 +6,7 @@ resources:
   - cluster-namespace-openshift-storage.yaml
   - openshift-gitops-job-disable-odf-console-plugins.yaml
   - openshift-gitops-job-enable-odf-console-plugins.yaml
+  - openshift-storage-job-update-subscriptions-node-selector.yaml
   - openshift-storage-operatorgroup-openshift-storage.yaml
   - openshift-storage-subscription-odf-operator.yaml
 replacements:
