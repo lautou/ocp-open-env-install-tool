@@ -14,7 +14,7 @@ data:
   tempo: "stable"
 
   # Integration
-  openshift-service-mesh: "stable-3.2"
+  openshift-service-mesh: "stable"
   
   # CI/CD & Dev Tools
   cert-manager: "stable-v1.18"
