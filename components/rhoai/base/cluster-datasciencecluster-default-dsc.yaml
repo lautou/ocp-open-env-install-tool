@@ -19,7 +19,7 @@ spec:
     llamastackoperator:
       managementState: Managed
     mlflowoperator:
-      managementState: Managed
+      managementState: Removed
     modelregistry:
       managementState: Managed
     ray:
@@ -29,6 +29,6 @@ spec:
     trainingoperator:
       managementState: Managed
     trustyai:
-      managementState: Managed
+      managementState: Removed
     workbenches:
       managementState: Managed
