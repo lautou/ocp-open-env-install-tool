@@ -24,8 +24,6 @@ spec:
         automated:
           prune: true
           selfHeal: true
-        syncOptions:
-        - SkipDryRunOnMissingResource=true
       ignoreDifferences:
         - group: ""
           kind: ConfigMap
