@@ -7,7 +7,7 @@ metadata:
   namespace: open-cluster-management
 spec:
   nodeSelector:
-    node-role.kubernetes.io/infra: ''
+    node-role.kubernetes.io/master: ''
   tolerations:
-    - key: node-role.kubernetes.io/infra
+    - key: node-role.kubernetes.io/master
       operator: Exists
