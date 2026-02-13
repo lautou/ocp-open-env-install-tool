@@ -6,4 +6,4 @@ resources:
   - ../../gitops-bases/logging/pico
   - ../../gitops-bases/netobserv/default
   - ../../gitops-bases/ai
-    - ../../gitops-bases/acm/hub
+  - ../../gitops-bases/acm/hub
