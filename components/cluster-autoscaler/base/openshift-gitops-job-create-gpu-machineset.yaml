@@ -11,22 +11,20 @@ spec:
     metadata:
       name: create-gpu-machineset
     spec:
-      serviceAccountName: openshift-gitops-argocd-application-controller
-      restartPolicy: Never
       containers:
-        - name: create-gpu-machineset
-          image: quay.io/devfile/universal-developer-image:ubi9-latest
-          command:
+        - command:
             - /bin/bash
             - '-c'
-            - |
+            - >-
               set -e
-              
+
               # 1. Variables and Discovery
               echo "Discovering cluster infrastructure..."
+
               INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-              
+
               BASE_MS=$(oc get machinesets -n openshift-machine-api -o json | jq '.items | map(select(.metadata.name | contains("-worker-"))) | .[0]')
+
               if [[ -z "$BASE_MS" || "$BASE_MS" == "null" ]]; then
                 echo "ERROR: No worker MachineSet found to clone!"
                 exit 1
@@ -35,72 +33,73 @@ spec:
               # Extract Region and Availability Zone from the base MachineSet
               REGION=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.region')
               AZ=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.availabilityZone')
-              
+
               # Construct the new GPU MachineSet Name
-              # Format: <infrastructureName>-gpu-<availability-zone> (e.g., mycluster-prod-gpu-us-east-1a)
               NEW_MS_NAME="${INFRA_ID}-gpu-${AZ}"
-              
+
               echo "Target GPU MachineSet Name: $NEW_MS_NAME"
               echo "Target Region: $REGION"
               echo "Target AZ: $AZ"
 
-              # 2. Check if it already exists to avoid overwriting/error
-              if oc get machineset "$NEW_MS_NAME" -n openshift-machine-api &> /dev/null; then
-                echo "MachineSet $NEW_MS_NAME already exists. Skipping creation."
-              else
-                echo "Creating GPU MachineSet..."
+              echo "Processing GPU MachineSet definition (Create or Update)..."
                 
-                # 3. Process the JSON to create the new MachineSet definition
-                echo "$BASE_MS" | jq \
-                  --arg name "$NEW_MS_NAME" \
-                  --arg instanceType "g4dn.12xlarge" \
-                  '
-                  .metadata = {
-                    "name": $name,
-                    "namespace": "openshift-machine-api",
-                    "labels": .metadata.labels
-                  } |
-                  .spec.replicas = 0 |
-                  .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
-                  .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
-                  .spec.template.metadata.labels["cluster-api/accelerator"] = nvidia |
-                  .spec.template.spec.providerSpec.value.instanceType = $instanceType |
-                  .spec.template.spec.taints = [
-                    {
-                      "key": "nvidia.com/gpu",
-                      "value": "present",
-                      "effect": "NoSchedule"
-                    }
-                  ] |
-                  # Clean up status and creationTimestamp
-                  del(.status) |
-                  del(.metadata.creationTimestamp) |
-                  del(.metadata.uid) |
-                  del(.metadata.resourceVersion)
-                  ' > /tmp/gpu-machineset.json
+              # 2. Process the JSON to create/update the MachineSet definition
 
-                # Apply the MachineSet
-                oc apply -f /tmp/gpu-machineset.json
-                echo "✅ GPU MachineSet $NEW_MS_NAME created successfully."
-              fi
+              echo "$BASE_MS" | jq \
+                --arg name "$NEW_MS_NAME" \
+                --arg instanceType "g4dn.12xlarge" \
+                '
+                .metadata = {
+                  "name": $name,
+                  "namespace": "openshift-machine-api",
+                  "labels": .metadata.labels
+                } |
+                .spec.replicas = 0 |
+                .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
+                .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
+                .spec.template.metadata.labels["cluster-api/accelerator"] = nvidia |
+                .spec.template.spec.providerSpec.value.instanceType = $instanceType |
+                .spec.template.spec.taints = [
+                  {
+                    "key": "nvidia.com/gpu",
+                    "value": "present",
+                    "effect": "NoSchedule"
+                  }
+                ] |
+                # Clean up status and creationTimestamp specifically
+                del(.status) |
+                del(.metadata.creationTimestamp) |
+                del(.metadata.uid) |
+                del(.metadata.resourceVersion) |
+                del(.metadata.generation)
+                ' > /tmp/gpu-machineset.json
 
-              # 4. Create the MachineAutoscaler
-              echo "Creating MachineAutoscaler..."
-              
+              # Apply the MachineSet (Create or Patch)
+              oc apply -f /tmp/gpu-machineset.json
+              echo "✅ GPU MachineSet $NEW_MS_NAME applied successfully."
+
+
+              # 3. Create the MachineAutoscaler
+              echo "Creating/Updating MachineAutoscaler..."
+
               # Wait for ConfigMap just in case
-              if ! oc get cm machineautoscaler -n openshift-gitops &> /dev/null; then
+              if ! oc get cm machineautoscaler -n openshift-gitops &> /dev/null;
+              then
                  echo "ERROR: ConfigMap 'machineautoscaler' not found in openshift-gitops."
                  exit 1
               fi
 
               # Extract template
               MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)
-              
+
               # Replace placeholders and Apply
-              # We use the same name for the MachineAutoscaler object as the MachineSet for consistency
               echo "$MAS_TEMPLATE" | \
                 sed -e "s/name: machineautoscaler/name: $NEW_MS_NAME/" \
                     -e "s/name: machineset/name: $NEW_MS_NAME/" | \
                 oc apply -n openshift-machine-api -f -
                 
-              echo "✅ MachineAutoscaler for $NEW_MS_NAME created successfully."
+              echo "✅ MachineAutoscaler for $NEW_MS_NAME applied successfully."
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          name: create-gpu-machineset
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
