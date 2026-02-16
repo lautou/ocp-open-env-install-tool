@@ -63,6 +63,7 @@ spec:
                   .spec.replicas = 0 |
                   .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
                   .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
+                  .spec.template.metadata.labels["cluster-api/accelerator"] = nvidia |
                   .spec.template.spec.providerSpec.value.instanceType = $instanceType |
                   .spec.template.spec.taints = [
                     {
