@@ -15,10 +15,10 @@ spec:
         - command:
             - /bin/bash
             - '-c'
-            - >-
+            - | 
               set -e
 
-              # 1. Variables and Discovery
+              # 1. Variables and Discovery 
               echo "Discovering cluster infrastructure..."
 
               INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
@@ -37,8 +37,8 @@ spec:
               # Construct the new GPU MachineSet Name
               NEW_MS_NAME="${INFRA_ID}-gpu-${AZ}"
 
-              echo "Target GPU MachineSet Name: $NEW_MS_NAME"
-              echo "Target Region: $REGION"
+              echo "Target GPU MachineSet Name: $NEW_MS_NAME" 
+              echo "Target Region: $REGION" 
               echo "Target AZ: $AZ"
 
               echo "Processing GPU MachineSet definition (Create or Update)..."
@@ -66,7 +66,6 @@ spec:
                     "effect": "NoSchedule"
                   }
                 ] |
-                # Clean up status and creationTimestamp specifically
                 del(.status) |
                 del(.metadata.creationTimestamp) |
                 del(.metadata.uid) |
@@ -78,13 +77,11 @@ spec:
               oc apply -f /tmp/gpu-machineset.json
               echo "✅ GPU MachineSet $NEW_MS_NAME applied successfully."
 
-
               # 3. Create the MachineAutoscaler
               echo "Creating/Updating MachineAutoscaler..."
 
               # Wait for ConfigMap just in case
-              if ! oc get cm machineautoscaler -n openshift-gitops &> /dev/null;
-              then
+              if ! oc get cm machineautoscaler -n openshift-gitops &> /dev/null; then
                  echo "ERROR: ConfigMap 'machineautoscaler' not found in openshift-gitops."
                  exit 1
               fi
