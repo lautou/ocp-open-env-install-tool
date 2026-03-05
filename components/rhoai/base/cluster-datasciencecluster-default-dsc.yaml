@@ -18,13 +18,9 @@ spec:
       managementState: Unmanaged
     llamastackoperator:
       managementState: Managed
-    mlflowoperator:
-      managementState: Removed
     modelregistry:
       managementState: Managed
     ray:
-      managementState: Managed
-    trainer:
       managementState: Managed
     trainingoperator:
       managementState: Managed
