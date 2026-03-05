@@ -1,4 +1,3 @@
-delete_records_*.json
 config/*.config
 output
 pull-secret.txt
