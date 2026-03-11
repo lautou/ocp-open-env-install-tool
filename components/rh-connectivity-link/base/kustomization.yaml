@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../../common
   - openshift-operators-subscription-rhcl-operator.yaml
+  - openshift-operators-subscription-authorino-operator.yaml
 
 replacements:
   - source:
@@ -14,5 +15,15 @@ replacements:
       - select:
           kind: Subscription
           name: rhcl-operator
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.authorino-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: authorino-operator
         fieldPaths:
           - spec.channel
