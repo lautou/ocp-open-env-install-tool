@@ -1,0 +1,7 @@
+apiVersion: kuadrant.io/v1beta1
+kind: Kuadrant
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: kuadrant
+  namespace: kuadrant-system
