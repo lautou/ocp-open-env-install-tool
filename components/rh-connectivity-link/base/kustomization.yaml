@@ -5,6 +5,7 @@ resources:
   - ../../common
   - openshift-operators-subscription-rhcl-operator.yaml
   - openshift-operators-subscription-authorino-operator.yaml
+  - openshift-operators-subscription-limitador-operator.yaml
 
 replacements:
   - source:
@@ -25,5 +26,15 @@ replacements:
       - select:
           kind: Subscription
           name: authorino-operator-stable-redhat-operators-openshift-marketplace
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.limitador-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: limitador-operator-stable-redhat-operators-openshift-marketplace
         fieldPaths:
           - spec.channel
