@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: authorino-operator
+  name: authorino-operator-stable-redhat-operators-openshift-marketplace
   namespace: openshift-operators
 spec:
   channel: stable

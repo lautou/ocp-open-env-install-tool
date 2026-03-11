@@ -24,6 +24,6 @@ replacements:
     targets:
       - select:
           kind: Subscription
-          name: authorino-operator
+          name: authorino-operator-stable-redhat-operators-openshift-marketplace
         fieldPaths:
           - spec.channel
