@@ -6,6 +6,7 @@ resources:
   - openshift-operators-subscription-rhcl-operator.yaml
   - openshift-operators-subscription-authorino-operator.yaml
   - openshift-operators-subscription-limitador-operator.yaml
+  - openshift-operators-subscription-dns-operator.yaml
 
 replacements:
   - source:
@@ -36,5 +37,15 @@ replacements:
       - select:
           kind: Subscription
           name: limitador-operator-stable-redhat-operators-openshift-marketplace
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.dns-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: dns-operator-stable-redhat-operators-openshift-marketplace
         fieldPaths:
           - spec.channel

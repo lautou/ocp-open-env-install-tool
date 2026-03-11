@@ -43,3 +43,4 @@ data:
   rhcl-operator: "stable"
   authorino-operator: "stable"
   limitador-operator: "stable"
+  dns-operator: "stable"
