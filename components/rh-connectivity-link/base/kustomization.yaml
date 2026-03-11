@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../common
+  - cluster-namespace-kuadrant-system.yaml
   - openshift-operators-subscription-rhcl-operator.yaml
   - openshift-operators-subscription-authorino-operator.yaml
   - openshift-operators-subscription-limitador-operator.yaml
