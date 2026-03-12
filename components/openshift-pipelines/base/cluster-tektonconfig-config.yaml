@@ -17,3 +17,4 @@ spec:
       - pipelinerun
       - taskrun
     schedule: "0 * * * *"
+  targetNamespace: openshift-pipelines
