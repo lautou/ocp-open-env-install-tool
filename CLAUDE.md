@@ -211,6 +211,29 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 - **Day 1 configs**: MachineConfigs and network settings in `day1_config/` applied during installation
 - **Critical components**: Never remove `cluster-ingress`, `cluster-oauth`, `openshift-config`, or `openshift-gitops-admin-config` from base ApplicationSets
 
+## Component-Specific Notes
+
+### OpenShift Pipelines (Tekton)
+
+**TektonConfig Profile Behavior:**
+
+The TektonConfig CR supports three profiles:
+- **`lite`**: Installs only Tekton Pipelines
+- **`basic`**: Installs Tekton Pipelines, Tekton Triggers, Tekton Chains, and Tekton Results
+- **`all`**: Installs all components including TektonAddon (ConsoleCLIDownload, ConsoleQuickStart, etc.)
+
+**Important**: While Red Hat documentation states "all" is the default profile, when managing TektonConfig via GitOps without explicitly specifying the `profile` field, the operator appears to default to `basic` instead. This means:
+
+- ✅ With `profile: basic`: You get core Tekton components but **no** TektonAddon
+- ✅ With `profile: all`: You get TektonAddon which includes:
+  - ConsoleCLIDownload resources (tkn-cli-serve pod for web console CLI downloads)
+  - ConsoleQuickStart resources
+  - ConsoleYAMLSample resources
+
+**Recommendation**: Always explicitly set `profile: all` in `components/openshift-pipelines/base/cluster-tektonconfig-config.yaml` if you want the complete OpenShift Pipelines experience with console integration.
+
+**Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion
