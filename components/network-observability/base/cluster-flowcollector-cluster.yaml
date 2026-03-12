@@ -18,6 +18,8 @@ spec:
   processor:
     advanced:
       scheduling:
+        nodeSelector:
+          node-role.kubernetes.io/infra: ''
         tolerations:
           - key: node-role.kubernetes.io/infra
             operator: Exists
