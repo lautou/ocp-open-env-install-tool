@@ -15,4 +15,11 @@ spec:
             operator: Exists
   loki:
     enable: false
+  processor:
+    advanced:
+      scheduling:
+        tolerations:
+          - key: node-role.kubernetes.io/infra
+            operator: Exists
+            effect: NoSchedule
 
