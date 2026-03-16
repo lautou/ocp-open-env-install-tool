@@ -234,6 +234,41 @@ The TektonConfig CR supports three profiles:
 
 **Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
 
+### AWS Controllers for Kubernetes (ACK) - Route53
+
+**Purpose**: Enables Kubernetes-native management of AWS Route53 resources (HostedZones, RecordSets, HealthChecks) via custom resources.
+
+**Configuration Approach**:
+
+The ACK Route53 operator requires specific ConfigMap and Secret resources to function. Rather than hardcoding AWS credentials and region, we use a **dynamic configuration injection Job** that:
+
+1. **Runs in `openshift-gitops` namespace** with the `openshift-gitops-argocd-application-controller` ServiceAccount
+2. **Waits for** the cluster's `aws-creds` Secret in `kube-system` (created during installation)
+3. **Extracts** AWS credentials and region from cluster resources:
+   - AWS credentials from `kube-system/aws-creds` Secret
+   - AWS region from Infrastructure CR (`infrastructure.config.openshift.io/cluster`)
+4. **Creates** in `ack-system` namespace:
+   - `ack-route53-user-secrets` Secret (AWS credentials)
+   - `ack-route53-user-config` ConfigMap (all required environment variables)
+
+**Required ConfigMap Variables**:
+The operator deployment expects these environment variables from the ConfigMap:
+- `AWS_REGION` - AWS region (from Infrastructure CR)
+- `AWS_ENDPOINT_URL` - Custom AWS endpoint (usually empty)
+- `ACK_ENABLE_DEVELOPMENT_LOGGING` - Enable debug logging
+- `ACK_LOG_LEVEL` - Log verbosity level
+- `ACK_RESOURCE_TAGS` - Default tags applied to AWS resources
+- `ACK_WATCH_NAMESPACE` - Limit to specific namespace (empty = all)
+- `ENABLE_CARM` - Cross Account Resource Management (false by default)
+- `ENABLE_LEADER_ELECTION` - High availability mode
+- `FEATURE_GATES` - Feature flag configuration (empty = none)
+- `LEADER_ELECTION_NAMESPACE` - Namespace for leader election
+- `RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS` - Reconciliation concurrency
+
+**Important**: Missing any of these variables will cause the controller to crash with parsing errors like `invalid argument "$(VARIABLE_NAME)"`.
+
+**Installation**: ACK Route53 is part of the `core` gitops-base and is automatically deployed in all profiles.
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion

@@ -14,7 +14,7 @@ This OCP installation includes a rich set of optional Day 2 components deployed 
 * **Management:** Red Hat Advanced Cluster Management (ACM) - Hub or Managed modes.
 * **AI/ML:** Red Hat OpenShift AI (RHOAI), Nvidia GPU Operator, Kueue.
 * **CI/CD:** OpenShift GitOps, Pipelines, Builds.
-* **Utilities:** cert-manager, Sealed Secrets, WebTerminal, Node Feature Discovery.
+* **Utilities:** cert-manager, Sealed Secrets, WebTerminal, Node Feature Discovery, AWS Controllers for Kubernetes (ACK) Route53.
 
 ---
 
