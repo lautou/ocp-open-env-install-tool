@@ -113,18 +113,13 @@ spec:
               oc delete secret generic aws-acme -n cert-manager --ignore-not-found
               oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
 
-              echo "Extracting cluster configuration..."
-              INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
-
-              echo "Parsing cluster variables..."
+              echo "Fetching cluster configuration..."
               export REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-              export BASEDOMAIN=$(echo "$INSTALL_CONFIG" | grep "^baseDomain:" | awk '{print $2}')
-              export CLUSTERNAME=$(echo "$INSTALL_CONFIG" | grep -A 2 "^metadata:" | grep "  name:" | awk '{print $2}')
+              export CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
               export TIMESTAMP=$(date +%s)
 
               echo "REGION=$REGION"
-              echo "BASEDOMAIN=$BASEDOMAIN"
-              echo "CLUSTERNAME=$CLUSTERNAME"
+              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
               echo "TIMESTAMP=$TIMESTAMP"
 
               # --- Applying Resources with Retry Logic ---
@@ -163,12 +158,12 @@ spec:
                 namespace: openshift-ingress
               spec:
                 isCA: false
-                commonName: "apps.${CLUSTERNAME}.${BASEDOMAIN}"
+                commonName: "apps.${CLUSTER_DOMAIN}"
                 secretName: ingress-certificates
                 dnsNames:
-                - "apps.${CLUSTERNAME}.${BASEDOMAIN}"
-                - "*.apps.${CLUSTERNAME}.${BASEDOMAIN}"
-                - "apps.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
+                - "apps.${CLUSTER_DOMAIN}"
+                - "*.apps.${CLUSTER_DOMAIN}"
+                - "apps.${TIMESTAMP}.${CLUSTER_DOMAIN}"
                 issuerRef:
                   name: cluster
                   kind: ClusterIssuer
@@ -185,11 +180,11 @@ spec:
                 namespace: openshift-config
               spec:
                 isCA: false
-                commonName: "api.${CLUSTERNAME}.${BASEDOMAIN}"
+                commonName: "api.${CLUSTER_DOMAIN}"
                 secretName: api-certificates
                 dnsNames:
-                - "api.${CLUSTERNAME}.${BASEDOMAIN}"
-                - "api.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
+                - "api.${CLUSTER_DOMAIN}"
+                - "api.${TIMESTAMP}.${CLUSTER_DOMAIN}"
                 issuerRef:
                   name: cluster
                   kind: ClusterIssuer
