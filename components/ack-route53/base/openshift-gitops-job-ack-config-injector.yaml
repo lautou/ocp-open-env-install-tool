@@ -54,10 +54,13 @@ spec:
               data:
                 ACK_ENABLE_DEVELOPMENT_LOGGING: "true"
                 ACK_LOG_LEVEL: "info"
+                ACK_RESOURCE_TAGS: "services.k8s.aws/controller-version=route53-1.2.0,services.k8s.aws/namespace=%K8S_NAMESPACE%"
                 ACK_WATCH_NAMESPACE: ""
                 AWS_REGION: "${AWS_REGION}"
                 AWS_ENDPOINT_URL: ""
+                ENABLE_CARM: "false"
                 ENABLE_LEADER_ELECTION: "true"
+                FEATURE_GATES: ""
                 LEADER_ELECTION_NAMESPACE: ""
                 RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS: "1"
               EOF
