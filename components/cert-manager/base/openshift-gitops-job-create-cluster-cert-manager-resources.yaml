@@ -130,71 +130,71 @@ spec:
               # --- Applying Resources with Retry Logic ---
 
               echo "Generating ClusterIssuer YAML..."
-              CLUSTER_ISSUER_YAML=$(cat <<EOF
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: cluster
-spec:
-  acme:
-    privateKeySecretRef:
-      name: acme-global
-    server: 'https://acme-v02.api.letsencrypt.org/directory'
-    solvers:
-      - dns01:
-          route53:
-            accessKeyIDSecretRef:
-              key: awsAccessKey
-              name: aws-acme
-            region: ${REGION}
-            secretAccessKeySecretRef:
-              key: awsSecretAccessKey
-              name: aws-acme
-EOF
-)
+              CLUSTER_ISSUER_YAML=$(cat <<EOFISSUER
+              apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: cluster
+              spec:
+                acme:
+                  privateKeySecretRef:
+                    name: acme-global
+                  server: 'https://acme-v02.api.letsencrypt.org/directory'
+                  solvers:
+                    - dns01:
+                        route53:
+                          accessKeyIDSecretRef:
+                            key: awsAccessKey
+                            name: aws-acme
+                          region: ${REGION}
+                          secretAccessKeySecretRef:
+                            key: awsSecretAccessKey
+                            name: aws-acme
+              EOFISSUER
+              )
               apply_with_retry "ClusterIssuer" "$CLUSTER_ISSUER_YAML"
 
               echo "Generating Ingress Certificate YAML..."
-              INGRESS_CERT_YAML=$(cat <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: ingress
-  namespace: openshift-ingress
-spec:
-  isCA: false
-  commonName: "apps.${CLUSTERNAME}.${BASEDOMAIN}"
-  secretName: ingress-certificates
-  dnsNames:
-  - "apps.${CLUSTERNAME}.${BASEDOMAIN}"
-  - "*.apps.${CLUSTERNAME}.${BASEDOMAIN}"
-  - "apps.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
-  issuerRef:
-    name: cluster
-    kind: ClusterIssuer
-EOF
-)
+              INGRESS_CERT_YAML=$(cat <<EOFINGRESS
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: ingress
+                namespace: openshift-ingress
+              spec:
+                isCA: false
+                commonName: "apps.${CLUSTERNAME}.${BASEDOMAIN}"
+                secretName: ingress-certificates
+                dnsNames:
+                - "apps.${CLUSTERNAME}.${BASEDOMAIN}"
+                - "*.apps.${CLUSTERNAME}.${BASEDOMAIN}"
+                - "apps.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
+                issuerRef:
+                  name: cluster
+                  kind: ClusterIssuer
+              EOFINGRESS
+              )
               apply_with_retry "Ingress Certificate" "$INGRESS_CERT_YAML"
 
               echo "Generating API Certificate YAML..."
-              API_CERT_YAML=$(cat <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: api
-  namespace: openshift-config
-spec:
-  isCA: false
-  commonName: "api.${CLUSTERNAME}.${BASEDOMAIN}"
-  secretName: api-certificates
-  dnsNames:
-  - "api.${CLUSTERNAME}.${BASEDOMAIN}"
-  - "api.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
-  issuerRef:
-    name: cluster
-    kind: ClusterIssuer
-EOF
-)
+              API_CERT_YAML=$(cat <<EOFAPI
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: api
+                namespace: openshift-config
+              spec:
+                isCA: false
+                commonName: "api.${CLUSTERNAME}.${BASEDOMAIN}"
+                secretName: api-certificates
+                dnsNames:
+                - "api.${CLUSTERNAME}.${BASEDOMAIN}"
+                - "api.${TIMESTAMP}.${CLUSTERNAME}.${BASEDOMAIN}"
+                issuerRef:
+                  name: cluster
+                  kind: ClusterIssuer
+              EOFAPI
+              )
               apply_with_retry "API Certificate" "$API_CERT_YAML"
 
       nodeSelector:
