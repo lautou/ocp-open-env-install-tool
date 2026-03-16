@@ -12,24 +12,33 @@ spec:
     spec:
       containers:
         - name: update-cluster-apiserver-cluster
-          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              INSTALL_CONFIG=$(oc extract cm/cluster-config-v1 --keys install-config --to - -n kube-system)
-              echo "INSTALL_CONFIG content:"
-              echo "$INSTALL_CONFIG"
-              BASEDOMAIN=$(echo "$INSTALL_CONFIG" | yq -r '.baseDomain')
-              echo BASEDOMAIN=$BASEDOMAIN
-              CLUSTERNAME=$(echo "$INSTALL_CONFIG" | yq -r '.metadata.name')
-              echo CLUSTERNAME=$CLUSTERNAME
-              while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
-              echo "Wait for certificate to be ready"
-              oc wait --for=condition=Ready --timeout -1s certificate/api -n openshift-config
-              echo "Update api config"
-              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["api.'$CLUSTERNAME'.'$BASEDOMAIN'"],"servingCertificate":{"name":"api-certificates"}}]}}}' 
+              echo "Fetching cluster domain from DNS CR..."
+              CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
+
+              echo "Building API URL..."
+              API_URL="api.${CLUSTER_DOMAIN}"
+              echo "API_URL=$API_URL"
+
+              echo "Waiting for certificate to be created..."
+              while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do
+                echo "Wait for certificate to be created."
+                sleep 5
+              done
+
+              echo "Wait for certificate to be ready..."
+              oc wait --for=condition=Ready --timeout=-1s certificate/api -n openshift-config
+
+              echo "Update api config..."
+              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["'$API_URL'"],"servingCertificate":{"name":"api-certificates"}}]}}}'
+
+              echo "API server configuration updated successfully!" 
       nodeSelector:
         node-role.kubernetes.io/infra: ""
       restartPolicy: Never
