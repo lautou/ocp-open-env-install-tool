@@ -31,12 +31,12 @@ spec:
               echo "Fetching AWS region from cluster infrastructure..."
               AWS_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
 
-              echo "Creating ack-admin-user-secrets Secret..."
+              echo "Creating ack-route53-user-secrets Secret..."
               cat <<EOF | oc apply -f -
               apiVersion: v1
               kind: Secret
               metadata:
-                name: ack-admin-user-secrets
+                name: ack-route53-user-secrets
                 namespace: ack-system
               type: Opaque
               stringData:
@@ -44,12 +44,12 @@ spec:
                 AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
               EOF
 
-              echo "Creating ack-admin-user-config ConfigMap..."
+              echo "Creating ack-route53-user-config ConfigMap..."
               cat <<EOF | oc apply -f -
               apiVersion: v1
               kind: ConfigMap
               metadata:
-                name: ack-admin-user-config
+                name: ack-route53-user-config
                 namespace: ack-system
               data:
                 ACK_ENABLE_DEVELOPMENT_LOGGING: "true"
