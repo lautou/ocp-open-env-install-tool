@@ -5,6 +5,7 @@ resources:
   - ../../common
   - cluster-namespace-kuadrant-system.yaml
   - kuadrant-system-kuadrant-kuadrant.yaml
+  - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
   - openshift-operators-subscription-authorino-operator.yaml
   - openshift-operators-subscription-dns-operator.yaml
   - openshift-operators-subscription-limitador-operator.yaml
