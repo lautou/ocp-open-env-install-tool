@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: ack-config-injector
-  namespace: ack-system
+  namespace: openshift-gitops
 spec:
   template:
     metadata:
