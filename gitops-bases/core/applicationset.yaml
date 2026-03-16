@@ -29,6 +29,8 @@ spec:
         # - branch: master
         #   item: developer-gitops
           - branch: master
+            item: ack-route53
+          - branch: master
             item: loki
           - branch: master
             item: nfd
