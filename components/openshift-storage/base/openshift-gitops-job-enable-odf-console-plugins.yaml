@@ -12,23 +12,28 @@ spec:
     spec:
       containers:
         - name: enable-console-plugins
-          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-console")') ]]; then
+              echo "Checking if odf-console is already enabled..."
+              if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "odf-console"; then
+                echo "Enabling odf-console..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-console"}]'
                 echo "Plugin odf-console added successfully."
               else
-                echo "Plugin odf-console already exists. Nothing changed"
+                echo "Plugin odf-console already exists. Nothing changed."
               fi
-              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "odf-client-console")') ]]; then
+
+              echo "Checking if odf-client-console is already enabled..."
+              if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "odf-client-console"; then
+                echo "Enabling odf-client-console..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-client-console"}]'
                 echo "Plugin odf-client-console added successfully."
               else
-                echo "Plugin odf-client-console already exists. Nothing changed"
+                echo "Plugin odf-client-console already exists. Nothing changed."
               fi
       nodeSelector:
         node-role.kubernetes.io/infra: ""

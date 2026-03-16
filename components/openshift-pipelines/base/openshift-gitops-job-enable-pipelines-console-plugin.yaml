@@ -12,17 +12,19 @@ spec:
     spec:
       containers:
         - name: enable-console-plugin
-          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              if [[ -z $(oc get console.operator.openshift.io cluster -o yaml | yq '.spec.plugins[] | select(. == "pipelines-console-plugin")') ]]; then
+              echo "Checking if pipelines-console-plugin is already enabled..."
+              if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "pipelines-console-plugin"; then
+                echo "Enabling pipelines-console-plugin..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "pipelines-console-plugin"}]'
                 echo "Plugin pipelines-console-plugin added successfully."
               else
-                echo "Plugin pipelines-console-plugin already exists. Nothing changed"
+                echo "Plugin pipelines-console-plugin already exists. Nothing changed."
               fi
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
