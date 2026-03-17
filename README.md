@@ -102,7 +102,7 @@ Bash
 
 ### **2\. Run Default Installation**
 
-If no argument is provided, it defaults to `config/ocp-default.config`.
+If no argument is provided, it defaults to `config/ocp-standard.config`.
 
 Bash
 

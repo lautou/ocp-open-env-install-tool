@@ -117,7 +117,7 @@ Three-layer modular system for Day 2 configuration:
 
 3. **GitOps Deployment**:
    - Installs OpenShift GitOps operator
-   - Applies `day2_config/applications/app-of-apps.yaml` pointing to selected profile
+   - Applies `day2_config/applications/bootstrap-application.yaml` pointing to selected profile
    - ArgoCD syncs all ApplicationSets from the profile's bases
    - Each ApplicationSet deploys its component applications
 
