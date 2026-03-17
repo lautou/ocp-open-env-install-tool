@@ -257,6 +257,56 @@ This creates a **logical contradiction**:
 - Let ArgoCD manage fields WITHOUT ignoreDifferences
 - Accept that some drift is normal for operator-managed resources
 
+### Job Template Refactoring and Kustomize Security Boundaries
+
+**The Question:** Should we extract duplicate Job definitions into shared templates to follow DRY principles?
+
+**The Answer:** Not always - **Kustomize security model prevents cross-component template sharing**.
+
+**Kustomize Security Restriction:**
+Kustomize enforces that all resources must be within or below the kustomization root directory. You **cannot** reference resources from parent or sibling directories:
+
+```yaml
+# ❌ DOES NOT WORK - Security violation
+resources:
+  - ../../common/job-templates/my-job.yaml  # Outside component boundary
+  - ../../../shared/templates/job.yaml      # Path traversal blocked
+```
+
+**Error message:**
+```
+error: security; file '/path/to/template.yaml' is not in or below '/path/to/component'
+```
+
+**This is intentional** - prevents path traversal attacks and enforces component isolation.
+
+**Duplication Example - Loki S3 Secret Jobs:**
+
+Two components create near-identical Jobs (99% duplication):
+- `components/openshift-logging/base/openshift-gitops-job-create-secret-logging-loki-s3.yaml` (41 lines)
+- `components/network-observability/overlays/with-loki/openshift-gitops-job-create-secret-netobserv-loki-s3.yaml` (41 lines)
+
+Differences: Only component name (`logging` vs `netobserv`) and namespace (`openshift-logging` vs `netobserv`).
+
+**Why NOT Refactored:**
+1. ✅ **Only 2 instances** - "Rule of Three" not yet met (refactor on 3rd occurrence)
+2. ✅ **Kustomize security** prevents shared templates across components
+3. ✅ **Jobs are stable** - rarely change, low maintenance burden
+4. ✅ **Isolation is valuable** - components remain self-contained and portable
+
+**When to Refactor Jobs:**
+- ✅ **Within same component** - Create base + overlays with patches
+- ✅ **3+ identical jobs** - Consider if duplication cost exceeds complexity cost
+- ❌ **Cross-component sharing** - Blocked by Kustomize security model
+- ❌ **2 instances only** - Premature optimization, YAGNI principle
+
+**Workarounds for Cross-Component Sharing (not recommended):**
+1. **Copy jobs to components/common/** - But common would deploy the template job itself (with placeholders)
+2. **Use Kustomize components feature** - Complex, requires every consumer to apply the component
+3. **Generator plugins** - Overly complex for simple jobs
+
+**Decision:** Accept intentional duplication when Kustomize security boundaries make sharing impractical. Favor simplicity and component isolation over DRY absolutism.
+
 ## Component-Specific Notes
 
 ### Console Plugins
