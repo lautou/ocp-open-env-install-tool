@@ -21,24 +21,45 @@ spec:
               TARGET_NS="openshift-storage"
               echo "--- Starting ODF Subscription NodeSelector Patcher ---"
               echo "Target Namespace: $TARGET_NS"
-              
-              SUBSCRIPTIONS=(
-                "cephcsi-operator-stable-4.20-redhat-operators-openshift-marketplace"
-                "mcg-operator-stable-4.20-redhat-operators-openshift-marketplace"
-                "ocs-client-operator-stable-4.20-redhat-operators-openshift-marketplace"
-                "ocs-operator-stable-4.20-redhat-operators-openshift-marketplace"
-                "odf-csi-addons-operator-stable-4.20-redhat-operators-openshift-marketplace"
-                "odf-dependencies"
-                "recipe-stable-4.20-redhat-operators-openshift-marketplace"
-                "rook-ceph-operator-stable-4.20-redhat-operators-openshift-marketplace"
+              echo ""
+
+              # Extract ODF channel from cluster-versions ConfigMap
+              ODF_CHANNEL=$(oc get configmap cluster-versions -n openshift-gitops \
+                -o jsonpath='{.data.odf}')
+
+              echo "ODF Channel: $ODF_CHANNEL"
+              echo ""
+
+              # List of ODF package names to patch (excluding exceptions - see below)
+              PACKAGES=(
+                "cephcsi-operator"
+                "mcg-operator"
+                "ocs-client-operator"
+                "ocs-operator"
+                "odf-csi-addons-operator"
+                "recipe"
+                "rook-ceph-operator"
               )
+
+              # Special subscription without channel in name
+              SPECIAL_SUBSCRIPTIONS=(
+                "odf-dependencies"
+              )
+
+              # IMPORTANT: The following subscriptions are INTENTIONALLY EXCLUDED due to a known bug
+              # that prevents proper configuration of tolerations/nodeSelector:
+              # - odf-external-snapshotter-operator
+              # - odf-prometheus-operator
+              # These operators will run on worker nodes (not infra) until the bug is resolved.
 
               PATCH='{"spec":{"config":{"nodeSelector":{"cluster.ocs.openshift.io/openshift-storage":""}}}}'
 
-              for SUB in "${SUBSCRIPTIONS[@]}"; do
+              # Patch standard subscriptions (with channel in name)
+              for PKG in "${PACKAGES[@]}"; do
+                SUB="${PKG}-${ODF_CHANNEL}-redhat-operators-openshift-marketplace"
                 echo "----------------------------------------------------------------"
                 echo "Processing: $SUB"
-                
+
                 echo -n "Waiting for subscription..."
                 while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
                   echo -n "."
@@ -50,8 +71,30 @@ spec:
                 oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
                 echo "✅ Patched."
               done
+
+              # Patch special subscriptions (no channel in name)
+              for SUB in "${SPECIAL_SUBSCRIPTIONS[@]}"; do
+                echo "----------------------------------------------------------------"
+                echo "Processing: $SUB"
+
+                echo -n "Waiting for subscription..."
+                while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+                  echo -n "."
+                  sleep 5
+                done
+                echo " Found!"
+
+                echo "Patching..."
+                oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+                echo "✅ Patched."
+              done
+
               echo "----------------------------------------------------------------"
-              echo "All done."
+              echo "✅ All ODF subscriptions configured with nodeSelector"
+              echo ""
+              echo "Intentionally NOT patched (known bug):"
+              echo "  - odf-external-snapshotter-operator"
+              echo "  - odf-prometheus-operator"
       nodeSelector:
         node-role.kubernetes.io/infra: ""
       restartPolicy: OnFailure

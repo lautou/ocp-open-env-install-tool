@@ -379,6 +379,52 @@ Job: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-d
 - ❌ Static + ignoreDifferences = Field never applied
 - ✅ Pure Job = Reliable, predictable, works correctly
 
+### OpenShift Data Foundation (ODF)
+
+**Pattern**: Dynamic Job with ConfigMap-driven channel management
+
+**Purpose**: Configure all ODF operator subscriptions to run on infrastructure nodes via nodeSelector.
+
+**Implementation**:
+
+Job: `openshift-storage-job-update-subscriptions-node-selector.yaml`
+
+1. Extracts ODF channel from `cluster-versions` ConfigMap: `data.odf` (e.g., `stable-4.20`)
+2. Builds subscription names dynamically: `<package>-<channel>-redhat-operators-openshift-marketplace`
+3. Patches 8 ODF subscriptions with nodeSelector: `cluster.ocs.openshift.io/openshift-storage: ""`
+4. Handles special case: `odf-dependencies` (no channel suffix in name)
+
+**Subscriptions Patched** (7 standard + 1 special):
+- `cephcsi-operator`
+- `mcg-operator`
+- `ocs-client-operator`
+- `ocs-operator`
+- `odf-csi-addons-operator`
+- `recipe`
+- `rook-ceph-operator`
+- `odf-dependencies` (special - no channel in name)
+
+**Known Bug - Intentional Exclusions**:
+
+The following 2 subscriptions are **intentionally NOT patched** due to a known ODF bug that prevents proper configuration of tolerations/nodeSelector:
+- `odf-external-snapshotter-operator` → runs on worker nodes
+- `odf-prometheus-operator` → runs on worker nodes
+
+These operators will continue running on worker nodes until the upstream bug is resolved.
+
+**Upgrade Behavior**:
+
+When upgrading OCP (e.g., 4.20 → 4.21):
+1. Update `cluster-versions` ConfigMap: `odf: "stable-4.21"`
+2. Job automatically uses new channel
+3. No Job modification required → channel-agnostic design
+
+**Why ConfigMap approach**:
+- ✅ Consistent with project architecture (centralized version management)
+- ✅ Upgrade-proof (no hardcoded channels)
+- ✅ Explicit control (list of packages, not wildcard discovery)
+- ✅ Documents exceptions clearly (bug workaround)
+
 ### OpenShift Pipelines (Tekton)
 
 **TektonConfig Profile Behavior:**
