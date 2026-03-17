@@ -3,37 +3,37 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: enable-odf-console-plugins
+  name: patch-console-odf-plugins
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: enable-console-plugins
+      name: patch-console-odf-plugins
     spec:
       containers:
-        - name: enable-console-plugins
+        - name: patch-console
           image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              echo "Checking if odf-console is already enabled..."
+              echo "Ensuring ODF plugins are in Console plugins list..."
+
               if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "odf-console"; then
-                echo "Enabling odf-console..."
+                echo "Adding odf-console to Console..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-console"}]'
-                echo "Plugin odf-console added successfully."
+                echo "✅ Plugin odf-console added."
               else
-                echo "Plugin odf-console already exists. Nothing changed."
+                echo "✅ Plugin odf-console already present."
               fi
 
-              echo "Checking if odf-client-console is already enabled..."
               if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "odf-client-console"; then
-                echo "Enabling odf-client-console..."
+                echo "Adding odf-client-console to Console..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "odf-client-console"}]'
-                echo "Plugin odf-client-console added successfully."
+                echo "✅ Plugin odf-client-console added."
               else
-                echo "Plugin odf-client-console already exists. Nothing changed."
+                echo "✅ Plugin odf-client-console already present."
               fi
       nodeSelector:
         node-role.kubernetes.io/infra: ""

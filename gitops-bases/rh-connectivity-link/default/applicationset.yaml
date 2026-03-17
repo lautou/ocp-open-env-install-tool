@@ -27,6 +27,11 @@ spec:
           prune: true
           selfHeal: true
       ignoreDifferences:
+        - group: operator.openshift.io
+          kind: Console
+          name: cluster
+          jsonPointers:
+            - /spec/plugins
         - group: ""
           kind: ConfigMap
           name: cluster-versions

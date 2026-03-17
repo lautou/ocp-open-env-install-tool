@@ -211,7 +211,97 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 - **Day 1 configs**: MachineConfigs and network settings in `day1_config/` applied during installation
 - **Critical components**: Never remove `cluster-ingress`, `cluster-oauth`, `openshift-config`, or `openshift-gitops-admin-config` from base ApplicationSets
 
+## GitOps Patterns
+
+### Static Manifest + Patch Job Pattern
+
+For resources that need to be patched with cluster-specific values but should have their desired state visible in GitOps, we use a **Static Manifest + Patch Job** pattern:
+
+**When to use:**
+- ✅ Console plugin enablement
+- ✅ Resources where desired state is mostly static
+- ✅ Resources that may be manually changed and need drift detection
+
+**When NOT to use:**
+- ❌ Complex logic with retries and error handling
+- ❌ Dynamic secret generation from other resources
+- ❌ Resources cloned/discovered from existing cluster state
+
+**Pattern structure:**
+
+1. **Static manifest** (e.g., `cluster-console-cluster--console.yaml`):
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: Console
+metadata:
+  name: cluster
+spec:
+  plugins:
+    - my-console-plugin
+```
+
+2. **Patch Job** (simplified, idempotent):
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: patch-console-my-plugin
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+spec:
+  template:
+    spec:
+      containers:
+      - name: patch-console
+        command: ['/bin/bash', '-c']
+        args:
+        - |
+          if ! oc get console cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "my-plugin"; then
+            oc patch console cluster --type=json -p='[{"op":"add","path":"/spec/plugins/-","value":"my-plugin"}]'
+          fi
+```
+
+3. **ArgoCD ignoreDifferences** in ApplicationSet:
+```yaml
+ignoreDifferences:
+- group: operator.openshift.io
+  kind: Console
+  name: cluster
+  jsonPointers:
+  - /spec/plugins
+```
+
+**Benefits:**
+- 📝 Desired state visible in git
+- 🔄 ArgoCD detects drift via ignoreDifferences
+- 🎯 Job ensures runtime patching for order-dependent operations
+- 🧹 Cleaner than pure bash Jobs
+
+**File naming convention:** `<namespace>-<kind>-<name>--<resource-type>.yaml`
+- Example: `cluster-console-cluster--console.yaml` (cluster-scoped Console named "cluster")
+
 ## Component-Specific Notes
+
+### Console Plugins
+
+**Pattern**: Uses Static Manifest + Patch Job pattern (see GitOps Patterns above)
+
+**Components with console plugins:**
+- `openshift-gitops-admin-config` → `gitops-plugin`
+- `openshift-pipelines` → `pipelines-console-plugin`
+- `openshift-storage` → `odf-console`, `odf-client-console`
+- `rh-connectivity-link` → `kuadrant-console-plugin`
+
+**Implementation:**
+Each component includes:
+1. Static `cluster-console-cluster--console.yaml` declaring desired plugins
+2. Patch Job `openshift-gitops-job-patch-console-*-plugin.yaml` ensuring plugin is added
+3. ApplicationSet with `ignoreDifferences` for `/spec/plugins`
+
+**Why both static + job?**
+- Static manifest = desired state visible in GitOps
+- Patch job = handles plugin enablement order and idempotency
+- ignoreDifferences = prevents ArgoCD from overwriting manual changes
 
 ### OpenShift Pipelines (Tekton)
 

@@ -3,28 +3,28 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: enable-gitops-console-plugin
+  name: patch-console-gitops-plugin
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: enable-console-plugin
+      name: patch-console-gitops-plugin
     spec:
       containers:
-        - name: enable-console-plugin
+        - name: patch-console
           image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              echo "Checking if gitops-plugin is already enabled..."
+              echo "Ensuring gitops-plugin is in Console plugins list..."
               if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "gitops-plugin"; then
-                echo "Enabling gitops-plugin..."
+                echo "Adding gitops-plugin to Console..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "gitops-plugin"}]'
-                echo "Plugin gitops-plugin added successfully."
+                echo "✅ Plugin gitops-plugin added."
               else
-                echo "Plugin gitops-plugin already exists. Nothing changed."
+                echo "✅ Plugin gitops-plugin already present."
               fi
       nodeSelector:
         node-role.kubernetes.io/infra: ""

@@ -78,6 +78,11 @@ spec:
           selfHeal: true
       ignoreDifferences:
         - group: operator.openshift.io
+          kind: Console
+          name: cluster
+          jsonPointers:
+            - /spec/plugins
+        - group: operator.openshift.io
           kind: IngressController
           name: default
           jsonPointers:

@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../common
+  - cluster-console-cluster--console.yaml
   - cluster-namespace-openshift-storage.yaml
   - openshift-gitops-job-disable-odf-console-plugins.yaml
   - openshift-gitops-job-enable-odf-console-plugins.yaml
