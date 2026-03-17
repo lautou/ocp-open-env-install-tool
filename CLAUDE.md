@@ -205,6 +205,7 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 - **Required file**: `pull-secret.txt` must exist in project root (from console.redhat.com)
 - **Prerequisites**: Ensure `oc`, `git`, `yq`, `podman`, `aws` CLI tools are installed locally
 - **AWS credentials**: Must be valid for Red Hat Demo Platform Blank Open Environment
+- **AWS Tenant Isolation**: This tool assumes a **dedicated AWS tenant** for OCP clusters only. The cleanup script (`clean_aws_tenant.sh`) intentionally deletes **ALL S3 buckets** in the tenant without filtering, as the tenant should contain no production resources beyond the demo cluster. Do NOT use in shared AWS accounts.
 - **Profile paths**: `GITOPS_PROFILE_PATH` must point to existing profile in `gitops-profiles/`
 - **Git repo**: Default points to upstream; fork and update `GIT_REPO_URL` in `common.config` for custom changes
 - **CloudFormation**: Only used for UPI installations; templates in `cloudformation_templates/`

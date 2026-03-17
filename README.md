@@ -139,7 +139,14 @@ Bash
 
 ### **🧹 Clean AWS Tenant (`clean_aws_tenant.sh`)**
 
-This script is automatically called by the init script but can be run manually to force-clean resources related to a cluster name in a region. **Use with caution.**
+This script is automatically called by the init script but can be run manually to force-clean resources related to a cluster name in a region.
+
+```bash
+# Usage: ./scripts/clean_aws_tenant.sh <AWS_KEY> <AWS_SECRET> <REGION> <CLUSTER_NAME> <DOMAIN>
+./scripts/clean_aws_tenant.sh $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY us-east-2 mycluster sandbox1234.opentlc.com
+```
+
+⚠️ **WARNING**: This script deletes **ALL** S3 buckets in the AWS tenant, not just cluster-tagged buckets. This is intentional for Red Hat Demo Platform dedicated tenants where the AWS account contains only demo cluster resources. **Do NOT run in shared/production AWS accounts.**
 
 ---
 
