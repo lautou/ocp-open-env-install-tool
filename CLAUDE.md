@@ -213,35 +213,49 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 
 ## GitOps Patterns
 
-### Static Manifest + Patch Job Pattern
+### ❌ Static Manifest + ignoreDifferences Pattern (DOES NOT WORK)
 
-For resources that need to be patched with cluster-specific values but should have their desired state visible in GitOps, we experimented with a **Static Manifest + Patch Job** pattern.
+We experimented with a **Static Manifest + ignoreDifferences** pattern for managing resources with ArgoCD. **This pattern FAILED in practice and should NOT be used.**
 
-**⚠️ IMPORTANT LIMITATION - Use ONLY for Non-Shared Resources:**
+**🚨 CRITICAL ISSUE - Pattern is Logically Contradictory:**
 
-This pattern **ONLY works** for resources managed by a **single component**. It **FAILS** for resources modified by multiple components.
+**The Problem:**
+```yaml
+# Static manifest declares desired state:
+spec:
+  fieldToManage: value
 
-**✅ When to use (Non-Shared Resources):**
-- Resources owned by ONE component only
-- Resources with timing dependencies (e.g., wait for certificate)
-- Resources where desired state visibility is important
+# ignoreDifferences tells ArgoCD:
+ignoreDifferences:
+- jsonPointers:
+  - /spec/fieldToManage  # "Ignore this field in diffs"
+```
 
-**❌ When NOT to use (Shared Resources):**
-- ❌ **Resources modified by multiple components** (e.g., Console plugins by 4 components)
-- ❌ Complex logic with retries and error handling
-- ❌ Dynamic secret generation from other resources
-- ❌ Resources cloned/discovered from existing cluster state
+**Result:** ArgoCD **NEVER APPLIES** the field it's told to ignore.
 
-**Why shared resources fail:**
-When multiple components define static manifests for the same resource (e.g., `Console/cluster`), ArgoCD applies them separately:
-1. Component A applies `Console{plugins: [A]}`
-2. Component B applies `Console{plugins: [B]}` → **OVERWRITES** Component A
-3. Result: Only the last component's plugins are active
+This creates a **logical contradiction**:
+- Static manifest says: "This is the desired state"
+- ignoreDifferences says: "Ignore this field"
+- ArgoCD behavior: Field is never synced/applied
 
-The `ignoreDifferences` directive prevents drift detection but **does not prevent overwriting between components**.
+**Real-world failures:**
 
-**File naming convention:** `<namespace>-<kind>-<name>--<resource-type>.yaml`
-- Example: `openshift-ingress-operator-ingresscontroller-default--ingresscontroller.yaml`
+1. **IngressController + defaultCertificate:**
+   - Static file declared `defaultCertificate: ingress-certificates`
+   - ignoreDifferences said "ignore /spec/defaultCertificate"
+   - Result: Certificate NEVER configured → SSL errors ❌
+
+2. **Console + plugins (shared resource):**
+   - 4 components with static Console manifests
+   - Each component overwrites the others
+   - Result: Only last component's plugins active ❌
+
+**❌ DO NOT USE THIS PATTERN**
+
+**✅ Use Instead:**
+- **Pure Jobs** for runtime patching (proven reliable)
+- Let ArgoCD manage fields WITHOUT ignoreDifferences
+- Accept that some drift is normal for operator-managed resources
 
 ## Component-Specific Notes
 
@@ -269,29 +283,39 @@ Each component includes:
 
 ### cert-manager IngressController
 
-**Pattern**: Uses Static Manifest + Patch Job pattern (see GitOps Patterns above)
+**Pattern**: Pure Patch Job (no static manifests)
 
 **Purpose**: Configure the default OpenShift IngressController to use Let's Encrypt certificates managed by cert-manager.
 
-**Implementation:**
-1. **Static manifest**: `openshift-ingress-operator-ingresscontroller-default--ingresscontroller.yaml`
-   - Declares that IngressController should use `ingress-certificates` secret
-   - Makes desired state visible in GitOps
+**Why Job only (no static manifest):**
+The Static Manifest + ignoreDifferences pattern was **attempted and FAILED** for IngressController. Here's why:
 
-2. **Patch Job**: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml`
-   - Waits for cert-manager to create and issue the ingress Certificate
-   - Waits for Certificate to reach Ready condition
-   - Patches IngressController only after certificate is available
-   - Prevents timing issues where IngressController references non-existent secret
+**Problem with Static + ignoreDifferences:**
+```yaml
+# Static manifest declares:
+spec:
+  defaultCertificate:
+    name: ingress-certificates
 
-3. **ignoreDifferences**: Already configured in `gitops-bases/core/applicationset.yaml`
-   - Ignores `/spec/defaultCertificate` field in IngressController/default
-   - Allows manual changes without ArgoCD drift
+# ignoreDifferences says:
+ignoreDifferences:
+- kind: IngressController
+  jsonPointers:
+  - /spec/defaultCertificate  # "Ignore this field"
+```
 
-**Why the Job is still needed:**
-- The Job provides critical **timing control** - it ensures the certificate is Ready before patching
-- Without the Job, the IngressController might reference a non-existent secret during deployment
-- The static manifest declares intent, the Job ensures safe execution order
+**Result:** ArgoCD **never applies** the field it's told to ignore → Certificate not configured → SSL errors ❌
+
+This is a **logical contradiction**: "Here's the config, but ignore it" = Config never applied.
+
+**Working Implementation (Pure Job):**
+
+Job: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml`
+
+1. Waits for cert-manager to create Certificate `ingress` in `openshift-ingress`
+2. Waits for Certificate to reach Ready condition (Let's Encrypt issued)
+3. Patches IngressController with `defaultCertificate: {name: ingress-certificates}`
+4. Triggers rolling update of router pods with new certificate
 
 **Zero-downtime behavior:**
 - ✅ IngressController starts with auto-generated wildcard certificate (OpenShift default)
@@ -299,6 +323,10 @@ Each component includes:
 - ✅ Job waits for Let's Encrypt certificate to be Ready (2-5 minutes)
 - ✅ Patch triggers rolling update of router pods (~30 seconds)
 - ✅ High availability maintained during certificate rotation (3 replicas)
+
+**Lesson learned:**
+- ❌ Static + ignoreDifferences = Field never applied
+- ✅ Pure Job = Reliable, predictable, works correctly
 
 ### OpenShift Pipelines (Tekton)
 

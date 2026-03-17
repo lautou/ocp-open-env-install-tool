@@ -77,11 +77,6 @@ spec:
           prune: true
           selfHeal: true
       ignoreDifferences:
-        - group: operator.openshift.io
-          kind: IngressController
-          name: default
-          jsonPointers:
-            - /spec/defaultCertificate
         - group: ""
           kind: ConfigMap
           name: cluster-versions
