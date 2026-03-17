@@ -215,76 +215,45 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 
 ### Static Manifest + Patch Job Pattern
 
-For resources that need to be patched with cluster-specific values but should have their desired state visible in GitOps, we use a **Static Manifest + Patch Job** pattern:
+For resources that need to be patched with cluster-specific values but should have their desired state visible in GitOps, we experimented with a **Static Manifest + Patch Job** pattern.
 
-**When to use:**
-- ✅ Console plugin enablement
-- ✅ Resources where desired state is mostly static
-- ✅ Resources that may be manually changed and need drift detection
+**⚠️ IMPORTANT LIMITATION - Use ONLY for Non-Shared Resources:**
 
-**When NOT to use:**
+This pattern **ONLY works** for resources managed by a **single component**. It **FAILS** for resources modified by multiple components.
+
+**✅ When to use (Non-Shared Resources):**
+- Resources owned by ONE component only
+- Resources with timing dependencies (e.g., wait for certificate)
+- Resources where desired state visibility is important
+
+**❌ When NOT to use (Shared Resources):**
+- ❌ **Resources modified by multiple components** (e.g., Console plugins by 4 components)
 - ❌ Complex logic with retries and error handling
 - ❌ Dynamic secret generation from other resources
 - ❌ Resources cloned/discovered from existing cluster state
 
-**Pattern structure:**
+**Why shared resources fail:**
+When multiple components define static manifests for the same resource (e.g., `Console/cluster`), ArgoCD applies them separately:
+1. Component A applies `Console{plugins: [A]}`
+2. Component B applies `Console{plugins: [B]}` → **OVERWRITES** Component A
+3. Result: Only the last component's plugins are active
 
-1. **Static manifest** (e.g., `cluster-console-cluster--console.yaml`):
-```yaml
-apiVersion: operator.openshift.io/v1
-kind: Console
-metadata:
-  name: cluster
-spec:
-  plugins:
-    - my-console-plugin
-```
-
-2. **Patch Job** (simplified, idempotent):
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: patch-console-my-plugin
-  annotations:
-    argocd.argoproj.io/sync-options: Force=true
-spec:
-  template:
-    spec:
-      containers:
-      - name: patch-console
-        command: ['/bin/bash', '-c']
-        args:
-        - |
-          if ! oc get console cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "my-plugin"; then
-            oc patch console cluster --type=json -p='[{"op":"add","path":"/spec/plugins/-","value":"my-plugin"}]'
-          fi
-```
-
-3. **ArgoCD ignoreDifferences** in ApplicationSet:
-```yaml
-ignoreDifferences:
-- group: operator.openshift.io
-  kind: Console
-  name: cluster
-  jsonPointers:
-  - /spec/plugins
-```
-
-**Benefits:**
-- 📝 Desired state visible in git
-- 🔄 ArgoCD detects drift via ignoreDifferences
-- 🎯 Job ensures runtime patching for order-dependent operations
-- 🧹 Cleaner than pure bash Jobs
+The `ignoreDifferences` directive prevents drift detection but **does not prevent overwriting between components**.
 
 **File naming convention:** `<namespace>-<kind>-<name>--<resource-type>.yaml`
-- Example: `cluster-console-cluster--console.yaml` (cluster-scoped Console named "cluster")
+- Example: `openshift-ingress-operator-ingresscontroller-default--ingresscontroller.yaml`
 
 ## Component-Specific Notes
 
 ### Console Plugins
 
-**Pattern**: Uses Static Manifest + Patch Job pattern (see GitOps Patterns above)
+**Pattern**: Pure Patch Jobs (no static manifests)
+
+**Why Jobs only:**
+- Console is a **shared resource** modified by 4 components
+- Static manifests would overwrite each other
+- Jobs use `oc patch` with JSON Patch to ADD plugins incrementally
+- Each Job is idempotent and checks if plugin already exists
 
 **Components with console plugins:**
 - `openshift-gitops-admin-config` → `gitops-plugin`
@@ -294,14 +263,9 @@ ignoreDifferences:
 
 **Implementation:**
 Each component includes:
-1. Static `cluster-console-cluster--console.yaml` declaring desired plugins
-2. Patch Job `openshift-gitops-job-patch-console-*-plugin.yaml` ensuring plugin is added
-3. ApplicationSet with `ignoreDifferences` for `/spec/plugins`
-
-**Why both static + job?**
-- Static manifest = desired state visible in GitOps
-- Patch job = handles plugin enablement order and idempotency
-- ignoreDifferences = prevents ArgoCD from overwriting manual changes
+1. Patch Job `openshift-gitops-job-enable-*-console-plugin.yaml` that adds plugin if not present
+2. Job runs with `Force=true` to ensure execution on every sync
+3. Idempotent check prevents duplicate additions
 
 ### cert-manager IngressController
 

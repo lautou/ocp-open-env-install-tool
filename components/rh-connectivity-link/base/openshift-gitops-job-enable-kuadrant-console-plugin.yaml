@@ -3,28 +3,28 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: patch-console-kuadrant-plugin
+  name: enable-kuadrant-console-plugin
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: patch-console-kuadrant-plugin
+      name: enable-console-plugin
     spec:
       containers:
-        - name: patch-console
+        - name: enable-console-plugin
           image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              echo "Ensuring kuadrant-console-plugin is in Console plugins list..."
+              echo "Checking if kuadrant-console-plugin is already enabled..."
               if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "kuadrant-console-plugin"; then
-                echo "Adding kuadrant-console-plugin to Console..."
+                echo "Enabling kuadrant-console-plugin..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "kuadrant-console-plugin"}]'
-                echo "✅ Plugin kuadrant-console-plugin added."
+                echo "Plugin kuadrant-console-plugin added successfully."
               else
-                echo "✅ Plugin kuadrant-console-plugin already present."
+                echo "Plugin kuadrant-console-plugin already exists. Nothing changed."
               fi
       nodeSelector:
         node-role.kubernetes.io/infra: ""

@@ -3,28 +3,28 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: patch-console-pipelines-plugin
+  name: enable-pipelines-console-plugin
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: patch-console-pipelines-plugin
+      name: enable-console-plugin
     spec:
       containers:
-        - name: patch-console
+        - name: enable-console-plugin
           image: registry.redhat.io/openshift4/ose-cli:latest
           command:
             - /bin/bash
             - '-c'
             - |
               set -e
-              echo "Ensuring pipelines-console-plugin is in Console plugins list..."
+              echo "Checking if pipelines-console-plugin is already enabled..."
               if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "pipelines-console-plugin"; then
-                echo "Adding pipelines-console-plugin to Console..."
+                echo "Enabling pipelines-console-plugin..."
                 oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "pipelines-console-plugin"}]'
-                echo "✅ Plugin pipelines-console-plugin added."
+                echo "Plugin pipelines-console-plugin added successfully."
               else
-                echo "✅ Plugin pipelines-console-plugin already present."
+                echo "Plugin pipelines-console-plugin already exists. Nothing changed."
               fi
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
