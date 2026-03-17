@@ -481,6 +481,49 @@ The operator deployment expects these environment variables from the ConfigMap:
 
 **Installation**: ACK Route53 is part of the `core` gitops-base and is automatically deployed in all profiles.
 
+### Cluster Observability Operator
+
+**Purpose**: Provides unified observability UI plugins for OpenShift Console, integrating monitoring and logging insights directly in the console.
+
+**Dedicated Namespace Pattern**:
+
+Unlike most operators that install in `openshift-operators`, this operator uses a **dedicated namespace** with specific configuration:
+
+**Namespace**: `openshift-cluster-observability-operator`
+- Label `argocd.argoproj.io/managed-by: openshift-gitops` - ArgoCD management
+- Label `openshift.io/cluster-monitoring: "true"` - Enable cluster monitoring for operator metrics
+
+**OperatorGroup**: `cluster-observability-operator`
+- Empty spec → **AllNamespaces mode** (operator watches all namespaces)
+- Pattern used for cluster-wide observability features
+
+**Why dedicated namespace?**:
+- ✅ Isolation from other operators
+- ✅ Explicit monitoring label (operator metrics collected by cluster monitoring)
+- ✅ Clear ownership via ArgoCD label
+- ✅ Follows OpenShift best practice for operators managing cluster-wide resources
+
+**UI Plugins**:
+
+The component deploys two UIPlugin custom resources:
+
+1. **Logging UIPlugin** (`cluster-uiplugin-logging.yaml`)
+   - Type: Logging
+   - Integrates with LokiStack: `logging-loki`
+   - Logs limit: 50
+   - Timeout: 30s
+
+2. **Monitoring UIPlugin** (`cluster-uiplugin-monitoring.yaml`)
+   - Type: Monitoring
+   - Cluster Health Analyzer: enabled
+   - Provides cluster health insights in console
+
+Both UIPlugins:
+- Use `SkipDryRunOnMissingResource=true` (CRD installed by operator)
+- Deploy on infra nodes (nodeSelector + tolerations)
+
+**Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion

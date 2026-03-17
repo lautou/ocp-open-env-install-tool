@@ -1,0 +1,17 @@
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: monitoring
+spec:
+  deployment:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - operator: Exists
+        key: node-role.kubernetes.io/infra
+  monitoring:
+    clusterHealthAnalyzer:
+      enabled: true
+  type: Monitoring

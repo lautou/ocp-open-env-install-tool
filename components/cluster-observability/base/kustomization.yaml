@@ -3,5 +3,8 @@ kind: Kustomization
 
 resources:
   - cluster-crb-uiplugins.observability.openshift.io-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-namespace-openshift-cluster-observability-operator.yaml
   - cluster-uiplugin-logging.yaml
-  - openshift-operators-subscription-cluster-observability-operator.yaml
+  - cluster-uiplugin-monitoring.yaml
+  - openshift-cluster-observability-operator-operatorgroup-cluster-observability-operator.yaml
+  - openshift-cluster-observability-operator-subscription-cluster-observability-operator.yaml
