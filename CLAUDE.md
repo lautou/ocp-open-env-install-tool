@@ -303,6 +303,39 @@ Each component includes:
 - Patch job = handles plugin enablement order and idempotency
 - ignoreDifferences = prevents ArgoCD from overwriting manual changes
 
+### cert-manager IngressController
+
+**Pattern**: Uses Static Manifest + Patch Job pattern (see GitOps Patterns above)
+
+**Purpose**: Configure the default OpenShift IngressController to use Let's Encrypt certificates managed by cert-manager.
+
+**Implementation:**
+1. **Static manifest**: `openshift-ingress-operator-ingresscontroller-default--ingresscontroller.yaml`
+   - Declares that IngressController should use `ingress-certificates` secret
+   - Makes desired state visible in GitOps
+
+2. **Patch Job**: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml`
+   - Waits for cert-manager to create and issue the ingress Certificate
+   - Waits for Certificate to reach Ready condition
+   - Patches IngressController only after certificate is available
+   - Prevents timing issues where IngressController references non-existent secret
+
+3. **ignoreDifferences**: Already configured in `gitops-bases/core/applicationset.yaml`
+   - Ignores `/spec/defaultCertificate` field in IngressController/default
+   - Allows manual changes without ArgoCD drift
+
+**Why the Job is still needed:**
+- The Job provides critical **timing control** - it ensures the certificate is Ready before patching
+- Without the Job, the IngressController might reference a non-existent secret during deployment
+- The static manifest declares intent, the Job ensures safe execution order
+
+**Zero-downtime behavior:**
+- ✅ IngressController starts with auto-generated wildcard certificate (OpenShift default)
+- ✅ Ingress/Routes work immediately with self-signed certificate
+- ✅ Job waits for Let's Encrypt certificate to be Ready (2-5 minutes)
+- ✅ Patch triggers rolling update of router pods (~30 seconds)
+- ✅ High availability maintained during certificate rotation (3 replicas)
+
 ### OpenShift Pipelines (Tekton)
 
 **TektonConfig Profile Behavior:**
