@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-cd $(dirname $0)
+cd "$(dirname "$0")"
 
 # --- HELPER: USAGE ---
 show_usage() {
-  echo "Usage: $(basename $0) [OPTIONS] [CONFIG_FILE]"
+  echo "Usage: $(basename "$0") [OPTIONS] [CONFIG_FILE]"
   echo ""
   echo "Description:"
   echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
@@ -16,8 +16,8 @@ show_usage() {
   echo "  --config-file      Specify a configuration file (looks in 'config/' directory)"
   echo ""
   echo "Examples:"
-  echo "  $(basename $0)                                   # Uses config/ocp-standard.config"
-  echo "  $(basename $0) --config-file odf-perf.config     # Uses config/odf-perf.config"
+  echo "  $(basename "$0")                                   # Uses config/ocp-standard.config"
+  echo "  $(basename "$0") --config-file odf-perf.config     # Uses config/odf-perf.config"
   exit 0
 }
 
