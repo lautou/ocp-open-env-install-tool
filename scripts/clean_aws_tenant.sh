@@ -65,9 +65,9 @@ if [ ${#OTHER_CLUSTER_STACKS[@]} -gt 0 ]; then
 fi
 
 echo Check and delete previous route53 materials...
-check_and_delete_previous_r53_hzr_all $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
-check_and_delete_previous_r53_hz $CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN
-check_and_delete_previous_r53_hzr_all ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1} 
+check_and_delete_previous_r53_hzr_all "$CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+check_and_delete_previous_r53_hz "$CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+check_and_delete_previous_r53_hzr_all "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}" 
 
 echo "--- Deleting Stage 2 CloudFormation Stacks (Loadbalancer) ---"
 if [[ -n "$LOADBALANCER_STACK" ]]; then
@@ -143,12 +143,12 @@ echo "Load balancer deletion and waiting process complete."
 
 prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId)
 if [[ ! -z "$prev_vpc_ids" ]]; then
-  prev_vpc_ids_cs=$(echo $prev_vpc_ids | sed "s/ /,/g")
+  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | sed "s/ /,/g")
 
   echo "Check and delete previous NAT Gateways for vpc ids ... $prev_vpc_ids"
-  for i in $(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-nat-gateway --nat-gateway-id $i > /dev/null; done
+  for i in $(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-nat-gateway --nat-gateway-id "$i" > /dev/null; done
   echo "Waiting NAT Gateways are deleted..."
-  while [[ ! -z "$(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id $prev_vpc_ids_cs state pending,available,deleting)" ]];
+  while [[ ! -z "$(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id "$prev_vpc_ids_cs" state pending,available,deleting)" ]];
   do
     echo -n .
     sleep 5
@@ -157,26 +157,26 @@ if [[ ! -z "$prev_vpc_ids" ]]; then
   echo "Check, detach and delete previous Internet Gateways for vpc ids ... $prev_vpc_ids"
   for vpcid in $prev_vpc_ids
   do
-    for i in $(aws_ec2_get internet-gateway InternetGateways[].InternetGatewayId attachment.vpc-id $vpcid)
+    for i in $(aws_ec2_get internet-gateway InternetGateways[].InternetGatewayId attachment.vpc-id "$vpcid")
     do
-      aws ec2 detach-internet-gateway --internet-gateway-id $i --vpc-id $vpcid > /dev/null
-      aws ec2 delete-internet-gateway --internet-gateway-id $i > /dev/null
+      aws ec2 detach-internet-gateway --internet-gateway-id "$i" --vpc-id "$vpcid" > /dev/null
+      aws ec2 delete-internet-gateway --internet-gateway-id "$i" > /dev/null
     done
   done
 
   echo "Delete previous security group rules for vpc ids $prev_vpc_ids"
-  sg=$(aws_ec2_get security-group "SecurityGroups[?!(GroupName=='default')].GroupId" vpc-id $prev_vpc_ids_cs)
+  sg=$(aws_ec2_get security-group "SecurityGroups[?!(GroupName=='default')].GroupId" vpc-id "$prev_vpc_ids_cs")
   for i in $sg
   do
     echo delete ingress rules for security group: $i
-    sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?!(IsEgress)].SecurityGroupRuleId" group-id $i)
+    sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?!(IsEgress)].SecurityGroupRuleId" group-id "$i")
     if [[ ! -z "$sgr" ]]; then
-      aws ec2 revoke-security-group-ingress --group-id $i --security-group-rule-ids $sgr > /dev/null
+      aws ec2 revoke-security-group-ingress --group-id "$i" --security-group-rule-ids $sgr > /dev/null
     fi
     echo delete egress rules for security group: $i
-    sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?IsEgress].SecurityGroupRuleId" group-id $i)
+    sgr=$(aws_ec2_get security-group-rule "SecurityGroupRules[?IsEgress].SecurityGroupRuleId" group-id "$i")
     if [[ ! -z "$sgr" ]]; then
-      aws ec2 revoke-security-group-egress --group-id $i --security-group-rule-ids $sgr > /dev/null
+      aws ec2 revoke-security-group-egress --group-id "$i" --security-group-rule-ids $sgr > /dev/null
     fi
   done
 
@@ -184,7 +184,7 @@ if [[ ! -z "$prev_vpc_ids" ]]; then
   for i in $sg
   do
     echo delete security group: $i
-    aws ec2 delete-security-group --group-id $i > /dev/null
+    aws ec2 delete-security-group --group-id "$i" > /dev/null
   done
 fi
 
@@ -198,37 +198,37 @@ fi
 echo "CloudFormation stack deletion process finished."
 
 echo Check and delete previous EIPs...
-for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id $i > /dev/null; done
+for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-address --allocation-id "$i" > /dev/null; done
 
 prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId)
 if [[ ! -z "$prev_vpc_ids" ]]; then
-  prev_vpc_ids_cs=$(echo $prev_vpc_ids | sed "s/ /,/g")
+  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | sed "s/ /,/g")
 
   echo "Check and delete previous Network interfaces for vpc ids ... $prev_vpc_ids"
-  for i in $(aws_ec2_get network-interface NetworkInterfaces[].NetworkInterfaceId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-network-interface --network-interface-id $i > /dev/null; done
+  for i in $(aws_ec2_get network-interface NetworkInterfaces[].NetworkInterfaceId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-network-interface --network-interface-id "$i" > /dev/null; done
 
   echo "Check and delete previous subnets for vpc ids ... $prev_vpc_ids"
-  for i in $(aws_ec2_get subnet Subnets[].SubnetId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-subnet --subnet-id $i > /dev/null; done
+  for i in $(aws_ec2_get subnet Subnets[].SubnetId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-subnet --subnet-id "$i" > /dev/null; done
 
   echo "Check and delete previous vpc endpoints for vpc ids ... $prev_vpc_ids"
-  for i in $(aws_ec2_get vpc-endpoint VpcEndpoints[].VpcEndpointId vpc-id $prev_vpc_ids_cs); do aws ec2 delete-vpc-endpoints --vpc-endpoint-ids $i > /dev/null; done
+  for i in $(aws_ec2_get vpc-endpoint VpcEndpoints[].VpcEndpointId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-vpc-endpoints --vpc-endpoint-ids "$i" > /dev/null; done
 
   echo "Check and delete previous route tables for vpc ids ... $prev_vpc_ids"
-  for i in $(aws_ec2_get route-table "RouteTables[?!(Associations[].Main)].RouteTableId" vpc-id $prev_vpc_ids_cs); do aws ec2 delete-route-table --route-table-id $i > /dev/null; done
+  for i in $(aws_ec2_get route-table "RouteTables[?!(Associations[].Main)].RouteTableId" vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-route-table --route-table-id "$i" > /dev/null; done
 
   for vpcid in $prev_vpc_ids; do
     echo "Delete vpc id: $vpcid..."
-    aws ec2 delete-vpc --vpc-id $vpcid > /dev/null
+    aws ec2 delete-vpc --vpc-id "$vpcid" > /dev/null
   done
 fi
 
 echo Delete previous S3 buckets...
 for bucket in $(aws s3api list-buckets --query Buckets[].Name --output text); do
-  aws s3 rb s3://$bucket --force 1>/dev/null
+  aws s3 rb "s3://$bucket" --force 1>/dev/null
 done
 
 echo Delete previous Elastic Block Storage...
-for i in $(aws_ec2_get volume Volumes[].VolumeId); do aws ec2 delete-volume --volume-id $i > /dev/null; done
+for i in $(aws_ec2_get volume Volumes[].VolumeId); do aws ec2 delete-volume --volume-id "$i" > /dev/null; done
 
 echo "Checking and deleting IAM users with 'kubernetes.io/cluster/*' tags..."
 USER_NAMES=$(aws iam list-users --query "Users[].UserName" --output text)
@@ -277,7 +277,7 @@ if [ -n "$USER_NAMES" ]; then
           done
         fi
       fi
-      
+
       # Delete SSH public keys
       SSH_KEYS=$(aws iam list-ssh-public-keys --user-name "$user_name" --query "SSHPublicKeys[].SSHPublicKeyId" --output text)
       if [ $? -ne 0 ]; then echo "No SSH public keys for user '$user_name'. Skipping SSH key deletion."; else
