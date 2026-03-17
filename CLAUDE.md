@@ -83,8 +83,11 @@ Three-layer modular system for Day 2 configuration:
    - Structure: `gitops-profiles/<profile-name>/kustomization.yaml`
    - Examples:
      - `ocp-standard` - Core + OSSM + MCG storage + minimal logging + netobserv
+     - `ocp-standard-secured` - Standard + ACS SecuredCluster (spoke for security scanning)
+     - `ocp-standard-managed` - Standard + ACM Klusterlet (spoke for multi-cluster management)
      - `ocp-ai` - Standard + RHOAI + GPU operators + Kueue
      - `ocp-acs-central` - Standard + ACS Central server
+     - `ocp-acm-hub` - Standard + ACM Hub server
      - `ocp-odf-full-aws-performance` - Core + full ODF with performance node sizing
 
 **The profile specified in `GITOPS_PROFILE_PATH` determines which Day 2 components are installed.**

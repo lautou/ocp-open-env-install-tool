@@ -1,0 +1,43 @@
+# ==============================================================================
+# STANDARD MANAGED PROFILE CONFIGURATION (EXAMPLE)
+# OpenShift cluster managed by ACM (Advanced Cluster Management).
+# This cluster is a SPOKE managed by an external ACM Hub.
+# Copy this to config file and customize.
+# ==============================================================================
+
+# Domain for this environment
+RHDP_TOP_LEVEL_ROUTE53_DOMAIN=".sandboxXXXX.opentlc.com"
+
+# --- AWS CREDENTIALS ---
+AWS_DEFAULT_REGION="eu-central-1"
+AWS_ACCESS_KEY_ID="XXXXXXXXXXXXXXX"
+AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXXXXX"
+
+# --- NODE CONFIGURATION ---
+# Control Plane (Master) Nodes
+AWS_INSTANCE_TYPE_CONTROLPLANE_NODES="m6i.2xlarge"
+
+# Compute (Worker) Nodes
+AWS_WORKERS_COUNT=3
+AWS_INSTANCE_TYPE_COMPUTE_NODES="m6i.large"
+
+# Infra Nodes
+AWS_INFRA_NODES_COUNT=3
+AWS_INSTANCE_TYPE_INFRA_NODES="m6i.2xlarge"
+
+# Storage Nodes
+AWS_STORAGE_NODES_COUNT=3
+AWS_INSTANCE_TYPE_STORAGE_NODES="m6i.xlarge"
+
+# --- SOFTWARE PROFILES ---
+# Override Path for Standard Managed Profile (with ACM Klusterlet)
+GITOPS_PROFILE_PATH="gitops-profiles/ocp-standard-managed"
+
+# --- NOTES ---
+# This profile deploys:
+# - Standard OCP components (Core, OSSM, MCG storage, Logging pico, NetObserv)
+# - ACM Klusterlet (connects to external ACM Hub for multi-cluster management)
+#
+# Prerequisites:
+# - An ACM Hub must be running elsewhere (e.g., ocp-acm-hub profile)
+# - Import this cluster into the Hub after deployment
