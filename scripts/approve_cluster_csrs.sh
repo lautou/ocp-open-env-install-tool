@@ -7,7 +7,7 @@
 #              Auto-detects certificate issues and switches to insecure mode.
 # ==============================================================================
 
-set -e
+set -euo pipefail
 
 # --- 1. Argument Validation ---
 if [[ $# -lt 2 ]]; then

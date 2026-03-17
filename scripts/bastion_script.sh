@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 BASTION_EXECUTION_LOG="bastion_execution.log"
 exec &> >(tee -a "$BASTION_EXECUTION_LOG")

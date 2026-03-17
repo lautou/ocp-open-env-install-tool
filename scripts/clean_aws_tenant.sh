@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 if [[ $# -lt 5 ]]; then
   echo "Incorrect number of arguments. Expected: 5. Found: $#."
   exit 1
