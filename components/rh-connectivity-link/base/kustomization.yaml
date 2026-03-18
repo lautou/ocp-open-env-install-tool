@@ -4,8 +4,9 @@ kind: Kustomization
 resources:
   - ../../common
   - cluster-namespace-kuadrant-system.yaml
-  - kuadrant-system-kuadrant-kuadrant.yaml
+  - kuadrant-system-operatorgroup-rhcl.yaml
   - kuadrant-system-subscription-rhcl-operator.yaml
+  - kuadrant-system-kuadrant-kuadrant.yaml
   - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
 
 replacements:
