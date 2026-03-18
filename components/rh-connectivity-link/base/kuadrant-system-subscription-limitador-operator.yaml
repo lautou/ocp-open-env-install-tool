@@ -1,0 +1,16 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: limitador-operator-stable-redhat-operators-openshift-marketplace
+  namespace: kuadrant-system
+spec:
+  channel: stable
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  name: limitador-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

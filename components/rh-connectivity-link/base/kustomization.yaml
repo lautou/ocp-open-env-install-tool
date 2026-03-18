@@ -6,6 +6,9 @@ resources:
   - cluster-namespace-kuadrant-system.yaml
   - kuadrant-system-operatorgroup-rhcl.yaml
   - kuadrant-system-subscription-rhcl-operator.yaml
+  - kuadrant-system-subscription-authorino-operator.yaml
+  - kuadrant-system-subscription-dns-operator.yaml
+  - kuadrant-system-subscription-limitador-operator.yaml
   - kuadrant-system-kuadrant-kuadrant.yaml
   - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
 
@@ -18,5 +21,35 @@ replacements:
       - select:
           kind: Subscription
           name: rhcl-operator
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.authorino-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: authorino-operator-stable-redhat-operators-openshift-marketplace
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.dns-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: dns-operator-stable-redhat-operators-openshift-marketplace
+        fieldPaths:
+          - spec.channel
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.limitador-operator
+    targets:
+      - select:
+          kind: Subscription
+          name: limitador-operator-stable-redhat-operators-openshift-marketplace
         fieldPaths:
           - spec.channel
