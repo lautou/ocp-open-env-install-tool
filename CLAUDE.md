@@ -258,6 +258,51 @@ For production environments, consider:
 
 **Decision**: Accept documented risk for demo/lab use case. Implement secret management for any production adaptation.
 
+### Job Resource Management (BestEffort QoS)
+
+**Pattern**: All GitOps configuration Jobs run without resource limits (BestEffort QoS class).
+
+**Why No Resource Limits:**
+
+This is an **intentional design decision** for Day 2 configuration Jobs:
+
+1. **Short-lived execution**: Jobs complete within minutes during cluster initialization
+2. **Non-critical timing**: Day 2 setup is not latency-sensitive
+3. **Resource availability**: Demo/lab clusters have adequate capacity during bootstrap
+4. **Maximum performance**: Jobs can consume available resources for faster completion
+5. **Simplicity**: Avoids complexity of testing and tuning limits for 17+ different Jobs
+
+**Job Lifecycle:**
+
+- ✅ Execute during initial ArgoCD sync (Day 2 configuration phase)
+- ✅ Complete and terminate (pods cleaned up automatically)
+- ✅ Do not run continuously (unlike Deployments/DaemonSets)
+- ✅ Idempotent design allows re-execution if needed
+
+**BestEffort Behavior:**
+
+Without resource requests/limits, Jobs get:
+- **QoS Class**: BestEffort (lowest priority for eviction)
+- **CPU**: Can use all available CPU if cluster is idle
+- **Memory**: Can use all available memory if cluster is idle
+- **Eviction**: First to be evicted if cluster resources are exhausted (acceptable for setup jobs)
+
+**When This Pattern is Acceptable:**
+
+- ✅ Demo/lab environments with adequate cluster resources
+- ✅ Short-lived bootstrap/setup operations
+- ✅ Jobs that complete during initial cluster provisioning
+- ✅ Non-production workloads where QoS guarantees are not required
+
+**When to Add Resource Limits:**
+
+- ❌ Production environments with strict resource governance
+- ❌ Long-running or recurring Jobs
+- ❌ Multi-tenant clusters with resource contention
+- ❌ Jobs that must complete within SLA time windows
+
+**Decision**: Keep Jobs at BestEffort QoS for demo/lab use case. Jobs need maximum available resources during Day 2 initialization for fastest completion.
+
 ## GitOps Patterns
 
 ### ❌ Static Manifest + ignoreDifferences Pattern (DOES NOT WORK)
