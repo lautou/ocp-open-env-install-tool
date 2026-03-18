@@ -8,6 +8,27 @@ This is an OpenShift Container Platform (OCP) installation tool designed for Red
 
 Supports both **IPI** (Installer-Provisioned Infrastructure) and **UPI** (User-Provisioned Infrastructure) installation methods.
 
+## Documentation Philosophy
+
+**IMPORTANT**: This CLAUDE.md file is AI context documentation, NOT human-facing documentation (see README.md for that).
+
+**What gets documented here:**
+- ✅ **Patterns and anti-patterns** - Shared resource patterns, Pure Job patterns, failed approaches
+- ✅ **Non-discoverable knowledge** - OLM naming conventions, operator limitations, design rationale
+- ✅ **Architecture and flows** - GitOps "Lego" model, installation sequence, recovery mechanisms
+- ✅ **Gotchas and workarounds** - Known bugs, accepted limitations, special configurations
+- ✅ **Complex components** - Those with special patterns or non-obvious behavior
+
+**What does NOT get documented here:**
+- ❌ **Simple components** - Standard operator deployments with no special configuration
+- ❌ **Discoverable information** - Namespace names, channel versions (readable from manifests/cluster)
+- ❌ **Component catalogs** - Complete lists of all components (discoverable via file system)
+- ❌ **Basic usage** - User-facing instructions (belongs in README.md)
+
+**Rationale:** AI assistants can dynamically discover simple information (Read/Glob/Grep). Documentation should capture knowledge that CANNOT be easily discovered - patterns, rationale, failed attempts, and non-obvious constraints.
+
+**For audits:** If a component is undocumented in "Component-Specific Notes", it means it follows standard patterns with no special behavior. This is intentional, not a documentation gap.
+
 ## Key Commands
 
 ### Installation
