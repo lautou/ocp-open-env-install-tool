@@ -15,7 +15,6 @@ resources:
   - keycloak-secret-keycloak-db-secret.yaml
   - keycloak-keycloak-keycloak.yaml
   - keycloak-route-keycloak.yaml
-  - openshift-gitops-job-update-keycloak-hostname.yaml
 
 replacements:
   - source:

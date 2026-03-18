@@ -887,7 +887,7 @@ RHBK operator pods run on infrastructure nodes via subscription nodeSelector and
 
 **PostgreSQL Database:**
 
-The component includes a dedicated PostgreSQL 12 database for Keycloak in the `databases-keycloak` namespace:
+The component includes a dedicated PostgreSQL 13 database for Keycloak in the `databases-keycloak` namespace:
 
 **Namespace**: `databases-keycloak`
 - Separate namespace for database isolation
@@ -910,7 +910,7 @@ The component includes a dedicated PostgreSQL 12 database for Keycloak in the `d
    - Selector: `app.kubernetes.io/name: keycloak-db`
 
 4. **Deployment**: `keycloak-db`
-   - Image: `registry.redhat.io/rhel8/postgresql-12:1`
+   - Image: `registry.redhat.io/rhel8/postgresql-13:1`
    - Replicas: 1
    - Strategy: Recreate (single replica database)
    - Resources: 100m/128Mi request, 250m/256Mi limit
@@ -962,17 +962,57 @@ components/keycloak/
 4. **Infrastructure Node Placement**: Operator pods on infra nodes (database on worker nodes - acceptable for demo/lab)
 5. **Plain Secret**: Database credentials in unencrypted secret (acceptable for demo/lab with 30h lifespan)
 
-**Current State:**
+**Keycloak Instance Configuration:**
 
-- ✅ RHBK operator subscription: Deployed
-- ✅ PostgreSQL database: Running and healthy
-- ⚠️ Keycloak CR: Not created yet (instances to be added later)
+The component deploys a Keycloak CR with the following configuration:
 
-**Next Steps (when ready for Keycloak instances):**
+```yaml
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: keycloak-db.databases-keycloak.svc
+    database: keycloak
+    usernameSecret: {name: keycloak-db-secret, key: database-user}
+    passwordSecret: {name: keycloak-db-secret, key: database-password}
+  http:
+    httpEnabled: true  # Backend uses HTTP (route does TLS termination)
+  ingress:
+    enabled: false     # Using OpenShift Route instead
+  hostname:
+    strict: false      # Auto-detect hostname from incoming requests
+```
 
-1. Create Keycloak CR pointing to PostgreSQL database
-2. Configure ingress/routes for Keycloak admin console
-3. Set up realms and clients for SSO integration
+**Route Configuration:**
+
+```yaml
+spec:
+  port:
+    targetPort: http   # Service exposes HTTP on port 8080
+  tls:
+    termination: edge  # TLS termination at route level
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: keycloak-service
+```
+
+**Hostname Management:**
+
+Keycloak uses `hostname.strict: false` to **auto-detect the hostname from incoming HTTP requests**. This eliminates the need for:
+- ❌ Hardcoded placeholder hostnames in manifests
+- ❌ Dynamic hostname update Jobs
+- ❌ ArgoCD ignoreDifferences configuration
+
+The Keycloak operator automatically creates the `keycloak-service` with ports:
+- `8080` (http) - Main Keycloak endpoint
+- `9000` (management) - Management interface
+
+**Why this works:**
+- Route terminates TLS and forwards HTTP to backend service port 8080
+- Keycloak receives requests with the actual route hostname in HTTP headers
+- With `strict: false`, Keycloak uses that hostname for redirects
+- No static configuration or patching needed
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
