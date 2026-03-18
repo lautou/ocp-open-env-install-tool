@@ -690,6 +690,24 @@ The operator deployment expects these environment variables from the ConfigMap:
 
 **Namespace**: `openshift-observability-operator`
 
+**IMPORTANT - Required Label:**
+
+The namespace **must** have the `openshift.io/cluster-monitoring: "true"` label per Red Hat documentation:
+
+```yaml
+metadata:
+  labels:
+    openshift.io/cluster-monitoring: "true"
+  name: openshift-observability-operator
+```
+
+**Why this label is required:**
+- Routes ServiceMonitor resources to cluster monitoring (not user-workload monitoring)
+- Without it, user-workload Prometheus tries to scrape the health-analyzer ServiceMonitor
+- The health-analyzer ServiceMonitor uses deprecated TLS file path syntax (operator-generated)
+- User-workload Prometheus Operator rejects it, causing PrometheusOperatorRejectedResources alert
+- Cluster monitoring handles the ServiceMonitor correctly
+
 **OperatorGroup**: `observability-operator`
 - Empty spec (no `spec:` section) → **AllNamespaces mode**
 - Operator watches all namespaces cluster-wide
