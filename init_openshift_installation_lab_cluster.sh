@@ -219,6 +219,16 @@ fi
 source "$TARGET_CONFIG"
 cat "$TARGET_CONFIG" >> "$MERGED_CONFIG_FILE"
 
+# Remove AWS credentials from merged config (will be retrieved from Secrets Manager on bastion)
+echo "   Removing AWS credentials from merged config (stored in Secrets Manager)..."
+sed -i '/^AWS_ACCESS_KEY_ID=/d' "$MERGED_CONFIG_FILE"
+sed -i '/^AWS_SECRET_ACCESS_KEY=/d' "$MERGED_CONFIG_FILE"
+
+# Add Secrets Manager secret name to merged config
+echo "" >> "$MERGED_CONFIG_FILE"
+echo "# AWS Secrets Manager Configuration" >> "$MERGED_CONFIG_FILE"
+echo "SECRETS_MANAGER_SECRET_NAME=\"$SECRETS_MANAGER_SECRET_NAME\"" >> "$MERGED_CONFIG_FILE"
+
 echo
 echo "------------------------------------"
 echo "Configuration variables (Merged Config: $CONFIG_NAME)"
@@ -400,6 +410,120 @@ echo "AWS credentials and region successfully validated."
 
 . scripts/aws_lib.sh
 
+# --- AWS SECRETS MANAGER INTEGRATION ---
+
+SECRETS_MANAGER_SECRET_NAME="ocp-installer/${CLUSTER_NAME}/aws-credentials"
+IAM_ROLE_NAME="ocp-bastion-secrets-reader-${CLUSTER_NAME}"
+IAM_INSTANCE_PROFILE_NAME="ocp-bastion-profile-${CLUSTER_NAME}"
+
+manage_aws_secrets() {
+  echo "Managing AWS credentials in Secrets Manager..."
+
+  local secret_value
+  secret_value=$(cat <<EOF
+{
+  "aws_access_key_id": "$AWS_ACCESS_KEY_ID",
+  "aws_secret_access_key": "$AWS_SECRET_ACCESS_KEY"
+}
+EOF
+)
+
+  # Check if secret exists
+  if aws secretsmanager describe-secret --secret-id "$SECRETS_MANAGER_SECRET_NAME" --region "$AWS_DEFAULT_REGION" &>/dev/null; then
+    echo "   Secret exists. Updating value..."
+    aws secretsmanager update-secret \
+      --secret-id "$SECRETS_MANAGER_SECRET_NAME" \
+      --secret-string "$secret_value" \
+      --region "$AWS_DEFAULT_REGION" > /dev/null
+  else
+    echo "   Creating new secret..."
+    aws secretsmanager create-secret \
+      --name "$SECRETS_MANAGER_SECRET_NAME" \
+      --description "AWS credentials for OCP cluster: $CLUSTER_NAME" \
+      --secret-string "$secret_value" \
+      --region "$AWS_DEFAULT_REGION" > /dev/null
+  fi
+
+  echo "✅ AWS credentials stored in Secrets Manager: $SECRETS_MANAGER_SECRET_NAME"
+}
+
+manage_iam_role_for_bastion() {
+  echo "Managing IAM role and instance profile for bastion..."
+
+  # Create IAM role if it doesn't exist
+  if ! aws iam get-role --role-name "$IAM_ROLE_NAME" &>/dev/null; then
+    echo "   Creating IAM role: $IAM_ROLE_NAME"
+
+    local trust_policy
+    trust_policy=$(cat <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {"Service": "ec2.amazonaws.com"},
+    "Action": "sts:AssumeRole"
+  }]
+}
+EOF
+)
+
+    aws iam create-role \
+      --role-name "$IAM_ROLE_NAME" \
+      --assume-role-policy-document "$trust_policy" \
+      --description "Role for OCP bastion to read Secrets Manager" > /dev/null
+
+    # Attach inline policy to allow reading the specific secret
+    local policy_document
+    policy_document=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["secretsmanager:GetSecretValue"],
+    "Resource": "arn:aws:secretsmanager:${AWS_DEFAULT_REGION}:*:secret:${SECRETS_MANAGER_SECRET_NAME}-*"
+  }]
+}
+EOF
+)
+
+    aws iam put-role-policy \
+      --role-name "$IAM_ROLE_NAME" \
+      --policy-name "SecretsManagerReadPolicy" \
+      --policy-document "$policy_document" > /dev/null
+
+    echo "   IAM role created with Secrets Manager read permissions"
+  else
+    echo "   IAM role already exists: $IAM_ROLE_NAME"
+  fi
+
+  # Create instance profile if it doesn't exist
+  if ! aws iam get-instance-profile --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" &>/dev/null; then
+    echo "   Creating instance profile: $IAM_INSTANCE_PROFILE_NAME"
+    aws iam create-instance-profile --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" > /dev/null
+
+    # Wait a bit for the instance profile to be created
+    sleep 2
+  else
+    echo "   Instance profile already exists: $IAM_INSTANCE_PROFILE_NAME"
+  fi
+
+  # Attach role to instance profile if not already attached
+  if ! aws iam get-instance-profile --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" \
+    --query "InstanceProfile.Roles[?RoleName=='$IAM_ROLE_NAME']" --output text | grep -q "$IAM_ROLE_NAME"; then
+    echo "   Attaching role to instance profile..."
+    aws iam add-role-to-instance-profile \
+      --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" \
+      --role-name "$IAM_ROLE_NAME" > /dev/null
+
+    # Wait for propagation
+    sleep 3
+  else
+    echo "   Role already attached to instance profile"
+  fi
+
+  echo "✅ IAM role and instance profile ready"
+}
+
 echo "Check base domain hosted zone exists..."
 if [[ -z "$(get_r53_hz_id_by_name "${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}")" ]]; then
   echo "Base domain hosted zone does not exist in Route53: ${RHDP_TOP_LEVEL_ROUTE53_DOMAIN:1}."
@@ -440,6 +564,13 @@ fi
 if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
     echo "Check and clean the AWS tenant..."
     ./scripts/clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
+
+    echo "------------------------------------"
+    echo "Setting up AWS Secrets Manager and IAM for bastion..."
+    # Store credentials in Secrets Manager (after cleanup)
+    manage_aws_secrets
+    # Create IAM role and instance profile for bastion (after cleanup)
+    manage_iam_role_for_bastion
 
     echo "------------------------------------"
     echo "Creating the Bastion VPC..."
@@ -489,6 +620,7 @@ echo "Creating Route Table..."
       --key-name "$BASTION_KEY_PAIR_NAME" \
       --security-group-ids "$SG_ID" \
       --associate-public-ip-address \
+      --iam-instance-profile "Name=$IAM_INSTANCE_PROFILE_NAME" \
       --user-data "$USER_DATA_BASE64" \
       --query Instances[].InstanceId \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value='$BASTION_INSTANCE_TAG_NAME'}]" \

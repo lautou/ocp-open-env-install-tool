@@ -64,6 +64,48 @@ if [ ${#OTHER_CLUSTER_STACKS[@]} -gt 0 ]; then
     delete_and_wait_stacks "${OTHER_CLUSTER_STACKS[@]}"
 fi
 
+echo "--- Deleting ALL AWS Secrets Manager Secrets ---"
+echo "WARNING: Deleting ALL secrets in AWS Secrets Manager (dedicated tenant assumption)..."
+ALL_SECRETS=$(aws secretsmanager list-secrets --query "SecretList[].Name" --output text)
+if [[ -n "$ALL_SECRETS" ]]; then
+  for secret_name in $ALL_SECRETS; do
+    echo "Deleting secret: $secret_name"
+    aws secretsmanager delete-secret --secret-id "$secret_name" --force-delete-without-recovery > /dev/null 2>&1 || true
+  done
+  echo "All secrets deleted."
+else
+  echo "No secrets found to delete."
+fi
+
+echo "--- Deleting IAM Roles and Instance Profiles for Bastion ---"
+IAM_ROLE_NAME="ocp-bastion-secrets-reader-${CLUSTER_NAME}"
+IAM_INSTANCE_PROFILE_NAME="ocp-bastion-profile-${CLUSTER_NAME}"
+
+# Remove role from instance profile
+if aws iam get-instance-profile --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" &>/dev/null; then
+  echo "Removing role from instance profile: $IAM_INSTANCE_PROFILE_NAME"
+  aws iam remove-role-from-instance-profile \
+    --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" \
+    --role-name "$IAM_ROLE_NAME" > /dev/null 2>&1 || true
+
+  echo "Deleting instance profile: $IAM_INSTANCE_PROFILE_NAME"
+  aws iam delete-instance-profile --instance-profile-name "$IAM_INSTANCE_PROFILE_NAME" > /dev/null 2>&1 || true
+fi
+
+# Delete inline policies from role
+if aws iam get-role --role-name "$IAM_ROLE_NAME" &>/dev/null; then
+  echo "Deleting inline policies from role: $IAM_ROLE_NAME"
+  INLINE_POLICIES=$(aws iam list-role-policies --role-name "$IAM_ROLE_NAME" --query "PolicyNames[]" --output text 2>/dev/null || true)
+  if [[ -n "$INLINE_POLICIES" ]]; then
+    for policy_name in $INLINE_POLICIES; do
+      aws iam delete-role-policy --role-name "$IAM_ROLE_NAME" --policy-name "$policy_name" > /dev/null 2>&1 || true
+    done
+  fi
+
+  echo "Deleting IAM role: $IAM_ROLE_NAME"
+  aws iam delete-role --role-name "$IAM_ROLE_NAME" > /dev/null 2>&1 || true
+fi
+
 echo Check and delete previous route53 materials...
 check_and_delete_previous_r53_hzr_all "$CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
 check_and_delete_previous_r53_hz "$CLUSTER_NAME$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"

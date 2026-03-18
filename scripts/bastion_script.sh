@@ -29,7 +29,7 @@ check_prerequisites() {
   echo "--- All prerequisites met. Proceeding... ---"
 }
 
-# 1. Source Config
+# 1. Source Config (without AWS credentials)
 if [[ ! -f ocp_rhdp.config ]]; then
   echo "ERROR: ocp_rhdp.config not found!"
   exit 1
@@ -55,7 +55,47 @@ GITOPS_OPERATOR_FILE="day2_config/gitops/openshift-gitops-operator.yaml"
 # 2. RUN CHECKS (Before doing anything else)
 check_prerequisites
 
-# 3. Setup AWS Credentials (User Data runs as root, this runs as ec2-user, so we need config)
+# 3. Retrieve AWS Credentials from Secrets Manager
+echo "Retrieving AWS credentials from Secrets Manager..."
+if [[ -z "$SECRETS_MANAGER_SECRET_NAME" ]]; then
+  echo "ERROR: SECRETS_MANAGER_SECRET_NAME not set in config!"
+  exit 7
+fi
+
+if [[ -z "$AWS_DEFAULT_REGION" ]]; then
+  echo "ERROR: AWS_DEFAULT_REGION not set in config!"
+  exit 7
+fi
+
+# Configure AWS CLI with region first (needed to access Secrets Manager)
+aws configure set default.region "$AWS_DEFAULT_REGION"
+aws configure set default.output json
+
+# Retrieve credentials from Secrets Manager (using IAM instance profile)
+AWS_CREDS=$(aws secretsmanager get-secret-value \
+  --secret-id "$SECRETS_MANAGER_SECRET_NAME" \
+  --region "$AWS_DEFAULT_REGION" \
+  --query SecretString --output text 2>/dev/null)
+
+if [[ -z "$AWS_CREDS" ]]; then
+  echo "ERROR: Failed to retrieve AWS credentials from Secrets Manager."
+  echo "Secret Name: $SECRETS_MANAGER_SECRET_NAME"
+  echo "Region: $AWS_DEFAULT_REGION"
+  exit 9
+fi
+
+# Extract credentials using yq
+AWS_ACCESS_KEY_ID=$(echo "$AWS_CREDS" | yq '.aws_access_key_id')
+AWS_SECRET_ACCESS_KEY=$(echo "$AWS_CREDS" | yq '.aws_secret_access_key')
+
+if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+  echo "ERROR: Failed to parse AWS credentials from secret."
+  exit 10
+fi
+
+echo "✅ AWS credentials retrieved from Secrets Manager"
+
+# Setup AWS Credentials in CLI config
 echo "Configuring AWS CLI for user $(whoami)..."
 mkdir -p ~/.aws
 cat <<EOF > ~/.aws/credentials
@@ -64,9 +104,6 @@ aws_access_key_id = $AWS_ACCESS_KEY_ID
 aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
 EOF
 chmod 600 ~/.aws/credentials
-
-aws configure set default.region "$AWS_DEFAULT_REGION"
-aws configure set default.output json
 
 echo "Verifying AWS CLI identity..."
 if ! aws sts get-caller-identity > /dev/null; then

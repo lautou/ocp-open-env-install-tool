@@ -192,32 +192,40 @@ The default configuration points to the upstream repository. To make changes (li
 
 ## 🔒 Security Considerations
 
-### Plaintext Secrets in Configuration Files
+### AWS Secrets Manager Integration
 
-**⚠️ WARNING**: This tool stores AWS credentials and cluster passwords in **plaintext configuration files**. This is **acceptable for short-lived demo/lab environments** but **NOT suitable for production**.
+**✅ IMPLEMENTED**: AWS credentials are now **securely stored in AWS Secrets Manager** instead of being passed to the bastion in plaintext.
 
-**Risk Summary:**
-- AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are stored in `config/*.config` files
-- Cluster passwords (`OCP_ADMIN_PASSWORD`, `OCP_NON_ADMIN_PASSWORD`) are stored in `config/common.config`
-- Secrets are passed as environment variables to bastion processes (visible via `/proc/$PID/environ`)
-- Anyone with access to config files or bastion SSH can read these secrets
+**How It Works:**
+1. **Simple Config**: You edit AWS credentials in `config/*.config` files (workflow unchanged)
+2. **Automatic Upload**: The installer stores credentials in AWS Secrets Manager
+3. **Secure Retrieval**: Bastion retrieves credentials using IAM instance profile (not from uploaded files)
+4. **Automatic Cleanup**: Secrets are deleted when cleaning the environment
 
-**Why This is Acceptable for RHDP Labs:**
-- ✅ **Short-lived**: Demo Platform environments expire after ~30 hours
-- ✅ **Dedicated tenants**: AWS account contains only demo cluster resources (no production data)
-- ✅ **Single-user**: You control both the config files and bastion SSH access
-- ✅ **Simplicity**: Fast setup for demos without complex secret management infrastructure
+**Security Benefits:**
+- ✅ **Encrypted Storage**: Secrets Manager encrypts credentials at rest with AWS KMS
+- ✅ **Secure Transit**: Retrieved via TLS (AWS API)
+- ✅ **No Plaintext Upload**: Credentials NOT sent to bastion in config files
+- ✅ **IAM-Based Access**: Only the bastion instance can read its secret
+- ✅ **Audit Trail**: CloudTrail logs all secret access
+- ✅ **Automatic Deletion**: Secrets purged during cleanup (idempotent)
 
-**Best Practices (Even for Labs):**
+**What's Still in Config Files:**
+- ⚠️ **Local config files** still contain AWS credentials (needed for initial AWS setup from your workstation)
+- ⚠️ **Cluster passwords** (`OCP_ADMIN_PASSWORD`, `OCP_NON_ADMIN_PASSWORD`) remain in `config/common.config`
+
+This is acceptable for RHDP demo/lab environments (30h lifespan, dedicated tenants, single-user).
+
+**Best Practices:**
 1. **Use temporary credentials**: Generate short-lived IAM credentials from RHDP (auto-expire with environment)
-2. **Delete after use**: Remove `config/*.config` files when cluster is destroyed
-3. **Rotate regularly**: If reusing AWS accounts, rotate IAM credentials after each cluster deletion
-4. **Clean output/**: Delete the `output/` directory after teardown (contains merged configs with secrets)
+2. **Delete local configs**: Remove `config/*.config` files after cluster destruction
+3. **Verify cleanup**: Ensure `clean_aws_tenant.sh` completes successfully
+4. **Clean output/**: Delete `output/` directory after teardown
 
 **For Production Use:**
-If adapting this tool for production, implement:
-- **AWS Secrets Manager** or **HashiCorp Vault** for credential storage
-- **IAM instance profiles** instead of static credentials
-- **Encrypted config files** using tools like `sops` or `git-crypt`
-- **Audit logging** for all secret access
+The tool already uses AWS Secrets Manager for credentials. For production adaptation:
+- ✅ Secrets Manager is production-ready
+- ⚠️ Consider adding OCP passwords to Secrets Manager
+- ✅ Enable credential rotation policies
+- ✅ Use dedicated IAM users with minimal permissions
 
