@@ -15,6 +15,7 @@ data:
 
   # Integration
   openshift-service-mesh: "stable"
+  rhbk-operator: "stable-v26.4"  # Red Hat build of Keycloak
 
   # API Gateway (Red Hat Connectivity Link - Kuadrant)
   rhcl-operator: "stable"
