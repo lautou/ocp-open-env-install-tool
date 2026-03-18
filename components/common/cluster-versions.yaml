@@ -15,7 +15,13 @@ data:
 
   # Integration
   openshift-service-mesh: "stable"
-  
+
+  # API Gateway (Red Hat Connectivity Link - Kuadrant)
+  rhcl-operator: "stable"
+  authorino-operator: "stable"
+  dns-operator: "stable"
+  limitador-operator: "stable"
+
   # CI/CD & Dev Tools
   cert-manager: "stable-v1.18"
   openshift-pipelines: "pipelines-1.20"
@@ -40,7 +46,3 @@ data:
   # Cluster management
   rhacm: "release-2.15"
   rhacs: "rhacs-4.9"
-  rhcl-operator: "stable"
-  authorino-operator: "stable"
-  limitador-operator: "stable"
-  dns-operator: "stable"

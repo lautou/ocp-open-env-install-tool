@@ -650,6 +650,111 @@ Both UIPlugins:
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
+### Red Hat Connectivity Link (RHCL) - Kuadrant
+
+**Purpose**: Provides API gateway capabilities including rate limiting, authentication, DNS management, and TLS policies through the Kuadrant operator stack.
+
+**Installation**: Deployed in `kuadrant-system` namespace. Available in select profiles via `gitops-bases/rh-connectivity-link/default`.
+
+**Namespace**: `kuadrant-system`
+
+**OperatorGroup**: `rhcl`
+- Empty spec (no `spec:` section) → **AllNamespaces mode**
+- Allows Kuadrant CRDs to be used cluster-wide
+
+**Operator Stack (4 operators):**
+
+The RHCL component manages 4 operator subscriptions with infrastructure node placement:
+
+1. **RHCL Operator** (`rhcl-operator`)
+   - Main Kuadrant operator
+   - Creates Kuadrant CR and manages operator lifecycle
+
+2. **Authorino Operator** (`authorino-operator`)
+   - API authentication and authorization engine
+   - Installed as dependency of Kuadrant
+
+3. **DNS Operator** (`dns-operator`)
+   - Multi-cluster DNS management
+   - Installed as dependency of Kuadrant
+
+4. **Limitador Operator** (`limitador-operator`)
+   - Rate limiting engine
+   - Installed as dependency of Kuadrant
+
+**OLM-Generated Subscription Names:**
+
+Dependency operators use OLM-generated subscription names following the pattern:
+```
+{package}-{channel}-{source}-{sourceNamespace}
+```
+
+Examples:
+- `authorino-operator-stable-redhat-operators-openshift-marketplace`
+- `dns-operator-stable-redhat-operators-openshift-marketplace`
+- `limitador-operator-stable-redhat-operators-openshift-marketplace`
+
+**Why these names?** When operators are installed via OLM dependency resolution (rather than direct manifest application), OLM generates subscription names automatically. The manifests use these generated names to match existing cluster state and enable GitOps management of dependencies.
+
+**Infrastructure Node Placement:**
+
+All 4 operator subscriptions are configured with infrastructure node placement:
+
+```yaml
+spec:
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ""
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+```
+
+This ensures operator control plane workloads run on infrastructure nodes, separating them from user workloads.
+
+**Kuadrant CR:**
+
+The component creates a `Kuadrant` custom resource that automatically provisions:
+- **Authorino** instance (authentication engine)
+- **Limitador** instance (rate limiting engine)
+
+**Known Limitations:**
+
+1. **Operator Instance Pods** - Authorino and Limitador instances run on **worker nodes**:
+   - No API exists in Kuadrant CR to configure nodeSelector/tolerations for instances
+   - Only operator subscriptions support infra node placement
+   - Accepted limitation for demo/lab environments
+
+2. **Console Plugin** - `kuadrant-console-plugin` deployment runs on **worker nodes**:
+   - No configuration option in operator to set nodeSelector/tolerations
+   - Plugin is auto-created by RHCL operator
+   - Accepted limitation for demo/lab environments
+   - JIRA ticket created for upstream feature request
+
+**Result:**
+- ✅ All 4 **operator pods** run on infrastructure nodes
+- ⚠️ **Instance pods** (authorino, limitador) run on worker nodes (accepted)
+- ⚠️ **Console plugin** runs on worker nodes (accepted)
+
+**Console Plugin:**
+
+The component includes a Job to enable the `kuadrant-console-plugin` in OpenShift Console:
+- Job: `openshift-gitops-job-enable-kuadrant-console-plugin.yaml`
+- Idempotent patch that adds plugin if not already present
+- Uses `Force=true` to run on every ArgoCD sync
+
+**Version Management:**
+
+Operator channels are managed via `cluster-versions` ConfigMap:
+- `rhcl-operator: stable`
+- `authorino-operator: stable`
+- `dns-operator: stable`
+- `limitador-operator: stable`
+
+Kustomize replacements automatically inject channel versions during build.
+
+**Installation**: Part of the `rh-connectivity-link` gitops-base, included in profiles with API gateway capabilities.
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion
