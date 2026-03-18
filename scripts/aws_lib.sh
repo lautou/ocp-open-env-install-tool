@@ -76,10 +76,10 @@ check_and_delete_previous_r53_hzr() {
 aws_ec2_get() {
   local service_name="$1"
   local query_path="$2"
-  local filter_name_1="$3"
-  local filter_values_1="$4"
-  local filter_name_2="$5"
-  local filter_values_2="$6"
+  local filter_name_1="${3:-}"
+  local filter_values_1="${4:-}"
+  local filter_name_2="${5:-}"
+  local filter_values_2="${6:-}"
   local filter_option_name="filters"
 
   if [[ "$service_name" == "nat-gateway" ]]; then
@@ -175,7 +175,7 @@ create_stack_and_wait() {
   local template_file="$2"
   local parameters_file="$3"
   local capabilities=("CAPABILITY_IAM" "CAPABILITY_NAMED_IAM") # Add others if needed
-  local tags_string="$4"
+  local tags_string="${4:-}"
 
   echo "Deploying stack: $stack_name from template: $template_file..."
   
