@@ -4,8 +4,14 @@ kind: Kustomization
 resources:
   - ../../common
   - cluster-namespace-keycloak.yaml
+  - cluster-namespace-databases-keycloak.yaml
   - keycloak-operatorgroup-rhbk-operator.yaml
   - keycloak-subscription-rhbk-operator.yaml
+  - databases-keycloak-secret-keycloak-db.yaml
+  - databases-keycloak-pvc-keycloak-db.yaml
+  - databases-keycloak-service-keycloak-db.yaml
+  - databases-keycloak-serviceaccount-keycloak-db.yaml
+  - databases-keycloak-deployment-keycloak-db.yaml
 
 replacements:
   - source:
