@@ -454,6 +454,61 @@ Differences: Only component name (`logging` vs `netobserv`) and namespace (`open
 
 **Decision:** Accept intentional duplication when Kustomize security boundaries make sharing impractical. Favor simplicity and component isolation over DRY absolutism.
 
+### OLM Subscription installPlanApproval Pattern
+
+**Pattern**: Rely on OLM default behavior for `installPlanApproval` (omit field from manifests).
+
+**OLM Default Behavior:**
+When `installPlanApproval` is not specified in a Subscription manifest, OLM defaults to **`Automatic`** (not `Manual`).
+
+**Source:** OpenShift OLM documentation and observed cluster behavior.
+
+**Project Standard:**
+
+Our Subscription manifests **intentionally omit** the `installPlanApproval` field:
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: my-operator
+  namespace: my-namespace
+spec:
+  channel: stable
+  name: my-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  # installPlanApproval: Automatic  ← OMITTED (rely on OLM default)
+```
+
+**Why omit instead of explicit `Automatic`?**
+1. ✅ **Less boilerplate** - No need to add redundant field to 25+ files
+2. ✅ **Standard practice** - Relying on defaults is common in Kubernetes manifests
+3. ✅ **OLM behavior is stable** - Default has been `Automatic` for years
+4. ✅ **Matches upstream examples** - Red Hat operator documentation examples omit this field
+
+**Current State (26 subscription manifests):**
+- 25 subscriptions: Omit `installPlanApproval` → OLM default = `Automatic`
+- 1 subscription: Explicit `Automatic` (ack-route53 - copied from community example)
+
+**Exception - RHOAI-Installed Service Mesh:**
+
+The cluster has one subscription with `installPlanApproval: Manual` that is **NOT in our manifests**:
+- **Subscription**: `servicemeshoperator3` in `openshift-operators`
+- **Source**: Automatically installed by RHOAI 3.3 operator (KServe dependency)
+- **Reason for Manual**: RHOAI intentionally sets `Manual` to control Service Mesh upgrade timing
+- **Purpose**: Prevents automatic mesh upgrades that could break model serving workloads
+- **Owner**: Red Hat OpenShift AI operator (not our GitOps manifests)
+
+This is **expected and correct** behavior for RHOAI with KServe enabled.
+
+**When to Add Explicit installPlanApproval:**
+- ✅ **Manual approval required** - When you need to review/test upgrades before applying
+- ✅ **Upstream dependency requirement** - When an operator (like RHOAI) needs to control upgrade timing
+- ❌ **Just for documentation** - No need to add explicit `Automatic` to all files
+
+**Decision:** Continue relying on OLM default (`Automatic`) for all our manifests. Only add explicit values when overriding the default to `Manual`.
+
 ## Component-Specific Notes
 
 ### Console Plugins
