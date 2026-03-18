@@ -23,3 +23,5 @@ spec:
     httpEnabled: true
   ingress:
     enabled: false
+  hostname:
+    strict: false
