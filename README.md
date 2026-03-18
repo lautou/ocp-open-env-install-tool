@@ -184,7 +184,40 @@ This project uses a modular "App of Apps" pattern controlled by Kustomize profil
 
 The default configuration points to the upstream repository. To make changes (like pinning specific operator versions or adding custom apps):
 
-1. **Fork** this repository.  
-2. Update `GIT_REPO_URL` in `config/common.config` to point to your fork.  
+1. **Fork** this repository.
+2. Update `GIT_REPO_URL` in `config/common.config` to point to your fork.
 3. Run the installation. ArgoCD will now sync from your fork.
+
+---
+
+## 🔒 Security Considerations
+
+### Plaintext Secrets in Configuration Files
+
+**⚠️ WARNING**: This tool stores AWS credentials and cluster passwords in **plaintext configuration files**. This is **acceptable for short-lived demo/lab environments** but **NOT suitable for production**.
+
+**Risk Summary:**
+- AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are stored in `config/*.config` files
+- Cluster passwords (`OCP_ADMIN_PASSWORD`, `OCP_NON_ADMIN_PASSWORD`) are stored in `config/common.config`
+- Secrets are passed as environment variables to bastion processes (visible via `/proc/$PID/environ`)
+- Anyone with access to config files or bastion SSH can read these secrets
+
+**Why This is Acceptable for RHDP Labs:**
+- ✅ **Short-lived**: Demo Platform environments expire after ~30 hours
+- ✅ **Dedicated tenants**: AWS account contains only demo cluster resources (no production data)
+- ✅ **Single-user**: You control both the config files and bastion SSH access
+- ✅ **Simplicity**: Fast setup for demos without complex secret management infrastructure
+
+**Best Practices (Even for Labs):**
+1. **Use temporary credentials**: Generate short-lived IAM credentials from RHDP (auto-expire with environment)
+2. **Delete after use**: Remove `config/*.config` files when cluster is destroyed
+3. **Rotate regularly**: If reusing AWS accounts, rotate IAM credentials after each cluster deletion
+4. **Clean output/**: Delete the `output/` directory after teardown (contains merged configs with secrets)
+
+**For Production Use:**
+If adapting this tool for production, implement:
+- **AWS Secrets Manager** or **HashiCorp Vault** for credential storage
+- **IAM instance profiles** instead of static credentials
+- **Encrypted config files** using tools like `sops` or `git-crypt`
+- **Audit logging** for all secret access
 

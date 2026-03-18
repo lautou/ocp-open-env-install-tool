@@ -215,6 +215,49 @@ ApplicationSets reference: `components/<item>/overlays/<overlay-name>`
 - **Day 1 configs**: MachineConfigs and network settings in `day1_config/` applied during installation
 - **Critical components**: Never remove `cluster-ingress`, `cluster-oauth`, `openshift-config`, or `openshift-gitops-admin-config` from base ApplicationSets
 
+## Security Considerations
+
+### Plaintext Secrets in Configuration Files
+
+**⚠️ WARNING**: This tool stores AWS credentials and cluster passwords in **plaintext configuration files** (`config/*.config` and `config/common.config`). These secrets are also passed as environment variables to bastion processes, making them visible via `/proc/$PID/environ`.
+
+**Risk Assessment:**
+
+**✅ ACCEPTABLE for Red Hat Demo Platform (RHDP) Lab/Demo Environments:**
+- **Single-user dedicated tenant**: AWS account contains only your demo cluster resources
+- **Short-lived environments**: RHDP environments typically expire after 30 hours
+- **Dedicated AWS tenants**: No shared production resources at risk
+- **Rapid provisioning**: Simplicity enables fast cluster creation for demos and testing
+
+**❌ NOT ACCEPTABLE for Production or Shared AWS Accounts:**
+- **Credential exposure**: Anyone with access to the config files or bastion SSH session can read AWS credentials
+- **Process environment leakage**: Secrets visible in `/proc/$PID/environ` to any user with shell access on bastion
+- **No rotation**: Secrets remain static unless manually updated
+- **Audit trail**: No centralized secret access logging
+
+**Mitigation Recommendations (Demo/Lab Context):**
+
+1. **Use temporary AWS credentials**: Generate short-lived IAM credentials from RHDP (auto-expire with environment)
+2. **Delete config files after use**: Remove `config/*.config` files containing secrets when cluster is destroyed
+3. **Rotate credentials**: If reusing the same AWS account, rotate IAM credentials after each cluster deletion
+4. **Restrict bastion access**: Only you should have SSH access to the bastion instance
+5. **Clean output directory**: Delete `output/` directory after cluster teardown (contains merged config with secrets)
+
+**Alternative for Production (Not Implemented):**
+
+For production environments, consider:
+- **AWS Secrets Manager**: Store credentials in Secrets Manager, retrieve via IAM instance profile
+- **HashiCorp Vault**: Centralized secret management with audit logging
+- **AWS IAM Roles**: Use instance profiles instead of static credentials where possible
+- **Encrypted config files**: Use tools like `sops` or `git-crypt` to encrypt configuration files at rest
+
+**Why Not Implemented:**
+- **Complexity vs. Risk**: For 30-hour demo environments with dedicated tenants, the added complexity (6-7 hours dev time, ~135 lines of code) outweighs the security benefit
+- **User Experience**: Plaintext config files are simple to edit and understand for quick demos
+- **RHDP Model**: Demo platform already assumes single-user, short-lived, isolated environments
+
+**Decision**: Accept documented risk for demo/lab use case. Implement secret management for any production adaptation.
+
 ## GitOps Patterns
 
 ### ❌ Static Manifest + ignoreDifferences Pattern (DOES NOT WORK)
