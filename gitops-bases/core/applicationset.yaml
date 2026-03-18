@@ -86,3 +86,9 @@ spec:
             - /metadata/labels
             - /metadata/annotations
             - /metadata/ownerReferences
+        - group: k8s.keycloak.org
+          kind: Keycloak
+          name: keycloak
+          jsonPointers:
+            - /spec/hostname/hostname
+            - /spec/hostname/adminUrl
