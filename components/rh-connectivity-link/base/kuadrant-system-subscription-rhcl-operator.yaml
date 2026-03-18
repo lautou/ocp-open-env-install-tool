@@ -1,8 +1,8 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: authorino-operator-stable-redhat-operators-openshift-marketplace
-  namespace: openshift-operators
+  name: rhcl-operator
+  namespace: kuadrant-system
 spec:
   channel: stable
   config:
@@ -11,6 +11,6 @@ spec:
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
-  name: authorino-operator
+  name: rhcl-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace
