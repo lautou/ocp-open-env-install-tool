@@ -610,23 +610,7 @@ The operator deployment expects these environment variables from the ConfigMap:
 
 **Purpose**: Provides unified observability UI plugins for OpenShift Console, integrating monitoring and logging insights directly in the console.
 
-**Dedicated Namespace Pattern**:
-
-Unlike most operators that install in `openshift-operators`, this operator uses a **dedicated namespace** with specific configuration:
-
-**Namespace**: `openshift-cluster-observability-operator`
-- Label `argocd.argoproj.io/managed-by: openshift-gitops` - ArgoCD management
-- Label `openshift.io/cluster-monitoring: "true"` - Enable cluster monitoring for operator metrics
-
-**OperatorGroup**: `cluster-observability-operator`
-- Empty spec → **AllNamespaces mode** (operator watches all namespaces)
-- Pattern used for cluster-wide observability features
-
-**Why dedicated namespace?**:
-- ✅ Isolation from other operators
-- ✅ Explicit monitoring label (operator metrics collected by cluster monitoring)
-- ✅ Clear ownership via ArgoCD label
-- ✅ Follows OpenShift best practice for operators managing cluster-wide resources
+**Installation**: Deployed in the standard `openshift-operators` namespace.
 
 **UI Plugins**:
 
