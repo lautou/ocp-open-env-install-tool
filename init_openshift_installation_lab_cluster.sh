@@ -219,6 +219,11 @@ fi
 source "$TARGET_CONFIG"
 cat "$TARGET_CONFIG" >> "$MERGED_CONFIG_FILE"
 
+# Define Secrets Manager variables (needed before using them)
+SECRETS_MANAGER_SECRET_NAME="ocp-installer/${CLUSTER_NAME}/aws-credentials"
+IAM_ROLE_NAME="ocp-bastion-secrets-reader-${CLUSTER_NAME}"
+IAM_INSTANCE_PROFILE_NAME="ocp-bastion-profile-${CLUSTER_NAME}"
+
 # Remove AWS credentials from merged config (will be retrieved from Secrets Manager on bastion)
 echo "   Removing AWS credentials from merged config (stored in Secrets Manager)..."
 sed -i '/^AWS_ACCESS_KEY_ID=/d' "$MERGED_CONFIG_FILE"
@@ -411,10 +416,6 @@ echo "AWS credentials and region successfully validated."
 . scripts/aws_lib.sh
 
 # --- AWS SECRETS MANAGER INTEGRATION ---
-
-SECRETS_MANAGER_SECRET_NAME="ocp-installer/${CLUSTER_NAME}/aws-credentials"
-IAM_ROLE_NAME="ocp-bastion-secrets-reader-${CLUSTER_NAME}"
-IAM_INSTANCE_PROFILE_NAME="ocp-bastion-profile-${CLUSTER_NAME}"
 
 manage_aws_secrets() {
   echo "Managing AWS credentials in Secrets Manager..."
