@@ -5,4 +5,6 @@ resources:
   - cluster-crb-uiplugins.observability.openshift.io-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-uiplugin-logging.yaml
   - cluster-uiplugin-monitoring.yaml
-  - openshift-cluster-observability-operator-subscription-cluster-observability-operator.yaml
+  - openshift-observability-operator-namespace.yaml
+  - openshift-observability-operator-operatorgroup-observability-operator.yaml
+  - openshift-observability-operator-subscription-cluster-observability-operator.yaml

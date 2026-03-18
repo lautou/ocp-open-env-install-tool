@@ -610,7 +610,14 @@ The operator deployment expects these environment variables from the ConfigMap:
 
 **Purpose**: Provides unified observability UI plugins for OpenShift Console, integrating monitoring and logging insights directly in the console.
 
-**Installation**: Deployed in the standard `openshift-operators` namespace.
+**Installation**: Deployed in dedicated `openshift-observability-operator` namespace with AllNamespaces OperatorGroup.
+
+**Namespace**: `openshift-observability-operator`
+
+**OperatorGroup**: `observability-operator`
+- Empty spec (no `spec:` section) → **AllNamespaces mode**
+- Operator watches all namespaces cluster-wide
+- Allows UIPlugin resources to be created at cluster scope
 
 **UI Plugins**:
 
@@ -626,10 +633,20 @@ The component deploys two UIPlugin custom resources:
    - Type: Monitoring
    - Cluster Health Analyzer: enabled
    - Provides cluster health insights in console
+   - Creates additional `health-analyzer` deployment when enabled
 
 Both UIPlugins:
 - Use `SkipDryRunOnMissingResource=true` (CRD installed by operator)
 - Deploy on infra nodes (nodeSelector + tolerations)
+
+**Deployments Created:**
+- `observability-operator` - Main operator controller
+- `monitoring` - Monitoring console plugin frontend
+- `logging` - Logging console plugin frontend
+- `health-analyzer` - Backend health analysis (created by monitoring UIPlugin)
+- `perses-operator` - Perses dashboard operator
+- `obo-prometheus-operator` - Prometheus operator for custom MonitoringStack CRs
+- `obo-prometheus-operator-admission-webhook` - Webhook for Prometheus resources
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
