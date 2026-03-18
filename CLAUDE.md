@@ -831,6 +831,133 @@ Kustomize replacements automatically inject channel versions during build.
 
 **Installation**: Part of the `rh-connectivity-link` gitops-base, included in profiles with API gateway capabilities.
 
+### Red Hat build of Keycloak (RHBK)
+
+**Purpose**: Provides enterprise-grade identity and access management (IAM) with SSO, authentication, and authorization capabilities.
+
+**Installation**: Deployed in `keycloak` namespace with dedicated PostgreSQL database in `databases-keycloak` namespace.
+
+**Namespace**: `keycloak`
+
+**OperatorGroup**: `rhbk-operator`
+- Target namespaces: `keycloak` only (single-namespace mode)
+- Keycloak CRs can only be created in `keycloak` namespace
+
+**Operator Subscription:**
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhbk-operator
+  namespace: keycloak
+spec:
+  channel: stable-v26.4
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ""
+    tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  name: rhbk-operator
+  source: redhat-operators
+```
+
+**Infrastructure Node Placement:**
+
+RHBK operator pods run on infrastructure nodes via subscription nodeSelector and tolerations.
+
+**PostgreSQL Database:**
+
+The component includes a dedicated PostgreSQL 12 database for Keycloak in the `databases-keycloak` namespace:
+
+**Namespace**: `databases-keycloak`
+- Separate namespace for database isolation
+- Label: `argocd.argoproj.io/managed-by: openshift-gitops`
+
+**Database Resources:**
+
+1. **Secret**: `keycloak-db`
+   - Credentials: `keycloak/keycloak` (user/password)
+   - Database name: `keycloak`
+   - No sync-wave annotations (simple deployment)
+
+2. **PersistentVolumeClaim**: `keycloak-db`
+   - Storage: 5Gi
+   - Access Mode: ReadWriteOnce
+
+3. **Service**: `keycloak-db`
+   - Port: 5432 (postgresql)
+   - Type: ClusterIP
+   - Selector: `app.kubernetes.io/name: keycloak-db`
+
+4. **Deployment**: `keycloak-db`
+   - Image: `registry.redhat.io/rhel8/postgresql-12:1`
+   - Replicas: 1
+   - Strategy: Recreate (single replica database)
+   - Resources: 100m/128Mi request, 250m/256Mi limit
+   - Probes: liveness (tcpSocket), readiness (psql exec)
+   - Volume: Persistent storage at `/var/lib/pgsql/data`
+
+**Database Connection Details:**
+
+```
+Host: keycloak-db.databases-keycloak.svc
+Port: 5432
+Database: keycloak
+Username: keycloak
+Password: keycloak
+
+JDBC URL: jdbc:postgresql://keycloak-db.databases-keycloak.svc:5432/keycloak
+```
+
+**Version Management:**
+
+Operator channel managed via `cluster-versions` ConfigMap:
+- `rhbk-operator: stable-v26.4`
+
+**Component Structure:**
+
+```
+components/keycloak/
+├── base/
+│   ├── cluster-namespace-keycloak.yaml
+│   ├── cluster-namespace-databases-keycloak.yaml
+│   ├── keycloak-operatorgroup-rhbk-operator.yaml
+│   ├── keycloak-subscription-rhbk-operator.yaml
+│   ├── databases-keycloak-secret-keycloak-db.yaml
+│   ├── databases-keycloak-pvc-keycloak-db.yaml
+│   ├── databases-keycloak-service-keycloak-db.yaml
+│   ├── databases-keycloak-serviceaccount-keycloak-db.yaml
+│   ├── databases-keycloak-deployment-keycloak-db.yaml
+│   └── kustomization.yaml
+└── overlays/
+    └── default/
+        └── kustomization.yaml
+```
+
+**Design Decisions:**
+
+1. **Separate Database Namespace**: Isolates database from Keycloak application for security and organization
+2. **Single Replica Database**: Recreate strategy ensures data consistency (acceptable for demo/lab environments)
+3. **Minimal Labels/Annotations**: Clean manifests without unnecessary metadata
+4. **Infrastructure Node Placement**: Operator pods on infra nodes (database on worker nodes - acceptable for demo/lab)
+5. **Plain Secret**: Database credentials in unencrypted secret (acceptable for demo/lab with 30h lifespan)
+
+**Current State:**
+
+- ✅ RHBK operator subscription: Deployed
+- ✅ PostgreSQL database: Running and healthy
+- ⚠️ Keycloak CR: Not created yet (instances to be added later)
+
+**Next Steps (when ready for Keycloak instances):**
+
+1. Create Keycloak CR pointing to PostgreSQL database
+2. Configure ingress/routes for Keycloak admin console
+3. Set up realms and clients for SSO integration
+
+**Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion

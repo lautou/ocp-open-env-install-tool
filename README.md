@@ -8,7 +8,7 @@ The entire installation process, including Day 2 configuration, takes about 1 ho
 
 This OCP installation includes a rich set of optional Day 2 components deployed via a **Profile-Based GitOps Architecture**, such as:
 * **Storage:** OpenShift Data Foundation (ODF) in MultiCloud Gateway only (MCG) or Full modes (Lean, Balanced, Performance).
-* **Integration:** OpenShift Service Mesh, Red Hat Connectivity Link (Kuadrant API Gateway).
+* **Integration:** OpenShift Service Mesh, Red Hat Connectivity Link (Kuadrant API Gateway), Red Hat build of Keycloak (RHBK).
 * **Observability:** Logging (Pico, Small, Medium), Loki, Monitoring, Tempo, OpenTelemetry, Network Observability (with or without Loki).
 * **Security:** Red Hat Advanced Cluster Security (ACS) - Central or Secured Cluster modes.
 * **Management:** Red Hat Advanced Cluster Management (ACM) - Hub or Managed modes.
