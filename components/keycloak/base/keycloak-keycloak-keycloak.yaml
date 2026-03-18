@@ -1,0 +1,29 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    app: keycloak
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: keycloak-db.databases-keycloak.svc
+    database: keycloak
+    usernameSecret:
+      name: keycloak-db-secret
+      key: database-user
+    passwordSecret:
+      name: keycloak-db-secret
+      key: database-password
+  http:
+    httpEnabled: true
+  ingress:
+    enabled: false
+  hostname:
+    hostname: keycloak-keycloak.apps.placeholder.local
+    strict: false
+    adminUrl: keycloak-keycloak.apps.placeholder.local

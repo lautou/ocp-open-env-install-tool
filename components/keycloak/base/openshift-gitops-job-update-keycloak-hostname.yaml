@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: update-keycloak-hostname
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+spec:
+  template:
+    metadata:
+      name: update-keycloak-hostname
+    spec:
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      restartPolicy: Never
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+      containers:
+        - name: update-hostname
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              echo "Waiting for Keycloak route to be created..."
+              timeout=300
+              elapsed=0
+              while [ $elapsed -lt $timeout ]; do
+                if oc get route keycloak -n keycloak &>/dev/null; then
+                  echo "Route found"
+                  break
+                fi
+                echo "Route not found, waiting... ($elapsed/$timeout)"
+                sleep 5
+                elapsed=$((elapsed + 5))
+              done
+
+              if [ $elapsed -ge $timeout ]; then
+                echo "ERROR: Timeout waiting for route"
+                exit 1
+              fi
+
+              echo "Getting route hostname..."
+              ROUTE_HOSTNAME=$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')
+
+              if [ -z "$ROUTE_HOSTNAME" ]; then
+                echo "ERROR: Route hostname is empty"
+                exit 1
+              fi
+
+              echo "Route hostname: https://$ROUTE_HOSTNAME"
+
+              echo "Waiting for Keycloak CR to be created..."
+              elapsed=0
+              while [ $elapsed -lt $timeout ]; do
+                if oc get keycloak keycloak -n keycloak &>/dev/null; then
+                  echo "Keycloak CR found"
+                  break
+                fi
+                echo "Keycloak CR not found, waiting... ($elapsed/$timeout)"
+                sleep 5
+                elapsed=$((elapsed + 5))
+              done
+
+              if [ $elapsed -ge $timeout ]; then
+                echo "ERROR: Timeout waiting for Keycloak CR"
+                exit 1
+              fi
+
+              echo "Checking if hostname needs to be updated..."
+              CURRENT_HOSTNAME=$(oc get keycloak keycloak -n keycloak -o jsonpath='{.spec.hostname.hostname}')
+
+              if [ "$CURRENT_HOSTNAME" = "https://$ROUTE_HOSTNAME" ]; then
+                echo "Hostname already correct: $CURRENT_HOSTNAME"
+                echo "No update needed"
+                exit 0
+              fi
+
+              echo "Updating Keycloak hostname to: https://$ROUTE_HOSTNAME"
+              oc patch keycloak keycloak -n keycloak --type=merge -p "{\"spec\":{\"hostname\":{\"hostname\":\"https://$ROUTE_HOSTNAME\",\"adminUrl\":\"https://$ROUTE_HOSTNAME\"}}}"
+
+              echo "Keycloak hostname updated successfully"

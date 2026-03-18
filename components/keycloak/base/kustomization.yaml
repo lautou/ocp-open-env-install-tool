@@ -12,6 +12,10 @@ resources:
   - databases-keycloak-service-keycloak-db.yaml
   - databases-keycloak-serviceaccount-keycloak-db.yaml
   - databases-keycloak-deployment-keycloak-db.yaml
+  - keycloak-secret-keycloak-db-secret.yaml
+  - keycloak-keycloak-keycloak.yaml
+  - keycloak-route-keycloak.yaml
+  - openshift-gitops-job-update-keycloak-hostname.yaml
 
 replacements:
   - source:
