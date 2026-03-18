@@ -23,7 +23,3 @@ spec:
     httpEnabled: true
   ingress:
     enabled: false
-  hostname:
-    hostname: keycloak-keycloak.apps.placeholder.local
-    strict: false
-    adminUrl: keycloak-keycloak.apps.placeholder.local
