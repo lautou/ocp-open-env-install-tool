@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
   - openshift-monitoring-configmap-cluster-monitoring-config.yaml
+  - openshift-monitoring-secret-alertmanager-main.yaml

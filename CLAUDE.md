@@ -1016,6 +1016,110 @@ The Keycloak operator automatically creates the `keycloak-service` with ports:
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
+## Monitoring and Alert Management
+
+### Alertmanager Configuration
+
+The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is managed via GitOps in the `cluster-monitoring` component.
+
+**Location:** `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml`
+
+**Configuration includes:**
+- **Global settings:** HTTP proxy, timeout values
+- **Inhibit rules:** Suppress lower-severity alerts when higher-severity alerts are firing
+- **Receivers:** Notification endpoints (Default, Watchdog, Critical, null)
+- **Routes:** Alert routing logic and silences
+
+### Alert Silences for Known Bugs
+
+**IMPORTANT:** The project maintains a dedicated document for tracking known operator bugs that generate false-positive alerts.
+
+**See:** [`KNOWN_BUGS.md`](KNOWN_BUGS.md) for comprehensive documentation of:
+- Silenced alerts and their root causes
+- Impact assessment and workarounds
+- Upstream bug tracking status
+- Verification commands
+- Audit procedures
+
+**Current silenced alerts:**
+1. **mlflow-operator TargetDown** - RHOAI mlflow-operator v2.0.0 has broken metrics endpoint ServiceMonitor
+
+### Adding New Alert Silences
+
+When a new false-positive alert is discovered:
+
+1. **Verify it's actually a bug** (not a real issue requiring a fix)
+2. **Document in KNOWN_BUGS.md** with full details
+3. **Add silence to Alertmanager config** with inline comments
+4. **Run audit script** to ensure no secrets leaked
+5. **Commit both files together** (KNOWN_BUGS.md + alertmanager secret)
+
+**Example silence entry:**
+```yaml
+# components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+routes:
+  # BUG: [Short description]
+  # Component: [Operator name]
+  # Issue: [Root cause]
+  # Impact: [What happens]
+  # Status: [Bug tracker link]
+  - matchers:
+      - alertname = TargetDown
+      - service = broken-metrics-service
+      - namespace = operator-namespace
+    receiver: 'null'
+    continue: false
+```
+
+### Security - No Secrets in Alertmanager Config
+
+**⚠️ CRITICAL:** The Alertmanager configuration is stored in Git and must NOT contain sensitive data.
+
+**Prohibited:**
+- ❌ API tokens or keys
+- ❌ Webhook URLs with embedded credentials
+- ❌ Email/Slack/PagerDuty passwords
+- ❌ Any authentication secrets
+
+**Allowed:**
+- ✅ Routing logic (matchers, grouping)
+- ✅ Alert silences
+- ✅ Inhibit rules
+- ✅ Empty receiver placeholders
+
+**Audit script:** `scripts/audit_alertmanager_secrets.sh` (see KNOWN_BUGS.md)
+
+If you need to add actual notification receivers with credentials:
+1. Use Kubernetes Secret references in receiver config
+2. Store credentials in separate Secrets (not in alertmanager.yaml)
+3. Keep alertmanager.yaml credential-free for GitOps
+
+### Alertmanager Behavior
+
+**After changes:**
+1. ArgoCD syncs the Secret to cluster
+2. Cluster Monitoring Operator detects change
+3. Alertmanager pods reload config (~30 seconds)
+4. New routes/silences become active
+5. Verify in Alertmanager logs: `oc logs -n openshift-monitoring alertmanager-main-0 -c alertmanager`
+
+**Operator interaction:**
+- ✅ Cluster Monitoring Operator will NOT reset this Secret (documented exception)
+- ✅ Configuration persists across operator restarts and upgrades
+- ✅ ArgoCD manages the Secret exclusively (don't use `oc edit`)
+
+### User Workload Monitoring
+
+The project does NOT enable a separate user-workload Alertmanager instance. All alerts (platform + user-defined) route through the cluster Alertmanager (`alertmanager-main`).
+
+**Configuration:** `components/user-workload-monitoring/base/openshift-user-workload-monitoring-configmap-user-workload-monitoring-config.yaml`
+
+**Key settings:**
+- Alertmanager storage (10Gi PVC)
+- Prometheus storage (40Gi PVC)
+- Infrastructure node placement for all components
+- **No** dedicated Alertmanager instance (`alertmanager.enabled: false` - default)
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion

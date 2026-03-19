@@ -1,0 +1,220 @@
+# Known Bugs and Alert Silences
+
+This document tracks known bugs in OpenShift operators and components that generate false-positive alerts. These alerts are silenced in the Alertmanager configuration to reduce noise.
+
+**⚠️ IMPORTANT: Do NOT add secrets to Alertmanager configuration!**
+
+Before adding any alert silence, verify that the Alertmanager configuration does NOT contain:
+- API tokens or keys
+- Webhook URLs with embedded credentials
+- Email/Slack/PagerDuty passwords
+- Any sensitive authentication data
+
+If you need to add receivers with credentials, use Secret references instead of inline values.
+
+---
+
+## Silenced Alerts
+
+### 1. mlflow-operator Broken Metrics Endpoint
+
+**Alert Name:** `TargetDown`
+**Component:** Red Hat OpenShift AI (RHOAI) - MLflow Operator
+**Namespace:** `redhat-ods-applications`
+**Service:** `mlflow-operator-controller-manager-metrics-service`
+
+**Issue:**
+The mlflow-operator ServiceMonitor targets a metrics endpoint that doesn't exist or is not properly exposed by the operator controller manager. This causes Prometheus to fail scraping, triggering continuous TargetDown alerts.
+
+**Impact:**
+- False-positive TargetDown alerts
+- No actual impact on MLflow functionality
+- Operator functions normally despite missing metrics
+
+**Root Cause:**
+Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't match actual controller manager endpoints.
+
+**Status:**
+- **Reported:** TBD (create upstream issue if needed)
+- **Workaround:** Alert silenced in Alertmanager
+- **Fix ETA:** Unknown
+
+**Silence Configuration:**
+```yaml
+# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+routes:
+  - matchers:
+      - alertname = TargetDown
+      - service = mlflow-operator-controller-manager-metrics-service
+      - namespace = redhat-ods-applications
+    receiver: 'null'
+    continue: false
+```
+
+**Verification:**
+```bash
+# Check if ServiceMonitor still exists
+oc get servicemonitor -n redhat-ods-applications -l app.kubernetes.io/name=mlflow-operator
+
+# Check Prometheus targets status
+oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
+  jq '.data.activeTargets[] | select(.labels.service == "mlflow-operator-controller-manager-metrics-service")'
+```
+
+---
+
+## Adding New Bug Silences
+
+When adding a new silence for a known bug, follow this process:
+
+### 1. Verify It's Actually a Bug
+
+- [ ] Confirm the alert is a false positive
+- [ ] Check if there's an actual service/functionality issue (if yes, FIX instead of silence)
+- [ ] Search upstream issue trackers for existing reports
+- [ ] Verify workaround doesn't exist (e.g., fix the ServiceMonitor instead)
+
+### 2. Document the Bug
+
+Add entry to this file with:
+- Alert name and labels
+- Component and namespace
+- Detailed issue description
+- Root cause analysis
+- Impact assessment
+- Upstream issue link (if filed)
+- Verification commands
+
+### 3. Add Alertmanager Silence
+
+Edit: `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml`
+
+```yaml
+routes:
+  # BUG: [Short description]
+  # Component: [Operator/component name]
+  # Issue: [Brief explanation]
+  # Impact: [What happens if not silenced]
+  # Status: [Bug tracker link or status]
+  - matchers:
+      - alertname = [AlertName]
+      - [additional matchers for specificity]
+    receiver: 'null'
+    continue: false
+```
+
+**Important:**
+- Place silence routes at the **top** of the routes list (evaluated first)
+- Use specific matchers (namespace, service, pod) to avoid over-silencing
+- Set `continue: false` to prevent alert from matching other routes
+- Add inline comments explaining the silence
+
+### 4. Commit and Sync
+
+```bash
+git add KNOWN_BUGS.md components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+git commit -m "Add silence for [AlertName] - [component] known bug"
+git push
+
+# Verify ArgoCD sync
+oc get application cluster-monitoring -n openshift-gitops
+
+# Wait for Alertmanager pods to reload (~30 seconds)
+oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager -w
+```
+
+### 5. Verify Silence Works
+
+```bash
+# Check Alertmanager configuration loaded
+oc logs -n openshift-monitoring alertmanager-main-0 -c alertmanager | grep -i "reload"
+
+# Verify alert no longer firing (wait 5-10 minutes)
+oc get alerts -A | grep [AlertName]
+```
+
+---
+
+## Audit Script
+
+Periodically run this script to ensure no secrets have leaked into the Alertmanager configuration:
+
+```bash
+#!/bin/bash
+# scripts/audit_alertmanager_secrets.sh
+
+echo "Auditing Alertmanager configuration for sensitive data..."
+
+CONFIG_FILE="components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml"
+
+# Patterns that might indicate secrets
+PATTERNS=(
+    "api_key"
+    "api_token"
+    "auth_token"
+    "password"
+    "secret"
+    "webhook.*http"
+    "slack_api_url"
+    "pagerduty_url"
+    "victorops_api_key"
+    "opsgenie_api_key"
+    "email.*password"
+)
+
+FOUND=0
+
+for pattern in "${PATTERNS[@]}"; do
+    if grep -iE "$pattern" "$CONFIG_FILE" | grep -v "# " | grep -v "stringData:"; then
+        echo "⚠️  WARNING: Potential secret found matching pattern: $pattern"
+        FOUND=1
+    fi
+done
+
+if [ $FOUND -eq 0 ]; then
+    echo "✅ No sensitive patterns detected in Alertmanager configuration"
+else
+    echo ""
+    echo "❌ AUDIT FAILED: Secrets detected in Alertmanager configuration!"
+    echo "Remove sensitive data and use Secret references instead."
+    exit 1
+fi
+```
+
+Make executable and run:
+```bash
+chmod +x scripts/audit_alertmanager_secrets.sh
+./scripts/audit_alertmanager_secrets.sh
+```
+
+---
+
+## Removal Criteria
+
+Remove a silence from this configuration when:
+
+1. ✅ Upstream bug is fixed and operator updated
+2. ✅ ServiceMonitor is corrected
+3. ✅ Component is removed from cluster
+4. ✅ Alert is no longer firing for 30+ days after bug fix
+
+Always verify the fix before removing the silence:
+
+```bash
+# Check alert history
+oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/query?query=ALERTS{alertname="[AlertName]"}[7d]'
+
+# If no results for 7+ days, safe to remove silence
+```
+
+---
+
+## Review Schedule
+
+- **Weekly:** Check if silenced alerts have been fixed upstream
+- **Monthly:** Review this document and update bug statuses
+- **Quarterly:** Run audit script and verify all silences are still necessary
+
+Last reviewed: 2026-03-19
