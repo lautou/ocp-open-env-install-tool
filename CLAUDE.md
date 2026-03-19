@@ -1175,8 +1175,9 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 
 **How It Works:**
 - Insights Operator runs in `openshift-insights` namespace
-- Periodically scans cluster configuration and sends data to Red Hat
-- Recommendations appear in console: **Observe → Insights → Advisor**
+- Periodically scans cluster configuration and sends data to Red Hat cloud service
+- Recommendations appear in **Red Hat Hybrid Cloud Console**: https://console.redhat.com/openshift/insights/advisor
+- **Note:** Insights UI is NOT in local OpenShift web console (only in Red Hat cloud console)
 - Disabled rules are configured in `support` Secret in `openshift-config` namespace
 
 **Disabling Recommendations:**
@@ -1238,7 +1239,7 @@ oc delete pod -n openshift-insights -l app=insights-operator
 | **Source** | Cluster monitoring stack | Red Hat cloud service |
 | **Silencing** | Alertmanager (routing + silences) | support Secret (disabled_recommendations) |
 | **Management** | components/cluster-monitoring | components/openshift-config |
-| **Visibility** | Observe → Alerting | Observe → Insights → Advisor |
+| **Visibility** | Local console: Observe → Alerting | **Red Hat console:** console.redhat.com/openshift/insights |
 | **Reload Time** | ~30 seconds | 24-48 hours |
 | **GitOps** | ✅ Partial (routing only, silences are ephemeral) | ✅ Full (completely GitOps-managed) |
 

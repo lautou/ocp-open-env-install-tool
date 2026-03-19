@@ -187,8 +187,9 @@ oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | b
 # Check Insights Operator logs for configuration reload
 oc logs -n openshift-insights deployment/insights-operator | grep -i "disabled"
 
-# Verify recommendation no longer appears in console
-# Navigate to: Observe -> Insights -> Advisor
+# Verify recommendation no longer appears (24-48 hours after disabling)
+# View in Red Hat Hybrid Cloud Console:
+# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
 # The webhook_timeout_is_larger_than_default recommendation should not appear
 ```
 
@@ -515,7 +516,8 @@ oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | b
 oc logs -n openshift-insights deployment/insights-operator --tail=50 | grep -i "disabled\|reload"
 
 # Wait 24-48 hours for Insights to refresh
-# Then verify in console: Observe -> Insights -> Advisor
+# Then verify in Red Hat Hybrid Cloud Console:
+# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
 # The recommendation should no longer appear or be marked as disabled
 ```
 
