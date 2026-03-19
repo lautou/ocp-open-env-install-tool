@@ -1167,6 +1167,77 @@ The project does NOT enable a separate user-workload Alertmanager instance. All 
 - Infrastructure node placement for all components
 - **No** dedicated Alertmanager instance (`alertmanager.enabled: false` - default)
 
+### Red Hat Insights Recommendations
+
+Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. False-positive or known-issue recommendations can be disabled via the `support` Secret.
+
+**Configuration:** `components/openshift-config/base/openshift-config-secret-support.yaml`
+
+**How It Works:**
+- Insights Operator runs in `openshift-insights` namespace
+- Periodically scans cluster configuration and sends data to Red Hat
+- Recommendations appear in console: **Observe → Insights → Advisor**
+- Disabled rules are configured in `support` Secret in `openshift-config` namespace
+
+**Disabling Recommendations:**
+
+Create or edit the `support` Secret with YAML configuration:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: support
+  namespace: openshift-config
+type: Opaque
+stringData:
+  config.yaml: |
+    insights:
+      disabled_recommendations:
+        - rule_id: "ccx_rules_ocp.external.rules.[rule_identifier]"
+```
+
+**Current Disabled Recommendations:**
+
+1. **Kueue Webhook Timeout** - `webhook_timeout_is_larger_than_default`
+   - JIRA: OCPKUEUE-578
+   - Reason: Kueue requires extended timeout for complex validations
+
+**Important Notes:**
+- Recommendations may take 24-48 hours to refresh after configuration changes
+- Insights Operator must restart to pick up new configuration
+- Disabled recommendations persist across cluster upgrades
+- Changes are GitOps-managed (stored in Git)
+- See `KNOWN_BUGS.md` for complete list and details
+
+**Verification:**
+
+```bash
+# Check support secret exists
+oc get secret support -n openshift-config
+
+# View disabled recommendations
+oc get secret support -n openshift-config \
+  -o jsonpath='{.data.config\.yaml}' | base64 -d
+
+# Check Insights Operator logs
+oc logs -n openshift-insights deployment/insights-operator --tail=50
+
+# Restart Insights Operator to reload config
+oc delete pod -n openshift-insights -l app=insights-operator
+```
+
+**Difference from Prometheus Alerts:**
+
+| Aspect | Prometheus Alerts | Insights Recommendations |
+|--------|------------------|-------------------------|
+| **Source** | Cluster monitoring stack | Red Hat cloud service |
+| **Silencing** | Alertmanager (routing + silences) | support Secret (disabled_recommendations) |
+| **Management** | components/cluster-monitoring | components/openshift-config |
+| **Visibility** | Observe → Alerting | Observe → Insights → Advisor |
+| **Reload Time** | ~30 seconds | 24-48 hours |
+| **GitOps** | ✅ Partial (routing only, silences are ephemeral) | ✅ Full (completely GitOps-managed) |
+
 ## Troubleshooting
 
 - Check bastion UserData logs: `/var/log/cloud-init-output.log` on bastion
