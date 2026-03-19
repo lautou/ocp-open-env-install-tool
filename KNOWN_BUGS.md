@@ -199,6 +199,66 @@ oc logs -n openshift-insights deployment/insights-operator | grep -i "disabled"
 
 ---
 
+### 2. Insights Operator Config Location Migration
+
+**Recommendation:** `The Insights Operator config has been migrated from secret to configmap since OCP 4.15`
+**Rule ID:** `ccx_rules_ocp.external.rules.io_415_change_config_location`
+**Component:** Insights Operator
+**Risk Level:** Low
+**Namespace:** `openshift-config`
+
+**Issue:**
+Starting in OpenShift 4.15, the Insights Operator's general configuration (like data gathering settings) should be in a ConfigMap (`insights-config`) instead of a Secret. However, the `support` Secret is still the correct location for disabling specific recommendations (`disabled_recommendations`). This recommendation incorrectly flags the `support` Secret as deprecated.
+
+**Impact:**
+- Low risk Insights recommendation appears in console
+- No actual impact on Insights Operator functionality
+- Recommendation suggests migrating to ConfigMap
+- False positive - we're using Secret for the correct purpose
+
+**Root Cause:**
+The Insights Operator now uses two different configuration mechanisms:
+1. **ConfigMap `insights-config`** - For general Insights settings (data gathering, upload intervals, etc.)
+2. **Secret `support`** - For disabling recommendations and sensitive Red Hat support configuration
+
+Our `support` Secret contains only `disabled_recommendations`, which is the correct and documented approach. The recommendation incorrectly flags this as needing migration.
+
+**Status:**
+- **JIRA:** N/A (false positive, not a bug)
+- **Reported:** N/A - This is expected behavior
+- **Workaround:** Recommendation disabled as it's not applicable
+- **Fix ETA:** N/A - Working as designed
+
+**Mitigation Applied:**
+
+**Insights Configuration** (GitOps-managed):
+```yaml
+# Location: components/openshift-config/base/openshift-config-secret-support.yaml
+insights:
+  disabled_recommendations:
+    - rule_id: "ccx_rules_ocp.external.rules.io_415_change_config_location"
+```
+
+**Verification:**
+```bash
+# Check support secret contains only disabled_recommendations (correct usage)
+oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
+
+# Expected: Only contains insights.disabled_recommendations section
+
+# Verify no insights-config ConfigMap exists (we don't need general Insights config)
+oc get configmap insights-config -n openshift-insights
+# Expected: Not found (or only contains default settings)
+```
+
+**Important:**
+- The `support` Secret is NOT deprecated for disabling recommendations
+- Only general Insights configuration migrated to ConfigMap in 4.15+
+- Both mechanisms coexist: ConfigMap for settings, Secret for disabled rules
+- This is a false positive recommendation based on incomplete detection logic
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.

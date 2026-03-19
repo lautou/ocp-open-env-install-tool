@@ -1203,6 +1203,10 @@ stringData:
    - JIRA: OCPKUEUE-578
    - Reason: Kueue requires extended timeout for complex validations
 
+2. **Insights Config Location** - `io_415_change_config_location`
+   - JIRA: N/A (false positive)
+   - Reason: support Secret is correct location for disabled_recommendations
+
 **Important Notes:**
 - Recommendations may take 24-48 hours to refresh after configuration changes
 - Insights Operator must restart to pick up new configuration
