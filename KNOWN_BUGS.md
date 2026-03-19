@@ -73,6 +73,65 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
+### 2. llama-stack-k8s-operator PodDisruptionBudgetAtLimit
+
+**Alert Name:** `PodDisruptionBudgetAtLimit`
+**Component:** Red Hat OpenShift AI (RHOAI) - Llama Stack Operator
+**Namespace:** `redhat-ods-applications`
+**PodDisruptionBudget:** `llama-stack-k8s-operator-controller-manager-pdb`
+
+**Issue:**
+The llama-stack-k8s-operator PodDisruptionBudget is configured with `minAvailable: 1` but only 1 replica exists, resulting in 0 allowed disruptions. This triggers the PodDisruptionBudgetAtLimit alert even though the configuration is intentional for the operator's high availability requirements.
+
+**Impact:**
+- False-positive PodDisruptionBudgetAtLimit alerts
+- No actual impact on operator functionality
+- Operator controller manager runs normally with single replica
+
+**Root Cause:**
+PDB configuration in llama-stack-k8s-operator expects potential multi-replica deployment but currently runs with single replica, causing the allowed disruptions to be 0 which triggers the alert threshold.
+
+**Status:**
+- **JIRA:** [RHAIENG-3783](https://redhat.atlassian.net/browse/RHAIENG-3783)
+- **Reported:** Red Hat internal bug tracker
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
+- **Fix ETA:** TBD (pending upstream resolution)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = PodDisruptionBudgetAtLimit
+         - poddisruptionbudget = llama-stack-k8s-operator-controller-manager-pdb
+         - namespace = redhat-ods-applications
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (API-managed):
+   - **Silence ID:** `536e82a8-2b95-4045-b286-52dc5d9d6045`
+   - **Created:** 2026-03-19
+   - **Expires:** 2036-03-19 (10 years)
+   - **Status:** Active
+   - **Effect:** Alert shows as "suppressed" in web console
+
+**Verification:**
+```bash
+# Check PDB configuration
+oc get pdb llama-stack-k8s-operator-controller-manager-pdb -n redhat-ods-applications -o yaml
+
+# Check allowed disruptions
+oc get pdb llama-stack-k8s-operator-controller-manager-pdb -n redhat-ods-applications \
+  -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
+
+# Expected: 0 (triggers the alert)
+```
+
+---
+
 ## Adding New Bug Silences
 
 When adding a new silence for a known bug, follow this process:
