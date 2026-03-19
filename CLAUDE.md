@@ -1046,15 +1046,36 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 
 ### Adding New Alert Silences
 
+**IMPORTANT:** To fully silence an alert, you need BOTH routing configuration AND an Alertmanager silence.
+
 When a new false-positive alert is discovered:
 
 1. **Verify it's actually a bug** (not a real issue requiring a fix)
 2. **Document in KNOWN_BUGS.md** with full details
-3. **Add silence to Alertmanager config** with inline comments
-4. **Run audit script** to ensure no secrets leaked
-5. **Commit both files together** (KNOWN_BUGS.md + alertmanager secret)
+3. **Add route to `null` receiver** in Alertmanager config (prevents notifications)
+4. **Create Alertmanager silence via API** (hides from web console)
+5. **Run audit script** to ensure no secrets leaked
+6. **Commit** (KNOWN_BUGS.md + alertmanager secret)
 
-**Example silence entry:**
+**Understanding Routing vs Silencing:**
+
+There are two different mechanisms for suppressing alerts:
+
+| Mechanism | Routing to `null` | Alertmanager Silence |
+|-----------|------------------|---------------------|
+| **What it does** | Routes alert to null receiver | Suppresses alert entirely |
+| **Prevents notifications** | ✅ Yes (no email, Slack, etc.) | ✅ Yes |
+| **Hides from console** | ❌ No (shows as "active") | ✅ Yes (shows as "suppressed") |
+| **Managed by** | GitOps (alertmanager.yaml) | API (ephemeral state) |
+| **Survives upgrades** | ✅ Yes (in Git) | ✅ Yes (persisted to PVC) |
+| **Survives PVC deletion** | ✅ Yes | ❌ No |
+| **Expires** | ❌ Never | ⚠️ After 10 years |
+
+**You need BOTH:**
+- Routing ensures no notifications even if silence expires
+- Silence hides alert from console UI
+
+**Example routing configuration:**
 ```yaml
 # components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
 routes:
@@ -1070,6 +1091,32 @@ routes:
     receiver: 'null'
     continue: false
 ```
+
+**Example silence creation:**
+```bash
+# Create silence payload (10-year duration)
+cat > /tmp/alert-silence.json <<EOF
+{
+  "matchers": [
+    {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
+    {"name": "service", "value": "broken-metrics-service", "isRegex": false, "isEqual": true},
+    {"name": "namespace", "value": "operator-namespace", "isRegex": false, "isEqual": true}
+  ],
+  "startsAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
+  "endsAt": "$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)",
+  "createdBy": "admin",
+  "comment": "Known bug: [description] - See KNOWN_BUGS.md"
+}
+EOF
+
+# Apply via API
+oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 &
+sleep 3
+curl -X POST -H "Content-Type: application/json" \
+  --data @/tmp/alert-silence.json http://localhost:9093/api/v2/silences
+```
+
+**See KNOWN_BUGS.md for complete step-by-step instructions.**
 
 ### Security - No Secrets in Alertmanager Config
 

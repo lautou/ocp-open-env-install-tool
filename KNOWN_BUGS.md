@@ -36,20 +36,29 @@ Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't ma
 
 **Status:**
 - **Reported:** TBD (create upstream issue if needed)
-- **Workaround:** Alert silenced in Alertmanager
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
 - **Fix ETA:** Unknown
 
-**Silence Configuration:**
-```yaml
-# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-routes:
-  - matchers:
-      - alertname = TargetDown
-      - service = mlflow-operator-controller-manager-metrics-service
-      - namespace = redhat-ods-applications
-    receiver: 'null'
-    continue: false
-```
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = TargetDown
+         - service = mlflow-operator-controller-manager-metrics-service
+         - namespace = redhat-ods-applications
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (API-managed):
+   - **Silence ID:** `32bf2d36-1079-496f-82cd-08bcdf3e7fa8`
+   - **Created:** 2026-03-19
+   - **Expires:** 2036-03-19 (10 years)
+   - **Status:** Active
+   - **Effect:** Alert shows as "suppressed" in web console
 
 **Verification:**
 ```bash
@@ -124,14 +133,121 @@ oc get application cluster-monitoring -n openshift-gitops
 oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager -w
 ```
 
-### 5. Verify Silence Works
+### 5. Create Alertmanager Silence (IMPORTANT!)
+
+**CRITICAL:** Routing to `null` receiver prevents notifications but **does NOT hide the alert from the web console**. You MUST create an Alertmanager silence to actually suppress the alert in the UI.
+
+```bash
+# Create silence payload (10-year duration)
+cat > /tmp/alert-silence.json <<EOF
+{
+  "matchers": [
+    {
+      "name": "alertname",
+      "value": "[AlertName]",
+      "isRegex": false,
+      "isEqual": true
+    },
+    {
+      "name": "namespace",
+      "value": "[namespace]",
+      "isRegex": false,
+      "isEqual": true
+    },
+    {
+      "name": "[additional-matcher-key]",
+      "value": "[additional-matcher-value]",
+      "isRegex": false,
+      "isEqual": true
+    }
+  ],
+  "startsAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
+  "endsAt": "$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)",
+  "createdBy": "admin",
+  "comment": "Known bug: [Short description] - See KNOWN_BUGS.md"
+}
+EOF
+
+# Apply silence via Alertmanager API
+oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 &
+PORT_FORWARD_PID=$!
+sleep 3
+curl -X POST -H "Content-Type: application/json" --data @/tmp/alert-silence.json \
+  http://localhost:9093/api/v2/silences
+kill $PORT_FORWARD_PID
+```
+
+**Example for mlflow-operator:**
+```bash
+cat > /tmp/mlflow-silence.json <<EOF
+{
+  "matchers": [
+    {
+      "name": "alertname",
+      "value": "TargetDown",
+      "isRegex": false,
+      "isEqual": true
+    },
+    {
+      "name": "service",
+      "value": "mlflow-operator-controller-manager-metrics-service",
+      "isRegex": false,
+      "isEqual": true
+    },
+    {
+      "name": "namespace",
+      "value": "redhat-ods-applications",
+      "isRegex": false,
+      "isEqual": true
+    }
+  ],
+  "startsAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
+  "endsAt": "$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)",
+  "createdBy": "admin",
+  "comment": "Known bug: mlflow-operator v2.0.0 broken metrics endpoint - See KNOWN_BUGS.md"
+}
+EOF
+
+oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 &
+PORT_FORWARD_PID=$!
+sleep 3
+curl -X POST -H "Content-Type: application/json" --data @/tmp/mlflow-silence.json \
+  http://localhost:9093/api/v2/silences
+kill $PORT_FORWARD_PID
+```
+
+**Why Both Routing AND Silence?**
+
+1. **Routing to `null`** (in alertmanager.yaml):
+   - ✅ Prevents notifications (email, Slack, PagerDuty)
+   - ✅ GitOps-managed (survives cluster upgrades)
+   - ❌ Alert still shows as "active" in console
+
+2. **Alertmanager Silence** (via API):
+   - ✅ Hides alert from web console (state: "suppressed")
+   - ✅ Persisted to Alertmanager PVC
+   - ⚠️ Not GitOps-managed (ephemeral, expires after 10 years)
+   - ⚠️ Lost if Alertmanager PVC is deleted
+
+**You need BOTH to fully silence an alert.**
+
+### 6. Verify Silence Works
 
 ```bash
 # Check Alertmanager configuration loaded
 oc logs -n openshift-monitoring alertmanager-main-0 -c alertmanager | grep -i "reload"
 
-# Verify alert no longer firing (wait 5-10 minutes)
-oc get alerts -A | grep [AlertName]
+# Verify silence is active
+oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
+  wget -q -O- 'http://localhost:9093/api/v2/silences' | \
+  jq '.[] | select(.comment | contains("[your-keyword]"))'
+
+# Verify alert is suppressed (not just active)
+oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
+  wget -q -O- 'http://localhost:9093/api/v2/alerts' | \
+  jq '.[] | select(.labels.alertname == "[AlertName]") | {state: .status.state, silencedBy: .status.silencedBy}'
+
+# Should show: "state": "suppressed", "silencedBy": ["<silence-id>"]
 ```
 
 ---
