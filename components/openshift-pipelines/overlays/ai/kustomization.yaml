@@ -1,22 +1,52 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: openshift-pipelines-operator
 resources:
+  - ../../base
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
-  - openshift-gitops-namespace-job-enable-pipelines-console-plugin.yaml
-  - ../../../common
-  - ../../base/cluster-crb-tektonconfigs.operator.tekton.dev-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
-  - ../../base/cluster-tektonconfig-config.yaml
-  - ../../base/openshift-operators-subscription-openshift-pipelines-operator.yaml
-replacements:
-  - source:
+patches:
+  - target:
+      kind: Namespace
+      name: openshift-operators
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: openshift-pipelines-operator
+  - target:
+      kind: OperatorGroup
+      name: openshift-operators
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: openshift-pipelines-operator
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-pipelines-operator
+  - target:
+      kind: Subscription
+      name: openshift-pipelines-operator
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-pipelines-operator
+  - target:
+      kind: TektonConfig
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  - target:
       kind: ConfigMap
       name: cluster-versions
-      fieldPath: data.openshift-pipelines
-    targets:
-      - select:
-          kind: Subscription
-          name: openshift-pipelines-operator
-        fieldPaths:
-          - spec.channel
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-pipelines-operator
+  - target:
+      kind: Job
+      name: enable-pipelines-console-plugin
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-gitops
