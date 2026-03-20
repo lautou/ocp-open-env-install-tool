@@ -5,3 +5,5 @@ resources:
   - ../../base
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
+patches:
+  - path: openshift-gitops-job-enable-pipelines-console-plugin-namespace-patch.yaml
