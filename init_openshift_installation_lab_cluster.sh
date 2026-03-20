@@ -22,14 +22,14 @@ show_usage() {
 }
 
 # --- 1. ARGUMENT PARSING ---
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   show_usage
 fi
 
 CONFIG_ARG=""
-if [[ "$1" == "--config-file" && -n "$2" ]]; then
+if [[ "${1:-}" == "--config-file" && -n "${2:-}" ]]; then
     CONFIG_ARG="$2"
-elif [[ -n "$1" && "$1" != -* ]]; then
+elif [[ -n "${1:-}" && "${1:-}" != -* ]]; then
     CONFIG_ARG="$1"
 fi
 
