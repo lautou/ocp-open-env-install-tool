@@ -2,28 +2,21 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: openshift-pipelines-operator
 resources:
-  - ../../base
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
-  - openshift-gitops-job-enable-pipelines-console-plugin.yaml
-patches:
-  - target:
-      group: batch
-      version: v1
-      kind: Job
-      name: enable-pipelines-console-plugin
-      namespace: openshift-pipelines-operator
-    patch: |-
-      $patch: delete
-  - target:
-      group: batch
-      version: v1
-      kind: Job
-      name: enable-pipelines-console-plugin
-      namespace: openshift-gitops
-    patch: |-
-      apiVersion: batch/v1
-      kind: Job
-      metadata:
-        name: enable-pipelines-console-plugin
-        namespace: openshift-gitops
+  - openshift-gitops-namespace-job-enable-pipelines-console-plugin.yaml
+  - ../../common
+  - ../../base/cluster-crb-tektonconfigs.operator.tekton.dev-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - ../../base/cluster-tektonconfig-config.yaml
+  - ../../base/openshift-operators-subscription-openshift-pipelines-operator.yaml
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cluster-versions
+      fieldPath: data.openshift-pipelines
+    targets:
+      - select:
+          kind: Subscription
+          name: openshift-pipelines-operator
+        fieldPaths:
+          - spec.channel
