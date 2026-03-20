@@ -2,7 +2,7 @@ apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonConfig
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true,Replace=true
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: config
 spec:
   config:
@@ -11,11 +11,9 @@ spec:
     tolerations:
     - key: node-role.kubernetes.io/infra
       operator: Exists
-  profile: all
   pruner:
     keep: 5
     resources:
       - pipelinerun
       - taskrun
     schedule: "0 * * * *"
-  targetNamespace: openshift-pipelines
