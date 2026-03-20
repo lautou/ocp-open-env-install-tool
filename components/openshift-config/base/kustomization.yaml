@@ -3,4 +3,4 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-openshift-config.yaml
-  - openshift-config-secret-support.yaml
+  - openshift-config-configmap-support.yaml

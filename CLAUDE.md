@@ -1169,29 +1169,28 @@ The project does NOT enable a separate user-workload Alertmanager instance. All 
 
 ### Red Hat Insights Recommendations
 
-Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. False-positive or known-issue recommendations can be disabled via the `support` Secret.
+Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. False-positive or known-issue recommendations can be disabled via the `support` ConfigMap.
 
-**Configuration:** `components/openshift-config/base/openshift-config-secret-support.yaml`
+**Configuration:** `components/openshift-config/base/openshift-config-configmap-support.yaml`
 
 **How It Works:**
 - Insights Operator runs in `openshift-insights` namespace
 - Periodically scans cluster configuration and sends data to Red Hat cloud service
 - Recommendations appear in **Red Hat Hybrid Cloud Console**: https://console.redhat.com/openshift/insights/advisor
 - **Note:** Insights UI is NOT in local OpenShift web console (only in Red Hat cloud console)
-- Disabled rules are configured in `support` Secret in `openshift-config` namespace
+- Disabled rules are configured in `support` ConfigMap in `openshift-config` namespace (since OCP 4.15+)
 
 **Disabling Recommendations:**
 
-Create or edit the `support` Secret with YAML configuration:
+Create or edit the `support` ConfigMap with YAML configuration:
 
 ```yaml
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
   name: support
   namespace: openshift-config
-type: Opaque
-stringData:
+data:
   config.yaml: |
     insights:
       disabled_recommendations:
@@ -1204,11 +1203,8 @@ stringData:
    - JIRA: OCPKUEUE-578
    - Reason: Kueue requires extended timeout for complex validations
 
-2. **Insights Config Location** - `io_415_change_config_location`
-   - JIRA: N/A (false positive)
-   - Reason: support Secret is correct location for disabled_recommendations
-
 **Important Notes:**
+- Since OCP 4.15+, use ConfigMap instead of Secret for Insights configuration
 - Recommendations may take 24-48 hours to refresh after configuration changes
 - Insights Operator must restart to pick up new configuration
 - Disabled recommendations persist across cluster upgrades
@@ -1218,12 +1214,12 @@ stringData:
 **Verification:**
 
 ```bash
-# Check support secret exists
-oc get secret support -n openshift-config
+# Check support ConfigMap exists
+oc get configmap support -n openshift-config
 
 # View disabled recommendations
-oc get secret support -n openshift-config \
-  -o jsonpath='{.data.config\.yaml}' | base64 -d
+oc get configmap support -n openshift-config \
+  -o jsonpath='{.data.config\.yaml}'
 
 # Check Insights Operator logs
 oc logs -n openshift-insights deployment/insights-operator --tail=50
@@ -1237,7 +1233,7 @@ oc delete pod -n openshift-insights -l app=insights-operator
 | Aspect | Prometheus Alerts | Insights Recommendations |
 |--------|------------------|-------------------------|
 | **Source** | Cluster monitoring stack | Red Hat cloud service |
-| **Silencing** | Alertmanager (routing + silences) | support Secret (disabled_recommendations) |
+| **Silencing** | Alertmanager (routing + silences) | support ConfigMap (disabled_recommendations) |
 | **Management** | components/cluster-monitoring | components/openshift-config |
 | **Visibility** | Local console: Observe → Alerting | **Red Hat console:** console.redhat.com/openshift/insights |
 | **Reload Time** | ~30 seconds | 24-48 hours |
