@@ -5,11 +5,25 @@ resources:
   - ../../base
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
+  - openshift-gitops-job-enable-pipelines-console-plugin.yaml
 patches:
   - target:
+      group: batch
+      version: v1
       kind: Job
       name: enable-pipelines-console-plugin
+      namespace: openshift-pipelines-operator
     patch: |-
-      - op: replace
-        path: /metadata/namespace
-        value: openshift-gitops
+      $patch: delete
+  - target:
+      group: batch
+      version: v1
+      kind: Job
+      name: enable-pipelines-console-plugin
+      namespace: openshift-gitops
+    patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: enable-pipelines-console-plugin
+        namespace: openshift-gitops
