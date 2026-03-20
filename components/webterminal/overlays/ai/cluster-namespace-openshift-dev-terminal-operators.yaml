@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
-  name: openshift-dev-terminal-operators
+  name: openshift-dev-terminal

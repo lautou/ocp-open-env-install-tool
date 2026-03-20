@@ -75,7 +75,7 @@ For the **ocp-ai profile only**, we implement namespace isolation to prevent ins
    - Components use: `components/{pipelines,webterminal}/overlays/ai`
    - Operators deploy to:
      - `openshift-pipelines-operator` (dedicated namespace for Pipelines)
-     - `openshift-dev-terminal-operators` (dedicated namespace for DevWorkspace + Web Terminal)
+     - `openshift-dev-terminal` (dedicated namespace for DevWorkspace + Web Terminal)
    - Each namespace has AllNamespaces OperatorGroup (empty spec)
    - Behavior: Separate install plans per namespace, Automatic approval works correctly
 
@@ -90,9 +90,9 @@ AI overlays create dedicated namespaces and OperatorGroups:
 - kustomization.yaml (sets namespace: openshift-pipelines-operator)
 
 # components/webterminal/overlays/ai/
-- cluster-namespace-openshift-dev-terminal-operators.yaml
-- openshift-dev-terminal-operators-operatorgroup-openshift-dev-terminal-operators.yaml
-- kustomization.yaml (sets namespace: openshift-dev-terminal-operators)
+- cluster-namespace-openshift-dev-terminal.yaml
+- openshift-dev-terminal-operatorgroup-openshift-dev-terminal.yaml
+- kustomization.yaml (sets namespace: openshift-dev-terminal)
 ```
 
 All namespaces include the label:
@@ -109,7 +109,7 @@ DevWorkspace Operator is a **dependency** of Web Terminal. Both must be in the s
 **Result:**
 - RHOAI Service Mesh remains in `openshift-operators` with Manual approval (controlled upgrades)
 - Pipelines in `openshift-pipelines-operator` with Automatic approval (independent install plans)
-- DevWorkspace + Web Terminal in `openshift-dev-terminal-operators` with Automatic approval (independent install plans)
+- DevWorkspace + Web Terminal in `openshift-dev-terminal` with Automatic approval (independent install plans)
 - No install plan grouping across namespaces
 
 **Trade-offs:**
