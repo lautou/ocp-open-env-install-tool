@@ -54,9 +54,9 @@ Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't ma
    ```
 
 2. **Alertmanager Silence** (API-managed):
-   - **Silence ID:** `32bf2d36-1079-496f-82cd-08bcdf3e7fa8`
-   - **Created:** 2026-03-19
-   - **Expires:** 2036-03-19 (10 years)
+   - **Silence ID:** `d01080dd-e55c-4a59-88a0-7d1cc53d1327`
+   - **Created:** 2026-03-20
+   - **Expires:** 2036-03-20 (10 years)
    - **Status:** Active
    - **Effect:** Alert shows as "suppressed" in web console
 
@@ -112,9 +112,9 @@ PDB configuration in llama-stack-k8s-operator expects potential multi-replica de
    ```
 
 2. **Alertmanager Silence** (API-managed):
-   - **Silence ID:** `536e82a8-2b95-4045-b286-52dc5d9d6045`
-   - **Created:** 2026-03-19
-   - **Expires:** 2036-03-19 (10 years)
+   - **Silence ID:** `ba2533ff-e92f-4a85-993b-32b990284ba4`
+   - **Created:** 2026-03-20
+   - **Expires:** 2036-03-20 (10 years)
    - **Status:** Active
    - **Effect:** Alert shows as "suppressed" in web console
 
@@ -128,6 +128,71 @@ oc get pdb llama-stack-k8s-operator-controller-manager-pdb -n redhat-ods-applica
   -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
 
 # Expected: 0 (triggers the alert)
+```
+
+---
+
+### 3. NooBaa Database PodDisruptionBudgetAtLimit
+
+**Alert Name:** `PodDisruptionBudgetAtLimit`
+**Component:** OpenShift Data Foundation (ODF) - NooBaa
+**Namespace:** `openshift-storage`
+**PodDisruptionBudget:** `noobaa-db-pg-cluster-primary`
+
+**Issue:**
+The NooBaa PostgreSQL database PodDisruptionBudget is configured with `minAvailable: 1` but only 1 replica exists (single-replica database), resulting in 0 allowed disruptions. This triggers the PodDisruptionBudgetAtLimit alert even though the configuration is intentional for database high availability requirements.
+
+**Impact:**
+- False-positive PodDisruptionBudgetAtLimit alerts
+- No actual impact on NooBaa or ODF functionality
+- Database operates normally with single replica and proper PDB protection
+
+**Root Cause:**
+PDB configuration in NooBaa expects single-replica PostgreSQL deployment with `minAvailable: 1`, which mathematically results in 0 allowed disruptions (1 available - 1 required = 0). This is correct behavior for protecting a single-replica database but triggers the alert threshold.
+
+**Status:**
+- **JIRA:** [DFBUGS-5294](https://redhat.atlassian.net/browse/DFBUGS-5294)
+- **Reported:** Red Hat internal bug tracker
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
+- **Fix ETA:** TBD (pending upstream resolution)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = PodDisruptionBudgetAtLimit
+         - poddisruptionbudget = noobaa-db-pg-cluster-primary
+         - namespace = openshift-storage
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (API-managed):
+   - **Silence ID:** `4fcd2b9c-582a-466c-a7ce-9e82af734856`
+   - **Created:** 2026-03-20
+   - **Expires:** 2036-03-20 (10 years)
+   - **Status:** Active
+   - **Effect:** Alert shows as "suppressed" in web console
+
+**Verification:**
+```bash
+# Check PDB configuration
+oc get pdb noobaa-db-pg-cluster-primary -n openshift-storage -o yaml
+
+# Check allowed disruptions
+oc get pdb noobaa-db-pg-cluster-primary -n openshift-storage \
+  -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
+
+# Expected: 0 (triggers the alert)
+
+# Check database replica count
+oc get statefulset noobaa-db-pg -n openshift-storage \
+  -o jsonpath='{.spec.replicas}{"\n"}'
+
+# Expected: 1 (single replica)
 ```
 
 ---
