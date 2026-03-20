@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-devops-components
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - branch: master
+            item: openshift-pipelines
+          - branch: master
+            item: webterminal
+  template:
+    metadata:
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io/background
+      name: '{{item}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        path: components/{{item}}/overlays/ai
+        targetRevision: '{{branch}}'
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
