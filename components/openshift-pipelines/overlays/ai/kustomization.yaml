@@ -5,7 +5,7 @@ resources:
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
   - openshift-gitops-namespace-job-enable-pipelines-console-plugin.yaml
-  - ../../common
+  - ../../../common
   - ../../base/cluster-crb-tektonconfigs.operator.tekton.dev-v1alpha1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - ../../base/cluster-tektonconfig-config.yaml
   - ../../base/openshift-operators-subscription-openshift-pipelines-operator.yaml
