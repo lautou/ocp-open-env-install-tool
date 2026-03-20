@@ -533,6 +533,98 @@ Each component includes:
 2. Job runs with `Force=true` to ensure execution on every sync
 3. Idempotent check prevents duplicate additions
 
+### OpenShift GitOps (ArgoCD)
+
+**Purpose**: Manages Day 2 cluster configuration through GitOps principles.
+
+**Namespace**: `openshift-gitops`
+
+**Configuration**: `components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml`
+
+**Key Configurations:**
+
+1. **Controller Memory Limits** (Critical):
+   ```yaml
+   controller:
+     resources:
+       limits:
+         cpu: '2'
+         memory: 4Gi  # Increased from default 3Gi
+       requests:
+         cpu: 250m
+         memory: 2Gi  # Increased from default 1Gi
+   ```
+
+   **Why 4Gi memory?**
+   - Default 3Gi causes OOMKilled crashes (exit code 137) in production clusters
+   - Controller manages 25-30+ applications with complex CRDs
+   - Memory usage spikes during reconciliation of large ApplicationSets
+   - 4Gi provides stable operation with headroom for growth
+
+2. **ApplicationSet Retry Configuration**:
+   All ApplicationSets configured with:
+   ```yaml
+   syncPolicy:
+     automated:
+       prune: true
+       selfHeal: true
+     retry:
+       limit: 10  # Increased from default 5-7
+   ```
+
+   **Why retry limit 10?**
+   - Addresses CRD timing issues during cluster bootstrap
+   - Operators may not have created CRDs when ArgoCD first syncs
+   - Exponential backoff means later retries have sufficient delay
+   - By retry 10, enough time has passed for operator bootstrapping
+   - Prevents manual intervention for transient CRD availability issues
+
+3. **RBAC Configuration**:
+   ```yaml
+   rbac:
+     defaultPolicy: ''
+     policy: |
+       g, system:cluster-admins, role:admin
+       g, cluster-admins, role:admin
+     scopes: '[groups]'
+   ```
+
+4. **Resource Exclusions**:
+   ```yaml
+   resourceExclusions: |
+     - apiGroups:
+       - tekton.dev
+       clusters:
+       - '*'
+       kinds:
+       - TaskRun
+       - PipelineRun
+   ```
+   Prevents ArgoCD from managing ephemeral Tekton resources.
+
+**Troubleshooting:**
+
+Common issues and solutions:
+
+1. **Controller OOMKilled**:
+   - Symptom: Pod restarts with exit code 137
+   - Solution: Memory limit increased to 4Gi (already applied)
+   - Verification: `oc get pod -n openshift-gitops -l app.kubernetes.io/name=argocd-application-controller`
+
+2. **Applications stuck OutOfSync with CRD errors**:
+   - Symptom: "resource mapping not found: no matches for kind X"
+   - Solution: Retry limit set to 10 (already applied in all ApplicationSets)
+   - Wait for automatic retry or manually sync application
+
+3. **ApplicationSet ownership conflicts**:
+   - Symptom: "Object X is already owned by another ApplicationSet controller Y"
+   - Solution: Delete conflicting Application, let correct ApplicationSet recreate it
+   - Example: When moving applications between ApplicationSets (core → devops)
+
+**Version Management:**
+
+ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
+
 ### cert-manager IngressController
 
 **Pattern**: Pure Patch Job (no static manifests)
