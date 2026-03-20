@@ -88,3 +88,9 @@ spec:
             - /metadata/labels
             - /metadata/annotations
             - /metadata/ownerReferences
+        - group: operator.tekton.dev
+          kind: TektonConfig
+          name: config
+          jsonPointers:
+            - /spec/targetNamespace
+            - /spec/profile
