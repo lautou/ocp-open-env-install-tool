@@ -6,4 +6,10 @@ resources:
   - cluster-namespace-openshift-pipelines-operator.yaml
   - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
 patches:
-  - path: openshift-gitops-job-enable-pipelines-console-plugin-namespace-patch.yaml
+  - target:
+      kind: Job
+      name: enable-pipelines-console-plugin
+    patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-gitops
