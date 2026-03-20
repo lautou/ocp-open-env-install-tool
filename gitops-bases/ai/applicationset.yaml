@@ -30,6 +30,8 @@ spec:
         automated:
           prune: true
           selfHeal: true
+        retry:
+          limit: 10
       ignoreDifferences:
         - group: ""
           kind: ConfigMap
