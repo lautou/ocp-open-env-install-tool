@@ -4,3 +4,7 @@ kind: Kustomization
 resources:
   - openshift-monitoring-configmap-cluster-monitoring-config.yaml
   - openshift-monitoring-secret-alertmanager-main.yaml
+  - openshift-monitoring-serviceaccount-create-alert-silences.yaml
+  - openshift-monitoring-role-create-alert-silences.yaml
+  - openshift-monitoring-rolebinding-create-alert-silences.yaml
+  - openshift-monitoring-job-create-alert-silences.yaml

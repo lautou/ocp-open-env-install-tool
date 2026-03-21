@@ -1,0 +1,132 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-alert-silences
+  namespace: openshift-monitoring
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: create-alert-silences
+    spec:
+      serviceAccountName: create-alert-silences
+      restartPolicy: OnFailure
+      containers:
+      - name: create-silences
+        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "================================================"
+          echo "Creating Alertmanager Silences for Known Bugs"
+          echo "================================================"
+          echo ""
+
+          # Wait for Alertmanager to be ready
+          echo "Waiting for Alertmanager to be ready..."
+          for i in {1..60}; do
+            if oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.status.readyReplicas}' | grep -q "3"; then
+              echo "✅ Alertmanager is ready"
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 5
+          done
+
+          # Function to create silence
+          create_silence() {
+            local name=$1
+            local payload=$2
+
+            echo ""
+            echo "Creating silence: $name"
+
+            # Port-forward to Alertmanager (run in background)
+            oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 >/dev/null 2>&1 &
+            PF_PID=$!
+            sleep 3
+
+            # Create silence
+            SILENCE_ID=$(curl -s -X POST -H "Content-Type: application/json" \
+              --data "$payload" \
+              http://localhost:9093/api/v2/silences | jq -r '.silenceID')
+
+            # Kill port-forward
+            kill $PF_PID 2>/dev/null || true
+
+            if [ -n "$SILENCE_ID" ] && [ "$SILENCE_ID" != "null" ]; then
+              echo "✅ Silence created: $SILENCE_ID"
+              return 0
+            else
+              echo "⚠️  Silence may already exist or creation failed"
+              return 1
+            fi
+          }
+
+          # Calculate timestamps
+          START_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+          END_TIME=$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)
+
+          # 1. mlflow-operator TargetDown silence
+          MLFLOW_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
+              {"name": "service", "value": "mlflow-operator-controller-manager-metrics-service", "isRegex": false, "isEqual": true},
+              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: mlflow-operator v2.0.0 broken metrics endpoint - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "mlflow-operator TargetDown" "$MLFLOW_PAYLOAD" || true
+
+          # 2. llama-stack PodDisruptionBudgetAtLimit silence
+          LLAMA_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "PodDisruptionBudgetAtLimit", "isRegex": false, "isEqual": true},
+              {"name": "poddisruptionbudget", "value": "llama-stack-k8s-operator-controller-manager-pdb", "isRegex": false, "isEqual": true},
+              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: llama-stack PDB with 1 replica (JIRA: RHAIENG-3783) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "llama-stack PodDisruptionBudgetAtLimit" "$LLAMA_PAYLOAD" || true
+
+          # 3. NooBaa database PodDisruptionBudgetAtLimit silence
+          NOOBAA_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "PodDisruptionBudgetAtLimit", "isRegex": false, "isEqual": true},
+              {"name": "poddisruptionbudget", "value": "noobaa-db-pg-cluster-primary", "isRegex": false, "isEqual": true},
+              {"name": "namespace", "value": "openshift-storage", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: NooBaa database PDB with single replica (JIRA: DFBUGS-5294) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "NooBaa PodDisruptionBudgetAtLimit" "$NOOBAA_PAYLOAD" || true
+
+          echo ""
+          echo "================================================"
+          echo "✅ Alert silences automation completed"
+          echo "================================================"
+
+          exit 0

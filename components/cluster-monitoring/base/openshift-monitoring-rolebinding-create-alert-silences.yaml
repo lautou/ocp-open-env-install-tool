@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: create-alert-silences
+  namespace: openshift-monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: create-alert-silences
+subjects:
+- kind: ServiceAccount
+  name: create-alert-silences
+  namespace: openshift-monitoring

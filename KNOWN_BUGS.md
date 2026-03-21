@@ -16,6 +16,16 @@ If you need to add receivers with credentials, use Secret references instead of 
 
 ## Silenced Alerts
 
+**Automation:** All Alertmanager silences are created automatically via GitOps!
+
+A PostSync Job (`components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`) runs after the cluster-monitoring component syncs and creates all silences automatically via the Alertmanager API. This ensures:
+- ✅ **Zero manual intervention** - silences are created on every new cluster deployment
+- ✅ **No alerts visible** - web console shows "suppressed" status from first login
+- ✅ **GitOps-managed** - Job is version controlled and reproducible
+- ✅ **Idempotent** - can be run multiple times safely
+
+The Job creates 10-year silences for all known bugs documented below.
+
 ### 1. mlflow-operator Broken Metrics Endpoint
 
 **Alert Name:** `TargetDown`
@@ -53,12 +63,12 @@ Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't ma
        continue: false
    ```
 
-2. **Alertmanager Silence** (API-managed):
-   - **Silence ID:** `d01080dd-e55c-4a59-88a0-7d1cc53d1327`
-   - **Created:** 2026-03-20
-   - **Expires:** 2036-03-20 (10 years)
-   - **Status:** Active
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
    - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
 
 **Verification:**
 ```bash
@@ -111,12 +121,12 @@ PDB configuration in llama-stack-k8s-operator expects potential multi-replica de
        continue: false
    ```
 
-2. **Alertmanager Silence** (API-managed):
-   - **Silence ID:** `ba2533ff-e92f-4a85-993b-32b990284ba4`
-   - **Created:** 2026-03-20
-   - **Expires:** 2036-03-20 (10 years)
-   - **Status:** Active
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
    - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
 
 **Verification:**
 ```bash
@@ -170,12 +180,12 @@ PDB configuration in NooBaa expects single-replica PostgreSQL deployment with `m
        continue: false
    ```
 
-2. **Alertmanager Silence** (API-managed):
-   - **Silence ID:** `4fcd2b9c-582a-466c-a7ce-9e82af734856`
-   - **Created:** 2026-03-20
-   - **Expires:** 2036-03-20 (10 years)
-   - **Status:** Active
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
    - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
 
 **Verification:**
 ```bash
