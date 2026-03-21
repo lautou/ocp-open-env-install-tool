@@ -1242,7 +1242,7 @@ The manual silence creation steps above are kept for reference, but in practice,
 
 **Location:** `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
 
-**Note:** The Job installs `jq` automatically (required for parsing Alertmanager API responses) as the openshift/cli image doesn't include it by default.
+**Implementation:** Uses `openshift/cli` image with native bash tools (grep/sed) to parse JSON API responses - no external dependencies required.
 
 ### Security - No Secrets in Alertmanager Config
 
