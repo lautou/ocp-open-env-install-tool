@@ -133,6 +133,38 @@ spec:
           )
           create_silence "NooBaa PodDisruptionBudgetAtLimit" "$NOOBAA_PAYLOAD" || true
 
+          # 4. Insights recommendation - Kueue webhook timeout
+          INSIGHTS_WEBHOOK_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "InsightsRecommendationActive", "isRegex": false, "isEqual": true},
+              {"name": "description", "value": ".*webhook.*timeout.*13s.*", "isRegex": true, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "Insights webhook timeout recommendation" "$INSIGHTS_WEBHOOK_PAYLOAD" || true
+
+          # 5. Insights recommendation - config location migration
+          INSIGHTS_CONFIG_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "InsightsRecommendationActive", "isRegex": false, "isEqual": true},
+              {"name": "description", "value": ".*config.*migrated.*secret.*configmap.*", "isRegex": true, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: Insights config migration recommendation - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "Insights config migration recommendation" "$INSIGHTS_CONFIG_PAYLOAD" || true
+
           echo ""
           echo "================================================"
           echo "✅ Alert silences automation completed"
