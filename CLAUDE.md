@@ -806,7 +806,21 @@ The TektonConfig CR supports three profiles:
   - ConsoleQuickStart resources
   - ConsoleYAMLSample resources
 
-**Recommendation**: Always explicitly set `profile: all` in `components/openshift-pipelines/base/cluster-tektonconfig-config.yaml` if you want the complete OpenShift Pipelines experience with console integration.
+**TektonConfig Configuration:**
+
+The project explicitly configures both `profile` and `targetNamespace`:
+
+```yaml
+# components/openshift-pipelines/base/cluster-tektonconfig-config.yaml
+spec:
+  profile: all                        # Full Tekton components with console integration
+  targetNamespace: openshift-pipelines  # Deploy components to standard OpenShift namespace
+```
+
+**Why explicit configuration:**
+- `profile: all` ensures TektonAddon is installed (console CLI downloads, quick starts, YAML samples)
+- `targetNamespace: openshift-pipelines` uses the standard OpenShift namespace (operator default is `tekton-pipelines`)
+- Both fields are managed by GitOps (no ignoreDifferences)
 
 **Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
 

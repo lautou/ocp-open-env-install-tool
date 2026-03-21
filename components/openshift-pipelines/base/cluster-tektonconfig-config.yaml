@@ -5,6 +5,8 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: config
 spec:
+  profile: all
+  targetNamespace: openshift-pipelines
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ""
