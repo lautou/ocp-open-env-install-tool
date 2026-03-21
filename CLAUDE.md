@@ -509,6 +509,77 @@ This is **expected and correct** behavior for RHOAI with KServe enabled.
 
 **Decision:** Continue relying on OLM default (`Automatic`) for all our manifests. Only add explicit values when overriding the default to `Manual`.
 
+### ✅ Shared Resources with ignoreDifferences Pattern (WORKS)
+
+**Pattern**: For cluster-scoped resources that are **partially managed by OpenShift** and **partially configured by GitOps**, use `ignoreDifferences` to prevent deletion loops.
+
+**When to Use:**
+- Resource exists at cluster scope (created by installer or operators)
+- GitOps only configures a **subset of fields**
+- OpenShift/operators manage other fields
+- ArgoCD detects drift and tries to delete/recreate the resource
+- Deletion is **blocked** (protected system resource)
+
+**Example: Network CR (`networks.config.openshift.io/cluster`)**
+
+**Problem:**
+```yaml
+# Git manifest (components/cluster-network/base/cluster-network-cluster.yaml)
+apiVersion: config.openshift.io/v1
+kind: Network
+metadata:
+  name: cluster
+spec:
+  networkDiagnostics:  # Only this field configured by GitOps
+    sourcePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+
+# Actual cluster resource (has OpenShift-managed fields)
+spec:
+  clusterNetwork: [...]      # Managed by installer
+  serviceNetwork: [...]       # Managed by installer
+  networkType: OVNKubernetes  # Managed by installer
+  networkDiagnostics: [...]   # Managed by GitOps
+```
+
+**Without ignoreDifferences:**
+1. ArgoCD compares Git (minimal spec) vs Cluster (full spec)
+2. Detects drift in `clusterNetwork`, `serviceNetwork`, `networkType`
+3. Tries to delete and recreate resource to match Git
+4. Deletion fails: `"cluster" is forbidden: deleting required networks.config.openshift.io resource, named cluster, is not allowed`
+5. DeletionError condition stuck on Application
+
+**Solution:**
+```yaml
+# gitops-bases/core/applicationset.yaml
+ignoreDifferences:
+  - group: config.openshift.io
+    kind: Network
+    name: cluster
+    jsonPointers:
+      - /spec/clusterNetwork
+      - /spec/serviceNetwork
+      - /spec/networkType
+      - /spec/externalIP
+```
+
+**Result:**
+- ✅ ArgoCD ignores OpenShift-managed fields
+- ✅ No deletion attempts
+- ✅ GitOps still manages `networkDiagnostics` field
+- ✅ No DeletionError conditions
+
+**Other Candidates for This Pattern:**
+- Cluster-scoped CRs with installer-managed fields
+- Shared resources modified by multiple controllers
+- Protected system resources that cannot be deleted
+
+**❌ NOT the Same as Failed Static + ignoreDifferences Pattern:**
+- That pattern tried to use ignoreDifferences to **ignore fields in Git**
+- This pattern uses ignoreDifferences to **ignore fields NOT in Git** (managed by OpenShift)
+- Key difference: We're not declaring AND ignoring the same field
+
 ## Component-Specific Notes
 
 ### Console Plugins
