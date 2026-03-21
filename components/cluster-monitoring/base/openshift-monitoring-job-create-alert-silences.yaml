@@ -23,6 +23,14 @@ spec:
         - -c
         - |
           set -e
+
+          # Install jq (needed for parsing API responses)
+          echo "Installing dependencies..."
+          curl -sL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 -o /usr/local/bin/jq
+          chmod +x /usr/local/bin/jq
+          echo "✅ jq installed"
+          echo ""
+
           echo "================================================"
           echo "Creating Alertmanager Silences for Known Bugs"
           echo "================================================"
@@ -30,12 +38,16 @@ spec:
 
           # Wait for Alertmanager to be ready
           echo "Waiting for Alertmanager to be ready..."
+          DESIRED_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.spec.replicas}')
+          echo "Alertmanager desired replicas: $DESIRED_REPLICAS"
+
           for i in {1..60}; do
-            if oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.status.readyReplicas}' | grep -q "3"; then
-              echo "✅ Alertmanager is ready"
+            READY_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.status.readyReplicas}')
+            if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ] && [ "$READY_REPLICAS" != "" ]; then
+              echo "✅ Alertmanager is ready ($READY_REPLICAS/$DESIRED_REPLICAS)"
               break
             fi
-            echo "Waiting... ($i/60)"
+            echo "Waiting... ($i/60) - Ready: $READY_REPLICAS/$DESIRED_REPLICAS"
             sleep 5
           done
 
