@@ -1,3 +1,4 @@
 config/*.config
 output
 pull-secret.txt
+.claude/settings.local.json
