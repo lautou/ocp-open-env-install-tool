@@ -1415,6 +1415,11 @@ stringData:
    - JIRA: OCPKUEUE-578
    - Reason: Kueue requires extended timeout for complex validations
 
+2. **Insights Operator Configuration Location** - `io_415_change_config_location`
+   - Issue: Documentation suggests migrating from Secret to ConfigMap in OCP 4.15+
+   - Reality: Insights Operator in OCP 4.20 still expects Secret (not ConfigMap)
+   - Reason: Implementation hasn't been updated to match documentation
+
 **Important Notes:**
 - **Use Secret, not ConfigMap**: Despite OCP 4.15+ documentation mentioning ConfigMap migration, the Insights Operator in OCP 4.20 still expects a Secret
 - Recommendations may take 24-48 hours to refresh after configuration changes

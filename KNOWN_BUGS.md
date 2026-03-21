@@ -245,7 +245,7 @@ Kueue webhooks perform complex validation logic for queue management and workloa
 
 **Insights Configuration** (GitOps-managed):
 ```yaml
-# Location: components/openshift-config/base/openshift-config-configmap-support.yaml
+# Location: components/openshift-config/base/openshift-config-secret-support.yaml
 insights:
   disabled_recommendations:
     - rule_id: "ccx_rules_ocp.external.rules.webhook_timeout_is_larger_than_default"
@@ -253,11 +253,11 @@ insights:
 
 **Verification:**
 ```bash
-# Check support ConfigMap exists
-oc get configmap support -n openshift-config
+# Check support Secret exists
+oc get secret support -n openshift-config
 
 # View disabled recommendations
-oc get configmap support -n openshift-config -o jsonpath='{.data.config\.yaml}'
+oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
 
 # Check Insights Operator logs for configuration reload
 oc logs -n openshift-insights deployment/insights-operator | grep -i "disabled"
@@ -271,6 +271,68 @@ oc logs -n openshift-insights deployment/insights-operator | grep -i "disabled"
 **Important:**
 - Insights recommendations may take 24-48 hours to refresh after disabling
 - The recommendation will still be detected but marked as disabled
+- Changes persist across cluster upgrades
+
+---
+
+### 2. Insights Operator Configuration Location Change
+
+**Recommendation:** `Deprecated: Configuration via support Secret (use ConfigMap instead)`
+**Rule ID:** `ccx_rules_ocp.external.rules.io_415_change_config_location`
+**Component:** Insights Operator
+**Risk Level:** Low
+**Namespace:** `openshift-config`
+
+**Issue:**
+Red Hat documentation for OCP 4.15+ states that Insights Operator configuration should be migrated from Secret to ConfigMap (`support` ConfigMap instead of `support` Secret). This triggers an Insights recommendation suggesting the configuration location is deprecated.
+
+**Impact:**
+- Low risk Insights recommendation appears in console
+- No actual impact on Insights Operator functionality
+- Operator continues to work correctly with Secret-based configuration
+- Recommendation appears in Insights Advisor dashboard
+
+**Root Cause:**
+Despite documentation mentioning ConfigMap migration in OCP 4.15+, the Insights Operator implementation in OCP 4.20 still expects and reads from the `support` Secret, not a ConfigMap. The operator code has not been updated to match the documentation change, making this a false-positive recommendation.
+
+**Status:**
+- **JIRA:** TBD (documentation vs implementation mismatch)
+- **Reported:** Internal observation during OCP 4.20 testing
+- **Workaround:** Recommendation disabled in Insights configuration
+- **Fix ETA:** Unknown (requires operator code update or documentation correction)
+
+**Mitigation Applied:**
+
+**Insights Configuration** (GitOps-managed):
+```yaml
+# Location: components/openshift-config/base/openshift-config-secret-support.yaml
+insights:
+  disabled_recommendations:
+    - rule_id: "ccx_rules_ocp.external.rules.io_415_change_config_location"
+```
+
+**Verification:**
+```bash
+# Verify Insights Operator reads from Secret (not ConfigMap)
+oc get secret support -n openshift-config
+oc get configmap support -n openshift-config 2>/dev/null || echo "ConfigMap does not exist (expected)"
+
+# Check Insights Operator deployment environment/volume mounts
+oc get deployment insights-operator -n openshift-insights -o yaml | grep -A5 "support"
+
+# View disabled recommendations
+oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
+
+# Verify recommendation no longer appears (24-48 hours after disabling)
+# View in Red Hat Hybrid Cloud Console:
+# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
+# The io_415_change_config_location recommendation should not appear
+```
+
+**Important:**
+- **Use Secret, not ConfigMap**: Despite OCP 4.15+ documentation, operator still expects Secret in 4.20
+- Testing confirmed operator does NOT read from ConfigMap
+- This may change in future OCP versions - monitor release notes
 - Changes persist across cluster upgrades
 
 ---
@@ -484,7 +546,7 @@ Add entry to this file's "Disabled Insights Recommendations" section with:
 
 #### 3. Add to Insights Configuration
 
-Edit: `components/openshift-config/base/openshift-config-configmap-support.yaml`
+Edit: `components/openshift-config/base/openshift-config-secret-support.yaml`
 
 ```yaml
 insights:
@@ -503,30 +565,30 @@ insights:
 - Include JIRA ticket reference
 - Use the full rule_id from Insights console URL
 - Place new rules at the bottom of the disabled list
-- Since OCP 4.15+, use ConfigMap instead of Secret for Insights configuration
+- **Note:** Despite OCP 4.15+ documentation mentioning ConfigMap, the Insights Operator in OCP 4.20 still uses Secret
 
 #### 4. Commit and Sync
 
 ```bash
-git add KNOWN_BUGS.md components/openshift-config/base/openshift-config-configmap-support.yaml
+git add KNOWN_BUGS.md components/openshift-config/base/openshift-config-secret-support.yaml
 git commit -m "Disable Insights recommendation [rule_id] - [JIRA ticket]"
 git push
 
 # Verify ArgoCD sync
 oc get application openshift-config -n openshift-gitops
 
-# Wait for ConfigMap to be created/updated
-oc get configmap support -n openshift-config
+# Wait for Secret to be created/updated
+oc get secret support -n openshift-config
 ```
 
 #### 5. Verify Recommendation Disabled
 
 ```bash
-# Check support ConfigMap exists
-oc get configmap support -n openshift-config
+# Check support Secret exists
+oc get secret support -n openshift-config
 
 # View disabled recommendations
-oc get configmap support -n openshift-config -o jsonpath='{.data.config\.yaml}'
+oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
 
 # Check Insights Operator logs for configuration reload
 oc logs -n openshift-insights deployment/insights-operator --tail=50 | grep -i "disabled\|reload"
