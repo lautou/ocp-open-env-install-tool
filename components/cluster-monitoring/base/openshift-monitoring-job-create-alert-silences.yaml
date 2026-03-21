@@ -24,13 +24,6 @@ spec:
         - |
           set -e
 
-          # Install jq (needed for parsing API responses)
-          echo "Installing dependencies..."
-          curl -sL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 -o /usr/local/bin/jq
-          chmod +x /usr/local/bin/jq
-          echo "✅ jq installed"
-          echo ""
-
           echo "================================================"
           echo "Creating Alertmanager Silences for Known Bugs"
           echo "================================================"
@@ -64,19 +57,23 @@ spec:
             PF_PID=$!
             sleep 3
 
-            # Create silence
-            SILENCE_ID=$(curl -s -X POST -H "Content-Type: application/json" \
+            # Create silence and check HTTP response
+            HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/silence_response.json \
+              -X POST -H "Content-Type: application/json" \
               --data "$payload" \
-              http://localhost:9093/api/v2/silences | jq -r '.silenceID')
+              http://localhost:9093/api/v2/silences)
+
+            # Extract silence ID using grep/sed (no jq needed)
+            SILENCE_ID=$(grep -o '"silenceID":"[^"]*"' /tmp/silence_response.json | sed 's/"silenceID":"\(.*\)"/\1/' || echo "")
 
             # Kill port-forward
             kill $PF_PID 2>/dev/null || true
 
-            if [ -n "$SILENCE_ID" ] && [ "$SILENCE_ID" != "null" ]; then
+            if [ "$HTTP_CODE" = "200" ] && [ -n "$SILENCE_ID" ]; then
               echo "✅ Silence created: $SILENCE_ID"
               return 0
             else
-              echo "⚠️  Silence may already exist or creation failed"
+              echo "⚠️  HTTP $HTTP_CODE - Silence may already exist or creation failed"
               return 1
             fi
           }
