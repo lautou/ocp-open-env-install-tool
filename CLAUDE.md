@@ -1210,6 +1210,40 @@ curl -X POST -H "Content-Type: application/json" \
 
 **See KNOWN_BUGS.md for complete step-by-step instructions.**
 
+### Automated Alert Silences via GitOps
+
+**IMPORTANT:** Alert silences are now **fully automated** via an ArgoCD PostSync Job!
+
+The manual silence creation steps above are kept for reference, but in practice, all known bug silences are created automatically when the cluster-monitoring component syncs.
+
+**How it works:**
+
+1. **PostSync Job** (`openshift-monitoring-job-create-alert-silences.yaml`):
+   - Runs automatically after cluster-monitoring ApplicationSet syncs
+   - Waits for Alertmanager to be ready (dynamic replica check)
+   - Creates 10-year silences via Alertmanager API for all known bugs
+   - Idempotent (safe to run multiple times)
+
+2. **RBAC Resources**:
+   - ServiceAccount: `create-alert-silences`
+   - Role: permissions for pods/portforward and statefulsets
+   - RoleBinding: connects SA to Role
+
+3. **Known bugs silenced automatically**:
+   - mlflow-operator TargetDown (broken metrics endpoint)
+   - llama-stack PodDisruptionBudgetAtLimit (JIRA: RHAIENG-3783)
+   - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294)
+
+**Benefits:**
+- ✅ **Zero manual intervention** on new cluster deployments
+- ✅ **No false-positive alerts visible** from first cluster-admin login
+- ✅ **GitOps-managed** - Job is version controlled and reproducible
+- ✅ **Fully automated** - works across all environments
+
+**Location:** `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
+
+**Note:** The Job installs `jq` automatically (required for parsing Alertmanager API responses) as the openshift/cli image doesn't include it by default.
+
 ### Security - No Secrets in Alertmanager Config
 
 **⚠️ CRITICAL:** The Alertmanager configuration is stored in Git and must NOT contain sensitive data.
