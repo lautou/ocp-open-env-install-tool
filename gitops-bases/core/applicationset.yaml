@@ -90,3 +90,11 @@ spec:
           jsonPointers:
             - /spec/targetNamespace
             - /spec/profile
+        - group: config.openshift.io
+          kind: Network
+          name: cluster
+          jsonPointers:
+            - /spec/clusterNetwork
+            - /spec/serviceNetwork
+            - /spec/networkType
+            - /spec/externalIP
