@@ -1220,6 +1220,10 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 
 **Current silenced alerts:**
 1. **mlflow-operator TargetDown** - RHOAI mlflow-operator v2.0.0 has broken metrics endpoint ServiceMonitor
+2. **llama-stack PodDisruptionBudgetAtLimit** - RHOAI llama-stack operator PDB with 1 replica (JIRA: RHAIENG-3783)
+3. **NooBaa database PodDisruptionBudgetAtLimit** - ODF NooBaa single-replica PostgreSQL PDB (JIRA: DFBUGS-5294)
+4. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
+5. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
 
 ### Adding New Alert Silences
 
@@ -1380,81 +1384,110 @@ The project does NOT enable a separate user-workload Alertmanager instance. All 
 
 ### Red Hat Insights Recommendations
 
-Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. False-positive or known-issue recommendations can be disabled via the `support` Secret.
+Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Recommendations generate `InsightsRecommendationActive` alerts in the cluster that must be suppressed via Alertmanager.
 
-**Configuration:** `components/openshift-config/base/openshift-config-secret-support.yaml`
+**Configuration:**
+- `components/openshift-config/base/openshift-config-secret-support.yaml` (documentation only)
+- `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` (alert routing)
+- `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml` (automated silences)
 
 **How It Works:**
 - Insights Operator runs in `openshift-insights` namespace
 - Periodically scans cluster configuration and sends data to Red Hat cloud service
+- Red Hat cloud service analyzes data and sends recommendations back to cluster
+- Recommendations generate `InsightsRecommendationActive` alerts with `severity: info`
 - Recommendations appear in **Red Hat Hybrid Cloud Console**: https://console.redhat.com/openshift/insights/advisor
 - **Note:** Insights UI is NOT in local OpenShift web console (only in Red Hat cloud console)
-- Disabled rules are configured in `support` Secret in `openshift-config` namespace
+- **CRITICAL:** `disabled_recommendations` in `support` Secret does NOT suppress alerts (documentation only)
+- **Alerts must be suppressed via Alertmanager** (routing to null receiver + API silences)
 
-**Disabling Recommendations:**
+**Suppressing InsightsRecommendationActive Alerts:**
 
-Create or edit the `support` Secret with YAML configuration:
+**CRITICAL:** The `disabled_recommendations` field in the `support` Secret does NOT suppress alerts in the OpenShift console. The Red Hat cloud service generates recommendations regardless of local configuration and sends them back to the cluster as Prometheus metrics.
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: support
-  namespace: openshift-config
-type: Opaque
-stringData:
-  config.yaml: |
-    insights:
-      disabled_recommendations:
-        - rule_id: "ccx_rules_ocp.external.rules.[rule_identifier]"
-```
+**Working approach** (implemented):
 
-**Current Disabled Recommendations:**
+1. **Alertmanager Routing** - Routes alerts to null receiver (prevents notifications):
+   ```yaml
+   # components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   - matchers:
+       - alertname = InsightsRecommendationActive
+       - description =~ .*webhook.*timeout.*13s.*
+     receiver: 'null'
+   ```
+
+2. **Alertmanager API Silences** - Fully suppresses alerts (state: "suppressed"):
+   - Created automatically by PostSync Job
+   - 10-year duration, persisted to Alertmanager PVC
+   - Recreated on every cluster deployment
+   - See: `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
+
+**Currently Suppressed Recommendations:**
 
 1. **Kueue Webhook Timeout** - `webhook_timeout_is_larger_than_default`
    - JIRA: OCPKUEUE-578
    - Reason: Kueue requires extended timeout for complex validations
+   - Suppression: Alertmanager routing + API silence
 
 2. **Insights Operator Configuration Location** - `io_415_change_config_location`
-   - Issue: Documentation suggests migrating from Secret to ConfigMap in OCP 4.15+
-   - Reality: Insights Operator in OCP 4.20 still expects Secret (not ConfigMap)
+   - Issue: Documentation suggests ConfigMap migration in OCP 4.15+
+   - Reality: Insights Operator in OCP 4.20 still expects Secret (ConfigMap requires TechPreview feature gates)
    - Reason: Implementation hasn't been updated to match documentation
+   - Suppression: Alertmanager routing + API silence
 
-**Important Notes:**
-- **Use Secret, not ConfigMap**: Despite OCP 4.15+ documentation mentioning ConfigMap migration, the Insights Operator in OCP 4.20 still expects a Secret
-- Recommendations may take 24-48 hours to refresh after configuration changes
-- Insights Operator must restart to pick up new configuration
-- Disabled recommendations persist across cluster upgrades
-- Changes are GitOps-managed (stored in Git)
-- See `KNOWN_BUGS.md` for complete list and details
+**Why disabled_recommendations doesn't work:**
+
+The `support` Secret's `disabled_recommendations` field is intended to control what data the Insights Operator GATHERS, not what alerts appear in the cluster. However:
+- OCP 4.20 appears to ignore this field (may require `InsightsConfig` feature gate)
+- Even if honored, it only affects data gathering, not the alerts
+- Red Hat cloud service analyzes whatever data it receives and sends recommendations back
+- Recommendations become Prometheus metrics (`insights_recommendation_active`) which trigger alerts
+- Only Alertmanager can suppress these alerts
+
+**Configuration retained for documentation:**
+```yaml
+# components/openshift-config/base/openshift-config-secret-support.yaml
+# NOTE: This does NOT suppress alerts - kept for documentation only
+insights:
+  disabled_recommendations:
+    - rule_id: "ccx_rules_ocp.external.rules.webhook_timeout_is_larger_than_default"
+    - rule_id: "ccx_rules_ocp.external.rules.io_415_change_config_location"
+```
 
 **Verification:**
 
 ```bash
-# Check support Secret exists
-oc get secret support -n openshift-config
+# Check alert silences are active
+oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 &
+sleep 3
+curl -s http://localhost:9093/api/v2/silences | \
+  grep -o '"comment":"[^"]*Insights[^"]*"'
 
-# View disabled recommendations
-oc get secret support -n openshift-config \
-  -o jsonpath='{.data.config\.yaml}' | base64 -d
+# Check InsightsRecommendationActive alerts are suppressed
+curl -s http://localhost:9093/api/v2/alerts | \
+  python3 -c "import sys, json; alerts = json.load(sys.stdin); \
+  [print(f\"{a['labels']['description'][:60]}... => {a['status']['state']}\") \
+  for a in alerts if a['labels']['alertname'] == 'InsightsRecommendationActive']"
 
-# Check Insights Operator logs
-oc logs -n openshift-insights deployment/insights-operator --tail=50
+# Expected output: state should be "suppressed"
+# The Insights Operator config has been migrated from secret t... => suppressed
+# Configuring the webhook's timeout for Pod API exceeds 13s is... => suppressed
 
-# Restart Insights Operator to reload config
-oc delete pod -n openshift-insights -l app=insights-operator
+# Check automated silence Job logs
+oc logs -n openshift-monitoring job/create-alert-silences | grep -i insights
 ```
 
-**Difference from Prometheus Alerts:**
+**Insights Recommendations vs Standard Prometheus Alerts:**
 
-| Aspect | Prometheus Alerts | Insights Recommendations |
-|--------|------------------|-------------------------|
-| **Source** | Cluster monitoring stack | Red Hat cloud service |
-| **Silencing** | Alertmanager (routing + silences) | support Secret (disabled_recommendations) |
-| **Management** | components/cluster-monitoring | components/openshift-config |
-| **Visibility** | Local console: Observe → Alerting | **Red Hat console:** console.redhat.com/openshift/insights |
-| **Reload Time** | ~30 seconds | 24-48 hours |
-| **GitOps** | ✅ Partial (routing only, silences are ephemeral) | ✅ Full (completely GitOps-managed) |
+| Aspect | Standard Prometheus Alerts | InsightsRecommendationActive Alerts |
+|--------|---------------------------|-------------------------------------|
+| **Source** | Cluster monitoring stack | Red Hat cloud service via Insights Operator |
+| **Alert Suppression** | Alertmanager (routing + silences) | **Same:** Alertmanager (routing + silences) |
+| **Management** | components/cluster-monitoring | components/cluster-monitoring |
+| **Recommendation Visibility** | N/A | Red Hat console: console.redhat.com/openshift/insights |
+| **Reload Time** | ~30 seconds (Alertmanager) | 24-48 hours (Red Hat cloud analysis) |
+| **GitOps** | ✅ Partial (routing only, silences via Job) | ✅ Same (routing + automated Job silences) |
+| **disabled_recommendations** | N/A | ❌ Does NOT suppress alerts (ineffective) |
 
 ## Troubleshooting
 
