@@ -743,6 +743,81 @@ Job: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-d
 - ❌ Static + ignoreDifferences = Field never applied
 - ✅ Pure Job = Reliable, predictable, works correctly
 
+### cert-manager Certificate Provisioning
+
+**Pattern**: Dynamic Job with pod readiness checks
+
+**Purpose**: Create ClusterIssuer and Certificate resources after cert-manager operator is fully initialized.
+
+**Critical Race Condition Fixed:**
+
+The Job (`create-cluster-cert-manager-resources`) previously waited only for CertManager CR deployment conditions, which caused a race condition during cluster bootstrap:
+
+**Problem:**
+```bash
+# Old approach (BROKEN):
+oc wait certmanager cluster \
+    --for condition=cert-manager-controller-deploymentAvailable \
+    --timeout=120s
+
+# Problem: Deployment conditions check that Deployment resource exists,
+# NOT that pods are running or controller is initialized
+```
+
+**Timeline of race condition:**
+1. CertManager CR shows "deploymentAvailable" (Deployment created)
+2. Job creates certificates immediately
+3. cert-manager pods haven't started yet (may be 60+ seconds later)
+4. cert-manager controller tries to process certificates before ACME client initialized
+5. Let's Encrypt order created, but authorization fetch fails with 404
+6. cert-manager gives up without retry → 1-hour exponential backoff
+
+**Root Cause:**
+- CertManager CR conditions reflect **Deployment readiness** (desired replicas exist)
+- **Not pod readiness** (containers running and passing readiness probes)
+- **Not controller initialization** (ACME client ready to process certificates)
+
+**Fix Applied:**
+```bash
+# New approach (FIXED):
+oc wait certmanager cluster \
+    --for condition=cert-manager-controller-deploymentAvailable \
+    --timeout=120s
+
+# ADDED: Wait for pods to be Ready (containers running + readiness probes passing)
+oc wait pod -n cert-manager \
+    -l app.kubernetes.io/component=controller \
+    --for=condition=Ready \
+    --timeout=120s
+
+oc wait pod -n cert-manager \
+    -l app.kubernetes.io/component=webhook \
+    --for=condition=Ready \
+    --timeout=120s
+```
+
+**Why this works:**
+- Pod `Ready` condition ensures containers are running
+- cert-manager readiness probe confirms controller is responsive
+- ACME client has time to initialize before certificates are created
+- Webhook pod must be ready before validating Certificate resources
+
+**Time added:** ~30-60 seconds (pod startup time)
+
+**Evidence from production issue:**
+- Cluster deployed 2026-03-22 at 20:09 UTC
+- CertManager CR showed "Available" at 20:09:01
+- Job created certificates at 20:09:19 (18 seconds later)
+- cert-manager pods didn't start until 20:10:26 (77 seconds after CR "ready")
+- API certificate failed with "ACME client not initialised" error
+- Ingress certificate succeeded 4 minutes later (cluster fully stable by then)
+- Auto-retry at 21:09:21 succeeded (1-hour exponential backoff)
+
+**Lesson learned:**
+- CertManager CR conditions ≠ cert-manager controller ready
+- Always wait for pod `Ready` condition when controller initialization matters
+- Deployment conditions only guarantee Deployment resource exists, not pod state
+
 ### OpenShift Data Foundation (ODF)
 
 **Pattern**: Dynamic Job with ConfigMap-driven channel management

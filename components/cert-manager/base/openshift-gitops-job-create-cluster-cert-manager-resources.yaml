@@ -89,6 +89,18 @@ spec:
                     --for condition=cert-manager-cainjector-deploymentAvailable \
                     --for condition=cert-manager-webhook-deploymentAvailable \
                     --timeout=120s -n cert-manager; then
+
+                    echo "CertManager deployments available, now waiting for pods..."
+                    oc wait pod -n cert-manager \
+                        -l app.kubernetes.io/component=controller \
+                        --for=condition=Ready \
+                        --timeout=120s
+
+                    oc wait pod -n cert-manager \
+                        -l app.kubernetes.io/component=webhook \
+                        --for=condition=Ready \
+                        --timeout=120s
+
                     echo "CertManager is ready!"
                     SUCCESS=true
                     break
