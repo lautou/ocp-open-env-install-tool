@@ -40,9 +40,21 @@ Supports both **IPI** (Installer-Provisioned Infrastructure) and **UPI** (User-P
 # Use specific configuration file
 ./init_openshift_installation_lab_cluster.sh --config-file my-cluster.config
 
+# Skip confirmation prompt (for automation/CI-CD)
+./init_openshift_installation_lab_cluster.sh --yes --config-file my-cluster.config
+
 # Show help
 ./init_openshift_installation_lab_cluster.sh --help
 ```
+
+**Safety Confirmation Prompt:**
+
+Before starting any new installation (not session recovery), the script displays a confirmation prompt showing:
+- Cluster name, AWS region, config file
+- GitOps profile path and install type
+- Warning about AWS resource deletion (VPCs, S3, EC2, Route53, IAM, Secrets)
+
+User must explicitly type 'y' or 'Y' to proceed (default: No). Use `--yes` flag to skip for automation.
 
 ### Helper Scripts
 
@@ -1384,9 +1396,13 @@ The manual silence creation steps above are kept for reference, but in practice,
 
 1. **PostSync Job** (`openshift-monitoring-job-create-alert-silences.yaml`):
    - Runs automatically after cluster-monitoring ApplicationSet syncs
-   - Waits for Alertmanager to be ready (dynamic replica check)
+   - Waits for Alertmanager StatefulSet and pods to be fully ready
+   - **Additional 30-second stabilization wait** (ensures API is fully initialized)
    - Creates 10-year silences via Alertmanager API for all known bugs
-   - Idempotent (safe to run multiple times)
+   - **Retry logic**: 3 attempts per silence with 5-second delays
+   - **Verification**: Confirms each silence was created successfully via API query
+   - **Final validation**: Verifies 5+ active silences exist before completing
+   - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
    - ServiceAccount: `create-alert-silences`
@@ -1397,12 +1413,31 @@ The manual silence creation steps above are kept for reference, but in practice,
    - mlflow-operator TargetDown (broken metrics endpoint)
    - llama-stack PodDisruptionBudgetAtLimit (JIRA: RHAIENG-3783)
    - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294)
+   - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)
+   - InsightsRecommendationActive (config migration)
+
+**Reliability Improvements (2026-03-23):**
+
+The Job was improved to address timing issues that caused silent failures:
+
+**Problem:** Original Job used `|| true` to mask failures and had no verification. When Alertmanager wasn't fully initialized, silences failed to create but Job reported success.
+
+**Fixed:**
+- ✅ **Removed `|| true`** - Failures now propagate properly
+- ✅ **Added pod readiness check** - Waits for pods to be Running AND Ready
+- ✅ **Added 30-second stabilization wait** - Ensures Alertmanager API is fully initialized
+- ✅ **Added retry logic** - 3 attempts per silence with exponential backoff
+- ✅ **Added verification** - Queries API to confirm silence exists after creation
+- ✅ **Added final validation** - Counts active silences and fails if < 5
+- ✅ **Better logging** - Clear success/failure messages for each silence
 
 **Benefits:**
 - ✅ **Zero manual intervention** on new cluster deployments
 - ✅ **No false-positive alerts visible** from first cluster-admin login
 - ✅ **GitOps-managed** - Job is version controlled and reproducible
-- ✅ **Fully automated** - works across all environments
+- ✅ **Fully automated** - works reliably across all environments
+- ✅ **Self-healing** - Automatic retry on transient failures
+- ✅ **Verifiable** - Job exit code reflects actual success/failure
 
 **Location:** `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
 

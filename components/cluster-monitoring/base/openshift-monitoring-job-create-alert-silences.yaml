@@ -29,53 +29,98 @@ spec:
           echo "================================================"
           echo ""
 
-          # Wait for Alertmanager to be ready
-          echo "Waiting for Alertmanager to be ready..."
+          # Wait for Alertmanager StatefulSet to be ready
+          echo "Waiting for Alertmanager StatefulSet to be ready..."
           DESIRED_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.spec.replicas}')
           echo "Alertmanager desired replicas: $DESIRED_REPLICAS"
 
           for i in {1..60}; do
             READY_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.status.readyReplicas}')
             if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ] && [ "$READY_REPLICAS" != "" ]; then
-              echo "✅ Alertmanager is ready ($READY_REPLICAS/$DESIRED_REPLICAS)"
+              echo "✅ Alertmanager StatefulSet ready ($READY_REPLICAS/$DESIRED_REPLICAS)"
               break
             fi
             echo "Waiting... ($i/60) - Ready: $READY_REPLICAS/$DESIRED_REPLICAS"
             sleep 5
           done
 
-          # Function to create silence
+          # Wait for Alertmanager pods to be fully ready
+          echo "Waiting for Alertmanager pods to be Running and Ready..."
+          for i in {1..30}; do
+            READY_PODS=$(oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager --field-selector=status.phase=Running -o json | grep -c '"ready":true' || echo 0)
+            if [ "$READY_PODS" -ge "$DESIRED_REPLICAS" ]; then
+              echo "✅ Alertmanager pods ready ($READY_PODS/$DESIRED_REPLICAS)"
+              break
+            fi
+            echo "Waiting for pods... ($i/30) - Ready: $READY_PODS/$DESIRED_REPLICAS"
+            sleep 5
+          done
+
+          # Additional wait for Alertmanager API to be stable (critical for newly started pods)
+          echo "Waiting additional 30 seconds for Alertmanager API to stabilize..."
+          sleep 30
+          echo "✅ Alertmanager should be fully initialized"
+
+          # Function to create silence with retry and verification
           create_silence() {
             local name=$1
             local payload=$2
+            local max_retries=3
 
             echo ""
             echo "Creating silence: $name"
 
-            # Port-forward to Alertmanager (run in background)
-            oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 >/dev/null 2>&1 &
-            PF_PID=$!
-            sleep 3
+            for attempt in $(seq 1 $max_retries); do
+              echo "  Attempt $attempt/$max_retries..."
 
-            # Create silence and check HTTP response
-            HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/silence_response.json \
-              -X POST -H "Content-Type: application/json" \
-              --data "$payload" \
-              http://localhost:9093/api/v2/silences)
+              # Port-forward to Alertmanager (run in background)
+              oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 >/dev/null 2>&1 &
+              PF_PID=$!
+              sleep 3
 
-            # Extract silence ID using grep/sed (no jq needed)
-            SILENCE_ID=$(grep -o '"silenceID":"[^"]*"' /tmp/silence_response.json | sed 's/"silenceID":"\(.*\)"/\1/' || echo "")
+              # Create silence and check HTTP response
+              HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/silence_response.json \
+                -X POST -H "Content-Type: application/json" \
+                --data "$payload" \
+                http://localhost:9093/api/v2/silences 2>/dev/null)
 
-            # Kill port-forward
-            kill $PF_PID 2>/dev/null || true
+              # Extract silence ID using grep/sed (no jq needed)
+              SILENCE_ID=$(grep -o '"silenceID":"[^"]*"' /tmp/silence_response.json 2>/dev/null | sed 's/"silenceID":"\(.*\)"/\1/' || echo "")
 
-            if [ "$HTTP_CODE" = "200" ] && [ -n "$SILENCE_ID" ]; then
-              echo "✅ Silence created: $SILENCE_ID"
-              return 0
-            else
-              echo "⚠️  HTTP $HTTP_CODE - Silence may already exist or creation failed"
-              return 1
-            fi
+              # Verify silence was created by querying API
+              if [ "$HTTP_CODE" = "200" ] && [ -n "$SILENCE_ID" ]; then
+                # Wait a moment for silence to be indexed
+                sleep 2
+
+                # Verify silence exists
+                VERIFY_CODE=$(curl -s -w "%{http_code}" -o /tmp/verify_silence.json \
+                  "http://localhost:9093/api/v2/silence/$SILENCE_ID" 2>/dev/null)
+
+                if [ "$VERIFY_CODE" = "200" ]; then
+                  echo "  ✅ Silence created and verified: $SILENCE_ID"
+                  kill $PF_PID 2>/dev/null || true
+                  return 0
+                else
+                  echo "  ⚠️  Created but verification failed (HTTP $VERIFY_CODE)"
+                fi
+              else
+                echo "  ⚠️  Creation failed (HTTP $HTTP_CODE)"
+                if [ -f /tmp/silence_response.json ]; then
+                  cat /tmp/silence_response.json
+                fi
+              fi
+
+              # Kill port-forward before retry
+              kill $PF_PID 2>/dev/null || true
+
+              if [ $attempt -lt $max_retries ]; then
+                echo "  Retrying in 5 seconds..."
+                sleep 5
+              fi
+            done
+
+            echo "  ❌ Failed to create silence after $max_retries attempts"
+            return 1
           }
 
           # Calculate timestamps
@@ -97,7 +142,7 @@ spec:
           }
           EOF
           )
-          create_silence "mlflow-operator TargetDown" "$MLFLOW_PAYLOAD" || true
+          create_silence "mlflow-operator TargetDown" "$MLFLOW_PAYLOAD"
 
           # 2. llama-stack PodDisruptionBudgetAtLimit silence
           LLAMA_PAYLOAD=$(cat <<EOF
@@ -114,7 +159,7 @@ spec:
           }
           EOF
           )
-          create_silence "llama-stack PodDisruptionBudgetAtLimit" "$LLAMA_PAYLOAD" || true
+          create_silence "llama-stack PodDisruptionBudgetAtLimit" "$LLAMA_PAYLOAD"
 
           # 3. NooBaa database PodDisruptionBudgetAtLimit silence
           NOOBAA_PAYLOAD=$(cat <<EOF
@@ -131,7 +176,7 @@ spec:
           }
           EOF
           )
-          create_silence "NooBaa PodDisruptionBudgetAtLimit" "$NOOBAA_PAYLOAD" || true
+          create_silence "NooBaa PodDisruptionBudgetAtLimit" "$NOOBAA_PAYLOAD"
 
           # 4. Insights recommendation - Kueue webhook timeout
           INSIGHTS_WEBHOOK_PAYLOAD=$(cat <<EOF
@@ -147,7 +192,7 @@ spec:
           }
           EOF
           )
-          create_silence "Insights webhook timeout recommendation" "$INSIGHTS_WEBHOOK_PAYLOAD" || true
+          create_silence "Insights webhook timeout recommendation" "$INSIGHTS_WEBHOOK_PAYLOAD"
 
           # 5. Insights recommendation - config location migration
           INSIGHTS_CONFIG_PAYLOAD=$(cat <<EOF
@@ -163,11 +208,28 @@ spec:
           }
           EOF
           )
-          create_silence "Insights config migration recommendation" "$INSIGHTS_CONFIG_PAYLOAD" || true
+          create_silence "Insights config migration recommendation" "$INSIGHTS_CONFIG_PAYLOAD"
 
           echo ""
           echo "================================================"
-          echo "✅ Alert silences automation completed"
+          echo "Verifying all silences are active..."
           echo "================================================"
 
-          exit 0
+          # Final verification: count active silences
+          oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 >/dev/null 2>&1 &
+          PF_PID=$!
+          sleep 3
+
+          SILENCE_COUNT=$(curl -s http://localhost:9093/api/v2/silences 2>/dev/null | grep -o '"status":{"state":"active"' | wc -l || echo 0)
+
+          kill $PF_PID 2>/dev/null || true
+
+          echo "Active silences: $SILENCE_COUNT"
+
+          if [ "$SILENCE_COUNT" -ge 5 ]; then
+            echo "✅ SUCCESS: All alert silences created and verified"
+            exit 0
+          else
+            echo "❌ ERROR: Expected 5+ silences, found $SILENCE_COUNT"
+            exit 1
+          fi
