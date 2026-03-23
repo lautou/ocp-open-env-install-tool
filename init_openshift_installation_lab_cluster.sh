@@ -14,24 +14,47 @@ show_usage() {
   echo "Options:"
   echo "  -h, --help         Show this help message and exit"
   echo "  --config-file      Specify a configuration file (looks in 'config/' directory)"
+  echo "  -y, --yes          Skip confirmation prompt (for automation)"
   echo ""
   echo "Examples:"
   echo "  $(basename "$0")                                   # Uses config/ocp-standard.config"
   echo "  $(basename "$0") --config-file odf-perf.config     # Uses config/odf-perf.config"
+  echo "  $(basename "$0") --yes --config-file prod.config   # Skip confirmation"
   exit 0
 }
 
 # --- 1. ARGUMENT PARSING ---
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  show_usage
-fi
-
+AUTO_CONFIRM=false
 CONFIG_ARG=""
-if [[ "${1:-}" == "--config-file" && -n "${2:-}" ]]; then
-    CONFIG_ARG="$2"
-elif [[ -n "${1:-}" && "${1:-}" != -* ]]; then
-    CONFIG_ARG="$1"
-fi
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            ;;
+        --config-file)
+            if [[ -n "${2:-}" ]]; then
+                CONFIG_ARG="$2"
+                shift 2
+            else
+                echo "❌ ERROR: --config-file requires an argument"
+                exit 1
+            fi
+            ;;
+        -y|--yes)
+            AUTO_CONFIRM=true
+            shift
+            ;;
+        -*)
+            echo "❌ ERROR: Unknown option: $1"
+            show_usage
+            ;;
+        *)
+            CONFIG_ARG="$1"
+            shift
+            ;;
+    esac
+done
 
 # Define the Configuration Directory
 CONFIG_DIR="config"
@@ -563,6 +586,34 @@ if [[ -f "$PROVISIONING_STATE_FILE" ]]; then
 fi
 
 if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
+    # User confirmation before destructive operation
+    if [[ "$AUTO_CONFIRM" != "true" ]]; then
+        echo ""
+        echo "=========================================="
+        echo "OpenShift Cluster Installation"
+        echo "=========================================="
+        echo "Cluster Name:    $CLUSTER_NAME"
+        echo "AWS Region:      $AWS_DEFAULT_REGION"
+        echo "Config File:     $TARGET_CONFIG"
+        echo "GitOps Profile:  $GITOPS_PROFILE_PATH"
+        echo "Install Type:    $INSTALL_TYPE"
+        echo ""
+        echo "⚠️  WARNING: This will DELETE all existing AWS resources"
+        echo "    in the target tenant before installation:"
+        echo "    - VPCs, Subnets, Security Groups"
+        echo "    - EC2 Instances, Load Balancers"
+        echo "    - Route53 Records, S3 Buckets"
+        echo "    - IAM Roles, Secrets Manager Secrets"
+        echo ""
+        read -p "Proceed with installation? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installation cancelled."
+            exit 0
+        fi
+        echo ""
+    fi
+
     echo "Check and clean the AWS tenant..."
     ./scripts/clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
 
