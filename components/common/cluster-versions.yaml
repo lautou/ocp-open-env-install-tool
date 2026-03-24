@@ -8,6 +8,8 @@ metadata:
 data:
   # Observability
   cluster-logging: "stable-6.4"
+  cluster-observability: "stable"
+  grafana: "v5"
   loki: "stable-6.4"
   network-observability: "stable"
   opentelemetry: "stable"
@@ -32,6 +34,7 @@ data:
   devworkspace: "fast"  # Usually coupled with Web Terminal
 
   # Infrastructure & Storage
+  ack-route53: "alpha"
   nfd: "stable"  # Node Feature Discovery
   nfs-provisioner: "alpha"
   
