@@ -41,7 +41,7 @@ data:
 
   # AI
   nvidia-gpu-operator: "v25.10"
-  rhoai: "fast-3.x"
+  rhoai: "stable-3.3"
   kueue: "stable-v1.2"
 
   # Cluster management
