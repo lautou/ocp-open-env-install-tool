@@ -1306,7 +1306,7 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 - Audit procedures
 
 **Current silenced alerts:**
-1. **mlflow-operator TargetDown** - RHOAI mlflow-operator v2.0.0 has broken metrics endpoint ServiceMonitor
+1. **mlflow-operator TargetDown** - RHOAI mlflow-operator v2.0.0 has broken metrics endpoint ServiceMonitor (JIRA: RHOAIENG-54791)
 2. **llama-stack PodDisruptionBudgetAtLimit** - RHOAI llama-stack operator PDB with 1 replica (JIRA: RHAIENG-3783)
 3. **NooBaa database PodDisruptionBudgetAtLimit** - ODF NooBaa single-replica PostgreSQL PDB (JIRA: DFBUGS-5294)
 4. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
@@ -1410,7 +1410,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - RoleBinding: connects SA to Role
 
 3. **Known bugs silenced automatically**:
-   - mlflow-operator TargetDown (broken metrics endpoint)
+   - mlflow-operator TargetDown (broken metrics endpoint) (JIRA: RHOAIENG-54791)
    - llama-stack PodDisruptionBudgetAtLimit (JIRA: RHAIENG-3783)
    - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294)
    - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)

@@ -45,9 +45,10 @@ The mlflow-operator ServiceMonitor targets a metrics endpoint that doesn't exist
 Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't match actual controller manager endpoints.
 
 **Status:**
-- **Reported:** TBD (create upstream issue if needed)
+- **JIRA:** [RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791)
+- **Reported:** Red Hat internal bug tracker
 - **Workaround:** Alert routed to null receiver + Alertmanager silence active
-- **Fix ETA:** Unknown
+- **Fix ETA:** TBD (pending upstream resolution)
 
 **Mitigation Applied:**
 
