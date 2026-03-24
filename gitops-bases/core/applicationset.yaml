@@ -33,6 +33,8 @@ spec:
           - branch: master
             item: ack-route53
           - branch: master
+            item: grafana
+          - branch: master
             item: loki
           - branch: master
             item: nfd
