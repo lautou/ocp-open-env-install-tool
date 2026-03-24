@@ -830,6 +830,33 @@ oc wait pod -n cert-manager \
 - Always wait for pod `Ready` condition when controller initialization matters
 - Deployment conditions only guarantee Deployment resource exists, not pod state
 
+**Dynamic TIMESTAMP in Certificate DNS Names:**
+
+The Job intentionally includes a dynamic TIMESTAMP in Certificate dnsNames to ensure unique DNS records for Let's Encrypt DNS-01 challenges:
+
+```yaml
+dnsNames:
+- "apps.${CLUSTER_DOMAIN}"              # Static - main domain
+- "*.apps.${CLUSTER_DOMAIN}"            # Static - wildcard
+- "apps.${TIMESTAMP}.${CLUSTER_DOMAIN}" # Dynamic - changes on each Job run
+```
+
+**Why TIMESTAMP changes on each run:**
+- ✅ Ensures unique DNS TXT records for ACME DNS-01 challenges
+- ✅ Prevents Let's Encrypt caching issues during Job retriggers
+- ✅ Allows idempotent Job execution without DNS record conflicts
+- ✅ Static DNS names (primary domain and wildcard) remain consistent for actual cluster usage
+
+**Idempotency:**
+- If Certificate exists: `oc apply` updates it with new TIMESTAMP → new Let's Encrypt authorization
+- If Certificate deleted: `oc apply` creates it with new TIMESTAMP → fresh certificate issuance
+- Job is retriggerable (`Force=true`) without issues
+
+**Impact:**
+- Primary certificate purpose (securing `*.apps.${CLUSTER_DOMAIN}`) is unaffected
+- TIMESTAMP DNS name is only used during ACME challenge validation, not for routing
+- Certificate remains valid for same static domains across Job runs
+
 ### OpenShift Data Foundation (ODF)
 
 **Pattern**: Dynamic Job with ConfigMap-driven channel management

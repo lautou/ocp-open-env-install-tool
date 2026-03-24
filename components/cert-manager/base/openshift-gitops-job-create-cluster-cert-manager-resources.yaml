@@ -162,6 +162,9 @@ spec:
               apply_with_retry "ClusterIssuer" "$CLUSTER_ISSUER_YAML"
 
               echo "Generating Ingress Certificate YAML..."
+              # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
+              # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
+              # The static DNS names (apps.${CLUSTER_DOMAIN} and wildcard) remain consistent
               INGRESS_CERT_YAML=$(cat <<EOFINGRESS
               apiVersion: cert-manager.io/v1
               kind: Certificate
@@ -184,6 +187,9 @@ spec:
               apply_with_retry "Ingress Certificate" "$INGRESS_CERT_YAML"
 
               echo "Generating API Certificate YAML..."
+              # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
+              # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
+              # The static DNS name (api.${CLUSTER_DOMAIN}) remains consistent
               API_CERT_YAML=$(cat <<EOFAPI
               apiVersion: cert-manager.io/v1
               kind: Certificate
