@@ -19,6 +19,8 @@ resources:
   - monitoring-service-kube-state-metrics-kuadrant.yaml
   - monitoring-deployment-kube-state-metrics-kuadrant.yaml
   - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
+  - openshift-ingress-telemetry-namespace-metrics.yaml
+  - openshift-ingress-servicemonitor-istiod.yaml
 
 replacements:
   - source:

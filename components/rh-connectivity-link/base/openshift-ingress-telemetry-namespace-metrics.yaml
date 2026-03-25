@@ -1,0 +1,30 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: namespace-metrics
+  namespace: openshift-ingress
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: REQUEST_COUNT
+      tagOverrides:
+        destination_port:
+          value: "string(destination.port)"
+        request_host:
+          value: "request.host"
+        request_url_path:
+          value: "request.url_path"
+    - match:
+        metric: REQUEST_DURATION
+      tagOverrides:
+        destination_port:
+          value: "string(destination.port)"
+        request_host:
+          value: "request.host"
+        request_url_path:
+          value: "request.url_path"

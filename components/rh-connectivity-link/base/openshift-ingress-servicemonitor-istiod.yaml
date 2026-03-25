@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: istiod
+  namespace: openshift-ingress
+spec:
+  namespaceSelector:
+    matchNames:
+    - openshift-ingress
+  selector:
+    matchLabels:
+      app: istiod
+  endpoints:
+  - port: http-monitoring
