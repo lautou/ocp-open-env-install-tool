@@ -612,6 +612,10 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
 
    - **ServiceAccount**: `grafana-datasource` with `cluster-monitoring-view` ClusterRole
      - Allows Grafana to query Prometheus/Thanos
+     - **Token Secret**: Explicit Secret with `kubernetes.io/service-account-token` type
+       - Required in OpenShift 4.11+ (ServiceAccount tokens no longer auto-created)
+       - Secret: `monitoring-secret-grafana-datasource-token.yaml`
+       - Annotation: `kubernetes.io/service-account.name: grafana-datasource`
 
    - **6 GrafanaDashboard CRs**: Complete dashboards from Kuadrant v1.3.0
      - `platform-engineer` - Platform engineer focused metrics (72KB JSON)
@@ -624,6 +628,12 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
    - **ConfigMapGenerator**: Creates ConfigMaps from dashboard JSON files
      - Source: https://github.com/Kuadrant/kuadrant-operator/tree/v1.3.0/examples/dashboards
      - Total: 192KB of dashboard definitions
+
+   - **Configuration Job**: `configure-grafana-datasource-token` (PostSync wave 3)
+     - Extracts Thanos Querier Route URL from `openshift-monitoring` namespace
+     - Waits for ServiceAccount token Secret to be created
+     - Patches GrafanaDatasource with dynamic Route URL and bearer token
+     - Uses oc CLI (no jq dependency required)
 
 **Metrics Flow:**
 - kube-state-metrics → exports Gateway API/Kuadrant policy state metrics
