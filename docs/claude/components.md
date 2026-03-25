@@ -539,6 +539,65 @@ Operator channels are managed via `cluster-versions` ConfigMap:
 
 Kustomize replacements automatically inject channel versions during build.
 
+**Observability Configuration:**
+
+The RHCL component includes comprehensive observability for Gateway API and Kuadrant resources:
+
+1. **Kuadrant Observability Enabled:**
+   ```yaml
+   # components/rh-connectivity-link/base/kuadrant-system-kuadrant-kuadrant.yaml
+   spec:
+     observability:
+       enable: true
+   ```
+
+2. **kube-state-metrics for Gateway API:**
+
+   Deployed in `monitoring` namespace (without cluster-monitoring label - uses user-workload Prometheus):
+
+   - **CustomResourceStateMetrics ConfigMap**: Defines metrics for Gateway API resources
+     - Gateway (conditions, listeners, addresses)
+     - HTTPRoute (parentRefs, hostnames, rules)
+     - RateLimitPolicy, AuthPolicy, DNSPolicy, TLSPolicy (status conditions)
+
+   - **Deployment**: `kube-state-metrics-kuadrant`
+     - Image: `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.9.2`
+     - Resources: 10m/100m CPU, 190Mi/250Mi memory
+     - Ports: 8081 (main metrics), 8082 (self metrics)
+
+   - **RBAC**: ClusterRole with list/watch permissions for Gateway API and Kuadrant CRDs
+
+   - **ServiceMonitor**: Scraped by user-workload Prometheus (30s interval)
+     - Label drop: Removes pod/service/endpoint/namespace labels from metrics
+     - Two endpoints: main metrics + self metrics
+
+3. **Istio Observability:**
+
+   Enhanced metrics for service mesh traffic in `openshift-ingress` namespace:
+
+   - **Telemetry CR**: Adds custom tags to REQUEST_COUNT and REQUEST_DURATION metrics
+     ```yaml
+     tagOverrides:
+       destination_port: "string(destination.port)"
+       request_host: "request.host"
+       request_url_path: "request.url_path"
+     ```
+
+   - **ServiceMonitor**: Scrapes istiod control plane metrics
+     - Port: http-monitoring
+     - Namespace selector: openshift-ingress
+
+**Metrics Flow:**
+- kube-state-metrics → exports Gateway API/Kuadrant policy state metrics
+- User-workload Prometheus → scrapes kube-state-metrics ServiceMonitor
+- Istio control plane → exports enhanced request metrics via istiod
+- Platform Prometheus → scrapes istiod ServiceMonitor
+
+**Important Notes:**
+- `monitoring` namespace does NOT have `openshift.io/cluster-monitoring: "true"` label
+- RHCL is user-installed, so uses user-workload Prometheus (not platform Prometheus)
+- Platform Prometheus scrapes namespaces WITH the label; user-workload scrapes WITHOUT
+
 **Installation**: Part of the `rh-connectivity-link` gitops-base, included in profiles with API gateway capabilities.
 
 ## Red Hat build of Keycloak (RHBK)
