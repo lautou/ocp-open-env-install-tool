@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kube-state-metrics-kuadrant
+    app.kubernetes.io/part-of: kuadrant
+    app.kubernetes.io/version: 2.5.0
+  name: kube-state-metrics-kuadrant
+  namespace: monitoring
+spec:
+  endpoints:
+  - honorLabels: true
+    interval: 30s
+    port: https-main
+    relabelings:
+    - action: labeldrop
+      regex: (pod|service|endpoint|namespace)
+    scheme: http
+    scrapeTimeout: 30s
+  - interval: 30s
+    port: https-self
+    scheme: http
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: kube-state-metrics-kuadrant
+      app.kubernetes.io/part-of: kuadrant

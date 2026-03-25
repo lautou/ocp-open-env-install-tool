@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../../common
   - cluster-namespace-kuadrant-system.yaml
+  - cluster-namespace-monitoring.yaml
   - kuadrant-system-operatorgroup-rhcl.yaml
   - kuadrant-system-subscription-rhcl-operator.yaml
   - kuadrant-system-subscription-authorino-operator.yaml
@@ -11,6 +12,13 @@ resources:
   - kuadrant-system-subscription-limitador-operator.yaml
   - kuadrant-system-kuadrant-kuadrant.yaml
   - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
+  - monitoring-configmap-custom-resource-state.yaml
+  - monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
+  - cluster-clusterrole-kube-state-metrics-kuadrant.yaml
+  - cluster-clusterrolebinding-kube-state-metrics-kuadrant.yaml
+  - monitoring-service-kube-state-metrics-kuadrant.yaml
+  - monitoring-deployment-kube-state-metrics-kuadrant.yaml
+  - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
 
 replacements:
   - source:

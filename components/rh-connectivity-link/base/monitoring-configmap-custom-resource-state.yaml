@@ -1,0 +1,219 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-resource-state
+  namespace: monitoring
+data:
+  custom-resource-state.yaml: |
+    kind: CustomResourceStateMetrics
+    spec:
+      resources:
+        - groupVersionKind:
+            group: gateway.networking.k8s.io
+            kind: "Gateway"
+            version: "v1beta1"
+          metricNamePrefix: gatewayapi_gateway
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "Gateway information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  gatewayclass_name: [spec, gatewayClassName]
+          - name: "labels"
+            help: "Kubernetes labels converted to Prometheus labels."
+            each:
+              type: Info
+              info:
+                path: [metadata]
+                labelsFromPath:
+                  "*": [labels]
+          - name: "created"
+            help: "created timestamp"
+            each:
+              type: Gauge
+              gauge:
+                path: [metadata, creationTimestamp]
+          - name: "status"
+            help: "status condition"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, conditions]
+                labelsFromPath:
+                  type: ["type"]
+                valueFrom: ["status"]
+          - name: "status_listener_attached_routes"
+            help: "Number of attached routes for a listener"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, listeners]
+                labelsFromPath:
+                  listener_name: ["name"]
+                valueFrom: ["attachedRoutes"]
+        - groupVersionKind:
+            group: gateway.networking.k8s.io
+            kind: "HTTPRoute"
+            version: "v1beta1"
+          metricNamePrefix: gatewayapi_httproute
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "HTTPRoute information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  "*": [metadata, labels]
+          - name: "created"
+            help: "created timestamp"
+            each:
+              type: Gauge
+              gauge:
+                path: [metadata, creationTimestamp]
+          - name: "status_parent_info"
+            help: "HTTPRoute parent status"
+            each:
+              type: Info
+              info:
+                path: [status, parents]
+                labelsFromPath:
+                  parent_group: ["parentRef", "group"]
+                  parent_kind: ["parentRef", "kind"]
+                  parent_name: ["parentRef", "name"]
+                  parent_namespace: ["parentRef", "namespace"]
+        - groupVersionKind:
+            group: kuadrant.io
+            kind: "RateLimitPolicy"
+            version: "v1beta3"
+          metricNamePrefix: kuadrantio_ratelimitpolicy
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "RateLimitPolicy information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  target_kind: [spec, targetRef, kind]
+                  target_name: [spec, targetRef, name]
+          - name: "status"
+            help: "RateLimitPolicy status condition"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, conditions]
+                labelsFromPath:
+                  type: ["type"]
+                valueFrom: ["status"]
+        - groupVersionKind:
+            group: kuadrant.io
+            kind: "AuthPolicy"
+            version: "v1beta2"
+          metricNamePrefix: kuadrantio_authpolicy
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "AuthPolicy information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  target_kind: [spec, targetRef, kind]
+                  target_name: [spec, targetRef, name]
+          - name: "status"
+            help: "AuthPolicy status condition"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, conditions]
+                labelsFromPath:
+                  type: ["type"]
+                valueFrom: ["status"]
+        - groupVersionKind:
+            group: kuadrant.io
+            kind: "DNSPolicy"
+            version: "v1alpha1"
+          metricNamePrefix: kuadrantio_dnspolicy
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "DNSPolicy information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  target_kind: [spec, targetRef, kind]
+                  target_name: [spec, targetRef, name]
+          - name: "status"
+            help: "DNSPolicy status condition"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, conditions]
+                labelsFromPath:
+                  type: ["type"]
+                valueFrom: ["status"]
+        - groupVersionKind:
+            group: kuadrant.io
+            kind: "TLSPolicy"
+            version: "v1alpha1"
+          metricNamePrefix: kuadrantio_tlspolicy
+          labelsFromPath:
+            name:
+            - metadata
+            - name
+            namespace:
+            - metadata
+            - namespace
+          metrics:
+          - name: "info"
+            help: "TLSPolicy information"
+            each:
+              type: Info
+              info:
+                labelsFromPath:
+                  target_kind: [spec, targetRef, kind]
+                  target_name: [spec, targetRef, name]
+          - name: "status"
+            help: "TLSPolicy status condition"
+            each:
+              type: Gauge
+              gauge:
+                path: [status, conditions]
+                labelsFromPath:
+                  type: ["type"]
+                valueFrom: ["status"]

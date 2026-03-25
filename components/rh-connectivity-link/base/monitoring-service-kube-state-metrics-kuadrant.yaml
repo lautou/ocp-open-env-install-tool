@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kube-state-metrics-kuadrant
+    app.kubernetes.io/part-of: kuadrant
+    app.kubernetes.io/version: 2.5.0
+  name: kube-state-metrics-kuadrant
+  namespace: monitoring
+spec:
+  clusterIP: None
+  ports:
+  - name: https-main
+    port: 8081
+    targetPort: https-main
+  - name: https-self
+    port: 8082
+    targetPort: https-self
+  selector:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: kube-state-metrics-kuadrant
+    app.kubernetes.io/part-of: kuadrant
