@@ -7,7 +7,8 @@ resources:
   - cluster-datasciencecluster-default-dsc.yaml
   - cluster-namespace-redhat-ods-applications.yaml
   - cluster-namespace-redhat-ods-operator.yaml
-  - redhat-ods-operator-operatorgroup-rhods-operator.yaml  
+  - openshift-gitops-job-create-maas-gateway.yaml
+  - redhat-ods-operator-operatorgroup-rhods-operator.yaml
   - redhat-ods-operator-subscription-rhods-operator.yaml
 
 replacements:

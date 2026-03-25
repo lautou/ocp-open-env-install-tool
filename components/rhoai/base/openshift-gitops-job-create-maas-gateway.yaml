@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: create-maas-gateway
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: create-maas-gateway
+    spec:
+      containers:
+        - name: create-maas-gateway
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+
+              echo "Fetching cluster domain from DNS CR..."
+              CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
+
+              echo "Creating MaaS Gateway..."
+              cat <<EOF | oc apply -f -
+              apiVersion: gateway.networking.k8s.io/v1
+              kind: Gateway
+              metadata:
+                name: maas-default-gateway
+                namespace: openshift-ingress
+                annotations:
+                  argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+              spec:
+                gatewayClassName: openshift-gateway-controller
+                listeners:
+                  - allowedRoutes:
+                      namespaces:
+                        from: All
+                    hostname: maas-api.apps.${CLUSTER_DOMAIN}
+                    name: https
+                    port: 443
+                    protocol: HTTPS
+                    tls:
+                      certificateRefs:
+                        - group: ''
+                          kind: Secret
+                          name: default-gateway-tls
+                      mode: Terminate
+              EOF
+
+              echo "MaaS Gateway created successfully!"
+      nodeSelector:
+        node-role.kubernetes.io/infra: ""
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
