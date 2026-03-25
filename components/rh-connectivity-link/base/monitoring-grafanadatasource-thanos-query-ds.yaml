@@ -1,0 +1,17 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: thanos-query-ds
+  namespace: monitoring
+spec:
+  datasource:
+    isDefault: true
+    jsonData:
+      httpHeaderName1: Authorization
+      tlsSkipVerify: true
+    name: thanos-query-ds
+    type: prometheus
+    url: https://thanos-querier-openshift-monitoring.apps.placeholder.example.com
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

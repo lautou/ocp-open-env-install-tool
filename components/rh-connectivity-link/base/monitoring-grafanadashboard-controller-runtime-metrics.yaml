@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: controller-runtime-metrics
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: controller-runtime-metrics.json
+    name: grafana-dashboard-controller-runtime-metrics
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

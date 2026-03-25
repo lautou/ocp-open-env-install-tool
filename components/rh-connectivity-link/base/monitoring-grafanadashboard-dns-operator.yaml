@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: dns-operator
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: dns-operator.json
+    name: grafana-dashboard-dns-operator
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

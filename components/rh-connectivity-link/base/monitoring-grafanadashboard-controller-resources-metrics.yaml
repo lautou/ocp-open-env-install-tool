@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: controller-resources-metrics
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: controller-resources-metrics.json
+    name: grafana-dashboard-controller-resources-metrics
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

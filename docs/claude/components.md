@@ -541,7 +541,7 @@ Kustomize replacements automatically inject channel versions during build.
 
 **Observability Configuration:**
 
-The RHCL component includes comprehensive observability for Gateway API and Kuadrant resources:
+The RHCL component includes comprehensive observability for Gateway API and Kuadrant resources, following upstream Kuadrant v1.2.0 configuration with OpenShift adaptations.
 
 1. **Kuadrant Observability Enabled:**
    ```yaml
@@ -551,14 +551,23 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
        enable: true
    ```
 
+   **Auto-creates 5 ServiceMonitors in `kuadrant-system` namespace**:
+   - `authorino-operator-monitor` - Authorino operator metrics
+   - `dns-operator-monitor` - DNS operator metrics
+   - `kuadrant-authorino-monitor` - Authorino instance metrics
+   - `kuadrant-operator-monitor` - Kuadrant operator metrics
+   - `limitador-operator-monitor` - Limitador operator metrics
+
 2. **kube-state-metrics for Gateway API:**
 
    Deployed in `monitoring` namespace (without cluster-monitoring label - uses user-workload Prometheus):
 
-   - **CustomResourceStateMetrics ConfigMap**: Defines metrics for Gateway API resources
-     - Gateway (conditions, listeners, addresses)
-     - HTTPRoute (parentRefs, hostnames, rules)
-     - RateLimitPolicy, AuthPolicy, DNSPolicy, TLSPolicy (status conditions)
+   - **CustomResourceStateMetrics ConfigMap**: Defines metrics for 14 resource types
+     - **Gateway API** (8): Gateway, GatewayClass, HTTPRoute, GRPCRoute, TCPRoute, TLSRoute, UDPRoute, BackendTLSPolicy
+     - **Kuadrant Policies** (4): RateLimitPolicy, AuthPolicy, DNSPolicy, TLSPolicy
+     - **Kuadrant DNS** (2): DNSRecord, DNSHealthCheckProbe
+     - **Source**: `gateway-api-state-metrics` v0.7.0
+     - **API Versions**: Uses v1 for all Kuadrant policies (matches deployed CRDs)
 
    - **Deployment**: `kube-state-metrics-kuadrant`
      - Image: `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.9.2`
@@ -585,18 +594,54 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
 
    - **ServiceMonitor**: Scrapes istiod control plane metrics
      - Port: http-monitoring
-     - Namespace selector: openshift-ingress
+     - Namespace: openshift-ingress (OpenShift OSSM location, not upstream's gateway-system)
+
+4. **Grafana Observability Stack:**
+
+   Complete Grafana deployment in `monitoring` namespace:
+
+   - **Grafana Instance**: Minimal CR using Grafana Operator defaults
+     - Label: `dashboards: grafana` (for instance selection)
+     - Managed by Grafana Operator (already deployed in core ApplicationSet)
+
+   - **GrafanaDatasource**: Thanos Querier connection
+     - Type: prometheus (default datasource)
+     - URL: Dynamically set to Thanos Querier Route (not Service)
+     - Auth: Bearer token from ServiceAccount
+     - Job configures URL + token dynamically at deployment
+
+   - **ServiceAccount**: `grafana-datasource` with `cluster-monitoring-view` ClusterRole
+     - Allows Grafana to query Prometheus/Thanos
+
+   - **6 GrafanaDashboard CRs**: Complete dashboards from Kuadrant v1.3.0
+     - `platform-engineer` - Platform engineer focused metrics (72KB JSON)
+     - `business-user` - Business user analytics (23KB JSON)
+     - `controller-resources-metrics` - Controller resource utilization (8KB JSON)
+     - `controller-runtime-metrics` - Controller runtime performance (20KB JSON)
+     - `app-developer` - Application development metrics (46KB JSON)
+     - `dns-operator` - DNS operator monitoring (23KB JSON)
+
+   - **ConfigMapGenerator**: Creates ConfigMaps from dashboard JSON files
+     - Source: https://github.com/Kuadrant/kuadrant-operator/tree/v1.3.0/examples/dashboards
+     - Total: 192KB of dashboard definitions
 
 **Metrics Flow:**
 - kube-state-metrics → exports Gateway API/Kuadrant policy state metrics
 - User-workload Prometheus → scrapes kube-state-metrics ServiceMonitor
 - Istio control plane → exports enhanced request metrics via istiod
 - Platform Prometheus → scrapes istiod ServiceMonitor
+- Grafana → queries Thanos Querier (aggregates platform + user-workload Prometheus)
 
 **Important Notes:**
 - `monitoring` namespace does NOT have `openshift.io/cluster-monitoring: "true"` label
 - RHCL is user-installed, so uses user-workload Prometheus (not platform Prometheus)
 - Platform Prometheus scrapes namespaces WITH the label; user-workload scrapes WITHOUT
+- Operator ServiceMonitors are auto-created by Kuadrant CR (not static manifests)
+- GrafanaDatasource uses Thanos Querier Route URL (per RHCL 1.3 docs), not Service URL
+
+**Known Issue - API Version Fix Applied:**
+
+The upstream `gateway-api-state-metrics` v0.7.0 expects Kuadrant v1 APIs, which RHCL 1.3 now deploys. Our implementation correctly uses v1 API versions for all Kuadrant policies (RateLimitPolicy, AuthPolicy, DNSPolicy, TLSPolicy), ensuring kube-state-metrics can collect policy metrics. Earlier versions used incorrect API versions (v1beta2/v1beta3/v1alpha1) which prevented metrics collection.
 
 **Installation**: Part of the `rh-connectivity-link` gitops-base, included in profiles with API gateway capabilities.
 

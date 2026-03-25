@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "3"
+  name: configure-grafana-datasource-token
+  namespace: openshift-gitops
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Extracting Thanos Querier Route URL..."
+          HOST=$(oc -n openshift-monitoring get route thanos-querier -o jsonpath='https://{.status.ingress[0].host}')
+
+          if [ -z "$HOST" ]; then
+            echo "ERROR: Thanos Querier Route not found"
+            exit 1
+          fi
+          echo "Thanos Querier URL: $HOST"
+
+          echo "Waiting for grafana-datasource ServiceAccount..."
+          oc wait serviceaccount grafana-datasource -n monitoring --for=jsonpath='{.secrets}' --timeout=120s
+
+          echo "Waiting for ServiceAccount token secret to be created..."
+          for i in {1..30}; do
+            TOKEN_SECRET=$(oc get serviceaccount grafana-datasource -n monitoring -o jsonpath='{.secrets[?(@.name=="grafana-datasource-token")].name}' 2>/dev/null || echo "")
+            if [ -z "$TOKEN_SECRET" ]; then
+              # Fallback: look for token-* pattern secrets
+              TOKEN_SECRET=$(oc get secrets -n monitoring -o json | jq -r '.items[] | select(.metadata.name | startswith("grafana-datasource-token-")) | .metadata.name' | head -1)
+            fi
+            if [ -n "$TOKEN_SECRET" ]; then
+              echo "Found token secret: $TOKEN_SECRET"
+              break
+            fi
+            echo "Token secret not found, waiting... (attempt $i/30)"
+            sleep 2
+          done
+
+          if [ -z "$TOKEN_SECRET" ]; then
+            echo "ERROR: ServiceAccount token secret not found after 60 seconds"
+            exit 1
+          fi
+
+          echo "Extracting token from secret $TOKEN_SECRET..."
+          TOKEN=$(oc get secret "$TOKEN_SECRET" -n monitoring -o jsonpath='{.data.token}' | base64 -d)
+
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Token is empty"
+            exit 1
+          fi
+
+          echo "Waiting for GrafanaDatasource to exist..."
+          oc wait grafanadatasource thanos-query-ds -n monitoring --for=jsonpath='{.metadata.name}' --timeout=60s
+
+          echo "Patching GrafanaDatasource with Route URL and Bearer token..."
+          oc patch grafanadatasource thanos-query-ds -n monitoring --type=merge -p "{\"spec\":{\"datasource\":{\"url\":\"$HOST\",\"secureJsonData\":{\"httpHeaderValue1\":\"Bearer $TOKEN\"}}}}"
+
+          echo "GrafanaDatasource configured successfully with URL: $HOST"
+        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        name: configure-datasource
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

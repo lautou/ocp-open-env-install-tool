@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: platform-engineer
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: platform_engineer.json
+    name: grafana-dashboard-platform-engineer
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

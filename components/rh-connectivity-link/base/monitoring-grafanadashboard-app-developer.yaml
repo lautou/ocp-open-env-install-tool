@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: app-developer
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: app_developer.json
+    name: grafana-dashboard-app-developer
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

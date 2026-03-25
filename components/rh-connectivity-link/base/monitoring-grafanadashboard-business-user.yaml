@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: business-user
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: business_user.json
+    name: grafana-dashboard-business-user
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

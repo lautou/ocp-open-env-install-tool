@@ -21,6 +21,17 @@ resources:
   - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
   - openshift-ingress-telemetry-namespace-metrics.yaml
   - openshift-ingress-servicemonitor-istiod.yaml
+  - monitoring-grafana-grafana.yaml
+  - monitoring-grafanadatasource-thanos-query-ds.yaml
+  - monitoring-serviceaccount-grafana-datasource.yaml
+  - cluster-clusterrolebinding-grafana-datasource-monitoring-view.yaml
+  - openshift-gitops-job-configure-grafana-datasource-token.yaml
+  - monitoring-grafanadashboard-platform-engineer.yaml
+  - monitoring-grafanadashboard-business-user.yaml
+  - monitoring-grafanadashboard-controller-resources-metrics.yaml
+  - monitoring-grafanadashboard-controller-runtime-metrics.yaml
+  - monitoring-grafanadashboard-app-developer.yaml
+  - monitoring-grafanadashboard-dns-operator.yaml
 
 replacements:
   - source:
@@ -63,3 +74,32 @@ replacements:
           name: limitador-operator-stable-redhat-operators-openshift-marketplace
         fieldPaths:
           - spec.channel
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: grafana-dashboard-platform-engineer
+    namespace: monitoring
+    files:
+      - grafana-dashboards/platform_engineer.json
+  - name: grafana-dashboard-business-user
+    namespace: monitoring
+    files:
+      - grafana-dashboards/business_user.json
+  - name: grafana-dashboard-controller-resources-metrics
+    namespace: monitoring
+    files:
+      - grafana-dashboards/controller-resources-metrics.json
+  - name: grafana-dashboard-controller-runtime-metrics
+    namespace: monitoring
+    files:
+      - grafana-dashboards/controller-runtime-metrics.json
+  - name: grafana-dashboard-app-developer
+    namespace: monitoring
+    files:
+      - grafana-dashboards/app_developer.json
+  - name: grafana-dashboard-dns-operator
+    namespace: monitoring
+    files:
+      - grafana-dashboards/dns-operator.json
