@@ -40,3 +40,13 @@ spec:
             - /metadata/labels
             - /metadata/annotations
             - /metadata/ownerReferences
+        - group: opendatahub.io
+          kind: OdhDashboardConfig
+          name: odh-dashboard-config
+          jsonPointers:
+            - /metadata/annotations
+            - /metadata/labels
+            - /metadata/ownerReferences
+            - /spec/hardwareProfileOrder
+            - /spec/templateDisablement
+            - /spec/templateOrder
