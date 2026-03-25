@@ -33,8 +33,8 @@ spec:
           for i in {1..30}; do
             TOKEN_SECRET=$(oc get serviceaccount grafana-datasource -n monitoring -o jsonpath='{.secrets[?(@.name=="grafana-datasource-token")].name}' 2>/dev/null || echo "")
             if [ -z "$TOKEN_SECRET" ]; then
-              # Fallback: look for token-* pattern secrets
-              TOKEN_SECRET=$(oc get secrets -n monitoring -o json | jq -r '.items[] | select(.metadata.name | startswith("grafana-datasource-token-")) | .metadata.name' | head -1)
+              # Fallback: look for token secrets (with or without suffix)
+              TOKEN_SECRET=$(oc get secrets -n monitoring -o name 2>/dev/null | grep "grafana-datasource-token" | head -1 | cut -d'/' -f2)
             fi
             if [ -n "$TOKEN_SECRET" ]; then
               echo "Found token secret: $TOKEN_SECRET"
