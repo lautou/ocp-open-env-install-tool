@@ -3,6 +3,4 @@ kind: OperatorGroup
 metadata:
   name: rhbk-operator
   namespace: keycloak
-spec:
-  targetNamespaces:
-    - keycloak
+spec: {}
