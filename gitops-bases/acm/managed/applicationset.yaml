@@ -5,19 +5,22 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-    - list:
-        elements:
-          - branch: master
-            item: rhacm
+  - list:
+      elements:
+      - branch: master
+        item: rhacm
   template:
     metadata:
       name: '{{item}}'
     spec:
       project: default
-      source:
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/managed
-        targetRevision: '{{branch}}'
+      source: !!python/object/apply:collections.OrderedDict
+      - - - path
+          - components/{{item}}/overlays/managed
+        - - repoURL
+          - https://github.com/lautou/ocp-open-env-install-tool.git
+        - - targetRevision
+          - '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
@@ -27,15 +30,23 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-        - group: ""
-          kind: ConfigMap
-          name: cluster-versions
-          jsonPointers:
-            - /metadata/labels
-            - /metadata/annotations
-            - /metadata/ownerReferences
-        - group: ""
-          kind: ServiceAccount
-          name: klusterlet
-          jqPathExpressions:
-            - '.imagePullSecrets[] | select(.name | startswith("klusterlet-dockercfg-"))'
+      - !!python/object/apply:collections.OrderedDict
+        - - - group
+            - ''
+          - - jsonPointers
+            - - /metadata/labels
+              - /metadata/annotations
+              - /metadata/ownerReferences
+          - - kind
+            - ConfigMap
+          - - name
+            - cluster-versions
+      - !!python/object/apply:collections.OrderedDict
+        - - - group
+            - ''
+          - - jqPathExpressions
+            - - .imagePullSecrets[] | select(.name | startswith("klusterlet-dockercfg-"))
+          - - kind
+            - ServiceAccount
+          - - name
+            - klusterlet

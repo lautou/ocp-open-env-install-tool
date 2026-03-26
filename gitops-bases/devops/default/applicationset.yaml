@@ -5,23 +5,26 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-    - list:
-        elements:
-          - branch: master
-            item: openshift-pipelines
-          - branch: master
-            item: webterminal
+  - list:
+      elements:
+      - branch: master
+        item: openshift-pipelines
+      - branch: master
+        item: webterminal
   template:
     metadata:
       finalizers:
-        - resources-finalizer.argocd.argoproj.io/background
+      - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
       project: default
-      source:
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/default
-        targetRevision: '{{branch}}'
+      source: !!python/object/apply:collections.OrderedDict
+      - - - path
+          - components/{{item}}/overlays/default
+        - - repoURL
+          - https://github.com/lautou/ocp-open-env-install-tool.git
+        - - targetRevision
+          - '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:

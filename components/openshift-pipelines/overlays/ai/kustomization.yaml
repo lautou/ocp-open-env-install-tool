@@ -1,52 +1,52 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../base
-  - cluster-namespace-openshift-pipelines-operator.yaml
-  - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
+- ../../base
+- cluster-namespace-openshift-pipelines-operator.yaml
+- openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
 patches:
-  - target:
-      kind: Namespace
-      name: openshift-operators
-    patch: |-
-      - op: replace
-        path: /metadata/name
-        value: openshift-pipelines-operator
-  - target:
-      kind: OperatorGroup
-      name: openshift-operators
-    patch: |-
-      - op: replace
-        path: /metadata/name
-        value: openshift-pipelines-operator
-      - op: replace
-        path: /metadata/namespace
-        value: openshift-pipelines-operator
-  - target:
-      kind: Subscription
-      name: openshift-pipelines-operator
-    patch: |-
-      - op: replace
-        path: /metadata/namespace
-        value: openshift-pipelines-operator
-  - target:
-      kind: TektonConfig
-    patch: |-
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  - target:
-      kind: ConfigMap
-      name: cluster-versions
-    patch: |-
-      - op: replace
-        path: /metadata/namespace
-        value: openshift-pipelines-operator
-  - target:
-      kind: Job
-      name: enable-pipelines-console-plugin
-    patch: |-
-      - op: replace
-        path: /metadata/namespace
-        value: openshift-gitops
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: openshift-pipelines-operator
+  target:
+    kind: Namespace
+    name: openshift-operators
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: openshift-pipelines-operator
+    - op: replace
+      path: /metadata/namespace
+      value: openshift-pipelines-operator
+  target:
+    kind: OperatorGroup
+    name: openshift-operators
+- patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: openshift-pipelines-operator
+  target:
+    kind: Subscription
+    name: openshift-pipelines-operator
+- patch: |-
+    - op: add
+      path: /metadata/annotations
+      value:
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  target:
+    kind: TektonConfig
+- patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: openshift-pipelines-operator
+  target:
+    kind: ConfigMap
+    name: cluster-versions
+- patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: openshift-gitops
+  target:
+    kind: Job
+    name: enable-pipelines-console-plugin

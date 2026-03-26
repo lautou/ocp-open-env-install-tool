@@ -5,21 +5,24 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-    - list:
-        elements:
-          - branch: master
-            item: openshift-storage
+  - list:
+      elements:
+      - branch: master
+        item: openshift-storage
   template:
     metadata:
       finalizers:
-        - resources-finalizer.argocd.argoproj.io/background
+      - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
       project: default
-      source:
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/mcg-only
-        targetRevision: '{{branch}}'
+      source: !!python/object/apply:collections.OrderedDict
+      - - - path
+          - components/{{item}}/overlays/mcg-only
+        - - repoURL
+          - https://github.com/lautou/ocp-open-env-install-tool.git
+        - - targetRevision
+          - '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
@@ -29,10 +32,14 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-        - group: ""
-          kind: ConfigMap
-          name: cluster-versions
-          jsonPointers:
-            - /metadata/labels
-            - /metadata/annotations
-            - /metadata/ownerReferences
+      - !!python/object/apply:collections.OrderedDict
+        - - - group
+            - ''
+          - - jsonPointers
+            - - /metadata/labels
+              - /metadata/annotations
+              - /metadata/ownerReferences
+          - - kind
+            - ConfigMap
+          - - name
+            - cluster-versions

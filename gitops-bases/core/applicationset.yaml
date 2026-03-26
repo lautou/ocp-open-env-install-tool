@@ -5,71 +5,62 @@ metadata:
   namespace: openshift-gitops
 spec:
   generators:
-    - list:
-      # Comment / Uncomment the ArgoCD applications you don't want / want to install
-        elements:
-          - branch: master
-            item: cert-manager
-          - branch: master
-            item: keycloak
-          - branch: master
-            item: cluster-autoscaler
-          - branch: master
-            item: cluster-images-registry
-           # DON'T COMMENT cluster-ingress or it could break other modules installation!
-          - branch: master
-            item: cluster-ingress
-          - branch: master
-            item: cluster-monitoring
-          - branch: master
-            item: cluster-network
-          # DON'T COMMENT cluster-oauth in order to get the admin access to the cluster!
-          - branch: master
-            item: cluster-oauth
-          - branch: master
-            item: cluster-observability
-        # - branch: master
-        #   item: developer-gitops
-          - branch: master
-            item: ack-route53
-          - branch: master
-            item: grafana
-          - branch: master
-            item: loki
-          - branch: master
-            item: nfd
-        # - branch: master
-        #   item: nfs
-          - branch: master
-            item: openshift-builds
-          # DON'T COMMENT openshift-config or it could break other modules installation!
-          - branch: master
-            item: openshift-config
-        # NEVER COMMENT OR REMOVE openshift-gitops otherwise most of modules will fail to be installed!
-          - branch: master
-            item: openshift-gitops-admin-config
-          # DON'T COMMENT openshift-operators or it could break other modules installation!
-          - branch: master
-            item: openshift-operators
-          - branch: master
-            item: opentelemetry
-        #  - branch: master
-        #    item: sealed-secrets
-          - branch: master
-            item: tempo
-          - branch: master
-            item: user-workload-monitoring
+  - list:
+      elements:
+      - branch: master
+        item: cert-manager
+      - branch: master
+        item: keycloak
+      - branch: master
+        item: cluster-autoscaler
+      - branch: master
+        item: cluster-images-registry
+      - branch: master
+        item: cluster-ingress
+      - branch: master
+        item: cluster-monitoring
+      - branch: master
+        item: cluster-network
+      - branch: master
+        item: cluster-oauth
+      - branch: master
+        item: cluster-observability
+      - branch: master
+        item: ack-route53
+      - branch: master
+        item: grafana
+      - branch: master
+        item: loki
+      - branch: master
+        item: nfd
+      - branch: master
+        item: openshift-builds
+      - branch: master
+        item: openshift-config
+      - branch: master
+        item: openshift-gitops-admin-config
+      - branch: master
+        item: openshift-operators
+      - branch: master
+        item: opentelemetry
+      - branch: master
+        item: tempo
+      - branch: master
+        item: user-workload-monitoring
   template:
     metadata:
       finalizers:
-        - resources-finalizer.argocd.argoproj.io/background
+      - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
       project: default
-      source:
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        path: components/{{item}}/overlays/default
-        targetRevision: '{{branch}}'
+      source: !!python/object/apply:collections.OrderedDict
+      - - - path
+          - components/{{item}}/overlays/default
+        - - repoURL
+          - https://github.com/lautou/ocp-open-env-install-tool.git
+        - - targetRevision
+          - '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
@@ -79,18 +70,26 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-        - group: ""
-          kind: ConfigMap
-          name: cluster-versions
-          jsonPointers:
-            - /metadata/labels
-            - /metadata/annotations
-            - /metadata/ownerReferences
-        - group: config.openshift.io
-          kind: Network
-          name: cluster
-          jsonPointers:
-            - /spec/clusterNetwork
-            - /spec/serviceNetwork
-            - /spec/networkType
-            - /spec/externalIP
+      - !!python/object/apply:collections.OrderedDict
+        - - - group
+            - ''
+          - - jsonPointers
+            - - /metadata/labels
+              - /metadata/annotations
+              - /metadata/ownerReferences
+          - - kind
+            - ConfigMap
+          - - name
+            - cluster-versions
+      - !!python/object/apply:collections.OrderedDict
+        - - - group
+            - config.openshift.io
+          - - jsonPointers
+            - - /spec/clusterNetwork
+              - /spec/serviceNetwork
+              - /spec/networkType
+              - /spec/externalIP
+          - - kind
+            - Network
+          - - name
+            - cluster
