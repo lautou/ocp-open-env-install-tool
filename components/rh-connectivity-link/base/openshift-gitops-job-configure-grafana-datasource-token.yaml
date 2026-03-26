@@ -17,13 +17,8 @@ spec:
         - |
           set -e
 
-          echo "Extracting Thanos Querier Route URL..."
-          HOST=$(oc -n openshift-monitoring get route thanos-querier -o jsonpath='https://{.status.ingress[0].host}')
-
-          if [ -z "$HOST" ]; then
-            echo "ERROR: Thanos Querier Route not found"
-            exit 1
-          fi
+          echo "Using Thanos Querier internal service URL..."
+          HOST="https://thanos-querier.openshift-monitoring.svc:9091"
           echo "Thanos Querier URL: $HOST"
 
           echo "Waiting for grafana-datasource ServiceAccount..."

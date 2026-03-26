@@ -11,7 +11,7 @@ spec:
       tlsSkipVerify: true
     name: thanos-query-ds
     type: prometheus
-    url: https://thanos-querier-openshift-monitoring.apps.placeholder.example.com
+    url: https://thanos-querier.openshift-monitoring.svc:9091
   instanceSelector:
     matchLabels:
       dashboards: grafana
