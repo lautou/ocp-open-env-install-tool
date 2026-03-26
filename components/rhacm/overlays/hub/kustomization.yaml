@@ -11,7 +11,7 @@ resources:
 - cluster-clustermanagementaddon-search-collector.yaml
 - cluster-clustermanagementaddon-work-manager.yaml
 - cluster-clusterrole-edit-clustermanagementaddon.yaml
-- cluster-crb-edit-clustermanagementaddon-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+- cluster-crb-acm-clustermanagementaddon-edit.yaml
 - cluster-namespace-open-cluster-management-hub.yaml
 - cluster-namespace-open-cluster-management.yaml
 - open-cluster-management-hub-addondeploymentconfig-deploy-config.yaml

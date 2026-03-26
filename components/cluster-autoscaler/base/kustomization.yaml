@@ -4,6 +4,6 @@ kind: Kustomization
 resources:
   - cluster-clusterautoscaler-default.yaml
   - cluster-clusterrole-edit-clusterautoscaler.yaml
-  - cluster-crb-edit-clusterautoscaler-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-autoscaler-clusterautoscaler-edit.yaml
   - openshift-gitops-configmap-machineautoscaler.yaml 
   - openshift-gitops-job-create-gpu-machineset.yaml

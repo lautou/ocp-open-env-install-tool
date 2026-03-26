@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
 - cluster-namespace-developer-gitops.yaml
 - developer-gitops-argocd-argocd.yaml
-- developer-gitops-rb-argocds.argoproj.io-v1beta1-admin-openshift-gitops-argocd-application-controller.yaml
+- developer-gitops-rb-argocd-admin.yaml
