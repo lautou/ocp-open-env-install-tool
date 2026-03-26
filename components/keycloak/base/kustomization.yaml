@@ -9,9 +9,7 @@ resources:
 - databases-keycloak-secret-keycloak-db.yaml
 - databases-keycloak-service-keycloak-db.yaml
 - databases-keycloak-serviceaccount-keycloak-db.yaml
-- keycloak-keycloak-keycloak.yaml
 - keycloak-operatorgroup-rhbk-operator.yaml
-- keycloak-route-keycloak.yaml
 - keycloak-secret-keycloak-db-secret.yaml
 - keycloak-subscription-rhbk-operator.yaml
 replacements:
