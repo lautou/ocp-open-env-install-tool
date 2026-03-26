@@ -236,7 +236,7 @@ ignoreDifferences:
 - ACK Route53 - Dynamic config injection Job
 - Cluster Observability - Required namespace label
 - RHCL (Kuadrant) - 4 operators, OLM-generated names, complete observability stack (kube-state-metrics, Grafana, operator ServiceMonitors)
-- Keycloak (RHBK) - PostgreSQL database, hostname auto-detection
+- Keycloak (RHBK) - Operator subscription only (no instances deployed)
 - RHOAI - DataScienceCluster, OdhDashboardConfig direct management, MaaS Gateway
 
 **Troubleshooting components**: See [troubleshooting.md](docs/claude/troubleshooting.md)

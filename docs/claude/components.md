@@ -690,148 +690,74 @@ The upstream `gateway-api-state-metrics` v0.7.0 expects Kuadrant v1 APIs, which 
 
 ## Red Hat build of Keycloak (RHBK)
 
-**Purpose**: Provides enterprise-grade identity and access management (IAM) with SSO, authentication, and authorization capabilities.
+**Status**: ⚠️ **Operator installed, no instances deployed**
 
-**Installation**: Deployed in `keycloak` namespace with dedicated PostgreSQL database in `databases-keycloak` namespace.
+**Purpose**: Red Hat build of Keycloak (RHBK) operator is available for enterprise-grade identity and access management (IAM) with SSO, authentication, and authorization capabilities.
+
+**Current Configuration**: Minimal operator-only deployment without Keycloak instances or database.
 
 **Namespace**: `keycloak`
 
-**OperatorGroup**: `rhbk-operator`
-- Target namespaces: `keycloak` only (single-namespace mode)
-- Keycloak CRs can only be created in `keycloak` namespace
+**What's Deployed:**
 
-**Operator Subscription:**
+The component contains minimal infrastructure to enable quick Keycloak instance deployment when needed:
 
-```yaml
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: rhbk-operator
-  namespace: keycloak
-spec:
-  channel: stable-v26.4
-  config:
-    nodeSelector:
-      node-role.kubernetes.io/infra: ""
-    tolerations:
-      - key: node-role.kubernetes.io/infra
-        operator: Exists
-  name: rhbk-operator
-  source: redhat-operators
-```
+1. **RHBK Operator Subscription**:
+   ```yaml
+   apiVersion: operators.coreos.com/v1alpha1
+   kind: Subscription
+   metadata:
+     name: rhbk-operator
+     namespace: keycloak
+   spec:
+     channel: stable-v26.4
+     name: rhbk-operator
+     source: redhat-operators
+     config:
+       nodeSelector:
+         node-role.kubernetes.io/infra: ""
+       tolerations:
+       - key: node-role.kubernetes.io/infra
+         operator: Exists
+   ```
+
+2. **OperatorGroup**: `rhbk-operator`
+   - Target namespaces: `keycloak` only (single-namespace mode)
+   - Keycloak CRs can only be created in `keycloak` namespace
+
+3. **Namespace**: `keycloak`
+   - Ready for Keycloak instance deployment
 
 **Infrastructure Node Placement:**
 
 RHBK operator pods run on infrastructure nodes via subscription nodeSelector and tolerations.
-
-**PostgreSQL Database:**
-
-The component includes a dedicated PostgreSQL 13 database for Keycloak in the `databases-keycloak` namespace:
-
-**Namespace**: `databases-keycloak`
-- Separate namespace for database isolation
-- Label: `argocd.argoproj.io/managed-by: openshift-gitops`
-
-**Database Resources:**
-
-1. **Secret**: `keycloak-db`
-   - Credentials: `keycloak/keycloak` (user/password)
-   - Database name: `keycloak`
-   - No sync-wave annotations (simple deployment)
-
-2. **PersistentVolumeClaim**: `keycloak-db`
-   - Storage: 5Gi
-   - Access Mode: ReadWriteOnce
-
-3. **Service**: `keycloak-db`
-   - Port: 5432 (postgresql)
-   - Type: ClusterIP
-   - Selector: `app.kubernetes.io/name: keycloak-db`
-
-4. **Deployment**: `keycloak-db`
-   - Image: `registry.redhat.io/rhel8/postgresql-13:1`
-   - Replicas: 1
-   - Strategy: Recreate (single replica database)
-   - Resources: 100m/128Mi request, 250m/256Mi limit
-   - Probes: liveness (tcpSocket), readiness (psql exec)
-   - Volume: Persistent storage at `/var/lib/pgsql/data`
-
-**Database Connection Details:**
-
-```
-Host: keycloak-db.databases-keycloak.svc
-Port: 5432
-Database: keycloak
-Username: keycloak
-Password: keycloak
-
-JDBC URL: jdbc:postgresql://keycloak-db.databases-keycloak.svc:5432/keycloak
-```
 
 **Version Management:**
 
 Operator channel managed via `cluster-versions` ConfigMap:
 - `rhbk-operator: stable-v26.4`
 
-**Design Decisions:**
+**What's NOT Deployed:**
 
-1. **Separate Database Namespace**: Isolates database from Keycloak application for security and organization
-2. **Single Replica Database**: Recreate strategy ensures data consistency (acceptable for demo/lab environments)
-3. **Minimal Labels/Annotations**: Clean manifests without unnecessary metadata
-4. **Infrastructure Node Placement**: Operator pods on infra nodes (database on worker nodes - acceptable for demo/lab)
-5. **Plain Secret**: Database credentials in unencrypted secret (acceptable for demo/lab with 30h lifespan)
+- ❌ No Keycloak CR instances
+- ❌ No PostgreSQL database
+- ❌ No Routes
+- ❌ No services (except operator)
 
-**Keycloak Instance Configuration:**
+**Why This Configuration:**
 
-The component deploys a Keycloak CR with the following configuration:
+This minimal setup provides the operator infrastructure while keeping resource usage minimal. Keycloak instances can be added on-demand by:
+1. Adding a Keycloak CR to the component
+2. Optionally adding a PostgreSQL database
+3. Creating a Route for external access
 
-```yaml
-spec:
-  instances: 1
-  db:
-    vendor: postgres
-    host: keycloak-db.databases-keycloak.svc
-    database: keycloak
-    usernameSecret: {name: keycloak-db-secret, key: database-user}
-    passwordSecret: {name: keycloak-db-secret, key: database-password}
-  http:
-    httpEnabled: true  # Backend uses HTTP (route does TLS termination)
-  ingress:
-    enabled: false     # Using OpenShift Route instead
-  hostname:
-    strict: false      # Auto-detect hostname from incoming requests
-```
+**To Deploy a Keycloak Instance:**
 
-**Route Configuration:**
-
-```yaml
-spec:
-  port:
-    targetPort: http   # Service exposes HTTP on port 8080
-  tls:
-    termination: edge  # TLS termination at route level
-    insecureEdgeTerminationPolicy: Redirect
-  to:
-    kind: Service
-    name: keycloak-service
-```
-
-**Hostname Management:**
-
-Keycloak uses `hostname.strict: false` to **auto-detect the hostname from incoming HTTP requests**. This eliminates the need for:
-- ❌ Hardcoded placeholder hostnames in manifests
-- ❌ Dynamic hostname update Jobs
-- ❌ ArgoCD ignoreDifferences configuration
-
-The Keycloak operator automatically creates the `keycloak-service` with ports:
-- `8080` (http) - Main Keycloak endpoint
-- `9000` (management) - Management interface
-
-**Why this works:**
-- Route terminates TLS and forwards HTTP to backend service port 8080
-- Keycloak receives requests with the actual route hostname in HTTP headers
-- With `strict: false`, Keycloak uses that hostname for redirects
-- No static configuration or patching needed
+Add the following resources to `components/keycloak/base/`:
+- Keycloak CR (with database configuration)
+- PostgreSQL database deployment (or external DB connection)
+- Route for external access
+- Update `kustomization.yaml` to include new resources
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
