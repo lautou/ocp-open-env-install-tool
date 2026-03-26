@@ -8,9 +8,11 @@ spec:
   - list:
       elements:
       - branch: master
+        item: kueue
+      - branch: master
         item: nvidia-gpu-operator
       - branch: master
-        item: kueue
+        item: rhb-apicurio-registry
       - branch: master
         item: rhoai
   template:
