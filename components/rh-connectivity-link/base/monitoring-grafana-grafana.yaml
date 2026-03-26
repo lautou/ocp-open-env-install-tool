@@ -14,6 +14,9 @@ spec:
       enable_login_token: 'true'
       header_property: username
       header_name: X-Forwarded-User
+      auto_login: 'true'
+    users:
+      auto_assign_org_role: 'Admin'
     log:
       mode: console
     security:
