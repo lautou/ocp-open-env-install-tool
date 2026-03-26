@@ -28,6 +28,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **Externalized docs**: Complex topics moved to `docs/claude/`:
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns
+- **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (21 Jobs)
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
 - **[known-bugs.md](docs/claude/known-bugs.md)** - False-positive alerts and upstream bugs
 - **[installation.md](docs/claude/installation.md)** - Installation flow, session recovery, profiles
@@ -391,6 +392,79 @@ ignoreDifferences:
 - RHOAI - DataScienceCluster, OdhDashboardConfig direct management, MaaS Gateway
 
 **Troubleshooting components**: See [troubleshooting.md](docs/claude/troubleshooting.md)
+
+### Component Structure Exception: components/common/
+
+**Why `components/common/` lacks `base/overlays` structure:**
+
+The `components/common/` directory is a **data source component**, not a deployable component.
+
+**Standard component structure:**
+```
+components/<name>/
+├── base/           # Base Kubernetes manifests
+└── overlays/       # Environment-specific variations
+    ├── default/
+    ├── small/
+    └── medium/
+```
+
+**`components/common/` structure:**
+```
+components/common/
+└── cluster-versions.yaml  # ConfigMap with operator channel versions
+```
+
+**Key differences:**
+
+| Aspect | Standard Component | components/common/ |
+|--------|-------------------|-------------------|
+| **Purpose** | Deploy operators/apps | Provide shared data |
+| **Contains** | Subscription, Deployment, Service | ConfigMap only |
+| **Referenced by** | ApplicationSet | Kustomize base in other components |
+| **ArgoCD manages?** | Yes | No (data only) |
+| **Needs overlays?** | Yes (variants) | No (single source of truth) |
+
+**Usage pattern:**
+
+Every component's `base/kustomization.yaml` references `common`:
+
+```yaml
+resources:
+- ../../common  # Loads cluster-versions ConfigMap
+- subscription.yaml
+```
+
+Then uses Kustomize replacements to inject version data:
+
+```yaml
+replacements:
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.loki
+  targets:
+  - select:
+      kind: Subscription
+      name: loki-operator
+    fieldPaths:
+    - spec.channel
+```
+
+**Why not `base/overlays`?**
+
+- ConfigMap contains **single source of truth** for all operator versions
+- No environment-specific variations needed (same versions everywhere)
+- Acts as a **library/utility**, not a deployable resource
+- Never instantiated directly by ArgoCD Applications
+- Only used as Kustomize data source
+
+**Similar pattern:** Kustomize configuration generators, not resource deployments.
+
+**When to use this pattern:**
+- Shared configuration data consumed by multiple components
+- Single source of truth (no variants needed)
+- Pure data source with no deployment manifests
 
 ## Monitoring and Alerts
 

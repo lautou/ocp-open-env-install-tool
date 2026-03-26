@@ -436,6 +436,53 @@ Both UIPlugins:
 
 **Installation**: Part of the `core` gitops-base, automatically deployed in all profiles.
 
+## Loki Operator
+
+**Purpose**: Provides log aggregation storage backend for OpenShift Logging, enabling scalable log collection and querying via LokiStack.
+
+**Installation**: Deployed in `openshift-operators-redhat` namespace. Available via `gitops-bases/logging/*` profiles.
+
+**Namespace**: `openshift-operators-redhat`
+
+**TEMPORARY-FIX: ServiceAccount Token Secret**
+
+The component includes a workaround for a known Kubernetes 1.24+ limitation:
+
+**File**: `components/loki/base/TEMPORARY-FIX-openshift-operators-redhat-secret-loki-operator-controller-manager-metrics-token.yaml`
+
+**Issue:**
+- **Root Cause**: Kubernetes 1.24+ (OpenShift 4.11+) stopped auto-generating ServiceAccount token secrets
+- **Impact**: Loki operator's ServiceMonitor cannot scrape metrics without a manually created token secret
+- **Upstream Issue**: [LOG-5240](https://issues.redhat.com/browse/LOG-5240)
+
+**Workaround:**
+Manually create a ServiceAccount token secret for the `loki-operator-controller-manager-metrics-reader` ServiceAccount:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    kubernetes.io/service-account.name: loki-operator-controller-manager-metrics-reader
+  name: loki-operator-controller-manager-metrics-token
+  namespace: openshift-operators-redhat
+type: kubernetes.io/service-account-token
+```
+
+**Why needed:**
+- The Loki operator creates a ServiceMonitor that references this token for Prometheus authentication
+- Without the token secret, Prometheus cannot scrape the operator's metrics endpoint
+- The token is bound to the ServiceAccount and automatically populated by Kubernetes
+
+**Removal Criteria:**
+This workaround can be removed when:
+- The Loki operator automatically creates its own token secret, OR
+- The operator's ServiceMonitor is updated to use a different authentication method
+
+**Related Documentation:**
+- [Red Hat Solution 7087666](https://access.redhat.com/solutions/7087666) - ServiceAccount token secrets in OpenShift 4.11+
+- [Red Hat Solution 7065483](https://access.redhat.com/solutions/7065483) - Manual token secret creation
+
 ## Red Hat Connectivity Link (RHCL) - Kuadrant
 
 **Purpose**: Provides API gateway capabilities including rate limiting, authentication, DNS management, and TLS policies through the Kuadrant operator stack.
