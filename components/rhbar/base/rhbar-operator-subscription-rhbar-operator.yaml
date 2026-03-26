@@ -1,8 +1,8 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: rhb-apicurio-registry-operator
-  namespace: rhb-apicurio-registry-operator
+  name: rhbar-operator
+  namespace: rhbar-operator
 spec:
   channel: 3.x
   installPlanApproval: Automatic

@@ -10,8 +10,6 @@ spec:
       - branch: master
         item: cert-manager
       - branch: master
-        item: keycloak
-      - branch: master
         item: cluster-autoscaler
       - branch: master
         item: cluster-images-registry

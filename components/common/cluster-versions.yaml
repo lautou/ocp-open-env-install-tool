@@ -17,8 +17,7 @@ data:
 
   # Integration
   openshift-service-mesh: "stable"
-  rhb-apicurio-registry: "3.x"  # Red Hat build of Apicurio Registry
-  rhbk-operator: "stable-v26.4"  # Red Hat build of Keycloak
+  rhbar: "3.x"  # Red Hat build of Apicurio Registry
 
   # API Gateway (Red Hat Connectivity Link - Kuadrant)
   authorino-operator: "stable"
