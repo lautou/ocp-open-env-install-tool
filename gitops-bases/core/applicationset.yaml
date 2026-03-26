@@ -54,13 +54,10 @@ spec:
       name: '{{item}}'
     spec:
       project: default
-      source: !!python/object/apply:collections.OrderedDict
-      - - - path
-          - components/{{item}}/overlays/default
-        - - repoURL
-          - https://github.com/lautou/ocp-open-env-install-tool.git
-        - - targetRevision
-          - '{{branch}}'
+      source:
+        path: components/{{item}}/overlays/default
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:
@@ -70,26 +67,18 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-      - !!python/object/apply:collections.OrderedDict
-        - - - group
-            - ''
-          - - jsonPointers
-            - - /metadata/labels
-              - /metadata/annotations
-              - /metadata/ownerReferences
-          - - kind
-            - ConfigMap
-          - - name
-            - cluster-versions
-      - !!python/object/apply:collections.OrderedDict
-        - - - group
-            - config.openshift.io
-          - - jsonPointers
-            - - /spec/clusterNetwork
-              - /spec/serviceNetwork
-              - /spec/networkType
-              - /spec/externalIP
-          - - kind
-            - Network
-          - - name
-            - cluster
+      - group: ''
+        jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+        - /metadata/ownerReferences
+        kind: ConfigMap
+        name: cluster-versions
+      - group: config.openshift.io
+        jsonPointers:
+        - /spec/clusterNetwork
+        - /spec/serviceNetwork
+        - /spec/networkType
+        - /spec/externalIP
+        kind: Network
+        name: cluster
