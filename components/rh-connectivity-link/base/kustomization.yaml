@@ -16,6 +16,8 @@ resources:
   - monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
   - cluster-clusterrole-kube-state-metrics-kuadrant.yaml
   - cluster-clusterrolebinding-kube-state-metrics-kuadrant.yaml
+  - cluster-clusterrole-grafana-oauth-proxy.yaml
+  - cluster-clusterrolebinding-grafana-oauth-proxy.yaml
   - monitoring-service-kube-state-metrics-kuadrant.yaml
   - monitoring-deployment-kube-state-metrics-kuadrant.yaml
   - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
