@@ -25,6 +25,8 @@ resources:
   - monitoring-grafanadatasource-thanos-query-ds.yaml
   - monitoring-serviceaccount-grafana-datasource.yaml
   - monitoring-secret-grafana-datasource-token.yaml
+  - monitoring-secret-grafana-proxy.yaml
+  - monitoring-configmap-ocp-injected-certs.yaml
   - cluster-clusterrolebinding-grafana-datasource-monitoring-view.yaml
   - openshift-gitops-job-configure-grafana-datasource-token.yaml
   - monitoring-grafanadashboard-platform-engineer.yaml
