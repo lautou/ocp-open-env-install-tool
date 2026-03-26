@@ -1546,7 +1546,7 @@ The codebase is **production-ready for lab/demo environments** and **production-
 
 ## Appendix A: File Inventory
 
-### A.1 Components (36)
+### A.1 Components (35)
 
 ```
 ack-route53
@@ -1560,7 +1560,6 @@ cluster-observability
 cluster-oauth
 common
 grafana
-keycloak
 kueue
 loki
 network-observability
@@ -1575,9 +1574,10 @@ openshift-service-mesh
 openshift-storage
 openshift-virtualization
 opentelemetry
-rh-connectivity-link
 rhacm
 rhacs
+rhbar
+rh-connectivity-link
 rhoai
 servicemesh-gateway
 tempo
