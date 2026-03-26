@@ -5,6 +5,7 @@ metadata:
   namespace: monitoring
 spec:
   datasource:
+    access: proxy
     isDefault: true
     jsonData:
       httpHeaderName1: Authorization
