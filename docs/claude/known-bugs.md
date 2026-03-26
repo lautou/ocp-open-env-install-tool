@@ -208,6 +208,92 @@ oc get statefulset noobaa-db-pg -n openshift-storage \
 
 ---
 
+### 6. Kuadrant istio-pod-monitor TargetDown
+
+**Alert Name:** `TargetDown`
+**Component:** Red Hat Connectivity Link (RHCL) - Kuadrant Operator
+**Namespace:** `ingress-gateway` (or any user namespace with Gateway resources)
+**Job:** `openshift-ingress/istio-pod-monitor` or `*/istio-pod-monitor`
+
+**Issue:**
+The Kuadrant operator automatically creates `istio-pod-monitor` PodMonitor resources in each Gateway namespace with an empty `namespaceSelector: {}`, causing it to attempt discovering Istio sidecar pods across all namespaces cluster-wide. This conflicts with OpenShift's dual-Prometheus architecture (cluster monitoring vs user-workload monitoring), resulting in TargetDown alerts for targets that are inaccessible due to namespace filtering policies.
+
+**Impact:**
+- False-positive TargetDown alerts for `istio-pod-monitor` in user namespaces
+- User-workload Prometheus discovers targets in cluster-monitoring namespaces but cannot scrape them
+- Alert fatigue and reduced trust in monitoring
+- No actual data loss (relabeling filters prevent scraping non-istio-proxy containers)
+
+**Root Cause:**
+The Kuadrant operator's `istioPodMonitorBuild()` function creates PodMonitors without a `namespaceSelector` field, which defaults to empty `{}` (all namespaces). While this works for global Istio sidecar discovery, it causes issues when the PodMonitor is in a user namespace:
+
+1. PodMonitor created in user namespace (e.g., `ingress-gateway`)
+2. User-workload Prometheus picks it up (namespace lacks `openshift.io/cluster-monitoring: "true"`)
+3. PodMonitor has `namespaceSelector: {}` → tries to discover pods in ALL namespaces
+4. User-workload Prometheus is configured to EXCLUDE cluster-monitoring namespaces:
+   ```yaml
+   podMonitorNamespaceSelector:
+     matchExpressions:
+     - key: openshift.io/cluster-monitoring
+       operator: NotIn
+       values: ["true"]
+   ```
+5. Prometheus discovers targets in `openshift-ingress` (cluster namespace) via PodMonitor
+6. Prometheus cannot scrape those targets (namespace filter blocks them)
+7. TargetDown alert fires for inaccessible targets
+
+**Source Code Reference:**
+[kuadrant-operator/internal/controller/observability_reconciler.go](https://github.com/Kuadrant/kuadrant-operator/blob/main/internal/controller/observability_reconciler.go)
+
+The operator correctly sets `namespaceSelector` for ServiceMonitors but omits it for PodMonitors (istio-pod-monitor, kuadrant-limitador-monitor).
+
+**Status:**
+- **JIRA:** [CONNLINK-911](https://issues.redhat.com/browse/CONNLINK-911)
+- **Reported:** 2026-03-26
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
+- **Fix ETA:** TBD (requires operator update to add `namespaceSelector.matchNames: [ns]`)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = TargetDown
+         - job =~ .*/istio-pod-monitor
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
+   - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
+
+**Verification:**
+```bash
+# Check PodMonitors created by Kuadrant
+oc get podmonitor -A -l kuadrant.io/observability=true
+
+# Check PodMonitor namespaceSelector (should be empty)
+oc get podmonitor istio-pod-monitor -n ingress-gateway -o jsonpath='{.spec.namespaceSelector}'
+
+# Expected: {} or no output (empty selector)
+
+# Check which Prometheus picks it up
+oc get prometheus -A -o yaml | grep -A 10 podMonitorNamespaceSelector
+
+# Verify TargetDown alert exists
+oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/alerts' | \
+  jq '.data.alerts[] | select(.labels.alertname == "TargetDown" and (.labels.job | contains("istio-pod-monitor")))'
+```
+
+---
+
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA. These can be disabled via the `support` Secret in `openshift-config` namespace.

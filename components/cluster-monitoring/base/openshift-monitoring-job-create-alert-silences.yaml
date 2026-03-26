@@ -208,6 +208,22 @@ spec:
           )
           create_silence "Insights config migration recommendation" "$INSIGHTS_CONFIG_PAYLOAD"
 
+          # 6. Kuadrant istio-pod-monitor TargetDown
+          ISTIO_PODMONITOR_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
+              {"name": "job", "value": ".*/istio-pod-monitor", "isRegex": true, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "Kuadrant istio-pod-monitor TargetDown" "$ISTIO_PODMONITOR_PAYLOAD"
+
           echo ""
           echo "================================================"
           echo "Verifying all silences are active..."
@@ -224,11 +240,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 5 ]; then
+          if [ "$SILENCE_COUNT" -ge 6 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 5+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 6+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
