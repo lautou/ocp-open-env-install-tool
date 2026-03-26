@@ -36,6 +36,53 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **Before working on specific topics, read the relevant external doc.**
 
+## YAML Formatting Standards
+
+**CRITICAL**: All Kubernetes YAML manifests and Kustomize files MUST follow alphabetical ordering rules.
+
+### Kustomization Files
+
+**Rule**: `resources`, `components`, and `bases` lists in `kustomization.yaml` files MUST be sorted alphabetically.
+
+```yaml
+# ✅ CORRECT
+resources:
+- ../../common
+- cluster-namespace-monitoring.yaml
+- monitoring-deployment-app.yaml
+- monitoring-service-app.yaml
+- monitoring-serviceaccount-app.yaml
+
+# ❌ WRONG
+resources:
+- ../../common
+- monitoring-service-app.yaml
+- cluster-namespace-monitoring.yaml
+- monitoring-serviceaccount-app.yaml
+- monitoring-deployment-app.yaml
+```
+
+**Rationale**:
+- Easier to find specific resources in lists
+- Reduces merge conflicts when adding new resources
+- Consistent ordering across the project
+- Better maintainability
+
+### Kubernetes Manifests
+
+**Standard field order** (not strictly alphabetical, but conventional):
+1. `apiVersion`
+2. `kind`
+3. `metadata`
+4. `spec`
+5. `status` (if present)
+
+**Within nested objects**: Fields should generally be alphabetically ordered unless there's a strong readability reason (e.g., grouping related fields).
+
+**Exception**: Standard Kubernetes resource order (apiVersion, kind, metadata, spec) takes precedence over strict alphabetical ordering at the root level.
+
+**Enforcement**: When generating new YAML files, ensure alphabetical ordering for list fields and consider alphabetical ordering for dictionary keys within spec sections.
+
 ## Key Commands
 
 ```bash
