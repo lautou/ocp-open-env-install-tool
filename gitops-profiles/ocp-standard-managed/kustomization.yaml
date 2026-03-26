@@ -8,3 +8,21 @@ resources:
 - ../../gitops-bases/netobserv/default
 - ../../gitops-bases/ossm
 - ../../gitops-bases/storage/mcg-only
+
+# Git repository configuration (injected into ApplicationSets)
+configMapGenerator:
+- name: gitops-repo-config
+  literals:
+  - repoURL=https://github.com/lautou/ocp-open-env-install-tool.git
+
+# Replace hardcoded Git URLs in all ApplicationSets
+replacements:
+- source:
+    kind: ConfigMap
+    name: gitops-repo-config
+    fieldPath: data.repoURL
+  targets:
+  - select:
+      kind: ApplicationSet
+    fieldPaths:
+    - spec.template.spec.source.repoURL

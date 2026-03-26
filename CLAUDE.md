@@ -136,6 +136,154 @@ Three-layer modular system:
 
 **Details**: See [installation.md](docs/claude/installation.md) for install flow, session recovery, profile creation.
 
+### Component Overlay Naming Conventions
+
+**Overlay Types and Patterns:**
+
+Components use overlays to support multiple deployment configurations. Naming conventions vary by use case:
+
+#### 1. Default Overlay Pattern
+**Pattern:** `default`
+**Usage:** Standard deployment configuration (22 components)
+**Examples:**
+- `components/cert-manager/overlays/default`
+- `components/cluster-monitoring/overlays/default`
+- `components/rhoai/overlays/default`
+
+**When to use:** Single deployment mode, no variants needed
+
+---
+
+#### 2. Size Variant Pattern
+**Pattern:** `{size}` where size = `pico` | `extra-small` | `small` | `medium` | `large`
+**Usage:** Scale-based deployments
+**Component:** openshift-logging
+
+**Rationale:** Different clusters need different log retention/storage based on workload
+
+**Examples:**
+```
+components/openshift-logging/overlays/
+├── 1x.pico/         # Minimal (demo/dev)
+├── 1x.extra-small/  # Very small workloads
+├── 1x.small/        # Development clusters
+└── 1x.medium/       # Production clusters
+```
+
+**Naming notes:**
+- `1x.` prefix indicates node count multiplier (reserved for future scaling)
+- Size names are self-documenting for capacity planning
+
+---
+
+#### 3. Performance Profile Pattern
+**Pattern:** `{profile}` where profile = `lean` | `balanced` | `performance`
+**Usage:** Resource allocation optimization
+**Component:** openshift-storage (ODF)
+
+**Rationale:** Different storage performance tiers for different workload requirements
+
+**Examples:**
+```
+components/openshift-storage/overlays/
+├── mcg-only/               # Object storage only (no block/file)
+├── full-aws-lean/          # Minimal resource allocation
+├── full-aws-balanced/      # Default resource allocation
+└── full-aws-performance/   # High-performance storage
+```
+
+**Naming notes:**
+- `full-aws-*` indicates complete ODF stack on AWS
+- `mcg-only` is descriptive exception (Multi-Cloud Gateway only)
+
+---
+
+#### 4. Deployment Mode Pattern
+**Pattern:** `{mode}` where mode describes operational role
+**Usage:** Multi-cluster architectures
+**Components:** rhacm (ACM), rhacs (ACS)
+
+**Rationale:** Different components depending on cluster role in multi-cluster topology
+
+**Examples:**
+```
+components/rhacm/overlays/
+├── hub/      # Central management cluster
+└── managed/  # Spoke/managed clusters
+
+components/rhacs/overlays/
+├── central/  # Central security operations
+└── secured/  # Protected/monitored clusters
+```
+
+**Naming notes:**
+- Mode names reflect cluster role in architecture
+- Maps to upstream product terminology (hub/managed, central/secured)
+
+---
+
+#### 5. Feature Variant Pattern
+**Pattern:** `with-{feature}` for optional integrations
+**Usage:** Optional feature enablement
+**Component:** network-observability
+
+**Rationale:** Optional dependencies (e.g., external storage backends)
+
+**Examples:**
+```
+components/network-observability/overlays/
+├── default/    # Standard deployment (embedded storage)
+└── with-loki/  # Integration with Loki backend
+```
+
+**Naming notes:**
+- `with-*` prefix indicates additive feature
+- Base functionality in `default`, enhanced in `with-*`
+
+---
+
+#### 6. Profile-Specific Pattern
+**Pattern:** `{profile-name}` matching gitops-profile
+**Usage:** Namespace isolation for specific deployment profiles
+**Components:** openshift-pipelines, webterminal
+
+**Rationale:** Avoid OLM install plan grouping issues (see KNOWN_LIMITATIONS.md)
+
+**Examples:**
+```
+components/openshift-pipelines/overlays/
+├── default/  # Standard profile (openshift-operators namespace)
+└── ai/       # AI profile (openshift-pipelines-operator namespace)
+
+components/webterminal/overlays/
+├── default/  # Standard profile
+└── ai/       # AI profile (isolated namespace)
+```
+
+**Naming notes:**
+- Overlay name matches profile name exactly
+- Solves OLM operator co-location conflicts
+- See KNOWN_LIMITATIONS.md for detailed rationale
+
+---
+
+### Overlay Selection Guide
+
+**When creating new overlays:**
+
+1. **Single variant needed?** → Use `default`
+2. **Multiple sizes/scales?** → Use size pattern (`pico`, `small`, `medium`, etc.)
+3. **Performance tiers?** → Use profile pattern (`lean`, `balanced`, `performance`)
+4. **Multi-cluster roles?** → Use mode pattern (`hub`, `managed`, `central`, `secured`)
+5. **Optional features?** → Use `with-{feature}` pattern
+6. **Profile isolation?** → Use profile name pattern (requires KNOWN_LIMITATIONS.md entry)
+
+**Consistency guidelines:**
+- Use lowercase, hyphen-separated names
+- Make names self-documenting (avoid abbreviations)
+- Document rationale for non-standard patterns in component README or KNOWN_LIMITATIONS.md
+- Update this section when introducing new naming patterns
+
 ## Important Notes
 
 - **Required**: `pull-secret.txt` in project root (console.redhat.com)

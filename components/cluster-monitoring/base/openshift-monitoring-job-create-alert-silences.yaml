@@ -247,5 +247,5 @@ spec:
             echo "❌ ERROR: Expected 6+ silences, found $SILENCE_COUNT"
             exit 1
           fi
-        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        image: registry.redhat.io/openshift4/ose-cli:latest
         name: create-silences
