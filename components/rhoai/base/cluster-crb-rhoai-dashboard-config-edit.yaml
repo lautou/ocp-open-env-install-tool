@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: odhdashboardconfigs.opendatahub.io-v1alpha-edit
+  name: cluster-crb-rhoai-dashboard-config-edit
 rules:
   - apiGroups:
       - opendatahub.io
@@ -19,11 +19,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: odhdashboardconfigs.opendatahub.io-v1alpha-edit-openshift-gitops-openshift-gitops-argocd-application-controller
+  name: cluster-crb-rhoai-dashboard-config-edit-openshift-gitops-openshift-gitops-argocd-application-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: odhdashboardconfigs.opendatahub.io-v1alpha-edit
+  name: cluster-crb-rhoai-dashboard-config-edit
 subjects:
   - kind: ServiceAccount
     name: openshift-gitops-argocd-application-controller
