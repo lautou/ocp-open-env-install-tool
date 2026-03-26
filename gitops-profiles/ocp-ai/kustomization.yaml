@@ -1,10 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../gitops-bases/core
-  - ../../gitops-bases/devops/ai
-  - ../../gitops-bases/storage/mcg-only
-  - ../../gitops-bases/logging/pico
-  - ../../gitops-bases/netobserv/default
-  - ../../gitops-bases/ai
-  - ../../gitops-bases/rh-connectivity-link/default
+- ../../gitops-bases/ai
+- ../../gitops-bases/core
+- ../../gitops-bases/devops/ai
+- ../../gitops-bases/logging/pico
+- ../../gitops-bases/netobserv/default
+- ../../gitops-bases/rh-connectivity-link/default
+- ../../gitops-bases/storage/mcg-only

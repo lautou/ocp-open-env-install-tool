@@ -1,110 +1,106 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - ../../common
-  - cluster-namespace-kuadrant-system.yaml
-  - cluster-namespace-monitoring.yaml
-  - kuadrant-system-operatorgroup-rhcl.yaml
-  - kuadrant-system-subscription-rhcl-operator.yaml
-  - kuadrant-system-subscription-authorino-operator.yaml
-  - kuadrant-system-subscription-dns-operator.yaml
-  - kuadrant-system-subscription-limitador-operator.yaml
-  - kuadrant-system-kuadrant-kuadrant.yaml
-  - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
-  - monitoring-configmap-custom-resource-state.yaml
-  - monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
-  - cluster-clusterrole-kube-state-metrics-kuadrant.yaml
-  - cluster-clusterrolebinding-kube-state-metrics-kuadrant.yaml
-  - cluster-clusterrole-grafana-oauth-proxy.yaml
-  - cluster-clusterrolebinding-grafana-oauth-proxy.yaml
-  - monitoring-service-kube-state-metrics-kuadrant.yaml
-  - monitoring-deployment-kube-state-metrics-kuadrant.yaml
-  - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
-  - openshift-ingress-telemetry-namespace-metrics.yaml
-  - openshift-ingress-servicemonitor-istiod.yaml
-  - monitoring-grafana-grafana.yaml
-  - monitoring-grafanadatasource-thanos-query-ds.yaml
-  - monitoring-serviceaccount-grafana-datasource.yaml
-  - monitoring-secret-grafana-datasource-token.yaml
-  - monitoring-secret-grafana-proxy.yaml
-  - monitoring-configmap-ocp-injected-certs.yaml
-  - cluster-clusterrolebinding-grafana-datasource-monitoring-view.yaml
-  - openshift-gitops-job-configure-grafana-datasource-token.yaml
-  - monitoring-grafanadashboard-platform-engineer.yaml
-  - monitoring-grafanadashboard-business-user.yaml
-  - monitoring-grafanadashboard-controller-resources-metrics.yaml
-  - monitoring-grafanadashboard-controller-runtime-metrics.yaml
-  - monitoring-grafanadashboard-app-developer.yaml
-  - monitoring-grafanadashboard-dns-operator.yaml
-
+- ../../common
+- cluster-clusterrole-grafana-oauth-proxy.yaml
+- cluster-clusterrole-kube-state-metrics-kuadrant.yaml
+- cluster-clusterrolebinding-grafana-datasource-monitoring-view.yaml
+- cluster-clusterrolebinding-grafana-oauth-proxy.yaml
+- cluster-clusterrolebinding-kube-state-metrics-kuadrant.yaml
+- cluster-namespace-kuadrant-system.yaml
+- cluster-namespace-monitoring.yaml
+- kuadrant-system-kuadrant-kuadrant.yaml
+- kuadrant-system-operatorgroup-rhcl.yaml
+- kuadrant-system-subscription-authorino-operator.yaml
+- kuadrant-system-subscription-dns-operator.yaml
+- kuadrant-system-subscription-limitador-operator.yaml
+- kuadrant-system-subscription-rhcl-operator.yaml
+- monitoring-configmap-custom-resource-state.yaml
+- monitoring-configmap-ocp-injected-certs.yaml
+- monitoring-deployment-kube-state-metrics-kuadrant.yaml
+- monitoring-grafana-grafana.yaml
+- monitoring-grafanadashboard-app-developer.yaml
+- monitoring-grafanadashboard-business-user.yaml
+- monitoring-grafanadashboard-controller-resources-metrics.yaml
+- monitoring-grafanadashboard-controller-runtime-metrics.yaml
+- monitoring-grafanadashboard-dns-operator.yaml
+- monitoring-grafanadashboard-platform-engineer.yaml
+- monitoring-grafanadatasource-thanos-query-ds.yaml
+- monitoring-secret-grafana-datasource-token.yaml
+- monitoring-secret-grafana-proxy.yaml
+- monitoring-service-kube-state-metrics-kuadrant.yaml
+- monitoring-serviceaccount-grafana-datasource.yaml
+- monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
+- monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
+- openshift-gitops-job-configure-grafana-datasource-token.yaml
+- openshift-gitops-job-enable-kuadrant-console-plugin.yaml
+- openshift-ingress-servicemonitor-istiod.yaml
+- openshift-ingress-telemetry-namespace-metrics.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.rhcl-operator
-    targets:
-      - select:
-          kind: Subscription
-          name: rhcl-operator
-        fieldPaths:
-          - spec.channel
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.authorino-operator
-    targets:
-      - select:
-          kind: Subscription
-          name: authorino-operator-stable-redhat-operators-openshift-marketplace
-        fieldPaths:
-          - spec.channel
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.dns-operator
-    targets:
-      - select:
-          kind: Subscription
-          name: dns-operator-stable-redhat-operators-openshift-marketplace
-        fieldPaths:
-          - spec.channel
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.limitador-operator
-    targets:
-      - select:
-          kind: Subscription
-          name: limitador-operator-stable-redhat-operators-openshift-marketplace
-        fieldPaths:
-          - spec.channel
-
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.rhcl-operator
+  targets:
+  - select:
+      kind: Subscription
+      name: rhcl-operator
+    fieldPaths:
+    - spec.channel
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.authorino-operator
+  targets:
+  - select:
+      kind: Subscription
+      name: authorino-operator-stable-redhat-operators-openshift-marketplace
+    fieldPaths:
+    - spec.channel
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.dns-operator
+  targets:
+  - select:
+      kind: Subscription
+      name: dns-operator-stable-redhat-operators-openshift-marketplace
+    fieldPaths:
+    - spec.channel
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.limitador-operator
+  targets:
+  - select:
+      kind: Subscription
+      name: limitador-operator-stable-redhat-operators-openshift-marketplace
+    fieldPaths:
+    - spec.channel
 generatorOptions:
   disableNameSuffixHash: true
-
 configMapGenerator:
-  - name: grafana-dashboard-platform-engineer
-    namespace: monitoring
-    files:
-      - grafana-dashboards/platform_engineer.json
-  - name: grafana-dashboard-business-user
-    namespace: monitoring
-    files:
-      - grafana-dashboards/business_user.json
-  - name: grafana-dashboard-controller-resources-metrics
-    namespace: monitoring
-    files:
-      - grafana-dashboards/controller-resources-metrics.json
-  - name: grafana-dashboard-controller-runtime-metrics
-    namespace: monitoring
-    files:
-      - grafana-dashboards/controller-runtime-metrics.json
-  - name: grafana-dashboard-app-developer
-    namespace: monitoring
-    files:
-      - grafana-dashboards/app_developer.json
-  - name: grafana-dashboard-dns-operator
-    namespace: monitoring
-    files:
-      - grafana-dashboards/dns-operator.json
+- name: grafana-dashboard-platform-engineer
+  namespace: monitoring
+  files:
+  - grafana-dashboards/platform_engineer.json
+- name: grafana-dashboard-business-user
+  namespace: monitoring
+  files:
+  - grafana-dashboards/business_user.json
+- name: grafana-dashboard-controller-resources-metrics
+  namespace: monitoring
+  files:
+  - grafana-dashboards/controller-resources-metrics.json
+- name: grafana-dashboard-controller-runtime-metrics
+  namespace: monitoring
+  files:
+  - grafana-dashboards/controller-runtime-metrics.json
+- name: grafana-dashboard-app-developer
+  namespace: monitoring
+  files:
+  - grafana-dashboards/app_developer.json
+- name: grafana-dashboard-dns-operator
+  namespace: monitoring
+  files:
+  - grafana-dashboards/dns-operator.json

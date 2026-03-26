@@ -1,29 +1,27 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - ../../common
-  - cluster-namespace-keycloak.yaml
-  - cluster-namespace-databases-keycloak.yaml
-  - keycloak-operatorgroup-rhbk-operator.yaml
-  - keycloak-subscription-rhbk-operator.yaml
-  - databases-keycloak-secret-keycloak-db.yaml
-  - databases-keycloak-pvc-keycloak-db.yaml
-  - databases-keycloak-service-keycloak-db.yaml
-  - databases-keycloak-serviceaccount-keycloak-db.yaml
-  - databases-keycloak-deployment-keycloak-db.yaml
-  - keycloak-secret-keycloak-db-secret.yaml
-  - keycloak-keycloak-keycloak.yaml
-  - keycloak-route-keycloak.yaml
-
+- ../../common
+- cluster-namespace-databases-keycloak.yaml
+- cluster-namespace-keycloak.yaml
+- databases-keycloak-deployment-keycloak-db.yaml
+- databases-keycloak-pvc-keycloak-db.yaml
+- databases-keycloak-secret-keycloak-db.yaml
+- databases-keycloak-service-keycloak-db.yaml
+- databases-keycloak-serviceaccount-keycloak-db.yaml
+- keycloak-keycloak-keycloak.yaml
+- keycloak-operatorgroup-rhbk-operator.yaml
+- keycloak-route-keycloak.yaml
+- keycloak-secret-keycloak-db-secret.yaml
+- keycloak-subscription-rhbk-operator.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.rhbk-operator
-    targets:
-      - select:
-          kind: Subscription
-          name: rhbk-operator
-        fieldPaths:
-          - spec.channel
+- source:
+    kind: ConfigMap
+    name: cluster-versions
+    fieldPath: data.rhbk-operator
+  targets:
+  - select:
+      kind: Subscription
+      name: rhbk-operator
+    fieldPaths:
+    - spec.channel
