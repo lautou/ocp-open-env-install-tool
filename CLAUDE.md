@@ -34,6 +34,9 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - **[security.md](docs/claude/security.md)** - AWS Secrets Manager, Job QoS, tenant isolation
 - **[troubleshooting.md](docs/claude/troubleshooting.md)** - Common issues and debugging
 
+**Project audit**: Complete codebase analysis available:
+- **[AUDIT.md](AUDIT.md)** - Comprehensive project audit (structure, components, GitOps architecture, Jobs, security, documentation, known issues, recommendations)
+
 **Before working on specific topics, read the relevant external doc.**
 
 ## YAML Formatting Standards
