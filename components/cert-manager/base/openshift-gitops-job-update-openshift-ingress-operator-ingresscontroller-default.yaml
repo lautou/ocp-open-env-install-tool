@@ -11,22 +11,22 @@ spec:
       name: update-openshift-ingress-operator-ingresscontroller-default
     spec:
       containers:
-        - name: update-openshift-ingress-operator-ingresscontroller-default
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              while ! oc get certificate ingress -n openshift-ingress 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
-              echo "Wait for certificate to be ready"
-              oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
-              echo "Update ingress controller config"
-              oc patch ingresscontroller default -n openshift-ingress-operator --type merge -p '{"spec":{"defaultCertificate":{"name":"ingress-certificates"}}}'
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          while ! oc get certificate ingress -n openshift-ingress 2>/dev/null 1>&2; do echo "Wait for certificate to be created."; done
+          echo "Wait for certificate to be ready"
+          oc wait --for=condition=Ready --timeout -1s certificate/ingress -n openshift-ingress
+          echo "Update ingress controller config"
+          oc patch ingresscontroller default -n openshift-ingress-operator --type merge -p '{"spec":{"defaultCertificate":{"name":"ingress-certificates"}}}'
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: update-openshift-ingress-operator-ingresscontroller-default
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

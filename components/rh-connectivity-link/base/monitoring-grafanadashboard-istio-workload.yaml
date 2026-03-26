@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: istio-workload
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: istio-workload-dashboard.json
+    name: grafana-dashboard-istio-workload
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

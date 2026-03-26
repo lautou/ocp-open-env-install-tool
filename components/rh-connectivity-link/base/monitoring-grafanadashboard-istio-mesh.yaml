@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: istio-mesh
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: istio-mesh-dashboard.json
+    name: grafana-dashboard-istio-mesh
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana

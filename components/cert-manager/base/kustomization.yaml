@@ -12,12 +12,12 @@ resources:
 - openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
 replacements:
 - source:
+    fieldPath: data.cert-manager
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.cert-manager
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: openshift-cert-manager-operator
-    fieldPaths:
-    - spec.channel

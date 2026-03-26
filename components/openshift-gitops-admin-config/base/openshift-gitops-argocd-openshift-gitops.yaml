@@ -1,15 +1,15 @@
 apiVersion: argoproj.io/v1beta1
 kind: ArgoCD
 metadata:
-  name: openshift-gitops
-  namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
+  name: openshift-gitops
+  namespace: openshift-gitops
 spec:
   applicationSet:
     resources:
       limits:
-        cpu: "2"
+        cpu: '2'
         memory: 1Gi
       requests:
         cpu: 250m
@@ -53,26 +53,26 @@ spec:
       - TaskRun
       - PipelineRun
   resourceHealthChecks:
-    - check: |
-        hs = {}
-        if obj.status ~= nil then
-          if obj.status.phase ~= nil then
-            if obj.status.phase == "Pending" then
-              hs.status = "Healthy"
-              hs.message = obj.status.phase
-              return hs
-            end
-            if obj.status.phase == "Bound" then
-              hs.status = "Healthy"
-              hs.message = obj.status.phase
-              return hs
-            end
+  - check: |
+      hs = {}
+      if obj.status ~= nil then
+        if obj.status.phase ~= nil then
+          if obj.status.phase == "Pending" then
+            hs.status = "Healthy"
+            hs.message = obj.status.phase
+            return hs
+          end
+          if obj.status.phase == "Bound" then
+            hs.status = "Healthy"
+            hs.message = obj.status.phase
+            return hs
           end
         end
-        hs.status = "Progressing"
-        hs.message = "Waiting for certificate"
-        return hs
-      kind: PersistentVolumeClaim
+      end
+      hs.status = "Progressing"
+      hs.message = "Waiting for certificate"
+      return hs
+    kind: PersistentVolumeClaim
   resourceTrackingMethod: annotation
   server:
     resources:

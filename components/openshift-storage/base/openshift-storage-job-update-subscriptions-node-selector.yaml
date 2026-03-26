@@ -11,94 +11,94 @@ spec:
       name: update-odf-subscriptions-node-selector
     spec:
       containers:
-        - name: patch-subscriptions
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              TARGET_NS="openshift-storage"
-              echo "--- Starting ODF Subscription NodeSelector Patcher ---"
-              echo "Target Namespace: $TARGET_NS"
-              echo ""
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          TARGET_NS="openshift-storage"
+          echo "--- Starting ODF Subscription NodeSelector Patcher ---"
+          echo "Target Namespace: $TARGET_NS"
+          echo ""
 
-              # Extract ODF channel from cluster-versions ConfigMap
-              ODF_CHANNEL=$(oc get configmap cluster-versions -n openshift-gitops \
-                -o jsonpath='{.data.odf}')
+          # Extract ODF channel from cluster-versions ConfigMap
+          ODF_CHANNEL=$(oc get configmap cluster-versions -n openshift-gitops \
+            -o jsonpath='{.data.odf}')
 
-              echo "ODF Channel: $ODF_CHANNEL"
-              echo ""
+          echo "ODF Channel: $ODF_CHANNEL"
+          echo ""
 
-              # List of ODF package names to patch (excluding exceptions - see below)
-              PACKAGES=(
-                "cephcsi-operator"
-                "mcg-operator"
-                "ocs-client-operator"
-                "ocs-operator"
-                "odf-csi-addons-operator"
-                "recipe"
-                "rook-ceph-operator"
-              )
+          # List of ODF package names to patch (excluding exceptions - see below)
+          PACKAGES=(
+            "cephcsi-operator"
+            "mcg-operator"
+            "ocs-client-operator"
+            "ocs-operator"
+            "odf-csi-addons-operator"
+            "recipe"
+            "rook-ceph-operator"
+          )
 
-              # Special subscription without channel in name
-              SPECIAL_SUBSCRIPTIONS=(
-                "odf-dependencies"
-              )
+          # Special subscription without channel in name
+          SPECIAL_SUBSCRIPTIONS=(
+            "odf-dependencies"
+          )
 
-              # IMPORTANT: The following subscriptions are INTENTIONALLY EXCLUDED due to a known bug
-              # that prevents proper configuration of tolerations/nodeSelector:
-              # - odf-external-snapshotter-operator
-              # - odf-prometheus-operator
-              # These operators will run on worker nodes (not infra) until the bug is resolved.
+          # IMPORTANT: The following subscriptions are INTENTIONALLY EXCLUDED due to a known bug
+          # that prevents proper configuration of tolerations/nodeSelector:
+          # - odf-external-snapshotter-operator
+          # - odf-prometheus-operator
+          # These operators will run on worker nodes (not infra) until the bug is resolved.
 
-              PATCH='{"spec":{"config":{"nodeSelector":{"cluster.ocs.openshift.io/openshift-storage":""}}}}'
+          PATCH='{"spec":{"config":{"nodeSelector":{"cluster.ocs.openshift.io/openshift-storage":""}}}}'
 
-              # Patch standard subscriptions (with channel in name)
-              for PKG in "${PACKAGES[@]}"; do
-                SUB="${PKG}-${ODF_CHANNEL}-redhat-operators-openshift-marketplace"
-                echo "----------------------------------------------------------------"
-                echo "Processing: $SUB"
+          # Patch standard subscriptions (with channel in name)
+          for PKG in "${PACKAGES[@]}"; do
+            SUB="${PKG}-${ODF_CHANNEL}-redhat-operators-openshift-marketplace"
+            echo "----------------------------------------------------------------"
+            echo "Processing: $SUB"
 
-                echo -n "Waiting for subscription..."
-                while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
-                  echo -n "."
-                  sleep 5
-                done
-                echo " Found!"
+            echo -n "Waiting for subscription..."
+            while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+              echo -n "."
+              sleep 5
+            done
+            echo " Found!"
 
-                echo "Patching..."
-                oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
-                echo "✅ Patched."
-              done
+            echo "Patching..."
+            oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+            echo "✅ Patched."
+          done
 
-              # Patch special subscriptions (no channel in name)
-              for SUB in "${SPECIAL_SUBSCRIPTIONS[@]}"; do
-                echo "----------------------------------------------------------------"
-                echo "Processing: $SUB"
+          # Patch special subscriptions (no channel in name)
+          for SUB in "${SPECIAL_SUBSCRIPTIONS[@]}"; do
+            echo "----------------------------------------------------------------"
+            echo "Processing: $SUB"
 
-                echo -n "Waiting for subscription..."
-                while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
-                  echo -n "."
-                  sleep 5
-                done
-                echo " Found!"
+            echo -n "Waiting for subscription..."
+            while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+              echo -n "."
+              sleep 5
+            done
+            echo " Found!"
 
-                echo "Patching..."
-                oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
-                echo "✅ Patched."
-              done
+            echo "Patching..."
+            oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+            echo "✅ Patched."
+          done
 
-              echo "----------------------------------------------------------------"
-              echo "✅ All ODF subscriptions configured with nodeSelector"
-              echo ""
-              echo "Intentionally NOT patched (known bug):"
-              echo "  - odf-external-snapshotter-operator"
-              echo "  - odf-prometheus-operator"
+          echo "----------------------------------------------------------------"
+          echo "✅ All ODF subscriptions configured with nodeSelector"
+          echo ""
+          echo "Intentionally NOT patched (known bug):"
+          echo "  - odf-external-snapshotter-operator"
+          echo "  - odf-prometheus-operator"
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: patch-subscriptions
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: OnFailure
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

@@ -20,18 +20,18 @@ data:
   rhbk-operator: "stable-v26.4"  # Red Hat build of Keycloak
 
   # API Gateway (Red Hat Connectivity Link - Kuadrant)
-  rhcl-operator: "stable"
   authorino-operator: "stable"
   dns-operator: "stable"
   limitador-operator: "stable"
+  rhcl-operator: "stable"
 
   # CI/CD & Dev Tools
   cert-manager: "stable-v1.18"
-  openshift-pipelines: "pipelines-1.20"
-  openshift-gitops: "gitops-1.19"
-  openshift-builds: "builds-1.6"
-  web-terminal: "fast"
   devworkspace: "fast"  # Usually coupled with Web Terminal
+  openshift-builds: "builds-1.6"
+  openshift-gitops: "gitops-1.19"
+  openshift-pipelines: "pipelines-1.20"
+  web-terminal: "fast"
 
   # Infrastructure & Storage
   ack-route53: "alpha"
@@ -43,9 +43,9 @@ data:
   odf: "stable-4.20"
 
   # AI
+  kueue: "stable-v1.2"
   nvidia-gpu-operator: "v25.10"
   rhoai: "stable-3.3"
-  kueue: "stable-v1.2"
 
   # Cluster management
   rhacm: "release-2.15"

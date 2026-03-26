@@ -11,25 +11,25 @@ spec:
       name: enable-console-plugin
     spec:
       containers:
-        - name: enable-console-plugin
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              echo "Checking if gitops-plugin is already enabled..."
-              if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "gitops-plugin"; then
-                echo "Enabling gitops-plugin..."
-                oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "gitops-plugin"}]'
-                echo "Plugin gitops-plugin added successfully."
-              else
-                echo "Plugin gitops-plugin already exists. Nothing changed."
-              fi
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Checking if gitops-plugin is already enabled..."
+          if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "gitops-plugin"; then
+            echo "Enabling gitops-plugin..."
+            oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "gitops-plugin"}]'
+            echo "Plugin gitops-plugin added successfully."
+          else
+            echo "Plugin gitops-plugin already exists. Nothing changed."
+          fi
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: enable-console-plugin
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

@@ -6,11 +6,11 @@ metadata:
   name: istiod
   namespace: openshift-ingress
 spec:
+  endpoints:
+  - port: http-monitoring
   namespaceSelector:
     matchNames:
     - openshift-ingress
   selector:
     matchLabels:
       app: istiod
-  endpoints:
-  - port: http-monitoring

@@ -8,12 +8,12 @@ resources:
 - openshift-operators-redhat-subscription-loki-operator.yaml
 replacements:
 - source:
+    fieldPath: data.loki
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.loki
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: loki-operator
-    fieldPaths:
-    - spec.channel

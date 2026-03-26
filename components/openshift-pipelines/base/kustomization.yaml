@@ -9,12 +9,12 @@ resources:
 - openshift-operators-subscription-openshift-pipelines-operator.yaml
 replacements:
 - source:
+    fieldPath: data.openshift-pipelines
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.openshift-pipelines
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: openshift-pipelines-operator
-    fieldPaths:
-    - spec.channel

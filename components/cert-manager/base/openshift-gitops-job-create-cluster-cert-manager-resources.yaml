@@ -1,219 +1,104 @@
-kind: Job
 apiVersion: batch/v1
+kind: Job
 metadata:
-  name: create-cluster-cert-manager-resources
-  namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/sync-options: Force=true
+  name: create-cluster-cert-manager-resources
+  namespace: openshift-gitops
 spec:
   template:
     metadata:
       name: create-cluster-cert-manager-resources
     spec:
       containers:
-        - name: create-cluster-cert-manager-resources
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              
-              # --- Helper Functions ---
-              
-              wait_for_crd() {
-                echo -n "Waiting for the cert-manager CRD..."
-                until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
-                  echo -n "."
-                  sleep 5
-                done
-                echo " CRD established."
-              }
-
-              wait_for_initial_cr() {
-                echo -n "Waiting for the initial CertManager 'cluster' CR..."
-                until oc get certmanager cluster &>/dev/null; do
-                  echo -n "."
-                  sleep 5
-                done
-                echo " Initial CR found."
-              }
-
-              # Robust apply function that retries indefinitely
-              apply_with_retry() {
-                local description=$1
-                local yaml_content=$2
-                
-                echo "--- Applying $description ---"
-                # Temporarily disable exit-on-error to handle failures in the loop
-                set +e
-                while true; do
-                  echo "$yaml_content" | oc apply -f -
-                  if [ $? -eq 0 ]; then
-                    echo "✅ $description applied successfully."
-                    break
-                  else
-                    echo "⚠️  Failed to apply $description. This is likely due to RBAC propagation or Webhook unavailability."
-                    echo "    Retrying in 10 seconds..."
-                    sleep 10
-                  fi
-                done
-                set -e
-              }
-
-              # --- Main Execution ---
-
-              wait_for_crd
-              wait_for_initial_cr
-
-              MAX_RETRIES=5
-              ATTEMPT=1
-              SUCCESS=false
-
-              while [ $ATTEMPT -le $MAX_RETRIES ]; do
-                echo "=== Attempt $ATTEMPT/$MAX_RETRIES to initialize CertManager ==="
-                
-                echo "Deleting CertManager 'cluster' CR to trigger reconciliation..."
-                oc delete certmanager cluster --ignore-not-found
-                
-                echo -n "Waiting for CertManager CR to be recreated (by ArgoCD/Operator)..."
-                while ! oc get certmanager cluster &>/dev/null; do 
-                  echo -n "."
-                  sleep 5
-                done
-                echo " CR Recreated."
-
-                echo "Waiting for CertManager pods/deployments to be ready..."
-                if oc wait certmanager cluster \
-                    --for condition=cert-manager-controller-deploymentAvailable \
-                    --for condition=cert-manager-cainjector-deploymentAvailable \
-                    --for condition=cert-manager-webhook-deploymentAvailable \
-                    --timeout=120s -n cert-manager; then
-
-                    echo "CertManager deployments available, now waiting for pods..."
-                    oc wait pod -n cert-manager \
-                        -l app.kubernetes.io/component=controller \
-                        --for=condition=Ready \
-                        --timeout=120s
-
-                    oc wait pod -n cert-manager \
-                        -l app.kubernetes.io/component=webhook \
-                        --for=condition=Ready \
-                        --timeout=120s
-
-                    echo "CertManager is ready!"
-                    SUCCESS=true
-                    break
-                else
-                    echo "WARNING: Timeout waiting for CertManager. It might be stuck."
-                    echo "Retrying loop (will delete CR again)..."
-                    ATTEMPT=$((ATTEMPT + 1))
-                fi
-              done
-
-              if [ "$SUCCESS" = false ]; then
-                echo "ERROR: Failed to initialize CertManager after $MAX_RETRIES attempts."
-                exit 1
-              fi
-
-              echo "Read the secret for AWS cloud provider"
-              while ! oc get secret aws-creds -n kube-system &>/dev/null; do echo "Waiting for secret aws-creds in namespace kube-system."; done
-              ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
-              SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
-
-              echo "Create the aws-acme secret"
-              oc delete secret generic aws-acme -n cert-manager --ignore-not-found
-              oc create secret generic aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal awsSecretAccessKey=$SECRET_KEY
-
-              echo "Fetching cluster configuration..."
-              export REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-              export CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
-              export TIMESTAMP=$(date +%s)
-
-              echo "REGION=$REGION"
-              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
-              echo "TIMESTAMP=$TIMESTAMP"
-
-              # --- Applying Resources with Retry Logic ---
-
-              echo "Generating ClusterIssuer YAML..."
-              CLUSTER_ISSUER_YAML=$(cat <<EOFISSUER
-              apiVersion: cert-manager.io/v1
-              kind: ClusterIssuer
-              metadata:
-                name: cluster
-              spec:
-                acme:
-                  privateKeySecretRef:
-                    name: acme-global
-                  server: 'https://acme-v02.api.letsencrypt.org/directory'
-                  solvers:
-                    - dns01:
-                        route53:
-                          accessKeyIDSecretRef:
-                            key: awsAccessKey
-                            name: aws-acme
-                          region: ${REGION}
-                          secretAccessKeySecretRef:
-                            key: awsSecretAccessKey
-                            name: aws-acme
-              EOFISSUER
-              )
-              apply_with_retry "ClusterIssuer" "$CLUSTER_ISSUER_YAML"
-
-              echo "Generating Ingress Certificate YAML..."
-              # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
-              # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-              # The static DNS names (apps.${CLUSTER_DOMAIN} and wildcard) remain consistent
-              INGRESS_CERT_YAML=$(cat <<EOFINGRESS
-              apiVersion: cert-manager.io/v1
-              kind: Certificate
-              metadata:
-                name: ingress
-                namespace: openshift-ingress
-              spec:
-                isCA: false
-                commonName: "apps.${CLUSTER_DOMAIN}"
-                secretName: ingress-certificates
-                dnsNames:
-                - "apps.${CLUSTER_DOMAIN}"
-                - "*.apps.${CLUSTER_DOMAIN}"
-                - "apps.${TIMESTAMP}.${CLUSTER_DOMAIN}"
-                issuerRef:
-                  name: cluster
-                  kind: ClusterIssuer
-              EOFINGRESS
-              )
-              apply_with_retry "Ingress Certificate" "$INGRESS_CERT_YAML"
-
-              echo "Generating API Certificate YAML..."
-              # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
-              # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-              # The static DNS name (api.${CLUSTER_DOMAIN}) remains consistent
-              API_CERT_YAML=$(cat <<EOFAPI
-              apiVersion: cert-manager.io/v1
-              kind: Certificate
-              metadata:
-                name: api
-                namespace: openshift-config
-              spec:
-                isCA: false
-                commonName: "api.${CLUSTER_DOMAIN}"
-                secretName: api-certificates
-                dnsNames:
-                - "api.${CLUSTER_DOMAIN}"
-                - "api.${TIMESTAMP}.${CLUSTER_DOMAIN}"
-                issuerRef:
-                  name: cluster
-                  kind: ClusterIssuer
-              EOFAPI
-              )
-              apply_with_retry "API Certificate" "$API_CERT_YAML"
-
+      - command:
+        - /bin/bash
+        - -c
+        - "set -e\n\n# --- Helper Functions ---\n\nwait_for_crd() {\n  echo -n \"\
+          Waiting for the cert-manager CRD...\"\n  until oc get crd certmanagers.operator.openshift.io\
+          \ &>/dev/null; do\n    echo -n \".\"\n    sleep 5\n  done\n  echo \" CRD\
+          \ established.\"\n}\n\nwait_for_initial_cr() {\n  echo -n \"Waiting for\
+          \ the initial CertManager 'cluster' CR...\"\n  until oc get certmanager\
+          \ cluster &>/dev/null; do\n    echo -n \".\"\n    sleep 5\n  done\n  echo\
+          \ \" Initial CR found.\"\n}\n\n# Robust apply function that retries indefinitely\n\
+          apply_with_retry() {\n  local description=$1\n  local yaml_content=$2\n\
+          \  \n  echo \"--- Applying $description ---\"\n  # Temporarily disable exit-on-error\
+          \ to handle failures in the loop\n  set +e\n  while true; do\n    echo \"\
+          $yaml_content\" | oc apply -f -\n    if [ $? -eq 0 ]; then\n      echo \"\
+          ✅ $description applied successfully.\"\n      break\n    else\n      echo\
+          \ \"⚠️  Failed to apply $description. This is likely due to RBAC propagation\
+          \ or Webhook unavailability.\"\n      echo \"    Retrying in 10 seconds...\"\
+          \n      sleep 10\n    fi\n  done\n  set -e\n}\n\n# --- Main Execution ---\n\
+          \nwait_for_crd\nwait_for_initial_cr\n\nMAX_RETRIES=5\nATTEMPT=1\nSUCCESS=false\n\
+          \nwhile [ $ATTEMPT -le $MAX_RETRIES ]; do\n  echo \"=== Attempt $ATTEMPT/$MAX_RETRIES\
+          \ to initialize CertManager ===\"\n  \n  echo \"Deleting CertManager 'cluster'\
+          \ CR to trigger reconciliation...\"\n  oc delete certmanager cluster --ignore-not-found\n\
+          \  \n  echo -n \"Waiting for CertManager CR to be recreated (by ArgoCD/Operator)...\"\
+          \n  while ! oc get certmanager cluster &>/dev/null; do \n    echo -n \"\
+          .\"\n    sleep 5\n  done\n  echo \" CR Recreated.\"\n\n  echo \"Waiting\
+          \ for CertManager pods/deployments to be ready...\"\n  if oc wait certmanager\
+          \ cluster \\\n      --for condition=cert-manager-controller-deploymentAvailable\
+          \ \\\n      --for condition=cert-manager-cainjector-deploymentAvailable\
+          \ \\\n      --for condition=cert-manager-webhook-deploymentAvailable \\\n\
+          \      --timeout=120s -n cert-manager; then\n\n      echo \"CertManager\
+          \ deployments available, now waiting for pods...\"\n      oc wait pod -n\
+          \ cert-manager \\\n          -l app.kubernetes.io/component=controller \\\
+          \n          --for=condition=Ready \\\n          --timeout=120s\n\n     \
+          \ oc wait pod -n cert-manager \\\n          -l app.kubernetes.io/component=webhook\
+          \ \\\n          --for=condition=Ready \\\n          --timeout=120s\n\n \
+          \     echo \"CertManager is ready!\"\n      SUCCESS=true\n      break\n\
+          \  else\n      echo \"WARNING: Timeout waiting for CertManager. It might\
+          \ be stuck.\"\n      echo \"Retrying loop (will delete CR again)...\"\n\
+          \      ATTEMPT=$((ATTEMPT + 1))\n  fi\ndone\n\nif [ \"$SUCCESS\" = false\
+          \ ]; then\n  echo \"ERROR: Failed to initialize CertManager after $MAX_RETRIES\
+          \ attempts.\"\n  exit 1\nfi\n\necho \"Read the secret for AWS cloud provider\"\
+          \nwhile ! oc get secret aws-creds -n kube-system &>/dev/null; do echo \"\
+          Waiting for secret aws-creds in namespace kube-system.\"; done\nACCESS_KEY=$(oc\
+          \ extract secret/aws-creds -n kube-system --keys aws_access_key_id --to\
+          \ -)\nSECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key\
+          \ --to -)\n\necho \"Create the aws-acme secret\"\noc delete secret generic\
+          \ aws-acme -n cert-manager --ignore-not-found\noc create secret generic\
+          \ aws-acme -n cert-manager --from-literal awsAccessKey=$ACCESS_KEY --from-literal\
+          \ awsSecretAccessKey=$SECRET_KEY\n\necho \"Fetching cluster configuration...\"\
+          \nexport REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')\n\
+          export CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')\n\
+          export TIMESTAMP=$(date +%s)\n\necho \"REGION=$REGION\"\necho \"CLUSTER_DOMAIN=$CLUSTER_DOMAIN\"\
+          \necho \"TIMESTAMP=$TIMESTAMP\"\n\n# --- Applying Resources with Retry Logic\
+          \ ---\n\necho \"Generating ClusterIssuer YAML...\"\nCLUSTER_ISSUER_YAML=$(cat\
+          \ <<EOFISSUER\napiVersion: cert-manager.io/v1\nkind: ClusterIssuer\nmetadata:\n\
+          \  name: cluster\nspec:\n  acme:\n    privateKeySecretRef:\n      name:\
+          \ acme-global\n    server: 'https://acme-v02.api.letsencrypt.org/directory'\n\
+          \    solvers:\n      - dns01:\n          route53:\n            accessKeyIDSecretRef:\n\
+          \              key: awsAccessKey\n              name: aws-acme\n       \
+          \     region: ${REGION}\n            secretAccessKeySecretRef:\n       \
+          \       key: awsSecretAccessKey\n              name: aws-acme\nEOFISSUER\n\
+          )\napply_with_retry \"ClusterIssuer\" \"$CLUSTER_ISSUER_YAML\"\n\necho \"\
+          Generating Ingress Certificate YAML...\"\n# Note: TIMESTAMP DNS name is\
+          \ intentionally dynamic (changes on each Job run)\n# Purpose: Ensures unique\
+          \ DNS records for Let's Encrypt DNS-01 challenges\n# The static DNS names\
+          \ (apps.${CLUSTER_DOMAIN} and wildcard) remain consistent\nINGRESS_CERT_YAML=$(cat\
+          \ <<EOFINGRESS\napiVersion: cert-manager.io/v1\nkind: Certificate\nmetadata:\n\
+          \  name: ingress\n  namespace: openshift-ingress\nspec:\n  isCA: false\n\
+          \  commonName: \"apps.${CLUSTER_DOMAIN}\"\n  secretName: ingress-certificates\n\
+          \  dnsNames:\n  - \"apps.${CLUSTER_DOMAIN}\"\n  - \"*.apps.${CLUSTER_DOMAIN}\"\
+          \n  - \"apps.${TIMESTAMP}.${CLUSTER_DOMAIN}\"\n  issuerRef:\n    name: cluster\n\
+          \    kind: ClusterIssuer\nEOFINGRESS\n)\napply_with_retry \"Ingress Certificate\"\
+          \ \"$INGRESS_CERT_YAML\"\n\necho \"Generating API Certificate YAML...\"\n\
+          # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job\
+          \ run)\n# Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges\n\
+          # The static DNS name (api.${CLUSTER_DOMAIN}) remains consistent\nAPI_CERT_YAML=$(cat\
+          \ <<EOFAPI\napiVersion: cert-manager.io/v1\nkind: Certificate\nmetadata:\n\
+          \  name: api\n  namespace: openshift-config\nspec:\n  isCA: false\n  commonName:\
+          \ \"api.${CLUSTER_DOMAIN}\"\n  secretName: api-certificates\n  dnsNames:\n\
+          \  - \"api.${CLUSTER_DOMAIN}\"\n  - \"api.${TIMESTAMP}.${CLUSTER_DOMAIN}\"\
+          \n  issuerRef:\n    name: cluster\n    kind: ClusterIssuer\nEOFAPI\n)\n\
+          apply_with_retry \"API Certificate\" \"$API_CERT_YAML\"\n"
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: create-cluster-cert-manager-resources
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

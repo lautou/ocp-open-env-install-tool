@@ -3,6 +3,6 @@ kind: Namespace
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
-  name: openshift-ingress
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
+  name: openshift-ingress

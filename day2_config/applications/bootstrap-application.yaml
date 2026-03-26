@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster-profile
-  namespace: openshift-gitops
   # This annotation ensures ArgoCD doesn't delete this app if the parent (if any) is synced
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
+  name: cluster-profile
+  namespace: openshift-gitops
 spec:
   destination:
     server: https://kubernetes.default.svc

@@ -4,20 +4,13 @@ metadata:
   name: argocd
   namespace: developer-gitops
 spec:
-  server:
-    route:
-      enabled: true
-  sso:
-    dex:
-      openShiftOAuth: true
-    provider: dex
   rbac:
     defaultPolicy: ''
     policy: |
       g, system:cluster-admins, role:admin
       g, cluster-admins, role:admin
     scopes: '[groups]'
-  resourceExclusions: |
+  resourceExclusions: |-
     - apiGroups:
       - tekton.dev
       kinds:
@@ -25,3 +18,10 @@ spec:
       - TaskRun
       clusters:
       - "*"
+  server:
+    route:
+      enabled: true
+  sso:
+    dex:
+      openShiftOAuth: true
+    provider: dex

@@ -11,38 +11,27 @@ spec:
       name: update-cluster-apiserver-cluster
     spec:
       containers:
-        - name: update-cluster-apiserver-cluster
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              echo "Fetching cluster domain from DNS CR..."
-              CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
-              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
-
-              echo "Building API URL..."
-              API_URL="api.${CLUSTER_DOMAIN}"
-              echo "API_URL=$API_URL"
-
-              echo "Waiting for certificate to be created..."
-              while ! oc get certificate api -n openshift-config 2>/dev/null 1>&2; do
-                echo "Wait for certificate to be created."
-                sleep 5
-              done
-
-              echo "Wait for certificate to be ready..."
-              oc wait --for=condition=Ready --timeout=-1s certificate/api -n openshift-config
-
-              echo "Update api config..."
-              oc patch apiserver cluster --type merge -p '{"spec":{"servingCerts":{"namedCertificates":[{"names":["'$API_URL'"],"servingCertificate":{"name":"api-certificates"}}]}}}'
-
-              echo "API server configuration updated successfully!" 
+      - command:
+        - /bin/bash
+        - -c
+        - "set -e\necho \"Fetching cluster domain from DNS CR...\"\nCLUSTER_DOMAIN=$(oc\
+          \ get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')\n\
+          echo \"CLUSTER_DOMAIN=$CLUSTER_DOMAIN\"\n\necho \"Building API URL...\"\n\
+          API_URL=\"api.${CLUSTER_DOMAIN}\"\necho \"API_URL=$API_URL\"\n\necho \"\
+          Waiting for certificate to be created...\"\nwhile ! oc get certificate api\
+          \ -n openshift-config 2>/dev/null 1>&2; do\n  echo \"Wait for certificate\
+          \ to be created.\"\n  sleep 5\ndone\n\necho \"Wait for certificate to be\
+          \ ready...\"\noc wait --for=condition=Ready --timeout=-1s certificate/api\
+          \ -n openshift-config\n\necho \"Update api config...\"\noc patch apiserver\
+          \ cluster --type merge -p '{\"spec\":{\"servingCerts\":{\"namedCertificates\"\
+          :[{\"names\":[\"'$API_URL'\"],\"servingCertificate\":{\"name\":\"api-certificates\"\
+          }}]}}}'\n\necho \"API server configuration updated successfully!\" \n"
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: update-cluster-apiserver-cluster
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

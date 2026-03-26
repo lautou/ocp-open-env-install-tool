@@ -639,17 +639,27 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
        - Secret: `monitoring-secret-grafana-datasource-token.yaml`
        - Annotation: `kubernetes.io/service-account.name: grafana-datasource`
 
-   - **6 GrafanaDashboard CRs**: Complete dashboards from Kuadrant v1.3.0
+   - **10 GrafanaDashboard CRs**: Complete observability for Kuadrant + Istio
+
+     **Kuadrant Dashboards** (from Kuadrant v1.3.0):
      - `platform-engineer` - Platform engineer focused metrics (72KB JSON)
      - `business-user` - Business user analytics (23KB JSON)
      - `controller-resources-metrics` - Controller resource utilization (8KB JSON)
      - `controller-runtime-metrics` - Controller runtime performance (20KB JSON)
      - `app-developer` - Application development metrics (46KB JSON)
      - `dns-operator` - DNS operator monitoring (23KB JSON)
+     - Source: https://github.com/Kuadrant/kuadrant-operator/tree/v1.3.0/examples/dashboards
+
+     **Istio Dashboards** (official upstream from Istio project):
+     - `istio-mesh` - Service mesh overview (23KB JSON)
+     - `istio-service` - Per-service traffic metrics (114KB JSON)
+     - `istio-workload` - Per-workload detailed metrics (105KB JSON)
+     - `istio-performance` - Istio control plane resource usage (40KB JSON)
+     - Source: https://github.com/istio/istio/tree/master/manifests/addons/dashboards
+     - **No Kiali required**: Uses standard Istio metrics from ServiceMonitor
 
    - **ConfigMapGenerator**: Creates ConfigMaps from dashboard JSON files
-     - Source: https://github.com/Kuadrant/kuadrant-operator/tree/v1.3.0/examples/dashboards
-     - Total: 192KB of dashboard definitions
+     - Total: 474KB of dashboard definitions (192KB Kuadrant + 282KB Istio)
 
    - **Configuration Job**: `configure-grafana-datasource-token` (PostSync wave 3)
      - Uses hardcoded internal Thanos Querier service URL

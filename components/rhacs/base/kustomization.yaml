@@ -1,21 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../common
-  - cluster-namespace-rhacs-operator.yaml
-  - cluster-namespace-stackrox.yaml
-  - rhacs-operator-operatorgroup-rhacs-operator.yaml
-  - rhacs-operator-subscription-rhacs-operator.yaml
-  - stackrox-securedcluster-stackrox-secured-cluster-services.yaml
-
+- ../../common
+- cluster-namespace-rhacs-operator.yaml
+- cluster-namespace-stackrox.yaml
+- rhacs-operator-operatorgroup-rhacs-operator.yaml
+- rhacs-operator-subscription-rhacs-operator.yaml
+- stackrox-securedcluster-stackrox-secured-cluster-services.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.rhacs
-    targets:
-      - select:
-          kind: Subscription
-          name: rhacs-operator
-        fieldPaths:
-          - spec.channel
+- source:
+    fieldPath: data.rhacs
+    kind: ConfigMap
+    name: cluster-versions
+  targets:
+  - fieldPaths:
+    - spec.channel
+    select:
+      kind: Subscription
+      name: rhacs-operator

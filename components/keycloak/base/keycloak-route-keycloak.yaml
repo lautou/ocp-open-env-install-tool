@@ -4,11 +4,11 @@ metadata:
   name: keycloak
   namespace: keycloak
 spec:
-  to:
-    kind: Service
-    name: keycloak-service
   port:
     targetPort: http
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: keycloak-service

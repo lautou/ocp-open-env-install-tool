@@ -1,20 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - ../../common
-  - cluster-namespace-openshift-opentelemetry-operator.yaml 
-  - openshift-opentelemetry-operator-operatorgroup-openshift-opentelemetry-operator.yaml 
-  - openshift-opentelemetry-operator-subscription-opentelemetry-product.yaml
-
+- ../../common
+- cluster-namespace-openshift-opentelemetry-operator.yaml
+- openshift-opentelemetry-operator-operatorgroup-openshift-opentelemetry-operator.yaml
+- openshift-opentelemetry-operator-subscription-opentelemetry-product.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.opentelemetry
-    targets:
-      - select:
-          kind: Subscription
-          name: openshift-opentelemetry-operator
-        fieldPaths:
-          - spec.channel
+- source:
+    fieldPath: data.opentelemetry
+    kind: ConfigMap
+    name: cluster-versions
+  targets:
+  - fieldPaths:
+    - spec.channel
+    select:
+      kind: Subscription
+      name: openshift-opentelemetry-operator

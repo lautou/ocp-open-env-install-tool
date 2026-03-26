@@ -8,8 +8,8 @@ spec:
   daemonsets: {}
   dcgm: {}
   dcgmExporter: {}
-  driver: {}
   devicePlugin: {}
+  driver: {}
   gfd: {}
   nodeStatusExporter:
     enabled: true

@@ -5,17 +5,17 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: config
 spec:
-  profile: all
-  targetNamespace: openshift-pipelines
   config:
     nodeSelector:
-      node-role.kubernetes.io/infra: ""
+      node-role.kubernetes.io/infra: ''
     tolerations:
     - key: node-role.kubernetes.io/infra
       operator: Exists
+  profile: all
   pruner:
     keep: 5
     resources:
-      - pipelinerun
-      - taskrun
-    schedule: "0 * * * *"
+    - pipelinerun
+    - taskrun
+    schedule: 0 * * * *
+  targetNamespace: openshift-pipelines

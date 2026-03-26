@@ -1,21 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - ../../common
-  - cluster-namespace-openshift-storage.yaml
-  - openshift-gitops-job-disable-odf-console-plugins.yaml
-  - openshift-gitops-job-enable-odf-console-plugins.yaml
-  - openshift-storage-job-update-subscriptions-node-selector.yaml
-  - openshift-storage-operatorgroup-openshift-storage.yaml
-  - openshift-storage-subscription-odf-operator.yaml
+- ../../common
+- cluster-namespace-openshift-storage.yaml
+- openshift-gitops-job-disable-odf-console-plugins.yaml
+- openshift-gitops-job-enable-odf-console-plugins.yaml
+- openshift-storage-job-update-subscriptions-node-selector.yaml
+- openshift-storage-operatorgroup-openshift-storage.yaml
+- openshift-storage-subscription-odf-operator.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: cluster-versions
-      fieldPath: data.odf
-    targets:
-      - select:
-          kind: Subscription
-        fieldPaths:
-          - spec.channel
+- source:
+    fieldPath: data.odf
+    kind: ConfigMap
+    name: cluster-versions
+  targets:
+  - fieldPaths:
+    - spec.channel
+    select:
+      kind: Subscription

@@ -5,27 +5,27 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: cluster
 spec:
-  controllerConfig:
-    overrideArgs:
-      - '--dns01-recursive-nameservers-only'
-      - '--dns01-recursive-nameservers=1.1.1.1:53'
-    overrideScheduling:
-      nodeSelector:
-        node-role.kubernetes.io/infra: ''
-      tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
-  webhookConfig:
-    overrideScheduling:
-      nodeSelector:
-        node-role.kubernetes.io/infra: ''
-      tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
   cainjectorConfig:
     overrideScheduling:
       nodeSelector:
         node-role.kubernetes.io/infra: ''
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  controllerConfig:
+    overrideArgs:
+    - --dns01-recursive-nameservers-only
+    - --dns01-recursive-nameservers=1.1.1.1:53
+    overrideScheduling:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  webhookConfig:
+    overrideScheduling:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

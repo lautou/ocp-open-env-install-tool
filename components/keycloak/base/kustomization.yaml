@@ -16,12 +16,12 @@ resources:
 - keycloak-subscription-rhbk-operator.yaml
 replacements:
 - source:
+    fieldPath: data.rhbk-operator
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.rhbk-operator
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: rhbk-operator
-    fieldPaths:
-    - spec.channel

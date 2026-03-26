@@ -11,20 +11,20 @@ spec:
       name: enable-console-plugin
     spec:
       containers:
-        - name: enable-console-plugin
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
-              echo "Checking if pipelines-console-plugin is already enabled..."
-              if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "pipelines-console-plugin"; then
-                echo "Enabling pipelines-console-plugin..."
-                oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "pipelines-console-plugin"}]'
-                echo "Plugin pipelines-console-plugin added successfully."
-              else
-                echo "Plugin pipelines-console-plugin already exists. Nothing changed."
-              fi
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Checking if pipelines-console-plugin is already enabled..."
+          if ! oc get console.operator.openshift.io cluster -o jsonpath='{.spec.plugins[*]}' | grep -qw "pipelines-console-plugin"; then
+            echo "Enabling pipelines-console-plugin..."
+            oc patch console.operator.openshift.io cluster --type=json -p='[{"op": "add", "path": "/spec/plugins/-", "value": "pipelines-console-plugin"}]'
+            echo "Plugin pipelines-console-plugin added successfully."
+          else
+            echo "Plugin pipelines-console-plugin already exists. Nothing changed."
+          fi
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: enable-console-plugin
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller

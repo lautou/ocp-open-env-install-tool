@@ -24,6 +24,10 @@ resources:
 - monitoring-grafanadashboard-controller-resources-metrics.yaml
 - monitoring-grafanadashboard-controller-runtime-metrics.yaml
 - monitoring-grafanadashboard-dns-operator.yaml
+- monitoring-grafanadashboard-istio-mesh.yaml
+- monitoring-grafanadashboard-istio-performance.yaml
+- monitoring-grafanadashboard-istio-service.yaml
+- monitoring-grafanadashboard-istio-workload.yaml
 - monitoring-grafanadashboard-platform-engineer.yaml
 - monitoring-grafanadatasource-thanos-query-ds.yaml
 - monitoring-secret-grafana-datasource-token.yaml
@@ -38,45 +42,45 @@ resources:
 - openshift-ingress-telemetry-namespace-metrics.yaml
 replacements:
 - source:
+    fieldPath: data.rhcl-operator
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.rhcl-operator
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: rhcl-operator
-    fieldPaths:
-    - spec.channel
 - source:
+    fieldPath: data.authorino-operator
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.authorino-operator
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: authorino-operator-stable-redhat-operators-openshift-marketplace
-    fieldPaths:
-    - spec.channel
 - source:
+    fieldPath: data.dns-operator
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.dns-operator
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: dns-operator-stable-redhat-operators-openshift-marketplace
-    fieldPaths:
-    - spec.channel
 - source:
+    fieldPath: data.limitador-operator
     kind: ConfigMap
     name: cluster-versions
-    fieldPath: data.limitador-operator
   targets:
-  - select:
+  - fieldPaths:
+    - spec.channel
+    select:
       kind: Subscription
       name: limitador-operator-stable-redhat-operators-openshift-marketplace
-    fieldPaths:
-    - spec.channel
 generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
@@ -104,3 +108,19 @@ configMapGenerator:
   namespace: monitoring
   files:
   - grafana-dashboards/dns-operator.json
+- name: grafana-dashboard-istio-mesh
+  namespace: monitoring
+  files:
+  - grafana-dashboards/istio-mesh-dashboard.json
+- name: grafana-dashboard-istio-performance
+  namespace: monitoring
+  files:
+  - grafana-dashboards/istio-performance-dashboard.json
+- name: grafana-dashboard-istio-service
+  namespace: monitoring
+  files:
+  - grafana-dashboards/istio-service-dashboard.json
+- name: grafana-dashboard-istio-workload
+  namespace: monitoring
+  files:
+  - grafana-dashboards/istio-workload-dashboard.json

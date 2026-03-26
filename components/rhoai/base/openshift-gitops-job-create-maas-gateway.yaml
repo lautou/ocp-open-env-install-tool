@@ -11,50 +11,50 @@ spec:
       name: create-maas-gateway
     spec:
       containers:
-        - name: create-maas-gateway
-          image: registry.redhat.io/openshift4/ose-cli:latest
-          command:
-            - /bin/bash
-            - '-c'
-            - |
-              set -e
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
 
-              echo "Fetching cluster domain from DNS CR..."
-              CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
-              echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
+          echo "Fetching cluster domain from DNS CR..."
+          CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+          echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
 
-              echo "Creating MaaS Gateway..."
-              cat <<EOF | oc apply -f -
-              apiVersion: gateway.networking.k8s.io/v1
-              kind: Gateway
-              metadata:
-                name: maas-default-gateway
-                namespace: openshift-ingress
-                annotations:
-                  argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-              spec:
-                gatewayClassName: data-science-gateway-class
-                listeners:
-                  - allowedRoutes:
-                      namespaces:
-                        from: All
-                    hostname: maas-api.apps.${CLUSTER_DOMAIN}
-                    name: https
-                    port: 443
-                    protocol: HTTPS
-                    tls:
-                      certificateRefs:
-                        - group: ''
-                          kind: Secret
-                          name: ingress-certificates
-                      mode: Terminate
-              EOF
+          echo "Creating MaaS Gateway..."
+          cat <<EOF | oc apply -f -
+          apiVersion: gateway.networking.k8s.io/v1
+          kind: Gateway
+          metadata:
+            name: maas-default-gateway
+            namespace: openshift-ingress
+            annotations:
+              argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+          spec:
+            gatewayClassName: data-science-gateway-class
+            listeners:
+              - allowedRoutes:
+                  namespaces:
+                    from: All
+                hostname: maas-api.apps.${CLUSTER_DOMAIN}
+                name: https
+                port: 443
+                protocol: HTTPS
+                tls:
+                  certificateRefs:
+                    - group: ''
+                      kind: Secret
+                      name: ingress-certificates
+                  mode: Terminate
+          EOF
 
-              echo "MaaS Gateway created successfully!"
+          echo "MaaS Gateway created successfully!"
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: create-maas-gateway
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

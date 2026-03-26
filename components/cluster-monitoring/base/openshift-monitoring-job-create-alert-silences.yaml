@@ -1,12 +1,12 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: create-alert-silences
-  namespace: openshift-monitoring
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "10"
+    argocd.argoproj.io/sync-wave: '10'
+  name: create-alert-silences
+  namespace: openshift-monitoring
 spec:
   backoffLimit: 3
   template:
@@ -16,9 +16,7 @@ spec:
       serviceAccountName: create-alert-silences
       restartPolicy: OnFailure
       containers:
-      - name: create-silences
-        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
-        command:
+      - command:
         - /bin/bash
         - -c
         - |
@@ -233,3 +231,5 @@ spec:
             echo "❌ ERROR: Expected 5+ silences, found $SILENCE_COUNT"
             exit 1
           fi
+        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        name: create-silences

@@ -10,8 +10,9 @@ spec:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
     tolerations:
-      - key: node-role.kubernetes.io/infra
-        operator: Exists
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+  clusterName: default
   scanner:
     scannerComponent: Disabled
   scannerV4:
@@ -20,6 +21,5 @@ spec:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
     tolerations:
-      - key: node-role.kubernetes.io/infra
-        operator: Exists
-  clusterName: default
+    - key: node-role.kubernetes.io/infra
+      operator: Exists

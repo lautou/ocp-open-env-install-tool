@@ -12,18 +12,18 @@ spec:
       name: delete-openshift-builds-resources
     spec:
       containers:
-      - name: delete-openshift-builds-resources
-        image: registry.redhat.io/openshift4/ose-cli:latest
-        command:
+      - command:
         - /bin/bash
-        - '-c'
+        - -c
         - |
           oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found
           oc delete project openshift-builds --ignore-not-found
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: delete-openshift-builds-resources
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       tolerations:
-        - key: node-role.kubernetes.io/infra
-          operator: Exists
+      - key: node-role.kubernetes.io/infra
+        operator: Exists

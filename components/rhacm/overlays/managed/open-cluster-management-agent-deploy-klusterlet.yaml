@@ -1,10 +1,10 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: klusterlet
-  namespace: open-cluster-management-agent
   labels:
     app: klusterlet
+  name: klusterlet
+  namespace: open-cluster-management-agent
 spec:
   replicas: 1
   selector:
@@ -39,26 +39,26 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 30
       nodeSelector:
-        node-role.kubernetes.io/infra: ""
+        node-role.kubernetes.io/infra: ''
       tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/infra
-          operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/infra
+        operator: Exists
       serviceAccountName: klusterlet
       securityContext:
         runAsNonRoot: true
       containers:
       - name: klusterlet
-        image:  "registry.redhat.io/multicluster-engine/registration-operator-rhel9@sha256:60aa2309cca7d6ab86f3d7a841b6add9903aad8db55c9c9678cf1cda9d9b5403"
+        image: registry.redhat.io/multicluster-engine/registration-operator-rhel9@sha256:60aa2309cca7d6ab86f3d7a841b6add9903aad8db55c9c9678cf1cda9d9b5403
         imagePullPolicy: IfNotPresent
         args:
-          - "/registration-operator"
-          - "klusterlet"
+        - /registration-operator
+        - klusterlet
         env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -91,4 +91,4 @@ spec:
           mountPath: /tmp
       volumes:
       - name: tmpdir
-        emptyDir: { }
+        emptyDir: {}
