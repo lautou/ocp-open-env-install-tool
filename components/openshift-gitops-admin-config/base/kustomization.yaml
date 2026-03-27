@@ -25,6 +25,7 @@ resources:
   - openshift-gitops-role-cert-manager-operator-openshift-ingress.yaml
   - openshift-gitops-role-cert-manager-operator-openshift-ingress-operator.yaml
   - openshift-gitops-role-cleanup-operator-kube-controller-manager.yaml
+  - openshift-gitops-role-dependency-waiter-openshift-operators.yaml
   - openshift-gitops-role-grafana-datasource-configurator.yaml
   - openshift-gitops-role-loki-s3-secret-creator-logging.yaml
   - openshift-gitops-role-loki-s3-secret-creator-netobserv.yaml
@@ -34,11 +35,13 @@ resources:
   - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress.yaml
   - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress-operator.yaml
   - openshift-gitops-rolebinding-cleanup-operator-kube-controller-manager.yaml
+  - openshift-gitops-rolebinding-dependency-waiter-openshift-operators.yaml
   - openshift-gitops-rolebinding-grafana-datasource-configurator.yaml
   - openshift-gitops-rolebinding-loki-s3-secret-creator-logging.yaml
   - openshift-gitops-rolebinding-loki-s3-secret-creator-netobserv.yaml
   - openshift-gitops-serviceaccount-cert-manager-operator.yaml
   - openshift-gitops-serviceaccount-cleanup-operator.yaml
   - openshift-gitops-serviceaccount-console-plugin-manager.yaml
+  - openshift-gitops-serviceaccount-dependency-waiter.yaml
   - openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
   - openshift-gitops-serviceaccount-loki-s3-secret-creator.yaml
