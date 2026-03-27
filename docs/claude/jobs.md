@@ -813,15 +813,48 @@ exit 1
 
 ### Shell Scripting
 
-1. **Always use `set -e`**
+1. **Extract complex scripts to ConfigMaps**
+   - For scripts >100 lines, use ConfigMap instead of embedded bash
+   - Mount ConfigMap at `/scripts` with executable permissions (0755)
+   - Benefits: Better maintainability, no YAML escaping, easier testing
+
+   **Example:**
+   ```yaml
+   # Job manifest (35 lines)
+   spec:
+     containers:
+     - command: ["/scripts/my-script.sh"]
+       volumeMounts:
+       - mountPath: /scripts
+         name: scripts
+     volumes:
+     - configMap:
+         name: my-scripts
+         defaultMode: 0755
+
+   # ConfigMap (separate file, 200+ lines of clean bash)
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: my-scripts
+   data:
+     my-script.sh: |
+       #!/bin/bash
+       set -e
+       # Clean, readable script without \n escapes
+   ```
+
+   **Pattern applied:** See `cert-manager-configmap-scripts.yaml` (resolves AUDIT.md ISSUE-003)
+
+2. **Always use `set -e`**
    - Exit immediately on any error
    - Prevents cascading failures
 
-2. **Quote variables**
+3. **Quote variables**
    - Use `"$VAR"` not `$VAR`
    - Prevents word splitting on spaces
 
-3. **Use HEREDOC for multi-line JSON/YAML**
+4. **Use HEREDOC for multi-line JSON/YAML**
    ```bash
    PAYLOAD=$(cat <<'EOF'
    {
@@ -833,12 +866,12 @@ exit 1
    - Single quotes `<<'EOF'` prevent variable expansion
    - Double quotes `<<EOF` allow variable expansion
 
-4. **Provide clear logging**
+5. **Provide clear logging**
    - Echo before each major operation
    - Show what values were discovered
    - Distinguish success ✅ vs error ❌ messages
 
-5. **Use `--ignore-not-found` for cleanup**
+6. **Use `--ignore-not-found` for cleanup**
    - `oc delete <resource> --ignore-not-found`
    - Makes cleanup idempotent
 
@@ -988,6 +1021,73 @@ image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
 ```yaml
 image: registry.redhat.io/openshift4/ose-cli:latest
 ```
+
+### ❌ Embedding Complex Scripts in YAML
+
+**Pattern:**
+```yaml
+apiVersion: batch/v1
+kind: Job
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          #!/bin/bash
+          set -e
+          # 200+ lines of complex bash script
+          # Multiple levels of YAML escaping
+          # Hard to read, test, or maintain
+          ...
+```
+
+**Why it fails:**
+- Multiple levels of string interpolation (bash + YAML escaping)
+- Hard to unit test (embedded in YAML)
+- Difficult to debug failures (no syntax highlighting)
+- Poor code reusability (cannot share between Jobs)
+- Large YAML files (100+ lines for simple Jobs)
+
+**Solution:** Extract to ConfigMap (see Best Practices #1):
+```yaml
+# Job (35 lines)
+apiVersion: batch/v1
+kind: Job
+spec:
+  template:
+    spec:
+      containers:
+      - command: ["/scripts/my-script.sh"]
+        volumeMounts:
+        - mountPath: /scripts
+          name: scripts
+      volumes:
+      - configMap:
+          name: my-scripts
+          defaultMode: 0755
+
+# ConfigMap (separate file, 200+ lines of clean bash)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-scripts
+data:
+  my-script.sh: |
+    #!/bin/bash
+    set -e
+    # Clean, readable script
+```
+
+**Benefits:**
+- ✅ 70% file reduction (Job YAML stays small)
+- ✅ Proper bash formatting (no escaping)
+- ✅ Easier testing (extract script to test locally)
+- ✅ Better maintainability (edit without YAML complexity)
+
+**Example:** `cert-manager-configmap-scripts.yaml` (AUDIT.md ISSUE-003 resolution)
 
 ---
 

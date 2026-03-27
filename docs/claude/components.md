@@ -167,9 +167,38 @@ Job: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-d
 
 ## cert-manager Certificate Provisioning
 
-**Pattern**: Dynamic Job with pod readiness checks
+**Pattern**: Dynamic Job with pod readiness checks + ConfigMap-based script extraction
 
 **Purpose**: Create ClusterIssuer and Certificate resources after cert-manager operator is fully initialized.
+
+**Architecture**: Job + ConfigMap for maintainability
+
+The Job uses a ConfigMap-mounted script instead of embedded bash for better maintainability:
+
+```yaml
+# Job: components/cert-manager/base/openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+spec:
+  containers:
+  - command: ["/scripts/create-cert-manager-resources.sh"]
+    volumeMounts:
+    - mountPath: /scripts
+      name: scripts
+  volumes:
+  - configMap:
+      name: cert-manager-scripts
+      defaultMode: 0755  # Executable permissions
+```
+
+**ConfigMap**: `components/cert-manager/base/cert-manager-configmap-scripts.yaml` (204 lines)
+
+**Benefits of ConfigMap extraction:**
+- ✅ **70% Job file reduction** (105 lines → 35 lines)
+- ✅ **Proper formatting** (no `\n` escapes, readable bash syntax)
+- ✅ **Better maintainability** (edit script without YAML escaping)
+- ✅ **Easier testing** (extract script content to test locally)
+- ✅ **Reusability** (ConfigMap can be mounted by multiple Jobs if needed)
+
+**Pattern applied:** Resolves AUDIT.md ISSUE-003 (Excessive Bash Complexity in Jobs)
 
 **Critical Race Condition Fixed:**
 
