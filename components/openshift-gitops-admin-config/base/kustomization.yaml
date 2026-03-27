@@ -15,4 +15,12 @@ resources:
   - openshift-gitops-clusterrolebinding-console-plugin-manager.yaml
   - openshift-gitops-job-cleanup-installer-pods.yaml
   - openshift-gitops-job-enable-gitops-console-plugin.yaml
+  - openshift-gitops-role-grafana-datasource-configurator.yaml
+  - openshift-gitops-role-loki-s3-secret-creator-logging.yaml
+  - openshift-gitops-role-loki-s3-secret-creator-netobserv.yaml
+  - openshift-gitops-rolebinding-grafana-datasource-configurator.yaml
+  - openshift-gitops-rolebinding-loki-s3-secret-creator-logging.yaml
+  - openshift-gitops-rolebinding-loki-s3-secret-creator-netobserv.yaml
   - openshift-gitops-serviceaccount-console-plugin-manager.yaml
+  - openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
+  - openshift-gitops-serviceaccount-loki-s3-secret-creator.yaml

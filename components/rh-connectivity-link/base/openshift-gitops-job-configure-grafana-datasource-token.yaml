@@ -62,4 +62,4 @@ spec:
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: configure-datasource
       restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
+      serviceAccountName: grafana-datasource-configurator
