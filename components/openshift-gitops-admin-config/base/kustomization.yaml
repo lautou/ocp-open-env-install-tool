@@ -11,16 +11,29 @@ resources:
   - cluster-group-cluster-admins.yaml
   - cluster-namespace-openshift-kube-controller-manager.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
+  - openshift-gitops-clusterrole-cert-manager-operator.yaml
   - openshift-gitops-clusterrole-console-plugin-manager.yaml
+  - openshift-gitops-clusterrolebinding-cert-manager-operator.yaml
   - openshift-gitops-clusterrolebinding-console-plugin-manager.yaml
   - openshift-gitops-job-cleanup-installer-pods.yaml
   - openshift-gitops-job-enable-gitops-console-plugin.yaml
+  - openshift-gitops-role-cert-manager-operator-cert-manager.yaml
+  - openshift-gitops-role-cert-manager-operator-kube-system.yaml
+  - openshift-gitops-role-cert-manager-operator-openshift-config.yaml
+  - openshift-gitops-role-cert-manager-operator-openshift-ingress.yaml
+  - openshift-gitops-role-cert-manager-operator-openshift-ingress-operator.yaml
   - openshift-gitops-role-grafana-datasource-configurator.yaml
   - openshift-gitops-role-loki-s3-secret-creator-logging.yaml
   - openshift-gitops-role-loki-s3-secret-creator-netobserv.yaml
+  - openshift-gitops-rolebinding-cert-manager-operator-cert-manager.yaml
+  - openshift-gitops-rolebinding-cert-manager-operator-kube-system.yaml
+  - openshift-gitops-rolebinding-cert-manager-operator-openshift-config.yaml
+  - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress.yaml
+  - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress-operator.yaml
   - openshift-gitops-rolebinding-grafana-datasource-configurator.yaml
   - openshift-gitops-rolebinding-loki-s3-secret-creator-logging.yaml
   - openshift-gitops-rolebinding-loki-s3-secret-creator-netobserv.yaml
+  - openshift-gitops-serviceaccount-cert-manager-operator.yaml
   - openshift-gitops-serviceaccount-console-plugin-manager.yaml
   - openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
   - openshift-gitops-serviceaccount-loki-s3-secret-creator.yaml

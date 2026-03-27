@@ -2,7 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
+    argocd.argoproj.io/sync-wave: "3"
   name: update-openshift-ingress-operator-ingresscontroller-default
   namespace: openshift-gitops
 spec:
@@ -26,7 +29,7 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/infra: ''
       restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
+      serviceAccountName: cert-manager-operator
       tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
