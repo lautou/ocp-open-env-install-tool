@@ -28,4 +28,4 @@ spec:
         image: quay.io/devfile/universal-developer-image:ubi9-latest
         name: disable-console-plugin
       restartPolicy: OnFailure
-      serviceAccountName: openshift-gitops-argocd-application-controller
+      serviceAccountName: console-plugin-manager

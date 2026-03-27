@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: console-plugin-manager
+rules:
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+  - patch
+  - update

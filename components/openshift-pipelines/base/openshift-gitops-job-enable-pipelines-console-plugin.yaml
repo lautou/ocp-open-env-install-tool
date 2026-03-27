@@ -2,7 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
+    argocd.argoproj.io/sync-wave: "3"
   name: enable-pipelines-console-plugin
   namespace: openshift-gitops
 spec:
@@ -27,4 +30,4 @@ spec:
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: enable-console-plugin
       restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
+      serviceAccountName: console-plugin-manager
