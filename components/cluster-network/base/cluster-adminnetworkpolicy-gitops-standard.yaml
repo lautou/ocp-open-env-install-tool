@@ -61,8 +61,9 @@ spec:
   - name: allow-kube-api
     action: Allow
     to:
-    - networks:
-      - 172.30.0.1/32
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: default
     ports:
     - portNumber:
         port: 443
