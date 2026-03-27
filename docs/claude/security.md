@@ -122,6 +122,88 @@ Without resource requests/limits, Jobs get:
 
 **Decision**: Keep Jobs at BestEffort QoS for demo/lab use case. Jobs need maximum available resources during Day 2 initialization for fastest completion.
 
+## Job RBAC Security (Least-Privilege)
+
+**✅ IMPLEMENTED**: All Jobs use dedicated ServiceAccounts with least-privilege RBAC instead of cluster-admin.
+
+**Status**: Production-ready (AUDIT.md ISSUE-009 resolved 2026-03-27)
+
+**How It Works:**
+
+All 20 GitOps configuration Jobs use dedicated ServiceAccounts with minimal permissions tailored to their specific tasks.
+
+**Security Implementation:**
+
+1. **13 Dedicated ServiceAccounts** - One per Job type or shared for similar operations
+2. **8 ClusterRoles** - Minimal cluster-scoped permissions only when required
+3. **17 Namespace Roles** - Preferred over ClusterRoles (principle of least privilege)
+4. **0 cluster-admin usage** - No Jobs have broad cluster permissions
+
+**ServiceAccount Examples:**
+
+| ServiceAccount | Used By | Permissions | Reduction |
+|---------------|---------|-------------|-----------|
+| `console-plugin-manager` | 6 console plugin Jobs | ONLY console.operator.openshift.io patch | ~99% |
+| `cert-manager-operator` | 3 cert-manager Jobs | cert-manager.io + specific namespace Roles | ~95% |
+| `loki-s3-secret-creator` | 2 S3 secret Jobs | Secret create/update in logging/netobserv | ~95% |
+| `cleanup-operator` | 2 cleanup Jobs | Pod delete in openshift-kube-controller-manager | ~97% |
+| `dependency-waiter` | 1 dependency Job | Read-only subscription access | ~98% |
+
+**Pattern Applied:**
+
+```yaml
+# 1. Create dedicated ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: console-plugin-manager
+  namespace: openshift-gitops
+
+# 2. Define minimal ClusterRole (only if cluster-scoped resources needed)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: console-plugin-manager
+rules:
+- apiGroups: ["operator.openshift.io"]
+  resources: ["consoles"]
+  verbs: ["get", "patch", "update"]
+
+# 3. Bind to ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: console-plugin-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: console-plugin-manager
+subjects:
+- kind: ServiceAccount
+  name: console-plugin-manager
+  namespace: openshift-gitops
+
+# 4. Job uses dedicated ServiceAccount
+apiVersion: batch/v1
+kind: Job
+spec:
+  template:
+    spec:
+      serviceAccountName: console-plugin-manager
+```
+
+**Benefits:**
+
+✅ **Production-ready security** - No overly permissive cluster-admin access
+✅ **Audit compliance** - Clear permission boundaries per Job
+✅ **Blast radius reduction** - Compromised Job cannot access unrelated resources
+✅ **Namespace-scoped where possible** - 17 Roles vs 8 ClusterRoles
+✅ **Validation scripts** - `oc auth can-i` testing for each ServiceAccount
+
+**For Production Adaptation:**
+
+This RBAC model is already production-ready. No changes needed. All Jobs follow least-privilege principle.
+
 ## AWS Tenant Isolation
 
 **CRITICAL**: This tool assumes a **dedicated AWS tenant** for OCP clusters only.

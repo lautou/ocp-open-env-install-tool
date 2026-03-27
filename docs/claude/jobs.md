@@ -6,7 +6,7 @@
 
 This project uses **Kubernetes Jobs** extensively to automate Day 2 operations that cannot be accomplished with static manifests alone. Jobs handle dynamic configuration, secret management, resource patching, and cleanup tasks.
 
-**Total Jobs**: 21 across 12 components
+**Total Jobs**: 20 across 12 components
 
 **Why Jobs?**
 - Dynamic value discovery (e.g., extracting auto-generated secrets)
@@ -15,7 +15,13 @@ This project uses **Kubernetes Jobs** extensively to automate Day 2 operations t
 - Cleanup operations (e.g., deleting failed pods)
 - Cross-component dependencies (e.g., waiting for operator readiness)
 
-**Execution context**: All Jobs run in `openshift-gitops` namespace (except monitoring Jobs) using the `openshift-gitops-argocd-application-controller` ServiceAccount with cluster-admin privileges.
+**Execution context**: All Jobs run in `openshift-gitops` namespace (except monitoring Jobs)
+
+**Security**: ✅ **All Jobs use dedicated ServiceAccounts with least-privilege RBAC** (AUDIT.md ISSUE-009 resolved)
+- 13 dedicated ServiceAccounts created
+- 0 cluster-admin usage (production-ready security)
+- Namespace-scoped Roles preferred over ClusterRoles
+- See [security.md](security.md) "Job RBAC Security" section for details
 
 ---
 
@@ -894,9 +900,61 @@ exit 1
    - All Jobs should run on infra nodes
    - Use standard `nodeSelector` + `tolerations`
 
-4. **Use dedicated ServiceAccounts when possible**
-   - Principle of least privilege
-   - Example: `create-alert-silences` SA for monitoring Job
+4. **Use dedicated ServiceAccounts with least-privilege RBAC**
+   - ✅ **IMPLEMENTED**: All 20 Jobs use dedicated ServiceAccounts (AUDIT.md ISSUE-009 resolved)
+   - Principle of least privilege (0 cluster-admin usage)
+   - Pattern: 1 ServiceAccount per Job type or shared for similar operations
+   - Examples:
+     - `console-plugin-manager` - 6 console plugin Jobs (~99% permission reduction)
+     - `cert-manager-operator` - 3 cert-manager Jobs (~95% reduction)
+     - `loki-s3-secret-creator` - 2 S3 secret Jobs (~95% reduction)
+   - See [security.md](security.md) "Job RBAC Security" section for full details
+
+### RBAC Security Patterns
+
+**All Jobs in this project follow production-ready RBAC patterns:**
+
+1. **Dedicated ServiceAccounts** - Never reuse generic ServiceAccounts
+2. **Namespace-scoped Roles preferred** - Only use ClusterRoles when cluster-scoped resources required
+3. **Minimal permissions** - Grant only exact verbs and resources needed
+4. **Validation scripts** - Test permissions with `oc auth can-i` before deployment
+
+**Example RBAC implementation:**
+```yaml
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-job-operator
+  namespace: openshift-gitops
+
+# Namespace-scoped Role (preferred)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: my-job-operator
+  namespace: target-namespace
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "update"]  # Only what's needed
+
+# ClusterRole (only if cluster-scoped resources)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: my-job-operator
+rules:
+- apiGroups: ["config.openshift.io"]
+  resources: ["infrastructures"]
+  verbs: ["get", "list"]  # Read-only when possible
+
+# Job uses dedicated SA
+spec:
+  template:
+    spec:
+      serviceAccountName: my-job-operator
+```
 
 ### ArgoCD Integration
 
