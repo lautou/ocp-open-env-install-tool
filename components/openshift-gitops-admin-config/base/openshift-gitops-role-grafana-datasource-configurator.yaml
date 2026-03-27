@@ -26,4 +26,5 @@ rules:
   - grafanadatasources
   verbs:
   - get
+  - list
   - patch

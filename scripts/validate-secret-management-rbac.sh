@@ -82,6 +82,7 @@ test_permission_allowed "grafana-datasource-configurator" "list" "secrets" "moni
 test_permission_allowed "grafana-datasource-configurator" "get" "serviceaccounts" "monitoring" "get serviceaccounts in monitoring"
 test_permission_allowed "grafana-datasource-configurator" "list" "serviceaccounts" "monitoring" "list serviceaccounts in monitoring"
 test_permission_allowed "grafana-datasource-configurator" "get" "grafanadatasources" "monitoring" "get grafanadatasources in monitoring"
+test_permission_allowed "grafana-datasource-configurator" "list" "grafanadatasources" "monitoring" "list grafanadatasources in monitoring"
 test_permission_allowed "grafana-datasource-configurator" "patch" "grafanadatasources" "monitoring" "patch grafanadatasources in monitoring"
 
 echo ""
