@@ -58,18 +58,11 @@ spec:
         port: 5353
         protocol: TCP
 
-  - name: allow-kube-api
+  - name: allow-service-network
     action: Allow
     to:
     - networks:
       - 172.30.0.0/16
-    ports:
-    - portNumber:
-        port: 443
-        protocol: TCP
-    - portNumber:
-        port: 6443
-        protocol: TCP
 
   - name: allow-openshift-ingress
     action: Allow
