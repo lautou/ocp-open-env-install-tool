@@ -13,5 +13,6 @@ rules:
   - secrets
   verbs:
   - create
+  - get
   - patch
   - update
