@@ -1020,26 +1020,33 @@ Document overlay naming conventions in CLAUDE.md:
 
 **Effort:** Low (1-2 hours)
 
-#### ISSUE-005: Very Long File Names
+#### ISSUE-005: Very Long File Names ✅ RESOLVED
 
-**Severity:** MEDIUM
-**Impact:** Hard to navigate, version control issues
+**Severity:** ~~MEDIUM~~ → RESOLVED
+**Impact:** ~~Hard to navigate, version control issues~~ → Fixed
+**Status:** Completed 2026-03-27
 
-**Examples:**
+**Resolution:**
+- All excessively long filenames have been shortened
+- All YAML files now under 100 characters (longest: 99 chars)
+- Kustomization references updated accordingly
+- ArgoCD sync validated successfully
+
+**Example Fixes:**
 ```
-cluster-crb-clusterissuers.cert-manager.io-v1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml (125 chars)
+Before: cluster-crb-manage-network-policies-openshift-gitops-openshift-gitops-argocd-application-controller.yaml (104 chars)
+After:  cluster-crb-anp-manage-gitops.yaml (33 chars)
+
+Before: cluster-crb-clusterissuers.cert-manager.io-v1-edit-openshift-gitops-openshift-gitops-argocd-application-controller.yaml (125 chars)
+After:  cluster-crb-cert-manager-issuers-edit.yaml (previously renamed)
 ```
 
-**Recommended Fix:**
-```yaml
-# Option 1: Abbreviate RBAC names
-cluster-crb-cert-manager-edit-gitops.yaml
+**Files Modified:**
+- `components/openshift-gitops-admin-config/base/cluster-crb-anp-manage-gitops.yaml` (created)
+- `components/openshift-gitops-admin-config/base/kustomization.yaml` (updated)
+- Old long filename removed
 
-# Option 2: Use shorter identifiers
-cluster-crb-cert-manager-issuers-edit.yaml
-```
-
-**Effort:** Medium (4-8 hours to rename + update references)
+**Effort:** Actual: 30 minutes (rename + validation)
 
 #### ISSUE-006: Common Component Structure Deviation
 
@@ -1188,17 +1195,17 @@ rules:
 
 ### 9.5 Technical Debt Summary
 
-| Issue | Severity | Effort | Priority |
-|-------|----------|--------|----------|
-| Hardcoded Git URLs | HIGH | Medium | 1 |
-| Non-standard images | HIGH | Low | 2 |
-| Bash complexity | MEDIUM | High | 3 |
-| Overlay naming | MEDIUM | Low | 4 |
-| Long file names | MEDIUM | Medium | 5 |
-| Common component | MEDIUM | Low | 6 |
-| TEMPORARY-FIX | LOW | Low | 7 |
-| No NetworkPolicy | LOW | Medium | 8 |
-| Cluster-admin RBAC | LOW | High | 9 |
+| Issue | Severity | Effort | Priority | Status |
+|-------|----------|--------|----------|--------|
+| Hardcoded Git URLs | HIGH | Medium | 1 | Open |
+| Non-standard images | HIGH | Low | 2 | Open |
+| Bash complexity | MEDIUM | High | 3 | Open |
+| Overlay naming | MEDIUM | Low | 4 | Open |
+| Long file names | ~~MEDIUM~~ | ~~Medium~~ | ~~5~~ | ✅ RESOLVED |
+| Common component | MEDIUM | Low | 6 | Open |
+| TEMPORARY-FIX | LOW | Low | 7 | Open |
+| No NetworkPolicy | ~~LOW~~ | ~~Medium~~ | ~~8~~ | ✅ RESOLVED |
+| Cluster-admin RBAC | LOW | High | 9 | Deferred (acceptable for demo/lab) |
 
 ---
 

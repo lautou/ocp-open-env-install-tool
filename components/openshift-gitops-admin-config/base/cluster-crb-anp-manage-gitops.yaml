@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: manage-network-policies-openshift-gitops-openshift-gitops-argocd-application-controller
+  name: anp-manage-gitops
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

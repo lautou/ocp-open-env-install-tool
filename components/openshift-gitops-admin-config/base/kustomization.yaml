@@ -8,7 +8,7 @@ resources:
   - cluster-crb-delete-project-openshift-gitopsopenshift-gitops-argocd-application-controller.yaml
   - cluster-crb-edit-crd-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
   - cluster-crb-gitops-gitopsservice-edit.yaml
-  - cluster-crb-manage-network-policies-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
+  - cluster-crb-anp-manage-gitops.yaml
   - cluster-gitopsservice-cluster.yaml
   - cluster-group-cluster-admins.yaml
   - cluster-namespace-openshift-kube-controller-manager.yaml
