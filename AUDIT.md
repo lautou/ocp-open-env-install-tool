@@ -21,9 +21,10 @@ This OpenShift Container Platform (OCP) installation tool represents a **mature,
 - Excellent documentation for complex topics
 
 **Critical Issues:** None
-**High Priority Issues:** 0 (All resolved)
-**Medium Priority Issues:** 0 (All resolved)
-**Low Priority Issues:** 1 (ISSUE-009 deferred by design for lab/demo environments)
+**High Priority Issues:** 0 (All resolved - ISSUE-001 ✅, ISSUE-002 ✅)
+**Medium Priority Issues:** 1 (ISSUE-003 open)
+**Low Priority Issues:** 1 (ISSUE-007 open), 1 deferred (ISSUE-009)
+**Resolved Issues:** 6 (ISSUE-001, ISSUE-002, ISSUE-004, ISSUE-005, ISSUE-006, ISSUE-008)
 
 ---
 
@@ -879,65 +880,80 @@ cluster-crb-clusterissuers.cert-manager.io-v1-edit-openshift-gitops-openshift-gi
 
 ### 9.2 High Priority Issues
 
-#### ISSUE-001: Hardcoded Git Repository URLs
+#### ISSUE-001: Hardcoded Git Repository URLs ✅ RESOLVED
 
-**Severity:** HIGH
-**Affected Files:** 20 ApplicationSets
-**Impact:** Users who fork cannot easily point to their repository
+**Severity:** ~~HIGH~~ → RESOLVED
+**Impact:** ~~Users who fork cannot easily point to their repository~~ → Fixed
+**Status:** Completed 2026-03-26 (commit 490a96a)
 
-**Description:**
-All ApplicationSets hardcode:
+**Resolution:**
+Implemented Kustomize replacement pattern in all 13 profiles. Users can now fork by changing ONE line per profile.
+
+**Solution implemented:**
 ```yaml
-repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-```
+# Each profile's kustomization.yaml now includes:
+configMapGenerator:
+- name: gitops-repo-config
+  literals:
+  - repoURL=https://github.com/lautou/ocp-open-env-install-tool.git
 
-**Workaround:** Manual editing of 20 files after cluster deployment
-
-**Recommended Fix:**
-```yaml
-# Option 1: Kustomize replacement
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
 replacements:
 - source:
     kind: ConfigMap
-    name: gitops-config
+    name: gitops-repo-config
     fieldPath: data.repoURL
   targets:
   - select:
       kind: ApplicationSet
     fieldPaths:
     - spec.template.spec.source.repoURL
-
-# Option 2: Environment variable
-repoURL: ${GIT_REPO_URL}
 ```
 
-**Effort:** Medium (2-4 hours)
+**Usage after forking:**
+```bash
+# Change repoURL in each profile's kustomization.yaml
+vi gitops-profiles/ocp-standard/kustomization.yaml
+# Update: repoURL=https://github.com/YOUR-ORG/ocp-fork.git
+```
 
-#### ISSUE-002: Non-Standard Container Images
+**Benefits:**
+- Easy repository forking (change 1 line per profile)
+- Multi-environment support (dev/staging/prod repos)
+- Follows GitOps best practices (environment-agnostic config)
 
-**Severity:** HIGH
-**Affected Jobs:** 2
-**Impact:** Breaks in air-gapped environments, less portable
+**Bonus:** Helper script added: `scripts/update_git_url.sh` for batch updates
 
-**Description:**
-Two Jobs use internal OpenShift registry instead of Red Hat registry:
+**Effort:** Actual: 2 hours (implementation + helper script)
+
+#### ISSUE-002: Non-Standard Container Images ✅ RESOLVED
+
+**Severity:** ~~HIGH~~ → RESOLVED
+**Impact:** ~~Breaks in air-gapped environments, less portable~~ → Fixed
+**Status:** Completed 2026-03-26 (commit 490a96a)
+
+**Resolution:**
+Replaced internal OpenShift registry references with official Red Hat registry in all affected Jobs.
+
+**Changes made:**
 ```yaml
-# ⚠️ Non-portable
+# Before (non-portable)
 image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
 
-# ✅ Recommended
+# After (portable)
 image: registry.redhat.io/openshift4/ose-cli:latest
 ```
 
-**Affected Files:**
-1. `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
-2. `components/rh-connectivity-link/base/openshift-gitops-job-configure-grafana-datasource-token.yaml`
+**Affected Files (fixed):**
+1. ✅ `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
+2. ✅ `components/rh-connectivity-link/base/openshift-gitops-job-configure-grafana-datasource-token.yaml`
 
-**Recommended Fix:** Change to Red Hat registry
+**Benefits:**
+- Works in air-gapped environments
+- Uses supported Red Hat registry
+- Better portability across clusters
+- Consistent with other Jobs (all now use Red Hat registry)
 
-**Effort:** Low (30 minutes)
+**Effort:** Actual: 30 minutes
 
 ### 9.3 Medium Priority Issues
 
@@ -985,40 +1001,39 @@ command: ["/scripts/create-resources.sh"]
 
 **Effort:** High (8-16 hours)
 
-#### ISSUE-004: Overlay Naming Inconsistency
+#### ISSUE-004: Overlay Naming Inconsistency ✅ RESOLVED
 
-**Severity:** MEDIUM
-**Impact:** Inconsistent discovery, mental overhead
+**Severity:** ~~MEDIUM~~ → RESOLVED
+**Impact:** ~~Inconsistent discovery, mental overhead~~ → Documented
+**Status:** Completed 2026-03-26 (commit 490a96a)
 
-**Examples:**
-- logging: `1x.pico`, `1x.small`, `1x.medium` (size prefix pattern)
-- storage: `mcg-only`, `full-aws-balanced` (descriptive pattern)
-- devops: `default`, `ai` (mode pattern)
-- rhacm: `hub`, `managed` (role pattern)
+**Resolution:**
+Added comprehensive "Component Overlay Naming Conventions" section to CLAUDE.md (148 lines of documentation).
 
-**Recommended Fix:**
-Document overlay naming conventions in CLAUDE.md:
-```markdown
-## Overlay Naming Conventions
+**Documented 6 overlay patterns:**
+1. **Default Pattern** (`default`) - Used by 22 components
+2. **Size Variant Pattern** (`pico`, `small`, `medium`, `large`) - openshift-logging
+3. **Performance Profile Pattern** (`lean`, `balanced`, `performance`) - openshift-storage
+4. **Deployment Mode Pattern** (`hub`, `managed`, `central`, `secured`) - rhacm, rhacs
+5. **Feature Variant Pattern** (`with-loki`) - network-observability
+6. **Profile-Specific Pattern** (`ai`) - openshift-pipelines, webterminal
 
-### Size Variants
-- Pattern: `{size}` where size = pico | extra-small | small | medium | large
-- Example: logging overlays
+**Documentation includes:**
+- Pattern definitions with usage examples
+- Rationale for each naming convention
+- Directory structure examples
+- Overlay Selection Guide (decision tree)
+- Consistency guidelines for future overlays
 
-### Performance Variants
-- Pattern: `{profile}` where profile = lean | balanced | performance
-- Example: storage overlays
+**Location:** `CLAUDE.md` - "Component Overlay Naming Conventions" section
 
-### Mode Variants
-- Pattern: `{mode}` where mode describes deployment mode
-- Example: rhacm (hub | managed), rhacs (central | secured)
+**Benefits:**
+- Clear guidance for contributors
+- Consistent pattern application
+- Self-documenting overlay purposes
+- Easier discovery and navigation
 
-### Feature Variants
-- Pattern: `with-{feature}` for optional features
-- Example: network-observability (default | with-loki)
-```
-
-**Effort:** Low (1-2 hours)
+**Effort:** Actual: 2 hours (comprehensive documentation)
 
 #### ISSUE-005: Very Long File Names ✅ RESOLVED
 
@@ -1048,45 +1063,36 @@ After:  cluster-crb-cert-manager-issuers-edit.yaml (previously renamed)
 
 **Effort:** Actual: 30 minutes (rename + validation)
 
-#### ISSUE-006: Common Component Structure Deviation
+#### ISSUE-006: Common Component Structure Deviation ✅ RESOLVED
 
-**Severity:** MEDIUM
-**Impact:** Inconsistency with other 35 components
+**Severity:** ~~MEDIUM~~ → RESOLVED
+**Impact:** ~~Inconsistency with other 35 components~~ → Documented as intentional design
+**Status:** Completed 2026-03-26 (documented in CLAUDE.md)
 
-**Description:**
-`components/common/` lacks standard `base/overlays` structure:
-```
-components/common/
-├── kustomization.yaml
-└── cluster-versions.yaml  # ← No base/ or overlays/
-```
+**Resolution:**
+Added "Component Structure Exception: components/common/" section to CLAUDE.md explaining why `components/common/` intentionally deviates from standard structure.
 
-All other 35 components follow:
-```
-components/{name}/
-├── base/
-│   ├── kustomization.yaml
-│   └── *.yaml
-└── overlays/
-    └── default/
-        └── kustomization.yaml
-```
+**Documentation clarifies:**
+- `components/common/` is a **data source component**, not a deployable component
+- Contains only `cluster-versions.yaml` ConfigMap (shared version data)
+- No `base/overlays` structure needed (single source of truth, no variants)
+- Referenced by all components via `../../common` in kustomization.yaml
+- Never deployed directly by ArgoCD (acts as Kustomize library only)
 
-**Rationale:** Intentional design - common is a shared data source, not a deployable component
+**Comparison table added:**
+| Aspect | Standard Component | components/common/ |
+|--------|-------------------|-------------------|
+| Purpose | Deploy operators/apps | Provide shared data |
+| Contains | Subscription, Deployment, Service | ConfigMap only |
+| Referenced by | ApplicationSet | Kustomize base in other components |
+| ArgoCD manages? | Yes | No (data only) |
+| Needs overlays? | Yes (variants) | No (single source of truth) |
 
-**Recommended Fix:**
-Document in CLAUDE.md:
-```markdown
-## Component Structure Exception
+**Location:** `CLAUDE.md` - "Component Structure Exception: components/common/" section
 
-The `common` component is a special case:
-- **Purpose:** Shared ConfigMap for centralized version management
-- **Structure:** No base/overlays (acts as data source only)
-- **Referenced by:** All components via `../../common`
-- **Not deployed:** Never appears in ApplicationSet generators
-```
+**Rationale:** Intentional architectural pattern for centralized version management
 
-**Effort:** Low (30 minutes documentation)
+**Effort:** Actual: 30 minutes (comprehensive explanation with comparison table)
 
 ### 9.4 Low Priority Issues
 
@@ -1197,15 +1203,20 @@ rules:
 
 | Issue | Severity | Effort | Priority | Status |
 |-------|----------|--------|----------|--------|
-| Hardcoded Git URLs | HIGH | Medium | 1 | Open |
-| Non-standard images | HIGH | Low | 2 | Open |
+| Hardcoded Git URLs | ~~HIGH~~ | ~~Medium~~ | ~~1~~ | ✅ RESOLVED (2026-03-26) |
+| Non-standard images | ~~HIGH~~ | ~~Low~~ | ~~2~~ | ✅ RESOLVED (2026-03-26) |
 | Bash complexity | MEDIUM | High | 3 | Open |
-| Overlay naming | MEDIUM | Low | 4 | Open |
-| Long file names | ~~MEDIUM~~ | ~~Medium~~ | ~~5~~ | ✅ RESOLVED |
-| Common component | MEDIUM | Low | 6 | Open |
+| Overlay naming | ~~MEDIUM~~ | ~~Low~~ | ~~4~~ | ✅ RESOLVED (2026-03-26) |
+| Long file names | ~~MEDIUM~~ | ~~Medium~~ | ~~5~~ | ✅ RESOLVED (2026-03-27) |
+| Common component | ~~MEDIUM~~ | ~~Low~~ | ~~6~~ | ✅ RESOLVED (2026-03-26) |
 | TEMPORARY-FIX | LOW | Low | 7 | Open |
-| No NetworkPolicy | ~~LOW~~ | ~~Medium~~ | ~~8~~ | ✅ RESOLVED |
+| No NetworkPolicy | ~~LOW~~ | ~~Medium~~ | ~~8~~ | ✅ RESOLVED (2026-03-27) |
 | Cluster-admin RBAC | LOW | High | 9 | Deferred (acceptable for demo/lab) |
+
+**Resolution Summary:**
+- **6 issues resolved** (ISSUE-001, ISSUE-002, ISSUE-004, ISSUE-005, ISSUE-006, ISSUE-008)
+- **2 issues open** (ISSUE-003, ISSUE-007)
+- **1 issue deferred** (ISSUE-009 - acceptable for demo/lab environments)
 
 ---
 
