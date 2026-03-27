@@ -75,6 +75,13 @@ spec:
         matchLabels:
           network.openshift.io/policy-group: ingress
 
+  - name: allow-openshift-logging
+    action: Allow
+    to:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-logging
+
   - name: allow-openshift-monitoring
     action: Allow
     to:
