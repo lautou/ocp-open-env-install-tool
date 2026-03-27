@@ -58,11 +58,17 @@ spec:
         port: 5353
         protocol: TCP
 
-  - name: allow-service-network
+  - name: allow-kube-api
     action: Allow
     to:
-    - networks:
-      - 172.30.0.0/16
+    - nodes:
+        matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+    ports:
+    - portNumber:
+        port: 6443
+        protocol: TCP
 
   - name: allow-openshift-ingress
     action: Allow
