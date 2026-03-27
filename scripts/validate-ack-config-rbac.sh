@@ -24,11 +24,13 @@ echo "2. Testing kube-system namespace permissions:"
 oc auth can-i get secrets --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n kube-system && echo "  ✓ Can get secrets in kube-system" || echo "  ✗ FAIL: Cannot get secrets in kube-system"
 echo ""
 
-# Test 3: ack-system namespace permissions (create/update secrets and configmaps)
+# Test 3: ack-system namespace permissions (create/update/get secrets and configmaps)
 echo "3. Testing ack-system namespace permissions:"
+oc auth can-i get secrets --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can get secrets in ack-system" || echo "  ✗ FAIL: Cannot get secrets in ack-system"
 oc auth can-i create secrets --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can create secrets in ack-system" || echo "  ✗ FAIL: Cannot create secrets in ack-system"
 oc auth can-i patch secrets --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can patch secrets in ack-system" || echo "  ✗ FAIL: Cannot patch secrets in ack-system"
 oc auth can-i update secrets --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can update secrets in ack-system" || echo "  ✗ FAIL: Cannot update secrets in ack-system"
+oc auth can-i get configmaps --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can get configmaps in ack-system" || echo "  ✗ FAIL: Cannot get configmaps in ack-system"
 oc auth can-i create configmaps --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can create configmaps in ack-system" || echo "  ✗ FAIL: Cannot create configmaps in ack-system"
 oc auth can-i patch configmaps --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can patch configmaps in ack-system" || echo "  ✗ FAIL: Cannot patch configmaps in ack-system"
 oc auth can-i update configmaps --as=system:serviceaccount:$SA_NAMESPACE:$SA_NAME -n ack-system && echo "  ✓ Can update configmaps in ack-system" || echo "  ✗ FAIL: Cannot update configmaps in ack-system"
