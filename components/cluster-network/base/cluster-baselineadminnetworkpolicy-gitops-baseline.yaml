@@ -1,0 +1,18 @@
+apiVersion: policy.networking.k8s.io/v1alpha1
+kind: BaselineAdminNetworkPolicy
+metadata:
+  name: gitops-baseline
+spec:
+  # Apply to namespaces explicitly opted-in to GitOps network policies
+  subject:
+    namespaces:
+      matchLabels:
+        network-policy.gitops/enforce: "true"
+
+  # Egress rules (processed AFTER AdminNetworkPolicy and NetworkPolicy)
+  egress:
+  - name: deny-all-other-egress
+    action: Deny
+    to:
+    - networks:
+      - 0.0.0.0/0
