@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Project Comparison Report</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Project Comparison Report</h1>
+</header>
+<h1
+id="project-comparison-ai-accelerator-vs-ocp-open-environment-install-tool">Project
+Comparison: AI Accelerator vs OCP Open Environment Install Tool</h1>
+<p><strong>Comparison Date:</strong> 2026-03-27 <strong>Analyzed
+Projects:</strong> - <strong>AI Accelerator</strong>:
+<code>/home/ltourrea/workspace/ai-accelerator</code> - <strong>OCP Open
+Env Install Tool</strong>:
+<code>/home/ltourrea/workspace/ocp-open-env-install-tool</code></p>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>Both projects are GitOps-based solutions for deploying OpenShift
+clusters with Day 2 operators, but they serve <strong>different
+purposes</strong> with <strong>distinct architectural
+approaches</strong>.</p>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 31%" />
+<col style="width: 52%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>AI Accelerator</th>
+<th>OCP Open Env Install Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary Purpose</strong></td>
+<td>Production-ready RHOAI deployment</td>
+<td>Rapid demo/lab cluster provisioning</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>RHOAI-focused with supporting operators</td>
+<td>Full OCP with 36+ diverse operators</td>
+</tr>
+<tr>
+<td><strong>Target Environment</strong></td>
+<td>Any OpenShift cluster (existing)</td>
+<td>AWS RHDP Open Environment (new clusters)</td>
+</tr>
+<tr>
+<td><strong>Installation Phase</strong></td>
+<td>Day 2 only (assumes cluster exists)</td>
+<td>Day 0/1 + Day 2 (full cluster lifecycle)</td>
+</tr>
+<tr>
+<td><strong>Automation Level</strong></td>
+<td>GitOps automation</td>
+<td>GitOps + infrastructure provisioning</td>
+</tr>
+<tr>
+<td><strong>Architecture</strong></td>
+<td>Bootstrap → Clusters → Components</td>
+<td>Components → Bases → Profiles</td>
+</tr>
+<tr>
+<td><strong>Complexity</strong></td>
+<td>Moderate (182 kustomization files)</td>
+<td>High (84 kustomization files, 21 Jobs)</td>
+</tr>
+<tr>
+<td><strong>Documentation</strong></td>
+<td>User-focused (installation guides)</td>
+<td>AI-focused (pattern documentation)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation</strong>: Use <strong>AI Accelerator</strong>
+for production RHOAI deployments on existing clusters. Use <strong>OCP
+Open Env Install Tool</strong> for rapid demo/training environments with
+diverse operator combinations.</p>
+<hr />
+<h2 id="purpose-and-target-audience">1. Purpose and Target Audience</h2>
+<h3 id="ai-accelerator">AI Accelerator</h3>
+<p><strong>Purpose:</strong> Deploy Red Hat OpenShift AI and a curated
+set of supporting operators to existing OpenShift clusters using GitOps
+best practices.</p>
+<p><strong>Target Audience:</strong> - Data science teams deploying
+RHOAI - Platform teams managing AI/ML infrastructure - Customers
+implementing production AI workloads</p>
+<p><strong>Use Cases:</strong> - Production RHOAI deployments -
+Standardized AI platform rollout across multiple clusters -
+GitOps-managed AI infrastructure</p>
+<h3 id="ocp-open-env-install-tool">OCP Open Env Install Tool</h3>
+<p><strong>Purpose:</strong> Rapidly provision complete OpenShift
+clusters on AWS RHDP with flexible Day 2 configurations via
+profile-based architecture.</p>
+<p><strong>Target Audience:</strong> - Red Hat Consulting teams -
+Solution Architects doing demos - Training/workshop facilitators -
+Pre-sales engineers</p>
+<p><strong>Use Cases:</strong> - Quick demo environments (30-hour
+lifespan) - Training labs with specific configurations - Testing diverse
+operator combinations - Pre-sales proof-of-concepts</p>
+<hr />
+<h2 id="architectural-comparison">2. Architectural Comparison</h2>
+<h3 id="ai-accelerator-linear-aggregation-pattern">AI Accelerator:
+Linear Aggregation Pattern</h3>
+<pre><code>Bootstrap              Clusters               Components
+┌─────────────┐       ┌──────────────┐       ┌────────────────┐
+│ overlays/   │──────▶│ overlays/    │──────▶│ operators/     │
+│ rhoai-2.22  │       │ rhoai-2.22   │       │  - openshift-ai│
+│             │       │              │       │  - gpu-operator│
+│             │       │ (aggregates) │       │  - nfd         │
+│             │       │              │       │ argocd/apps/   │
+└─────────────┘       └──────────────┘       └────────────────┘
+     ▲                      ▲
+     │                      │
+     └──────────────────────┘
+     Kustomize replacements propagate
+     git repo URL and branch</code></pre>
+<p><strong>Key Characteristics:</strong> -
+<strong>Bootstrap-driven</strong>: Initial ArgoCD Applications created
+by bootstrap script - <strong>Version-centric</strong>: Overlays
+organized by RHOAI version (2.16, 2.19, 2.22, 2.25) - <strong>Direct
+aggregation</strong>: Clusters layer directly references components -
+<strong>Simple composition</strong>: Less abstraction layers</p>
+<p><strong>Strengths:</strong> - Easy to understand flow - Clear version
+management - Direct component visibility - Lower cognitive overhead</p>
+<p><strong>Weaknesses:</strong> - Less flexible for mixing/matching
+features - Harder to create variant clusters - More duplication across
+overlays</p>
+<h3 id="ocp-open-env-install-tool-modular-lego-architecture">OCP Open
+Env Install Tool: Modular “Lego” Architecture</h3>
+<pre><code>Profiles              Bases                Components
+┌─────────────┐      ┌──────────────┐      ┌────────────────┐
+│ ocp-ai/     │─────▶│ ai/          │─────▶│ rhoai/base     │
+│ (mix bases) │      │ (AppSet)     │      │ rhoai/overlays/│
+│             │      │              │      │                │
+│             │─────▶│ storage/     │─────▶│ odf/base       │
+│             │      │ mcg-only     │      │ odf/overlays/  │
+│             │      │              │      │                │
+│             │─────▶│ logging/pico │─────▶│ logging/base   │
+│             │      │ (AppSet)     │      │ logging/       │
+│             │      │              │      │ overlays/pico  │
+└─────────────┘      └──────────────┘      └────────────────┘
+  13 profiles          11 base groups         36 components</code></pre>
+<p><strong>Key Characteristics:</strong> -
+<strong>Profile-driven</strong>: Select a profile that composes multiple
+bases - <strong>Feature-centric</strong>: Bases group related components
+(storage, logging, AI, security) - <strong>Triple abstraction</strong>:
+Components → Bases (ApplicationSets) → Profiles - <strong>Advanced
+composition</strong>: Mix and match any combination</p>
+<p><strong>Strengths:</strong> - Extreme flexibility (13 pre-built
+profiles) - DRY principle (reusable bases) - Easy to create new
+combinations - Clear separation of concerns</p>
+<p><strong>Weaknesses:</strong> - Higher complexity - More indirection
+to trace components - Steeper learning curve</p>
+<hr />
+<h2 id="component-and-operator-coverage">3. Component and Operator
+Coverage</h2>
+<h3 id="ai-accelerator-rhoai-focused-stack">AI Accelerator:
+RHOAI-Focused Stack</h3>
+<p><strong>Operators (11 total):</strong> - <strong>AI/ML Core:</strong>
+- Red Hat OpenShift AI (primary focus) - NVIDIA GPU Operator - Node
+Feature Discovery (NFD) - Red Hat Build of Kueue - Leader Worker Set</p>
+<ul>
+<li><strong>Supporting Infrastructure:</strong>
+<ul>
+<li>OpenShift GitOps (ArgoCD)</li>
+<li>OpenShift Pipelines (Tekton)</li>
+<li>OpenShift Serverless (Knative)</li>
+<li>OpenShift ServiceMesh (Istio)</li>
+<li>Authorino Operator</li>
+<li>OpenShift Custom Metrics Autoscaler</li>
+</ul></li>
+</ul>
+<p><strong>Component Structure:</strong> - 182 kustomization.yaml files
+- Deep operator customization with 40+ RHOAI instance components -
+GPU-specific overlays for AWS - Channel-based versioning (stable-2.16
+through stable-2.25, EUS, fast)</p>
+<p><strong>Example RHOAI Instance Components:</strong> - Authentication
+(authorino, oauth) - Component toggles (kserve, ray, codeflare,
+trustyai, model registry) - Hardware profiles (CPU, NVIDIA GPU) -
+Dashboard features (model catalog, hardware profiles) - Workload sizing
+(notebook pods, model server pods) - Operational (idle culling, PVC size
+defaults)</p>
+<h3 id="ocp-open-env-install-tool-broad-operator-portfolio">OCP Open Env
+Install Tool: Broad Operator Portfolio</h3>
+<p><strong>Operators/Components (36 total):</strong></p>
+<p><strong>Categories:</strong> - <strong>Core Platform (18):</strong> -
+Cluster monitoring, logging, observability - Image registry, ingress,
+OAuth - Network configuration - Cluster autoscaler</p>
+<ul>
+<li><strong>Storage (4 variants):</strong>
+<ul>
+<li>ODF MCG-only</li>
+<li>ODF Full (Lean, Balanced, Performance)</li>
+<li>NFS provisioner</li>
+</ul></li>
+<li><strong>Observability (7):</strong>
+<ul>
+<li>Loki, Tempo, Grafana</li>
+<li>OpenTelemetry</li>
+<li>Network Observability (with/without Loki)</li>
+<li>Cluster Observability Operator</li>
+</ul></li>
+<li><strong>Security:</strong>
+<ul>
+<li>Red Hat Advanced Cluster Security (Central/Secured modes)</li>
+<li>Sealed Secrets</li>
+<li>cert-manager</li>
+</ul></li>
+<li><strong>Management:</strong>
+<ul>
+<li>Red Hat Advanced Cluster Management (Hub/Managed modes)</li>
+</ul></li>
+<li><strong>AI/ML:</strong>
+<ul>
+<li>Red Hat OpenShift AI</li>
+<li>NVIDIA GPU Operator</li>
+<li>Kueue</li>
+<li>Node Feature Discovery</li>
+</ul></li>
+<li><strong>Integration:</strong>
+<ul>
+<li>OpenShift Service Mesh</li>
+<li>Red Hat Connectivity Link (Kuadrant)</li>
+<li>Red Hat Build of Keycloak (operator only)</li>
+</ul></li>
+<li><strong>CI/CD:</strong>
+<ul>
+<li>OpenShift GitOps</li>
+<li>OpenShift Pipelines</li>
+<li>OpenShift Builds</li>
+<li>Developer GitOps (separated tenancy)</li>
+</ul></li>
+<li><strong>Utilities:</strong>
+<ul>
+<li>AWS Controllers for Kubernetes (Route53)</li>
+<li>WebTerminal</li>
+</ul></li>
+</ul>
+<p><strong>Component Structure:</strong> - 84 kustomization.yaml files -
+Standardized base/overlays pattern - Size-based overlays (logging: pico,
+extra-small, small, medium) - Mode-based overlays (ACS: central vs
+secured, ACM: hub vs managed)</p>
+<hr />
+<h2 id="installation-and-deployment">4. Installation and Deployment</h2>
+<h3 id="ai-accelerator-1">AI Accelerator</h3>
+<p><strong>Prerequisites:</strong> - <strong>Existing OpenShift
+cluster</strong> (user provides) - Cluster admin access - oc, kustomize,
+kubeseal, yq (optional: openshift-install)</p>
+<p><strong>Installation Flow:</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Login to existing cluster</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">oc</span> login...</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Run bootstrap script</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">./bootstrap.sh</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Select overlay (interactive or via flag)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co"># - rhoai-stable-2.22</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># - rhoai-eus-2.16-aws-gpu</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># - etc.</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Script installs:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co">#    - OpenShift GitOps operator</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="co">#    - ArgoCD instance</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co">#    - Bootstrap ArgoCD Applications</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. ArgoCD syncs components (10-15 minutes)</span></span></code></pre></div>
+<p><strong>Cluster Lifecycle:</strong> Day 2 only (assumes cluster
+exists)</p>
+<p><strong>Time to Complete:</strong> 10-15 minutes (post-cluster)</p>
+<p><strong>Customization Method:</strong> - Fork repository - Modify
+components/operators - Update git URL in cluster overlays - Re-run
+bootstrap</p>
+<h3 id="ocp-open-env-install-tool-1">OCP Open Env Install Tool</h3>
+<p><strong>Prerequisites:</strong> - <strong>AWS Blank Open
+Environment</strong> from RHDP - pull-secret.txt from Red Hat - oc, git,
+yq, podman, aws CLI - AWS credentials from RHDP</p>
+<p><strong>Installation Flow:</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Configure</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> config_examples/ocp-ai.config.example config/my-cluster.config</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> config_examples/common.config.example config/common.config</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit configs with cluster name, AWS creds, profile, etc.</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Run installer (handles EVERYTHING)</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="ex">./init_openshift_installation_lab_cluster.sh</span> <span class="at">--config-file</span> my-cluster.config</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Script performs:</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">#    Day 0: Clean AWS resources (idempotent)</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">#    Day 1: Provision Bastion (CloudFormation)</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">#           SSH to Bastion</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#           Generate install-config.yaml</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#           Run openshift-install (IPI or UPI)</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">#           Wait for cluster (40 min)</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">#    Day 2: Install GitOps operator</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">#           Upload GitOps profile to cluster</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co">#           Bootstrap ArgoCD Applications</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">#           Wait for components to sync (20+ min)</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Session recovery (if disconnected)</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run same command → reattach to existing session</span></span></code></pre></div>
+<p><strong>Cluster Lifecycle:</strong> Day 0 + Day 1 + Day 2 (full
+lifecycle)</p>
+<p><strong>Time to Complete:</strong> ~60 minutes (AWS provisioning +
+OCP install + Day 2)</p>
+<p><strong>Customization Method:</strong> - Create new profile in
+gitops-profiles/ - Reference desired bases - Set GITOPS_PROFILE_PATH in
+config file - Run installer</p>
+<hr />
+<h2 id="configuration-management">5. Configuration Management</h2>
+<h3 id="ai-accelerator-2">AI Accelerator</h3>
+<p><strong>Configuration Approach:</strong> Version-based overlays</p>
+<p><strong>Structure:</strong></p>
+<pre><code>bootstrap/overlays/rhoai-stable-2.22/
+clusters/overlays/rhoai-stable-2.22/
+  - kustomization.yaml
+  - patch-application-repo-revision.yaml (optional)</code></pre>
+<p><strong>Overlay Types:</strong> - <code>rhoai-stable-2.XX</code> (4
+versions: 2.19, 2.22, 2.25) - <code>rhoai-eus-2.16</code> (Extended
+Update Support) - <code>rhoai-fast</code> (fast channel) - Suffixed with
+<code>-aws-gpu</code> for GPU-enabled variants</p>
+<p><strong>Git Repository Management:</strong> - Bootstrap script
+detects git URL mismatch - Offers to update cluster-config Application -
+User must manually update ApplicationSets for completeness - Kustomize
+replacements propagate repo URL from Application to ApplicationSets</p>
+<p><strong>Flexibility:</strong> Moderate - Easy to switch RHOAI
+versions - AWS GPU variants pre-configured - Adding new features
+requires modifying components</p>
+<h3 id="ocp-open-env-install-tool-2">OCP Open Env Install Tool</h3>
+<p><strong>Configuration Approach:</strong> Profile + Config File</p>
+<p><strong>Structure:</strong></p>
+<pre><code>config/my-cluster.config:
+  - CLUSTER_NAME, AWS region, AWS creds
+  - GITOPS_PROFILE_PATH=gitops-profiles/ocp-ai
+
+config/common.config:
+  - OCP version, passwords, git repo
+  - DAY2_GITOPS_ENABLED=true/false
+
+gitops-profiles/ocp-ai/kustomization.yaml:
+  - References: ai, core, storage/mcg-only, logging/pico</code></pre>
+<p><strong>13 Pre-Built Profiles:</strong> 1. <code>ocp-standard</code>
+- Base cluster (core + mcg storage + logging) 2. <code>ocp-ai</code> -
+AI/ML (ai + core + devops/ai + storage/mcg + logging/pico + netobserv +
+connectivity-link) 3. <code>ocp-acs-central</code> - Security Hub
+(acs/central + core + storage/mcg + logging/medium + netobserv/loki) 4.
+<code>ocp-acm-hub</code> - Cluster Management Hub (acm/hub + core +
+storage/mcg + logging/small) 5. <code>ocp-acm-hub-acs-central</code> -
+Combined Hub (acm/hub + acs/central + core + storage/odf-full +
+logging/medium) 6. <code>ocp-standard-secured</code> - Managed security
+(acs/secured + core + storage/mcg + logging/pico + netobserv/default) 7.
+<code>ocp-standard-managed</code> - Managed cluster (acm/managed + core
++ storage/mcg + logging/pico) 8. <code>ocp-odf-full-aws-lean</code> -
+Full ODF Lean 9. <code>ocp-odf-full-aws-balanced</code> - Full ODF
+Balanced 10. <code>ocp-odf-full-aws-performance</code> - Full ODF
+Performance 11. <code>ocp-standard-logging-1x.extra-small</code> -
+Minimal logging 12. <code>ocp-standard-logging-1x.small</code> - Small
+logging 13. <code>ocp-standard-logging-1x.medium</code> - Medium
+logging</p>
+<p><strong>Git Repository Management:</strong> - ConfigMap generator in
+each profile - Kustomize replacements update all ApplicationSets - Fork
+repository and update GIT_REPO_URL in common.config - No manual patching
+required</p>
+<p><strong>Flexibility:</strong> Very High - Create new profile in 5
+minutes (copy/edit kustomization.yaml) - Mix any combination of bases -
+Easy to create environment variants - Storage/logging size options</p>
+<hr />
+<h2 id="advanced-features">6. Advanced Features</h2>
+<h3 id="ai-accelerator-3">AI Accelerator</h3>
+<p><strong>Sealed Secrets:</strong> -
+bootstrap/base/sealed-secrets-secret.yaml (placeholder) - User must
+create SealedSecret resources with kubeseal - CI creates empty file for
+validation</p>
+<p><strong>Component Composition:</strong> - RHOAI instance components
+in components/operators/openshift-ai/instance/components/ - Examples:
+auth-with-authorino, components-kserve, hardware-profiles-nvidia-gpu -
+Compose by referencing in overlay kustomization.yaml</p>
+<p><strong>Validation:</strong> - GitHub Actions:
+validate-manifests.yaml - Checks: Kustomize build, YAML lint, Helm lint,
+Git config validation, spell check - Scripts: validate_manifests.sh,
+validate_git_config.sh</p>
+<p><strong>Maintenance Scripts:</strong> - maintence_add_new_cluster.sh
+- maintence_delete_cluster.sh - recoverargo_oc.sh / recoverargo_ssh.sh -
+reset_git.sh</p>
+<h3 id="ocp-open-env-install-tool-3">OCP Open Env Install Tool</h3>
+<p><strong>Advanced Automation:</strong> - <strong>21 Kubernetes
+Jobs</strong> for complex initialization tasks - Job patterns: Pure Job,
+Shared ConfigMap/Secret, Pre-hook vs Post-hook - Jobs handle: ODF
+storage class defaulting, Loki bucket setup, alert silencing, ACS
+policies, ACM cluster registration - QoS classes: Guaranteed
+(memory-intensive), BestEffort (lightweight)</p>
+<p><strong>Session Recovery:</strong> - Detects active tmux session and
+reattaches - Detects pending Bastion instance and resumes provisioning -
+Idempotent AWS cleanup (detects existing resources)</p>
+<p><strong>Security:</strong> - AWS Secrets Manager for credential
+storage - IAM instance profile for Bastion - Credentials NOT uploaded in
+plaintext - Automatic secret cleanup on teardown</p>
+<p><strong>Component Features:</strong> - Common ConfigMap with version
+info (injected into all components) - Standardized naming:
+namespace-kind-name.yaml - YAML alphabetical ordering enforced
+(resources, components, bases lists)</p>
+<p><strong>Multi-Tenancy:</strong> - Separate developer-gitops namespace
+for tenant GitOps - ArgoCD Projects for isolation - Application RBAC</p>
+<p><strong>Infrastructure as Code:</strong> - CloudFormation templates
+for Bastion provisioning - Day 1 config generation (install-config.yaml,
+UPI terraform) - AWS resource tagging for cleanup</p>
+<hr />
+<h2 id="documentation-comparison">7. Documentation Comparison</h2>
+<h3 id="ai-accelerator-4">AI Accelerator</h3>
+<p><strong>Documentation Type:</strong> User-focused</p>
+<p><strong>Files:</strong> - README.md (overview, links to operators) -
+CONTRIBUTING.md (contribution guidelines) - documentation/overview.md
+(repository structure, GitOps flow) - documentation/installation.md
+(step-by-step installation) - Operator-specific READMEs (40+ files)</p>
+<p><strong>Strengths:</strong> - Clear installation instructions - Good
+overview of repository structure - Links to operator documentation</p>
+<p><strong>Weaknesses:</strong> - No architectural patterns documented -
+No troubleshooting guide - No known limitations documented - Limited
+guidance on customization</p>
+<p><strong>CLAUDE.md:</strong> - Created as part of this analysis -
+Documents architecture, commands, patterns - Explains non-obvious
+concepts (sealed secrets, git config, component composition)</p>
+<h3 id="ocp-open-env-install-tool-4">OCP Open Env Install Tool</h3>
+<p><strong>Documentation Type:</strong> AI-context focused</p>
+<p><strong>Files:</strong> - README.md (user instructions, features,
+usage) - CLAUDE.md (AI context, architecture, patterns) - AUDIT.md
+(comprehensive project audit) - KNOWN_LIMITATIONS.md (documented
+limitations) - docs/claude/ (specialized topic docs) - components.md
+(component-specific patterns) - jobs.md (Job architecture, patterns,
+development) - monitoring.md (alerting, Insights) - known-bugs.md (false
+positives, upstream bugs) - installation.md (install flow, session
+recovery) - security.md (AWS Secrets Manager, QoS, isolation) -
+troubleshooting.md (common issues, debugging)</p>
+<p><strong>Strengths:</strong> - Exceptional pattern documentation -
+Comprehensive troubleshooting - Known limitations clearly stated -
+AI-optimized (discoverable vs non-discoverable knowledge) - Externalized
+complex topics</p>
+<p><strong>Weaknesses:</strong> - May be over-documented for simple
+users - Heavy focus on AI consumer (Claude Code)</p>
+<p><strong>Documentation Philosophy:</strong> - Document
+patterns/anti-patterns (not simple components) - Document
+non-discoverable knowledge (not file paths) - Externalize complex topics
+to dedicated files - Separate AI context from user documentation</p>
+<hr />
+<h2 id="code-quality-and-standards">8. Code Quality and Standards</h2>
+<h3 id="ai-accelerator-5">AI Accelerator</h3>
+<p><strong>Coding Standards:</strong> - Spaces for indentation (per
+CONTRIBUTING.md) - GitHub-flavored Markdown for documentation -
+Git-based workflow (fork, branch, PR)</p>
+<p><strong>CI/CD:</strong> - validate-manifests.yaml (GitHub Actions) -
+Checks: Kustomize, YAML lint, Helm lint, git config, spell check - Runs
+on all pull requests</p>
+<p><strong>Consistency:</strong> - Operator structure varies (some have
+operator/instance, some don’t) - Overlay naming consistent
+(channel-based) - File naming varies across operators</p>
+<p><strong>Kustomization File Count:</strong> 182</p>
+<p><strong>Lines of Code (main script):</strong> 126 (bootstrap.sh)</p>
+<p><strong>Testing:</strong> - Kustomize build validation - No
+integration tests - No unit tests</p>
+<h3 id="ocp-open-env-install-tool-5">OCP Open Env Install Tool</h3>
+<p><strong>Coding Standards:</strong> - YAML alphabetical ordering
+enforced (resources, components, bases) - Consistent naming pattern:
+namespace-kind-name.yaml - Strict adherence to base/overlays pattern -
+Shell scripts use set -e, source patterns</p>
+<p><strong>CI/CD:</strong> - Not visible in repository (may be in
+private CI)</p>
+<p><strong>Consistency:</strong> - 95/100 consistency score (per
+AUDIT.md) - All components follow base/overlays pattern (except common
+by design) - Standardized ApplicationSet templates</p>
+<p><strong>Kustomization File Count:</strong> 84</p>
+<p><strong>Lines of Code (main script):</strong> 766
+(init_openshift_installation_lab_cluster.sh)</p>
+<p><strong>Testing:</strong> - Kustomize build implicit (via init
+script) - No automated tests visible - Manual testing via profiles</p>
+<p><strong>Job Quality:</strong> - 21 Jobs with sophisticated patterns -
+Idempotency via checksum ConfigMaps - Proper error handling and
+cleanup</p>
+<hr />
+<h2 id="use-case-recommendations">9. Use Case Recommendations</h2>
+<h3 id="choose-ai-accelerator-when">Choose AI Accelerator When:</h3>
+<p>✅ <strong>Deploying RHOAI to existing production clusters</strong> -
+You already have an OpenShift cluster - Primary goal is RHOAI deployment
+- Want stable, version-specific configurations - Need GPU support on AWS
+- Prefer simpler GitOps architecture</p>
+<p>✅ <strong>Standardizing RHOAI across multiple clusters</strong> -
+Enterprise rollout of AI platform - Consistent RHOAI configuration -
+Multiple cluster versions (2.16, 2.19, 2.22, 2.25)</p>
+<p>✅ <strong>Learning GitOps for RHOAI</strong> - Easier to understand
+flow - Good starting point for GitOps - Clear bootstrap → clusters →
+components pattern</p>
+<p>✅ <strong>Limited scope requirements</strong> - Don’t need 36
+operators - Focus on AI/ML workloads - Supporting operators only
+(ServiceMesh, Serverless, Pipelines)</p>
+<h3 id="choose-ocp-open-env-install-tool-when">Choose OCP Open Env
+Install Tool When:</h3>
+<p>✅ <strong>Rapid demo/lab environment provisioning</strong> - Need
+complete cluster in ~60 minutes - AWS RHDP Open Environment available -
+Temporary environment (30-hour lifespan) - Pre-sales demos, training,
+workshops</p>
+<p>✅ <strong>Need diverse operator combinations</strong> - Want ACS
+Central + ACM Hub together - Need different storage sizes (Lean,
+Balanced, Performance) - Testing multiple logging configurations -
+Evaluating Network Observability, Service Mesh, etc.</p>
+<p>✅ <strong>Full cluster lifecycle automation</strong> - Need Day 0/1
+(infrastructure + OCP install) - Want GitOps Day 2 configuration -
+Session recovery for unstable connections - Automated cleanup on
+teardown</p>
+<p>✅ <strong>Flexible environment variations</strong> - Create new
+profiles easily - Test different operator versions - Quick A/B
+comparisons - Multi-cluster testing (ACM hub + managed)</p>
+<p>✅ <strong>Learning advanced GitOps patterns</strong> - Three-tier
+architecture (Components → Bases → Profiles) - Job-based initialization
+patterns - ApplicationSet advanced usage - Multi-tenancy with separate
+GitOps</p>
+<hr />
+<h2 id="integration-and-hybrid-approach">10. Integration and Hybrid
+Approach</h2>
+<h3 id="can-these-projects-be-combined">Can These Projects Be
+Combined?</h3>
+<p><strong>Yes, with modifications:</strong></p>
+<p><strong>Scenario 1: Use OCP Open Env Install Tool Cluster + AI
+Accelerator RHOAI Config</strong> 1. Provision cluster with ocp-standard
+profile (no AI) 2. Fork ai-accelerator, update git URLs 3. Bootstrap
+ai-accelerator on the cluster 4. Result: OCP Open Env infrastructure +
+AI Accelerator RHOAI components</p>
+<p><strong>Pros:</strong> Rapid cluster provisioning + specialized RHOAI
+configuration <strong>Cons:</strong> Two GitOps repos to manage,
+potential conflicts</p>
+<p><strong>Scenario 2: Extract AI Accelerator Components into OCP Open
+Env Install Tool</strong> 1. Copy RHOAI instance components from
+ai-accelerator 2. Create new gitops-bases/ai-advanced/ with
+ai-accelerator features 3. Create new profile ocp-ai-advanced 4. Result:
+Single tool with enhanced RHOAI capabilities</p>
+<p><strong>Pros:</strong> Single codebase, unified architecture
+<strong>Cons:</strong> Requires significant refactoring, testing</p>
+<p><strong>Scenario 3: Create New Profile in OCP Open Env Install Tool
+Mimicking AI Accelerator</strong> 1. Enhance components/rhoai/ with
+ai-accelerator components 2. Create gitops-bases/ai/rhoai-2.22/ with
+version-specific config 3. Create profile
+gitops-profiles/ocp-rhoai-2.22/ 4. Result: OCP Open Env with AI
+Accelerator-style RHOAI versioning</p>
+<p><strong>Pros:</strong> Minimal changes, leverages existing
+architecture <strong>Cons:</strong> Duplicates some AI Accelerator
+work</p>
+<h3 id="recommended-hybrid-strategy">Recommended Hybrid Strategy</h3>
+<p><strong>For Production:</strong> - Use <strong>AI
+Accelerator</strong> as-is for existing clusters - Standardize on its
+RHOAI configuration patterns - Fork and customize operators as
+needed</p>
+<p><strong>For Demo/Lab:</strong> - Use <strong>OCP Open Env Install
+Tool</strong> with ocp-ai profile - If advanced RHOAI config needed,
+create custom profile - Leverage full cluster provisioning
+capabilities</p>
+<p><strong>For Enterprise (Both Needs):</strong> - Maintain both tools
+in separate repositories - Extract common RHOAI components to shared
+GitOps catalog - AI Accelerator references shared catalog - OCP Open Env
+Install Tool references shared catalog - DRY principle across tools</p>
+<hr />
+<h2 id="key-takeaways">11. Key Takeaways</h2>
+<h3 id="ai-accelerator-6">AI Accelerator</h3>
+<p><strong>Philosophy:</strong> Simple, focused, production-ready RHOAI
+deployment <strong>Strength:</strong> Clear version management, easy to
+understand, RHOAI-optimized <strong>Best For:</strong> Existing
+clusters, RHOAI focus, production deployments</p>
+<h3 id="ocp-open-env-install-tool-6">OCP Open Env Install Tool</h3>
+<p><strong>Philosophy:</strong> Flexible, comprehensive, demo-optimized
+full lifecycle <strong>Strength:</strong> Modular architecture, 36
+operators, rapid provisioning <strong>Best For:</strong> Demo/lab
+environments, diverse configurations, full lifecycle</p>
+<h3 id="decision-matrix">Decision Matrix</h3>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 30%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Question</th>
+<th>AI Accelerator</th>
+<th>OCP Open Env Install Tool</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Do you have an existing cluster?</td>
+<td>✅ Yes</td>
+<td>❌ No (creates new)</td>
+</tr>
+<tr>
+<td>Is RHOAI your primary focus?</td>
+<td>✅ Yes</td>
+<td>⚠️ Partial (1 of 36 components)</td>
+</tr>
+<tr>
+<td>Need rapid full cluster provisioning?</td>
+<td>❌ No</td>
+<td>✅ Yes (~60 min)</td>
+</tr>
+<tr>
+<td>Need diverse operator combinations?</td>
+<td>❌ Limited (11 operators)</td>
+<td>✅ Yes (36 operators)</td>
+</tr>
+<tr>
+<td>Production or Demo?</td>
+<td>✅ Production</td>
+<td>⚠️ Demo/Lab (30h limit)</td>
+</tr>
+<tr>
+<td>GitOps complexity preference?</td>
+<td>✅ Simple (3 layers)</td>
+<td>⚠️ Complex (3 layers + Jobs)</td>
+</tr>
+<tr>
+<td>Need infrastructure automation?</td>
+<td>❌ No</td>
+<td>✅ Yes (AWS CloudFormation)</td>
+</tr>
+<tr>
+<td>Want multiple profiles?</td>
+<td>⚠️ Limited (version-based)</td>
+<td>✅ Yes (13 profiles)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="recommendations">12. Recommendations</h2>
+<h3 id="for-ai-accelerator-project">For AI Accelerator Project</h3>
+<p><strong>Enhancements to Consider:</strong> 1. <strong>Add more
+profiles</strong> beyond version-specific - Profile: rhoai-minimal
+(RHOAI only, no ServiceMesh/Serverless) - Profile: rhoai-advanced (all
+features enabled) - Profile: rhoai-inference-only (KServe focused)</p>
+<ol start="2" type="1">
+<li><strong>Improve documentation</strong>
+<ul>
+<li>Add troubleshooting guide</li>
+<li>Document known limitations</li>
+<li>Add architectural decision records (ADRs)</li>
+<li>Create component customization guide</li>
+</ul></li>
+<li><strong>Add more operators</strong> to compete with OCP Open Env
+<ul>
+<li>Add: ACS (Secured mode for AI workloads)</li>
+<li>Add: cert-manager (for custom certs)</li>
+<li>Add: Cluster Observability (enhanced monitoring)</li>
+</ul></li>
+<li><strong>Borrowllow patterns from OCP Open Env Install Tool</strong>
+<ul>
+<li>Job-based initialization for complex setup</li>
+<li>ConfigMap generator for git URL management</li>
+<li>Alphabetical ordering standard</li>
+</ul></li>
+</ol>
+<h3 id="for-ocp-open-env-install-tool-project">For OCP Open Env Install
+Tool Project</h3>
+<p><strong>Enhancements to Consider:</strong> 1. <strong>Add RHOAI
+version-specific profiles</strong> - Borrow from AI Accelerator:
+rhoai-stable-2.22, rhoai-eus-2.16 - Create gitops-bases/ai/rhoai-2.22/,
+ai/rhoai-2.25/</p>
+<ol start="2" type="1">
+<li><strong>Support non-RHDP environments</strong>
+<ul>
+<li>Add profile for existing clusters (Day 2 only mode)</li>
+<li>Make Day 1 optional via flag</li>
+<li>Broader adoption beyond Red Hat Consulting</li>
+</ul></li>
+<li><strong>Extract to public GitOps catalog</strong>
+<ul>
+<li>Contribute components to redhat-cop/gitops-catalog</li>
+<li>Increase reusability across Red Hat community</li>
+<li>Align with AI Accelerator’s catalog approach</li>
+</ul></li>
+<li><strong>Simplify for production use</strong>
+<ul>
+<li>Create production-hardened profiles</li>
+<li>Remove demo-specific assumptions (30h limit, single tenant)</li>
+<li>Add HA considerations (multi-AZ, backup strategies)</li>
+</ul></li>
+</ol>
+<hr />
+<h2 id="conclusion">13. Conclusion</h2>
+<p>Both projects demonstrate <strong>excellent GitOps practices</strong>
+but serve fundamentally different purposes:</p>
+<ul>
+<li><strong>AI Accelerator</strong> = RHOAI specialist for existing
+clusters</li>
+<li><strong>OCP Open Env Install Tool</strong> = Full-stack cluster
+provisioning generalist</li>
+</ul>
+<p><strong>Neither is strictly “better”</strong> — they excel in their
+respective domains. Organizations may benefit from using <strong>both
+tools</strong> depending on context: - <strong>Production RHOAI
+deployments</strong> → AI Accelerator - <strong>Rapid demos and
+testing</strong> → OCP Open Env Install Tool</p>
+<p>The ideal future state would be a <strong>shared GitOps component
+catalog</strong> that both tools reference, eliminating duplication
+while preserving each tool’s unique strengths.</p>
+</body>
+</html>
