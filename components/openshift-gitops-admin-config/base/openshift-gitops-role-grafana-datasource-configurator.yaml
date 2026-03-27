@@ -19,6 +19,7 @@ rules:
   - serviceaccounts
   verbs:
   - get
+  - list
 - apiGroups:
   - grafana.integreatly.org
   resources:
