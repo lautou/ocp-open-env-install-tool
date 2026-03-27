@@ -195,11 +195,35 @@ Egress:
 - OVN-Kubernetes network plugin (default in OpenShift 4.11+)
 - AdminNetworkPolicy API v1alpha1 (available in OpenShift 4.14+)
 
-**Assumptions:**
+**Critical Implementation Detail:**
 
-⚠️ **Kubernetes API IP**: Hardcoded to `172.30.0.1/32` (default OpenShift service network)
-- Verify with: `oc get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'`
-- If customized during install, update ANP egress rule
+⚠️ **Kubernetes API Access**: Must use `nodes:` selector, NOT IP-based (`networks:`) rules
+
+**Why IP-based rules fail:**
+- OVN-Kubernetes performs DNAT **before** ANP evaluation
+- Service IP `172.30.0.1:443` → Control-Plane-Node-IP:`6443`
+- ANP evaluates post-DNAT (sees node IP, not service IP)
+- Host-network endpoints require `nodes:` peer selector
+
+**Correct ANP rule syntax:**
+```yaml
+egress:
+- name: allow-kube-api
+  action: Allow
+  to:
+  - nodes:
+      matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+  ports:
+  - portNumber:
+      port: 6443  # API server host port (post-DNAT)
+      protocol: TCP
+```
+
+**This is intended behavior** (Red Hat Engineering, 2026-03-27):
+- Network policies evaluate against resolved endpoint IPs (post-DNAT)
+- Not a bug or limitation - architectural design of ANP + OVN-Kubernetes
 
 **When This Pattern is Acceptable:**
 

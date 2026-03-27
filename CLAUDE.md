@@ -399,8 +399,9 @@ Ingress (FROM these sources):
 
 Egress (TO these destinations):
 - DNS (openshift-dns:5353 UDP/TCP)
-- Kube API (172.30.0.1:443)
+- Kube API (control-plane nodes:6443 via `nodes:` selector)
 - openshift-ingress (app routing)
+- openshift-logging (log forwarding)
 - openshift-monitoring (monitoring endpoints)
 - Same namespace (sameLabels mechanism)
 
@@ -439,10 +440,44 @@ sameLabels:
 oc label namespace <namespace-name> network-policy.gitops/enforce=true
 ```
 
-**Kubernetes API IP assumption**: Hardcoded `172.30.0.1/32` (default OpenShift service network). Verify with:
-```bash
-oc get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'
+**⚠️ CRITICAL: Kubernetes API Access Requires `nodes:` Selector**
+
+**Problem**: IP-based rules (`networks: [172.30.0.1/32]`) DO NOT work for Kubernetes API access.
+
+**Root Cause**: OVN-Kubernetes performs DNAT **before** ANP evaluation:
+- Service IP `172.30.0.1:443` → Control-Plane-Node-IP:`6443`
+- ANP sees post-DNAT destination (node IP, not service IP)
+- Host-network endpoints require `nodes:` peer selector
+
+**Correct syntax** (use `nodes:` selector with port 6443):
+```yaml
+egress:
+- name: allow-kube-api
+  action: Allow
+  to:
+  - nodes:
+      matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+  ports:
+  - portNumber:
+      port: 6443  # API server host port (post-DNAT)
+      protocol: TCP
 ```
+
+**Why this works**:
+- Matches control plane nodes (where kube-apiserver runs on host network)
+- Uses port 6443 (API server host port, not Service port 443)
+- Works with host-network endpoints (nodes don't belong to pod network)
+
+**Failed approaches** (do NOT use):
+- ❌ `networks: [172.30.0.1/32]` - ANP sees node IP after DNAT
+- ❌ `networks: [172.30.0.0/16]` - Node IPs not in service CIDR
+- ❌ `namespaces: {matchLabels: {kubernetes.io/metadata.name: default}}` - Nodes not in pod network
+
+**This is intended behavior** (confirmed by Red Hat Engineering, 2026-03-27):
+- Network policies evaluate post-DNAT (resolved endpoint IPs)
+- Not a bug or limitation of ANP v1alpha1
 
 **Requirements**:
 - OVN-Kubernetes network plugin (default in OpenShift 4.11+)
