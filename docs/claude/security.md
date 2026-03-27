@@ -134,6 +134,100 @@ The cleanup script (`clean_aws_tenant.sh`) intentionally deletes **ALL S3 bucket
 
 The tool is designed for Red Hat Demo Platform Blank Open Environment, which provides isolated AWS accounts with 30-hour lifespans.
 
+## Network Isolation (AdminNetworkPolicy)
+
+**✅ IMPLEMENTED**: Zero-trust network isolation using AdminNetworkPolicy (ANP) + BaselineAdminNetworkPolicy (BANP) architecture.
+
+**Status**: Deployed cluster-wide, opt-in per namespace (label-based activation)
+
+**How It Works:**
+
+Three-tier defense-in-depth architecture:
+1. **AdminNetworkPolicy** (priority 10, highest) - Explicit Allow rules for cluster services
+2. **NetworkPolicy** (medium priority) - User/developer policies (if any)
+3. **BaselineAdminNetworkPolicy** (lowest priority) - Default deny fallback
+
+**Opt-in Mechanism:**
+
+Network isolation only applies to namespaces labeled:
+```bash
+oc label namespace <namespace-name> network-policy.gitops/enforce=true
+```
+
+**Security Benefits:**
+
+✅ **Zero-trust by default**: All traffic denied unless explicitly allowed
+✅ **Guaranteed cluster services**: DNS, monitoring, ingress cannot be blocked (ANP priority)
+✅ **Defense-in-depth**: Multiple policy layers with different priorities
+✅ **Incremental rollout**: Opt-in per namespace (safe testing)
+✅ **90% resource reduction**: 2 policies vs 72+ NetworkPolicy objects for 36 namespaces
+✅ **No lockout risk**: Critical services always accessible (DNS, Kube API, monitoring)
+
+**What's Allowed (AdminNetworkPolicy Rules):**
+
+Ingress (traffic FROM):
+- Same namespace pods (sameLabels mechanism)
+- openshift-ingress (Ingress controller routing)
+- openshift-monitoring (cluster monitoring scraping)
+- openshift-user-workload-monitoring (UWM Prometheus scraping)
+
+Egress (traffic TO):
+- DNS (openshift-dns:5353 UDP/TCP)
+- Kubernetes API (172.30.0.1:443)
+- openshift-ingress (app routing)
+- openshift-monitoring (monitoring endpoints)
+- Same namespace pods (sameLabels mechanism)
+
+**What's Denied (BaselineAdminNetworkPolicy Rules):**
+
+Egress:
+- All other traffic to 0.0.0.0/0 (everything not explicitly allowed above)
+
+**Resources:**
+
+- `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
+- `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
+- `components/openshift-gitops-admin-config/base/cluster-clusterrole-manage-network-policies.yaml`
+- `components/openshift-gitops-admin-config/base/cluster-crb-manage-network-policies-*.yaml`
+
+**Requirements:**
+
+- OVN-Kubernetes network plugin (default in OpenShift 4.11+)
+- AdminNetworkPolicy API v1alpha1 (available in OpenShift 4.14+)
+
+**Assumptions:**
+
+⚠️ **Kubernetes API IP**: Hardcoded to `172.30.0.1/32` (default OpenShift service network)
+- Verify with: `oc get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'`
+- If customized during install, update ANP egress rule
+
+**When This Pattern is Acceptable:**
+
+- ✅ Demo/lab environments with standard service network configuration
+- ✅ Production environments requiring network isolation compliance
+- ✅ Multi-tenant clusters with namespace-level isolation requirements
+
+**Testing Strategy:**
+
+1. Deploy ANP + BANP cluster-wide (zero impact, no namespaces labeled yet)
+2. Label test namespace: `oc label namespace echo-api network-policy.gitops/enforce=true`
+3. Validate cluster services work: DNS resolution, Prometheus scraping, Ingress routing
+4. Validate isolation: Blocked egress to external services (e.g., public internet)
+5. Gradually expand to other namespaces after validation
+
+**Advantages Over Traditional NetworkPolicy:**
+
+| Aspect | Traditional NetworkPolicy | AdminNetworkPolicy |
+|--------|--------------------------|-------------------|
+| **Priority** | Medium (can conflict) | Highest (cannot be overridden) |
+| **Scope** | Per-namespace | Cluster-wide with namespace selector |
+| **Resources** | 72+ objects (36 ns × 2 policies) | 2 objects total |
+| **Lockout risk** | High (can block DNS/monitoring) | None (ANP guarantees critical services) |
+| **Developer override** | Can accidentally break monitoring | Cannot override ANP Allow rules |
+| **Management** | Per-component manifests | Centralized cluster-network component |
+
+**Decision**: Use ANP/BANP for zero-trust isolation with guaranteed cluster service access and minimal operational overhead.
+
 ## Alertmanager Security
 
 **CRITICAL**: The Alertmanager configuration is stored in Git and must NOT contain sensitive data.

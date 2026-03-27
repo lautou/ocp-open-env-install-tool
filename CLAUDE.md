@@ -373,6 +373,81 @@ ignoreDifferences:
 
 **When to add explicit value**: Only when overriding default to `Manual`
 
+### Network Isolation with AdminNetworkPolicy
+
+**Pattern**: Zero-trust network isolation using AdminNetworkPolicy (ANP) + BaselineAdminNetworkPolicy (BANP)
+
+**Architecture**: Defense-in-depth with three priority tiers
+1. **AdminNetworkPolicy** (priority 10, highest) - Explicit Allow rules for cluster services
+2. **NetworkPolicy** (medium priority) - User/developer policies (if any)
+3. **BaselineAdminNetworkPolicy** (lowest priority) - Default deny fallback
+
+**Opt-in mechanism**: Policies only apply to namespaces labeled `network-policy.gitops/enforce: "true"`
+
+**Resources**:
+- `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
+- `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
+- RBAC: `cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
+
+**ANP Rules** (action: Allow, cannot be overridden):
+
+Ingress (FROM these sources):
+- Same namespace (sameLabels mechanism)
+- openshift-ingress (Ingress controller routing)
+- openshift-monitoring (cluster monitoring scraping)
+- openshift-user-workload-monitoring (UWM Prometheus scraping)
+
+Egress (TO these destinations):
+- DNS (openshift-dns:5353 UDP/TCP)
+- Kube API (172.30.0.1:443)
+- openshift-ingress (app routing)
+- openshift-monitoring (monitoring endpoints)
+- Same namespace (sameLabels mechanism)
+
+**BANP Rules** (action: Deny, applies when nothing else matches):
+- Deny all egress to 0.0.0.0/0 (blocks everything not explicitly allowed)
+
+**Why this architecture**:
+- ANP guarantees critical cluster services always work (highest priority)
+- Developer NetworkPolicies can add restrictions without breaking monitoring/ingress
+- BANP provides default-deny fallback only when ANP and NetworkPolicy don't match
+- Prevents accidental lockout scenarios (DNS, monitoring, ingress always allowed)
+
+**sameLabels mechanism**: Native ANP feature for same-namespace communication
+```yaml
+# Matches pods in the same namespace as source/destination
+namespaces:
+  sameLabels:
+  - kubernetes.io/metadata.name
+```
+
+**⚠️ Do NOT use Go template syntax**: ANP is raw Kubernetes YAML, not Helm/Go templates
+```yaml
+# ❌ WRONG - templating won't work
+matchLabels:
+  kubernetes.io/metadata.name: "{{.PodNamespace}}"
+
+# ✅ CORRECT - use sameLabels
+sameLabels:
+- kubernetes.io/metadata.name
+```
+
+**Deployment impact**: Zero until namespace labeled. Safe incremental rollout.
+
+**Enable for namespace**:
+```bash
+oc label namespace <namespace-name> network-policy.gitops/enforce=true
+```
+
+**Kubernetes API IP assumption**: Hardcoded `172.30.0.1/32` (default OpenShift service network). Verify with:
+```bash
+oc get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'
+```
+
+**Requirements**:
+- OVN-Kubernetes network plugin (default in OpenShift 4.11+)
+- AdminNetworkPolicy API v1alpha1 (available in OpenShift 4.14+)
+
 ## Component Notes
 
 **IMPORTANT**: Most component details moved to external docs.

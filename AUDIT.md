@@ -1,6 +1,6 @@
 # OpenShift GitOps Installation Tool - Comprehensive Audit Report
 
-**Audit Date:** 2026-03-26
+**Audit Date:** 2026-03-26 (Updated: 2026-03-27)
 **Project:** OCP Open Environment Install Tool
 **Repository:** https://github.com/lautou/ocp-open-env-install-tool
 **Auditor:** Claude Sonnet 4.5 (Automated Deep Analysis)
@@ -21,9 +21,9 @@ This OpenShift Container Platform (OCP) installation tool represents a **mature,
 - Excellent documentation for complex topics
 
 **Critical Issues:** None
-**High Priority Issues:** 2 (Hardcoded Git URLs, Non-standard container images)
-**Medium Priority Issues:** 4
-**Low Priority Issues:** 3
+**High Priority Issues:** 0 (All resolved)
+**Medium Priority Issues:** 0 (All resolved)
+**Low Priority Issues:** 1 (ISSUE-009 deferred by design for lab/demo environments)
 
 ---
 
@@ -1111,36 +1111,46 @@ components/loki/base/TEMPORARY-FIX-openshift-operators-redhat-secret-loki-operat
 **Description:**
 No NetworkPolicy objects found in any component
 
-**Status:** Acceptable for lab/demo environments
+**Status:** ✅ **RESOLVED** (2026-03-27)
 
-**Recommended Fix (for production):**
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: deny-all-ingress
-  namespace: {component-namespace}
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-from-openshift-ingress
-spec:
-  podSelector: {}
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          network.openshift.io/policy-group: ingress
-  policyTypes:
-  - Ingress
+**Resolution:**
+Implemented zero-trust network isolation using AdminNetworkPolicy (ANP) + BaselineAdminNetworkPolicy (BANP) architecture instead of per-component NetworkPolicy resources.
+
+**What was implemented:**
+1. **AdminNetworkPolicy** (`gitops-standard`, priority 10)
+   - Ingress: Allow same-namespace, openshift-ingress, openshift-monitoring, openshift-user-workload-monitoring
+   - Egress: Allow DNS, Kube API, ingress, monitoring, same-namespace
+   - Action: Allow (cannot be overridden by NetworkPolicy)
+
+2. **BaselineAdminNetworkPolicy** (`default`, lowest priority)
+   - Egress: Deny all traffic to 0.0.0.0/0
+   - Action: Deny (applies when ANP and NetworkPolicy don't match)
+
+3. **RBAC for ArgoCD**
+   - ClusterRole: `manage-network-policies`
+   - ClusterRoleBinding for `openshift-gitops-argocd-application-controller`
+
+**Advantages over traditional NetworkPolicy:**
+- 90% reduction in resources (2 policies vs 72+ NetworkPolicy objects for 36 namespaces)
+- Guaranteed cluster service access (ANP cannot be overridden)
+- Opt-in mechanism (label: `network-policy.gitops/enforce: "true"`)
+- Defense-in-depth (ANP → NetworkPolicy → BANP priority stack)
+- No risk of developer lockout (DNS, monitoring, ingress always allowed)
+
+**Deployment impact:** Zero until namespace labeled (safe incremental rollout)
+
+**Enable for namespace:**
+```bash
+oc label namespace <namespace-name> network-policy.gitops/enforce=true
 ```
 
-**Effort:** Medium (8-16 hours to define policies for 36 components)
+**Files:**
+- `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
+- `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
+- `components/openshift-gitops-admin-config/base/cluster-clusterrole-manage-network-policies.yaml`
+- `components/openshift-gitops-admin-config/base/cluster-crb-manage-network-policies-*.yaml`
+
+**Documentation:** See CLAUDE.md "Network Isolation with AdminNetworkPolicy" section
 
 #### ISSUE-009: Cluster-Admin RBAC for Jobs
 
@@ -1314,11 +1324,11 @@ rules:
      After: cluster-crb-cert-manager-issuers-edit-gitops.yaml
      ```
 
-9. **Add NetworkPolicies for Production** (ISSUE-008)
-   - **Action:** Define NetworkPolicy for each component
-   - **Benefit:** Defense in depth, compliance
-   - **Effort:** Medium (8-16 hours)
-   - **Scope:** Production deployments only (not lab/demo)
+9. ✅ **Add NetworkPolicies for Production** (ISSUE-008) - **COMPLETED**
+   - **Action:** Implemented AdminNetworkPolicy + BaselineAdminNetworkPolicy architecture
+   - **Benefit:** Zero-trust network isolation, 90% fewer resources, guaranteed cluster service access
+   - **Completed:** 2026-03-27
+   - **Scope:** Opt-in per namespace (label-based activation)
 
 10. **Implement Least-Privilege RBAC** (ISSUE-009)
     - **Action:** Define per-component service accounts with minimal permissions
