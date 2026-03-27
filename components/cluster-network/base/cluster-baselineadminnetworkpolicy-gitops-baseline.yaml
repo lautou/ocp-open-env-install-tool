@@ -1,7 +1,7 @@
 apiVersion: policy.networking.k8s.io/v1alpha1
 kind: BaselineAdminNetworkPolicy
 metadata:
-  name: gitops-baseline
+  name: default
 spec:
   # Apply to namespaces explicitly opted-in to GitOps network policies
   subject:
