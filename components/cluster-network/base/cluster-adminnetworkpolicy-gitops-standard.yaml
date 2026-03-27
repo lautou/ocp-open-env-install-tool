@@ -61,12 +61,14 @@ spec:
   - name: allow-kube-api
     action: Allow
     to:
-    - namespaces:
-        matchLabels:
-          kubernetes.io/metadata.name: default
+    - networks:
+      - 172.30.0.0/16
     ports:
     - portNumber:
         port: 443
+        protocol: TCP
+    - portNumber:
+        port: 6443
         protocol: TCP
 
   - name: allow-openshift-ingress
