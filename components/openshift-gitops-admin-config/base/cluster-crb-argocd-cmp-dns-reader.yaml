@@ -8,5 +8,5 @@ roleRef:
   name: argocd-cmp-dns-reader
 subjects:
 - kind: ServiceAccount
-  name: openshift-gitops-repo-server
+  name: default
   namespace: openshift-gitops
