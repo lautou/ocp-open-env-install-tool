@@ -13,14 +13,10 @@ spec:
         network-policy.gitops/enforce: "true"
 
   # Ingress rules (processed BEFORE NetworkPolicy)
+  # Note: Same-namespace traffic control should be implemented via NetworkPolicy
+  # (namespace-scoped), not AdminNetworkPolicy (cluster-scoped). The sameLabels
+  # feature was removed from v1alpha1 API.
   ingress:
-  - name: allow-same-namespace
-    action: Allow
-    from:
-    - namespaces:
-        sameLabels:
-        - kubernetes.io/metadata.name
-
   - name: allow-openshift-ingress
     action: Allow
     from:
@@ -90,10 +86,3 @@ spec:
     - namespaces:
         matchLabels:
           kubernetes.io/metadata.name: openshift-monitoring
-
-  - name: allow-same-namespace
-    action: Allow
-    to:
-    - namespaces:
-        sameLabels:
-        - kubernetes.io/metadata.name
