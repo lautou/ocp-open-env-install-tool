@@ -395,7 +395,6 @@ ignoreDifferences:
 **ANP Rules** (action: Allow, cannot be overridden):
 
 Ingress (FROM these sources):
-- Same namespace (sameLabels mechanism)
 - openshift-ingress (Ingress controller routing)
 - openshift-monitoring (cluster monitoring scraping)
 - openshift-user-workload-monitoring (UWM Prometheus scraping)
@@ -406,7 +405,8 @@ Egress (TO these destinations):
 - openshift-ingress (app routing)
 - openshift-logging (log forwarding)
 - openshift-monitoring (monitoring endpoints)
-- Same namespace (sameLabels mechanism)
+
+**Note**: Same-namespace traffic is NOT controlled by ANP. Use namespace-scoped NetworkPolicy for intra-namespace isolation.
 
 **BANP Rules** (action: Deny, applies when nothing else matches):
 - Deny all egress to 0.0.0.0/0 (blocks everything not explicitly allowed)
@@ -417,24 +417,42 @@ Egress (TO these destinations):
 - BANP provides default-deny fallback only when ANP and NetworkPolicy don't match
 - Prevents accidental lockout scenarios (DNS, monitoring, ingress always allowed)
 
-**sameLabels mechanism**: Native ANP feature for same-namespace communication
+**⚠️ IMPORTANT: sameLabels NOT SUPPORTED in v1alpha1**
+
+The `sameLabels` and `notSameLabels` fields were **removed from the AdminNetworkPolicy v1alpha1 API** used in OpenShift 4.20. These fields were originally designed for tenancy use cases but were removed due to complexity concerns.
+
+**What happened:**
+- `sameLabels` was intended to allow same-namespace traffic control
+- The upstream community removed it from v1alpha1 API
+- When OVN-Kubernetes encounters `sameLabels`, it normalizes it to `namespaces: {}` (matches ALL namespaces - dangerous!)
+- NPEP-122 is being developed as a better tenancy API proposal
+
+**For same-namespace traffic isolation:**
+Use **NetworkPolicy** (namespace-scoped) instead of AdminNetworkPolicy (cluster-scoped):
+
 ```yaml
-# Matches pods in the same namespace as source/destination
-namespaces:
-  sameLabels:
-  - kubernetes.io/metadata.name
+# Use NetworkPolicy for same-namespace traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: <your-namespace>
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector: {}
+  egress:
+  - to:
+    - podSelector: {}
 ```
 
-**⚠️ Do NOT use Go template syntax**: ANP is raw Kubernetes YAML, not Helm/Go templates
-```yaml
-# ❌ WRONG - templating won't work
-matchLabels:
-  kubernetes.io/metadata.name: "{{.PodNamespace}}"
-
-# ✅ CORRECT - use sameLabels
-sameLabels:
-- kubernetes.io/metadata.name
-```
+**References:**
+- [NPEP-122: Better tenancy API proposal](https://network-policy-api.sigs.k8s.io/npeps/npep-122/)
+- [AdminNetworkPolicy OVN-Kubernetes docs](https://ovn-kubernetes.io/features/network-security-controls/admin-network-policy/)
 
 **Deployment impact**: Zero until namespace labeled. Safe incremental rollout.
 
