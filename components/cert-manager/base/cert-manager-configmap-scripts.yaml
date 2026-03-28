@@ -120,11 +120,11 @@ data:
 
     echo "Fetching cluster configuration..."
     export REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-    export CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+    export OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
     export TIMESTAMP=$(date +%s)
 
     echo "REGION=$REGION"
-    echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
+    echo "OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN"
     echo "TIMESTAMP=$TIMESTAMP"
 
     # --- Applying Resources with Retry Logic ---
@@ -157,7 +157,7 @@ data:
     echo "Generating Ingress Certificate YAML..."
     # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
     # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-    # The static DNS names (apps.${CLUSTER_DOMAIN} and wildcard) remain consistent
+    # The static DNS names (apps.${OCP_BASE_DOMAIN} and wildcard) remain consistent
     INGRESS_CERT_YAML=$(cat <<EOFINGRESS
     apiVersion: cert-manager.io/v1
     kind: Certificate
@@ -166,12 +166,12 @@ data:
       namespace: openshift-ingress
     spec:
       isCA: false
-      commonName: "apps.${CLUSTER_DOMAIN}"
+      commonName: "apps.${OCP_BASE_DOMAIN}"
       secretName: ingress-certificates
       dnsNames:
-      - "apps.${CLUSTER_DOMAIN}"
-      - "*.apps.${CLUSTER_DOMAIN}"
-      - "apps.${TIMESTAMP}.${CLUSTER_DOMAIN}"
+      - "apps.${OCP_BASE_DOMAIN}"
+      - "*.apps.${OCP_BASE_DOMAIN}"
+      - "apps.${TIMESTAMP}.${OCP_BASE_DOMAIN}"
       issuerRef:
         name: cluster
         kind: ClusterIssuer
@@ -182,7 +182,7 @@ data:
     echo "Generating API Certificate YAML..."
     # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
     # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-    # The static DNS name (api.${CLUSTER_DOMAIN}) remains consistent
+    # The static DNS name (api.${OCP_BASE_DOMAIN}) remains consistent
     API_CERT_YAML=$(cat <<EOFAPI
     apiVersion: cert-manager.io/v1
     kind: Certificate
@@ -191,11 +191,11 @@ data:
       namespace: openshift-config
     spec:
       isCA: false
-      commonName: "api.${CLUSTER_DOMAIN}"
+      commonName: "api.${OCP_BASE_DOMAIN}"
       secretName: api-certificates
       dnsNames:
-      - "api.${CLUSTER_DOMAIN}"
-      - "api.${TIMESTAMP}.${CLUSTER_DOMAIN}"
+      - "api.${OCP_BASE_DOMAIN}"
+      - "api.${TIMESTAMP}.${OCP_BASE_DOMAIN}"
       issuerRef:
         name: cluster
         kind: ClusterIssuer

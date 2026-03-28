@@ -17,10 +17,10 @@ spec:
       - command:
         - /bin/bash
         - -c
-        - "set -e\necho \"Fetching cluster domain from DNS CR...\"\nCLUSTER_DOMAIN=$(oc\
+        - "set -e\necho \"Fetching cluster domain from DNS CR...\"\nOCP_BASE_DOMAIN=$(oc\
           \ get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')\n\
-          echo \"CLUSTER_DOMAIN=$CLUSTER_DOMAIN\"\n\necho \"Building API URL...\"\n\
-          API_URL=\"api.${CLUSTER_DOMAIN}\"\necho \"API_URL=$API_URL\"\n\necho \"\
+          echo \"OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN\"\n\necho \"Building API URL...\"\n\
+          API_URL=\"api.${OCP_BASE_DOMAIN}\"\necho \"API_URL=$API_URL\"\n\necho \"\
           Waiting for certificate to be created...\"\nwhile ! oc get certificate api\
           \ -n openshift-config 2>/dev/null 1>&2; do\n  echo \"Wait for certificate\
           \ to be created.\"\n  sleep 5\ndone\n\necho \"Wait for certificate to be\
