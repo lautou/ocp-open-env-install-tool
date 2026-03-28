@@ -247,18 +247,27 @@ oc label namespace <namespace-name> network-policy.gitops/enforce=true
 
 **What's Allowed (AdminNetworkPolicy Rules):**
 
-Ingress (traffic FROM):
-- Same namespace pods (sameLabels mechanism)
-- openshift-ingress (Ingress controller routing)
-- openshift-monitoring (cluster monitoring scraping)
-- openshift-user-workload-monitoring (UWM Prometheus scraping)
+**API Version**: `policy.networking.k8s.io/v1alpha1`
 
-Egress (traffic TO):
-- DNS (openshift-dns:5353 UDP/TCP)
-- Kubernetes API (172.30.0.1:443)
-- openshift-ingress (app routing)
-- openshift-monitoring (monitoring endpoints)
-- Same namespace pods (sameLabels mechanism)
+**Ingress** (traffic FROM):
+- `openshift-ingress` - via label `network.openshift.io/policy-group: ingress`
+- `openshift-monitoring` - via label `kubernetes.io/metadata.name: openshift-monitoring`
+- `openshift-user-workload-monitoring` - via label `kubernetes.io/metadata.name: openshift-user-workload-monitoring`
+
+**Egress** (traffic TO):
+- `openshift-dns` (port 5353 UDP/TCP) - via label `kubernetes.io/metadata.name: openshift-dns`
+- Kubernetes API (port 6443 TCP) - via `nodes:` selector (control-plane nodes)
+- `openshift-ingress` - via label `network.openshift.io/policy-group: ingress`
+- `openshift-logging` - via label `kubernetes.io/metadata.name: openshift-logging`
+- `openshift-monitoring` - via label `kubernetes.io/metadata.name: openshift-monitoring`
+
+**⚠️ Important**: Same-namespace traffic is NOT controlled by AdminNetworkPolicy. The `sameLabels` feature was removed from v1alpha1 API. Use namespace-scoped NetworkPolicy for intra-namespace traffic isolation.
+
+**Namespace Selector Labels Used:**
+
+All selectors use standard Kubernetes or OpenShift auto-generated labels:
+- `kubernetes.io/metadata.name: <namespace-name>` - Standard label (auto-created for every namespace)
+- `network.openshift.io/policy-group: ingress` - OpenShift infrastructure label (auto-created)
 
 **What's Denied (BaselineAdminNetworkPolicy Rules):**
 

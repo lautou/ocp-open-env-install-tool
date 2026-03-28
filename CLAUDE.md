@@ -392,19 +392,67 @@ ignoreDifferences:
 - `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
 - RBAC: `cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
 
+**API Version**: `policy.networking.k8s.io/v1alpha1` (OpenShift 4.20)
+
+**Subject (where policy applies)**:
+```yaml
+subject:
+  namespaces:
+    matchLabels:
+      network-policy.gitops/enforce: "true"
+```
+
+Only namespaces with this label have ANP rules applied (opt-in mechanism).
+
 **ANP Rules** (action: Allow, cannot be overridden):
 
-Ingress (FROM these sources):
-- openshift-ingress (Ingress controller routing)
-- openshift-monitoring (cluster monitoring scraping)
-- openshift-user-workload-monitoring (UWM Prometheus scraping)
+**Ingress Rules** (FROM these namespaces):
 
-Egress (TO these destinations):
-- DNS (openshift-dns:5353 UDP/TCP)
-- Kube API (control-plane nodes:6443 via `nodes:` selector)
-- openshift-ingress (app routing)
-- openshift-logging (log forwarding)
-- openshift-monitoring (monitoring endpoints)
+| Rule | Namespace Selector | Label Used | Purpose |
+|------|-------------------|------------|---------|
+| `allow-openshift-ingress` | `network.openshift.io/policy-group: ingress` | OpenShift auto-labeled | Ingress controller routing |
+| `allow-openshift-monitoring` | `kubernetes.io/metadata.name: openshift-monitoring` | Kubernetes auto-labeled | Prometheus scraping |
+| `allow-openshift-user-workload-monitoring` | `kubernetes.io/metadata.name: openshift-user-workload-monitoring` | Kubernetes auto-labeled | UWM Prometheus scraping |
+
+**Egress Rules** (TO these destinations):
+
+| Rule | Namespace Selector | Label Used | Purpose |
+|------|-------------------|------------|---------|
+| `allow-dns` | `kubernetes.io/metadata.name: openshift-dns` | Kubernetes auto-labeled | DNS queries (5353 UDP/TCP) |
+| `allow-kube-api` | `nodes:` (control-plane) | Node selector, not namespace | Kubernetes API (6443 TCP) |
+| `allow-openshift-ingress` | `network.openshift.io/policy-group: ingress` | OpenShift auto-labeled | App routing |
+| `allow-openshift-logging` | `kubernetes.io/metadata.name: openshift-logging` | Kubernetes auto-labeled | Log forwarding |
+| `allow-openshift-monitoring` | `kubernetes.io/metadata.name: openshift-monitoring` | Kubernetes auto-labeled | Metrics pushing |
+
+**Label Types**:
+
+1. **Standard Kubernetes labels** (auto-created):
+   - `kubernetes.io/metadata.name: <namespace-name>` - Every namespace has this set to its name
+
+2. **OpenShift policy-group labels** (auto-created for infra namespaces):
+   - `network.openshift.io/policy-group: ingress` - Applied to openshift-ingress
+
+3. **Custom opt-in label** (manual):
+   - `network-policy.gitops/enforce: "true"` - Apply to enable ANP for namespace
+
+**Example selector patterns**:
+```yaml
+# Pattern 1: Match by namespace name (standard Kubernetes label)
+namespaces:
+  matchLabels:
+    kubernetes.io/metadata.name: openshift-monitoring
+
+# Pattern 2: Match by policy group (OpenShift infrastructure label)
+namespaces:
+  matchLabels:
+    network.openshift.io/policy-group: ingress
+
+# Pattern 3: Match control-plane nodes (for Kube API)
+nodes:
+  matchExpressions:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+```
 
 **Note**: Same-namespace traffic is NOT controlled by ANP. Use namespace-scoped NetworkPolicy for intra-namespace isolation.
 
