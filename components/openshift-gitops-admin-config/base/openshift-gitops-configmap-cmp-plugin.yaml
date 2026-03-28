@@ -37,16 +37,22 @@ data:
               exit 1
             fi
 
-            # Extract root domain (remove 'apps.' prefix if present)
-            ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^apps\.//')
+            # Calculate domain values
+            # CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
+            CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
+
+            # ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
+            # Example: myocp.sandbox3491.opentlc.com → sandbox3491.opentlc.com
+            ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
 
             # Log discovered values
             echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
+            echo "[CMP] Computed CLUSTER_DOMAIN: ${CLUSTER_DOMAIN}" >&2
             echo "[CMP] Computed ROOT_DOMAIN: ${ROOT_DOMAIN}" >&2
 
             # Build manifests with kustomize and replace placeholders in output
             echo "[CMP] Building manifests and replacing placeholders..." >&2
-            kustomize build . | sed "s|CLUSTER_DOMAIN|${BASE_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g"
+            kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g"
 
             echo "[CMP] Plugin execution complete" >&2
       discover:
