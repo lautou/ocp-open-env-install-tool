@@ -77,7 +77,7 @@ data:
           --for condition=cert-manager-controller-deploymentAvailable \
           --for condition=cert-manager-cainjector-deploymentAvailable \
           --for condition=cert-manager-webhook-deploymentAvailable \
-          --timeout=120s -n cert-manager; then
+          --timeout=120s; then
 
           echo "CertManager deployments available, now waiting for pods..."
           oc wait pod -n cert-manager \
