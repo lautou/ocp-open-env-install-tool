@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cmp-plugin
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/name: cmp-cluster-domain
+    app.kubernetes.io/component: plugin
+data:
+  plugin.yaml: |
+    apiVersion: argoproj.io/v1alpha1
+    kind: ConfigManagementPlugin
+    metadata:
+      name: cluster-domain-replacer
+    spec:
+      version: v1.0
+
+      # Discover: Match repositories with kustomization.yaml
+      discover:
+        find:
+          glob: "**/kustomization.yaml"
+
+      # Generate: Replace cluster domain placeholders and build with kustomize
+      generate:
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+
+            # Log start
+            echo "[CMP] Starting cluster-domain-replacer plugin" >&2
+            echo "[CMP] Working directory: $(pwd)" >&2
+
+            # Discover cluster domain from OpenShift DNS object
+            BASE_DOMAIN=$(kubectl get dns cluster -o jsonpath='{.spec.baseDomain}' 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "[CMP ERROR] Failed to query cluster DNS object: ${BASE_DOMAIN}" >&2
+              exit 1
+            fi
+
+            # Extract root domain (remove 'apps.' prefix if present)
+            ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^apps\.//')
+
+            # Log discovered values
+            echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
+            echo "[CMP] Computed ROOT_DOMAIN: ${ROOT_DOMAIN}" >&2
+
+            # Replace generic cluster domain placeholders in all YAML files
+            echo "[CMP] Replacing cluster domain placeholders in YAML files..." >&2
+            find . -name '*.yaml' -type f | while read file; do
+              # Replace CLUSTER_DOMAIN placeholder with actual base domain
+              sed -i "s|CLUSTER_DOMAIN|${BASE_DOMAIN}|g" "$file"
+
+              # Replace ROOT_DOMAIN placeholder with actual root domain
+              sed -i "s|ROOT_DOMAIN|${ROOT_DOMAIN}|g" "$file"
+            done
+
+            # Build manifests with kustomize
+            echo "[CMP] Building manifests with kustomize..." >&2
+            kustomize build .
+
+            echo "[CMP] Plugin execution complete" >&2
+
+      # Preserve file permissions (not needed for YAML)
+      preserveFileMode: false
