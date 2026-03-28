@@ -119,6 +119,94 @@ Each component includes:
 
    **Configuration:** `spec.resourceHealthChecks` in ArgoCD CR (Lua scripts)
 
+6. **ConfigManagementPlugin (CMP) for Dynamic Cluster Domain Replacement**:
+
+   **Purpose**: Automatically discovers cluster domain and replaces placeholders in manifests at build time.
+
+   **Architecture**:
+   - CMP sidecar container in repo-server pod
+   - Queries Kubernetes API for cluster DNS object
+   - Replaces `CLUSTER_DOMAIN` and `ROOT_DOMAIN` placeholders in kustomize output
+
+   **Components**:
+   ```yaml
+   # ConfigMap: components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml
+   # Defines the plugin behavior and domain calculation logic
+
+   # ArgoCD CR modification: openshift-gitops-argocd-openshift-gitops.yaml
+   repo:
+     mountsatoken: true  # Enable ServiceAccount token mounting
+     sidecarContainers:
+     - name: cmp-cluster-domain
+       image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843...
+       command: [/var/run/argocd/argocd-cmp-server]
+       volumeMounts:
+       - name: cmp-plugin
+         mountPath: /home/argocd/cmp-server/config/plugin.yaml
+         subPath: plugin.yaml
+       # ServiceAccount token auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/
+     volumes:
+     - name: cmp-plugin
+       configMap:
+         name: cmp-plugin
+
+   # RBAC: cluster-clusterrole-argocd-cmp-dns-reader.yaml
+   # Grants default ServiceAccount permission to read DNS cluster resources
+   ```
+
+   **Domain Calculation**:
+   ```bash
+   # Queries OpenShift DNS API
+   BASE_DOMAIN=$(curl -H "Authorization: Bearer ${KUBE_TOKEN}" \
+     https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster \
+     | grep baseDomain)
+
+   # Example: myocp.sandbox3491.opentlc.com
+
+   # Calculates two domain values:
+   CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"  # apps.myocp.sandbox3491.opentlc.com
+   ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')  # sandbox3491.opentlc.com
+
+   # Replaces placeholders in kustomize output:
+   kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g"
+   ```
+
+   **Why These Domain Values**:
+   - `CLUSTER_DOMAIN`: OpenShift routes use `apps.` subdomain (e.g., for HTTPRoute hostnames)
+   - `ROOT_DOMAIN`: Parent domain for wildcard certificates and DNS configurations
+
+   **Plugin Discovery**:
+   - Matches repositories with `**/kustomization.yaml` glob pattern
+   - Automatically applies to all kustomize-based Applications
+
+   **Security**:
+   - Uses ServiceAccount token authentication (`mountsatoken: true`)
+   - RBAC: ClusterRole grants read-only access to DNS cluster resources
+   - Bound to `default` ServiceAccount in `openshift-gitops` namespace
+
+   **Verification**:
+   ```bash
+   # Check CMP sidecar is running
+   oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-repo-server
+   # Should show 2/2 containers (argocd-repo-server + cmp-cluster-domain)
+
+   # Check CMP logs
+   oc logs -n openshift-gitops <repo-server-pod> -c cmp-cluster-domain
+   # Should show: "argocd-cmp-server v3.1.12+... serving on .../cluster-domain-replacer-v1.0.sock"
+
+   # Test DNS API access
+   oc exec -n openshift-gitops <repo-server-pod> -c cmp-cluster-domain -- \
+     curl -s -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+     --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+     https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster
+   ```
+
+   **Files**:
+   - ConfigMap: `openshift-gitops-configmap-cmp-plugin.yaml`
+   - ClusterRole: `cluster-clusterrole-argocd-cmp-dns-reader.yaml`
+   - ClusterRoleBinding: `cluster-crb-argocd-cmp-dns-reader.yaml`
+   - ArgoCD CR: `openshift-gitops-argocd-openshift-gitops.yaml` (sidecar + mountsatoken)
+
 **Troubleshooting:**
 
 Common issues and solutions:

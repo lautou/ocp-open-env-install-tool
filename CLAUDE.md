@@ -288,6 +288,65 @@ components/webterminal/overlays/
 - Document rationale for non-standard patterns in component README or KNOWN_LIMITATIONS.md
 - Update this section when introducing new naming patterns
 
+### Dynamic Cluster Configuration (CMP Plugin)
+
+**Purpose**: Automatically discovers cluster domain and replaces placeholders in manifests at ArgoCD build time.
+
+**Architecture**: ConfigManagementPlugin (CMP) sidecar in ArgoCD repo-server pod.
+
+**How It Works**:
+
+1. **Plugin Discovery**: ArgoCD detects repositories with `**/kustomization.yaml` files
+2. **API Query**: CMP queries OpenShift DNS API for cluster domain
+3. **Domain Calculation**:
+   - `BASE_DOMAIN`: Discovered from API (e.g., `myocp.sandbox3491.opentlc.com`)
+   - `CLUSTER_DOMAIN`: Calculated as `apps.${BASE_DOMAIN}` (e.g., `apps.myocp.sandbox3491.opentlc.com`)
+   - `ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
+4. **Placeholder Replacement**: Runs `kustomize build . | sed` to replace placeholders in output
+
+**Domain Usage**:
+- `CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
+- `ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
+
+**Implementation**:
+```yaml
+# ArgoCD CR modification (openshift-gitops-argocd-openshift-gitops.yaml)
+spec:
+  repo:
+    mountsatoken: true  # Enable ServiceAccount token for Kubernetes API access
+    sidecarContainers:
+    - name: cmp-cluster-domain
+      image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843...
+      # ServiceAccount token auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/
+    volumes:
+    - name: cmp-plugin
+      configMap:
+        name: cmp-plugin  # Plugin definition
+```
+
+**RBAC Requirements**:
+- ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io`)
+- ClusterRoleBinding: Binds to `default` ServiceAccount in `openshift-gitops` namespace
+
+**Files**:
+- ConfigMap: `components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml`
+- ClusterRole: `components/openshift-gitops-admin-config/base/cluster-clusterrole-argocd-cmp-dns-reader.yaml`
+- ClusterRoleBinding: `components/openshift-gitops-admin-config/base/cluster-crb-argocd-cmp-dns-reader.yaml`
+
+**Verification**:
+```bash
+# Check sidecar running (should show 2/2 containers)
+oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-repo-server
+
+# Check CMP logs
+oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain
+# Expected: "argocd-cmp-server v3.1.12+... serving on .../cluster-domain-replacer-v1.0.sock"
+```
+
+**Important**: Plugin applies automatically to all kustomize-based Applications. No special configuration needed in Application manifests.
+
+**Details**: See [components.md](docs/claude/components.md) OpenShift GitOps section for complete implementation details.
+
 ## Important Notes
 
 - **Required**: `pull-secret.txt` in project root (console.redhat.com)
