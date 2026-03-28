@@ -3,9 +3,6 @@ kind: ConfigMap
 metadata:
   name: cmp-plugin
   namespace: openshift-gitops
-  labels:
-    app.kubernetes.io/name: cmp-cluster-domain
-    app.kubernetes.io/component: plugin
 data:
   plugin.yaml: |
     apiVersion: argoproj.io/v1alpha1
@@ -14,16 +11,10 @@ data:
       name: cluster-domain-replacer
     spec:
       version: v1.0
-
-      # Discover: Match repositories with kustomization.yaml
-      discover:
-        find:
-          glob: "**/kustomization.yaml"
-
-      # Generate: Replace cluster domain placeholders and build with kustomize
       generate:
-        command: [sh, -c]
-        args:
+        command:
+          - sh
+          - -c
           - |
             set -e
 
@@ -39,7 +30,7 @@ data:
             echo "[CMP] Querying Kubernetes API for cluster DNS..." >&2
             BASE_DOMAIN=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
               --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-              "${KUBE_API}" | grep -o '"baseDomain":"[^"]*"' | cut -d'"' -f4)
+              "${KUBE_API}" | grep -o '"baseDomain"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
 
             if [ -z "${BASE_DOMAIN}" ]; then
               echo "[CMP ERROR] Failed to query cluster DNS object from API" >&2
@@ -68,6 +59,6 @@ data:
             kustomize build .
 
             echo "[CMP] Plugin execution complete" >&2
-
-      # Preserve file permissions (not needed for YAML)
-      preserveFileMode: false
+      discover:
+        find:
+          glob: "**/kustomization.yaml"
