@@ -73,6 +73,66 @@ spec:
       hs.message = "Waiting for certificate"
       return hs
     kind: PersistentVolumeClaim
+  - check: |
+      hs = {}
+      if obj.status == nil or obj.status.conditions == nil then
+        hs.status = "Progressing"
+        hs.message = "Waiting for status"
+        return hs
+      end
+
+      local currentGen = obj.metadata.generation
+      for i, cond in ipairs(obj.status.conditions) do
+        if cond.observedGeneration == nil or cond.observedGeneration == currentGen then
+          if cond.reason == "NoMatchingListenerHostname" then
+            goto continue
+          end
+          if cond.type == "Programmed" and cond.status == "False" then
+            hs.status = "Degraded"
+            hs.message = cond.message or cond.reason
+            return hs
+          end
+        end
+        ::continue::
+      end
+
+      hs.status = "Healthy"
+      hs.message = "Gateway is ready"
+      return hs
+    group: gateway.networking.k8s.io
+    kind: Gateway
+  - check: |
+      hs = {}
+      if obj.status == nil or obj.status.parents == nil then
+        hs.status = "Progressing"
+        hs.message = "Waiting for status"
+        return hs
+      end
+
+      local currentGen = obj.metadata.generation
+      for i, parent in ipairs(obj.status.parents) do
+        if parent.conditions ~= nil then
+          for j, cond in ipairs(parent.conditions) do
+            if cond.observedGeneration == nil or cond.observedGeneration == currentGen then
+              if cond.reason == "NoMatchingListenerHostname" then
+                goto continue
+              end
+              if cond.type == "Accepted" and cond.status == "False" then
+                hs.status = "Degraded"
+                hs.message = "Parent " .. (parent.parentRef.name or "unknown") .. ": " .. (cond.message or cond.reason)
+                return hs
+              end
+            end
+            ::continue::
+          end
+        end
+      end
+
+      hs.status = "Healthy"
+      hs.message = "HTTPRoute is accepted"
+      return hs
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
   resourceTrackingMethod: annotation
   server:
     resources:
