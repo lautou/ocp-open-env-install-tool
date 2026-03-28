@@ -44,6 +44,36 @@ spec:
       requests:
         cpu: 250m
         memory: 256Mi
+    sidecarContainers:
+    - name: cmp-cluster-domain
+      image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843e6af30376dfc01875baa86c62a9cb85e4606dc108063edba3aee1b8c
+      command:
+      - /var/run/argocd/argocd-cmp-server
+      securityContext:
+        runAsNonRoot: true
+      volumeMounts:
+      - name: var-files
+        mountPath: /var/run/argocd
+      - name: plugins
+        mountPath: /home/argocd/cmp-server/plugins
+      - name: cmp-plugin
+        mountPath: /home/argocd/cmp-server/config/plugin.yaml
+        subPath: plugin.yaml
+      - name: cmp-tmp
+        mountPath: /tmp
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    volumes:
+    - name: cmp-plugin
+      configMap:
+        name: cmp-plugin
+    - name: cmp-tmp
+      emptyDir: {}
   resourceExclusions: |
     - apiGroups:
       - tekton.dev
