@@ -95,6 +95,30 @@ Each component includes:
    ```
    Prevents ArgoCD from managing ephemeral Tekton resources.
 
+5. **Gateway API Resource Health Checks**:
+   Custom health checks for Gateway API resources to properly assess health status:
+
+   **Gateway health check:**
+   - Checks for `Programmed` condition status
+   - Ignores `NoMatchingListenerHostname` reason (expected state)
+   - Marks as Degraded if Programmed=False
+   - Uses `observedGeneration` to ensure condition is current
+
+   **HTTPRoute health check:**
+   - Checks for `Accepted` condition per parent gateway
+   - Ignores `NoMatchingListenerHostname` reason (expected state)
+   - Marks as Degraded if Accepted=False
+   - Reports which parent gateway rejected the route
+   - Uses `observedGeneration` to ensure condition is current
+
+   **Why custom health checks needed:**
+   - Gateway API resources are not well-handled by ArgoCD's default health checks
+   - Prevents false degraded states in ArgoCD UI
+   - Provides accurate health information based on Gateway API specification
+   - Critical for RHCL (Kuadrant) component which heavily uses Gateway/HTTPRoute resources
+
+   **Configuration:** `spec.resourceHealthChecks` in ArgoCD CR (Lua scripts)
+
 **Troubleshooting:**
 
 Common issues and solutions:
