@@ -183,16 +183,16 @@ The following operators lack infra node placement configuration capabilities:
 
 **Enhancement Requests (RFEs):**
 - **[RFE-8721](https://issues.redhat.com/browse/RFE-8721)** - "Red Hat build of Kueue: Allow node-selector and taints configuration for Kueue components"
-- **[RFE-8722](https://issues.redhat.com/browse/RFE-8722)** - TODO: Add title from JIRA
+- **[RFE-8722](https://issues.redhat.com/browse/RFE-8722)** - "Node Feature Discovery: Allow node-selector and taints configuration for gc components"
 - **[RFE-8791](https://issues.redhat.com/browse/RFE-8791)** - "Gateway API: Ability to configure nodeSelector/tolerations in GatewayClass"
 - **[RHAIRFE-1244](https://issues.redhat.com/browse/RHAIRFE-1244)** - "Improve Install of Service Mesh 3 Operator"
 
 **OpenShift Bugs:**
-- **[OCPBUGS-9274](https://issues.redhat.com/browse/OCPBUGS-9274)** - TODO: Add title from JIRA
+- **[OCPBUGS-9274](https://issues.redhat.com/browse/OCPBUGS-9274)** - "Ingress-canary daemonset does not tolerate Infra taints NoExecute"
 - **[OCPBUGS-49690](https://issues.redhat.com/browse/OCPBUGS-49690)** - "[RHOCP4.17] networking-console-plugin pods should run on control plane nodes"
 - **[OCPBUGS-51091](https://issues.redhat.com/browse/OCPBUGS-51091)** - "[RHOCP4.18] migrator pod should run on control plane node"
-- **[OCPBUGS-74211](https://issues.redhat.com/browse/OCPBUGS-74211)** - TODO: Add title from JIRA
-- **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - TODO: Add title from JIRA
+- **[OCPBUGS-74211](https://issues.redhat.com/browse/OCPBUGS-74211)** - "Insight runtime extractor is not deployed on tainted nodes"
+- **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - "volume-data-source-validator should run on master (control plane) node"
 - **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node"
 
 **Data Foundation Bugs:**
