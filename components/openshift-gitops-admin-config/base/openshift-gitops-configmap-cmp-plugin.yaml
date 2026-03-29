@@ -65,7 +65,14 @@ data:
 
             # Build manifests with kustomize and replace placeholders in output
             echo "[CMP] Building manifests and replacing placeholders..." >&2
-            kustomize build . | sed "s|CLUSTER_DOMAIN|${CMP_CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${CMP_ROOT_DOMAIN}|g; s|CLUSTER_REGION|${CMP_CLUSTER_REGION}|g"
+
+            # Check if we're processing the CMP plugin itself (avoid self-corruption)
+            if echo "$(pwd)" | grep -q "openshift-gitops-admin-config"; then
+              echo "[CMP] Detected openshift-gitops-admin-config component, skipping placeholder replacement to avoid self-corruption" >&2
+              kustomize build .
+            else
+              kustomize build . | sed "s|CLUSTER_DOMAIN|${CMP_CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${CMP_ROOT_DOMAIN}|g; s|CLUSTER_REGION|${CMP_CLUSTER_REGION}|g"
+            fi
 
             echo "[CMP] Plugin execution complete" >&2
       discover:
