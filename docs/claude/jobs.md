@@ -881,6 +881,75 @@ exit 1
    - `oc delete <resource> --ignore-not-found`
    - Makes cleanup idempotent
 
+### Variable Naming Convention
+
+**CRITICAL**: Use prefixed variable names in Job scripts to avoid conflicts with CMP plugin placeholders.
+
+**Why this matters:**
+- CMP plugin performs `sed` replacement on ALL manifests: `s|CLUSTER_REGION|eu-central-1|g`
+- If Job script uses `CLUSTER_REGION=` variable, it gets replaced: `eu-central-1=$(oc get...)`
+- Result: Invalid bash syntax, Job fails
+
+**Standard naming convention:**
+
+```bash
+# ✅ Infrastructure-discovered values (from OpenShift APIs)
+OCP_BASE_DOMAIN=     # From dns.config.openshift.io/cluster
+OCP_CLUSTER_NAME=    # From infrastructure.status.infrastructureName
+OCP_PLATFORM=        # From infrastructure.status.platform
+
+# ✅ AWS-discovered values (from Infrastructure or MachineSet APIs)
+AWS_REGION=          # From infrastructure.status.platformStatus.aws.region
+AWS_ACCESS_KEY=      # From secrets
+AWS_SECRET_KEY=      # From secrets
+
+# ✅ Computed/derived values
+BASE_DOMAIN=         # Only when transforming OCP_BASE_DOMAIN
+API_URL=             # Only when building URLs
+INFRA_ID=            # Only when cloning MachineSets
+
+# ✅ Constants (hardcoded values, not discovered)
+REGION=eu            # OK when hardcoded (not discovered from APIs)
+TIMESTAMP=$(date +%s) # OK for unique identifiers
+
+# ❌ NEVER use these in Job bash scripts (reserved for CMP placeholders)
+CLUSTER_DOMAIN       # CMP replaces with apps.${BASE_DOMAIN}
+ROOT_DOMAIN          # CMP replaces with parent domain
+CLUSTER_REGION       # CMP replaces with discovered region
+```
+
+**Examples:**
+
+```bash
+# ❌ BAD - Conflicts with CMP placeholder
+CLUSTER_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+region: ${CLUSTER_REGION}  # CMP will corrupt this before Job runs
+
+# ✅ GOOD - Prefixed variable name
+AWS_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+region: ${AWS_REGION}  # Safe from CMP replacement
+
+# ❌ BAD - Conflicts with CMP placeholder
+CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+hostname: maas-api.apps.${CLUSTER_DOMAIN}
+
+# ✅ GOOD - Prefixed variable name
+OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+hostname: maas-api.apps.${OCP_BASE_DOMAIN}
+```
+
+**When to use Jobs vs CMP placeholders:**
+
+| Scenario | Approach | Example |
+|----------|----------|---------|
+| Static YAML field needing cluster-specific value | CMP placeholder | `region: CLUSTER_REGION` in ClusterIssuer |
+| Runtime logic/conditions | Job with prefixed variables | `if [ "$AWS_REGION" = "us-east-1" ]; then ...` |
+| Secret extraction | Job with prefixed variables | `AWS_ACCESS_KEY=$(oc extract...)` |
+| API patching | Job with prefixed variables | `oc patch ... --patch "{\"hostname\": \"api.${OCP_BASE_DOMAIN}\"}"` |
+| Dynamic TIMESTAMP generation | Job | `dnsNames: ["api.${TIMESTAMP}.${OCP_BASE_DOMAIN}"]` |
+
+**Rule of thumb:** If the value can be determined at ArgoCD sync time (static), use CMP placeholder. If it requires runtime discovery or logic, use Job with prefixed variables.
+
 ### Resource Management
 
 1. **Always specify namespace**

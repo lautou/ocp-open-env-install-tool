@@ -21,8 +21,8 @@ spec:
           set -e
 
           echo "Fetching cluster domain from DNS CR..."
-          CLUSTER_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
-          echo "CLUSTER_DOMAIN=$CLUSTER_DOMAIN"
+          OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
+          echo "OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN"
 
           echo "Creating MaaS Gateway..."
           cat <<EOF | oc apply -f -
@@ -39,7 +39,7 @@ spec:
               - allowedRoutes:
                   namespaces:
                     from: All
-                hostname: maas-api.apps.${CLUSTER_DOMAIN}
+                hostname: maas-api.apps.${OCP_BASE_DOMAIN}
                 name: https
                 port: 443
                 protocol: HTTPS

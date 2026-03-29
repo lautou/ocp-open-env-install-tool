@@ -119,11 +119,11 @@ data:
       --from-literal awsSecretAccessKey=$SECRET_KEY
 
     echo "Fetching cluster configuration..."
-    export REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
+    export AWS_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
     export OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
     export TIMESTAMP=$(date +%s)
 
-    echo "REGION=$REGION"
+    echo "AWS_REGION=$AWS_REGION"
     echo "OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN"
     echo "TIMESTAMP=$TIMESTAMP"
 
@@ -146,7 +146,7 @@ data:
                 accessKeyIDSecretRef:
                   key: awsAccessKey
                   name: aws-acme
-                region: ${REGION}
+                region: ${AWS_REGION}
                 secretAccessKeySecretRef:
                   key: awsSecretAccessKey
                   name: aws-acme
