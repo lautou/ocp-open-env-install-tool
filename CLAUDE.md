@@ -290,23 +290,27 @@ components/webterminal/overlays/
 
 ### Dynamic Cluster Configuration (CMP Plugin)
 
-**Purpose**: Automatically discovers cluster domain and replaces placeholders in manifests at ArgoCD build time.
+**Purpose**: Automatically discovers cluster domain and region, replacing placeholders in manifests at ArgoCD build time.
 
 **Architecture**: ConfigManagementPlugin (CMP) sidecar in ArgoCD repo-server pod.
 
 **How It Works**:
 
 1. **Plugin Discovery**: ArgoCD detects repositories with `**/kustomization.yaml` files
-2. **API Query**: CMP queries OpenShift DNS API for cluster domain
-3. **Domain Calculation**:
-   - `BASE_DOMAIN`: Discovered from API (e.g., `myocp.sandbox3491.opentlc.com`)
+2. **API Queries**: CMP queries OpenShift APIs for cluster configuration
+   - DNS API: `dnses.config.openshift.io/cluster` for domain
+   - Infrastructure API: `infrastructures.config.openshift.io/cluster` for region
+3. **Value Calculation**:
+   - `BASE_DOMAIN`: Discovered from DNS API (e.g., `myocp.sandbox3491.opentlc.com`)
    - `CLUSTER_DOMAIN`: Calculated as `apps.${BASE_DOMAIN}` (e.g., `apps.myocp.sandbox3491.opentlc.com`)
    - `ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
+   - `CLUSTER_REGION`: Discovered from Infrastructure API (e.g., `eu-central-1`, fallback: `unknown` for non-AWS)
 4. **Placeholder Replacement**: Runs `kustomize build . | sed` to replace placeholders in output
 
-**Domain Usage**:
+**Placeholder Usage**:
 - `CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
 - `ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
+- `CLUSTER_REGION`: AWS region-specific configurations, S3 endpoints, regional resources
 
 **Implementation**:
 ```yaml
@@ -325,7 +329,7 @@ spec:
 ```
 
 **RBAC Requirements**:
-- ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io`)
+- ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io` and `infrastructures.config.openshift.io`)
 - ClusterRoleBinding: Binds to `default` ServiceAccount in `openshift-gitops` namespace
 
 **Files**:
@@ -338,10 +342,20 @@ spec:
 # Check sidecar running (should show 2/2 containers)
 oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-repo-server
 
-# Check CMP logs
-oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain
-# Expected: "argocd-cmp-server v3.1.12+... serving on .../cluster-domain-replacer-v1.0.sock"
+# Check CMP logs for discovered values
+oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | grep "\[CMP\]"
+# Expected output:
+# [CMP] Discovered BASE_DOMAIN: myocp.sandbox3491.opentlc.com
+# [CMP] Discovered CLUSTER_REGION: eu-central-1
+# [CMP] Computed CLUSTER_DOMAIN: apps.myocp.sandbox3491.opentlc.com
+# [CMP] Computed ROOT_DOMAIN: sandbox3491.opentlc.com
 ```
+
+**When to use CLUSTER_REGION placeholder**:
+- ✅ Static ConfigMap/Secret data fields with region values
+- ✅ Resource annotations/labels referencing region
+- ✅ Any YAML field that doesn't require runtime evaluation
+- ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION` to avoid conflicts)
 
 **Important**: Plugin applies automatically to all kustomize-based Applications. No special configuration needed in Application manifests.
 
