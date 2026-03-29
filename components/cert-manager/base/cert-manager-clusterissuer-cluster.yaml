@@ -13,7 +13,7 @@ spec:
           accessKeyIDSecretRef:
             key: awsAccessKey
             name: aws-acme
-          region: CLUSTER_REGION
+          region: CMP_PLACEHOLDER_CLUSTER_REGION
           secretAccessKeySecretRef:
             key: awsSecretAccessKey
             name: aws-acme

@@ -100,11 +100,11 @@ data:
               ESCAPED_AWS_SECRET=$(echo "${DISCOVERED_AWS_SECRET}" | sed 's/[\/&]/\\&/g')
 
               kustomize build . | sed \
-                -e "s|CLUSTER_DOMAIN|${COMPUTED_CLUSTER_DOMAIN}|g" \
-                -e "s|ROOT_DOMAIN|${COMPUTED_ROOT_DOMAIN}|g" \
-                -e "s|CLUSTER_REGION|${DISCOVERED_REGION}|g" \
-                -e "s|CMP_AWS_ACCESS_KEY_ID_PLACEHOLDER|${ESCAPED_AWS_KEY}|g" \
-                -e "s|CMP_AWS_SECRET_ACCESS_KEY_PLACEHOLDER|${ESCAPED_AWS_SECRET}|g"
+                -e "s|CMP_PLACEHOLDER_CLUSTER_DOMAIN|${COMPUTED_CLUSTER_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_ROOT_DOMAIN|${COMPUTED_ROOT_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_CLUSTER_REGION|${DISCOVERED_REGION}|g" \
+                -e "s|CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID|${ESCAPED_AWS_KEY}|g" \
+                -e "s|CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY|${ESCAPED_AWS_SECRET}|g"
             fi
 
             echo "[CMP] Plugin execution complete" >&2
