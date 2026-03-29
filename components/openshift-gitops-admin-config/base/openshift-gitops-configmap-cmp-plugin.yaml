@@ -69,18 +69,29 @@ data:
             fi
 
             # Calculate domain values
-            # COMPUTED_CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
-            COMPUTED_CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
-
-            # COMPUTED_ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
-            # Example: myocp.sandbox3491.opentlc.com → sandbox3491.opentlc.com
+            # COMPUTED_ROOT_DOMAIN: Parent domain (e.g., sandbox3491.opentlc.com)
             COMPUTED_ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
+
+            # COMPUTED_OCP_CLUSTER_DOMAIN: Base cluster domain (e.g., myocp.sandbox3491.opentlc.com)
+            COMPUTED_OCP_CLUSTER_DOMAIN="${BASE_DOMAIN}"
+
+            # COMPUTED_OCP_APPS_DOMAIN: OpenShift apps domain (e.g., apps.myocp.sandbox3491.opentlc.com)
+            COMPUTED_OCP_APPS_DOMAIN="apps.${BASE_DOMAIN}"
+
+            # COMPUTED_OCP_API_DOMAIN: OpenShift API domain (e.g., api.myocp.sandbox3491.opentlc.com)
+            COMPUTED_OCP_API_DOMAIN="api.${BASE_DOMAIN}"
+
+            # COMPUTED_TIMESTAMP: Unix timestamp for unique DNS challenge names
+            COMPUTED_TIMESTAMP=$(date +%s)
 
             # Log discovered values (never log actual credentials!)
             echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
             echo "[CMP] Discovered REGION: ${DISCOVERED_REGION}" >&2
-            echo "[CMP] Computed CLUSTER_DOMAIN: ${COMPUTED_CLUSTER_DOMAIN}" >&2
             echo "[CMP] Computed ROOT_DOMAIN: ${COMPUTED_ROOT_DOMAIN}" >&2
+            echo "[CMP] Computed OCP_CLUSTER_DOMAIN: ${COMPUTED_OCP_CLUSTER_DOMAIN}" >&2
+            echo "[CMP] Computed OCP_APPS_DOMAIN: ${COMPUTED_OCP_APPS_DOMAIN}" >&2
+            echo "[CMP] Computed OCP_API_DOMAIN: ${COMPUTED_OCP_API_DOMAIN}" >&2
+            echo "[CMP] Computed TIMESTAMP: ${COMPUTED_TIMESTAMP}" >&2
             if [ -n "${DISCOVERED_AWS_KEY}" ]; then
               echo "[CMP] AWS credentials available: YES" >&2
             else
@@ -100,8 +111,11 @@ data:
               ESCAPED_AWS_SECRET=$(echo "${DISCOVERED_AWS_SECRET}" | sed 's/[\/&]/\\&/g')
 
               kustomize build . | sed \
-                -e "s|CMP_PLACEHOLDER_CLUSTER_DOMAIN|${COMPUTED_CLUSTER_DOMAIN}|g" \
                 -e "s|CMP_PLACEHOLDER_ROOT_DOMAIN|${COMPUTED_ROOT_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN|${COMPUTED_OCP_CLUSTER_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_OCP_APPS_DOMAIN|${COMPUTED_OCP_APPS_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_OCP_API_DOMAIN|${COMPUTED_OCP_API_DOMAIN}|g" \
+                -e "s|CMP_PLACEHOLDER_TIMESTAMP|${COMPUTED_TIMESTAMP}|g" \
                 -e "s|CMP_PLACEHOLDER_CLUSTER_REGION|${DISCOVERED_REGION}|g" \
                 -e "s|CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID|${ESCAPED_AWS_KEY}|g" \
                 -e "s|CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY|${ESCAPED_AWS_SECRET}|g"

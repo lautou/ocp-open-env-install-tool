@@ -11,7 +11,7 @@ spec:
   - allowedRoutes:
       namespaces:
         from: All
-    hostname: maas-api.CMP_PLACEHOLDER_CLUSTER_DOMAIN
+    hostname: maas-api.CMP_PLACEHOLDER_OCP_APPS_DOMAIN
     name: https
     port: 443
     protocol: HTTPS

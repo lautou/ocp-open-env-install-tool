@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ingress
+  namespace: openshift-ingress
+spec:
+  commonName: CMP_PLACEHOLDER_OCP_APPS_DOMAIN
+  dnsNames:
+  - CMP_PLACEHOLDER_OCP_APPS_DOMAIN
+  - '*.CMP_PLACEHOLDER_OCP_APPS_DOMAIN'
+  - apps.CMP_PLACEHOLDER_TIMESTAMP.CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN
+  isCA: false
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster
+  secretName: ingress-certificates

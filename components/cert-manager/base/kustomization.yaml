@@ -10,7 +10,10 @@ resources:
 - cluster-certmanager-cluster.yaml
 - cluster-crb-cert-manager-clusterissuer-edit.yaml
 - cluster-namespace-cert-manager-operator.yaml
-- openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+- openshift-config-certificate-api.yaml
+- openshift-ingress-certificate-ingress.yaml
+# DISABLED: Testing static Certificate manifests with CMP placeholders
+#- openshift-gitops-job-create-cluster-cert-manager-resources.yaml
 # DISABLED: Patch Jobs temporarily disabled
 #- openshift-gitops-job-update-cluster-apiserver-cluster.yaml
 #- openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml

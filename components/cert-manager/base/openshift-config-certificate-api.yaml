@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api
+  namespace: openshift-config
+spec:
+  commonName: CMP_PLACEHOLDER_OCP_API_DOMAIN
+  dnsNames:
+  - CMP_PLACEHOLDER_OCP_API_DOMAIN
+  - api.CMP_PLACEHOLDER_TIMESTAMP.CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN
+  isCA: false
+  issuerRef:
+    kind: ClusterIssuer
+    name: cluster
+  secretName: api-certificates
