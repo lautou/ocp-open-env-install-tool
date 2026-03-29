@@ -18,6 +18,8 @@ spec:
       project: default
       source:
         path: components/{{item}}/overlays/full-aws-lean
+        plugin:
+          name: cluster-domain-replacer
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
         targetRevision: '{{branch}}'
       destination:
