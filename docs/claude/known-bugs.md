@@ -45,7 +45,7 @@ The mlflow-operator ServiceMonitor targets a metrics endpoint that doesn't exist
 Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't match actual controller manager endpoints.
 
 **Status:**
-- **JIRA:** [RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791)
+- **JIRA:** [RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791) - mlflow-operator ServiceMonitor targets non-existent metrics endpoint causing continuous TargetDown alerts
 - **Reported:** Red Hat internal bug tracker
 - **Workaround:** Alert routed to null receiver + Alertmanager silence active
 - **Fix ETA:** TBD (pending upstream resolution)

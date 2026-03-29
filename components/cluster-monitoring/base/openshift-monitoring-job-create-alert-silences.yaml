@@ -136,7 +136,7 @@ spec:
             "startsAt": "$START_TIME",
             "endsAt": "$END_TIME",
             "createdBy": "argocd-automation",
-            "comment": "Known bug: mlflow-operator v2.0.0 broken metrics endpoint - See KNOWN_BUGS.md"
+            "comment": "Known bug: mlflow-operator ServiceMonitor targets non-existent metrics endpoint (JIRA: RHOAIENG-54791) - See KNOWN_BUGS.md"
           }
           EOF
           )
