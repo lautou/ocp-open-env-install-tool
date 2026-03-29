@@ -2,7 +2,7 @@ apiVersion: config.openshift.io/v1
 kind: OAuth
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: Delete=false
+    argocd.argoproj.io/sync-options: Delete=false,SkipDryRunOnMissingResource=true
   name: cluster
 spec:
   identityProviders:

@@ -3,12 +3,12 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: create-cluster-cert-manager-resources
+  name: watchdog-certmanager
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: create-cluster-cert-manager-resources
+      name: watchdog-certmanager
     spec:
       containers:
       - command:

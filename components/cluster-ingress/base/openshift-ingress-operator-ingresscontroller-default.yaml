@@ -2,10 +2,12 @@ apiVersion: operator.openshift.io/v1
 kind: IngressController
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: Delete=false
+    argocd.argoproj.io/sync-options: Delete=false,SkipDryRunOnMissingResource=true
   name: default
   namespace: openshift-ingress-operator
 spec:
+  defaultCertificate:
+    name: ingress-certificates
   nodePlacement:
     nodeSelector:
       matchLabels:

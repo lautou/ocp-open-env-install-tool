@@ -11,11 +11,8 @@ resources:
 - cluster-crb-cert-manager-clusterissuer-edit.yaml
 - cluster-namespace-cert-manager-operator.yaml
 - openshift-config-certificate-api.yaml
+- openshift-gitops-job-watchdog-certmanager.yaml
 - openshift-ingress-certificate-ingress.yaml
-- openshift-gitops-job-create-cluster-cert-manager-resources.yaml
-# DISABLED: Patch Jobs temporarily disabled
-#- openshift-gitops-job-update-cluster-apiserver-cluster.yaml
-#- openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
 replacements:
 - source:
     fieldPath: data.cert-manager
