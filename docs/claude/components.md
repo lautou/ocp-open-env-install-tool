@@ -230,174 +230,172 @@ Common issues and solutions:
 
 ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
 
-## cert-manager IngressController
+## cert-manager
 
-**Pattern**: Pure Patch Job (no static manifests)
+**Architecture**: Static manifests with CMP placeholders + Watchdog Deployment for operator health monitoring.
 
-**Purpose**: Configure the default OpenShift IngressController to use Let's Encrypt certificates managed by cert-manager.
+**Certificate Issuance** (managed in `cert-manager` component):
+- ClusterIssuer with Let's Encrypt DNS-01 challenge
+- Certificate resources with CMP placeholders for dynamic domains
+- Static Secret for AWS Route53 credentials (CMP extracts from kube-system/aws-creds)
 
-**Why Job only (no static manifest):**
-The Static Manifest + ignoreDifferences pattern was **attempted and FAILED** for IngressController. Here's why:
+**Certificate Usage** (managed in separate components):
+- IngressController: `cluster-ingress` component
+- APIServer: `openshift-config` component
 
-**Problem with Static + ignoreDifferences:**
+**Files**:
+- `components/cert-manager/base/cert-manager-clusterissuer-cluster.yaml` - Let's Encrypt ACME issuer
+- `components/cert-manager/base/openshift-ingress-certificate-ingress.yaml` - Ingress wildcard certificate
+- `components/cert-manager/base/openshift-config-certificate-api.yaml` - API server certificate
+- `components/cert-manager/base/cert-manager-secret-aws-acme.yaml` - AWS credentials for Route53 DNS-01
+- `components/cert-manager/base/openshift-gitops-deployment-watchdog-certmanager.yaml` - CM-412 watchdog
+
+**CMP Placeholder Usage**:
 ```yaml
-# Static manifest declares:
+# Static Certificate with dynamic domains
+spec:
+  commonName: CMP_PLACEHOLDER_OCP_APPS_DOMAIN
+  dnsNames:
+  - CMP_PLACEHOLDER_OCP_APPS_DOMAIN
+  - '*.CMP_PLACEHOLDER_OCP_APPS_DOMAIN'
+  - apps.CMP_PLACEHOLDER_TIMESTAMP.CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN  # Unique DNS challenge
+```
+
+**TIMESTAMP Behavior**:
+- ArgoCD caches CMP-built manifests per Git commit SHA
+- Same revision → same TIMESTAMP (stable during certificate issuance)
+- New commit → new CMP build → new TIMESTAMP (allows updates)
+- Perfect for cert-manager: stable enough for issuance, refreshes on code changes
+
+**IngressController Configuration** (cluster-ingress component):
+
+**Pattern**: Static manifest + ignoreDifferences for shared resource
+
+**File**: `components/cluster-ingress/base/openshift-ingress-operator-ingresscontroller-default.yaml`
+
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: IngressController
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,SkipDryRunOnMissingResource=true
 spec:
   defaultCertificate:
     name: ingress-certificates
-
-# ignoreDifferences says:
-ignoreDifferences:
-- kind: IngressController
-  jsonPointers:
-  - /spec/defaultCertificate  # "Ignore this field"
 ```
 
-**Result:** ArgoCD **never applies** the field it's told to ignore → Certificate not configured → SSL errors ❌
+**Why static manifest works**:
+- IngressController is a **shared resource** (created by OpenShift installer)
+- GitOps manages only `defaultCertificate` field
+- `ignoreDifferences` prevents ArgoCD from trying to delete/recreate the resource
+- `SkipDryRunOnMissingResource` allows sync before Certificate Secret exists
 
-This is a **logical contradiction**: "Here's the config, but ignore it" = Config never applied.
+**Lesson learned**:
+- ✅ Static + ignoreDifferences works for **shared resources** when ignoring fields NOT in Git
+- ❌ Static + ignoreDifferences fails when ignoring fields IN Git (logical contradiction)
 
-**Working Implementation (Pure Job):**
+**APIServer Configuration** (openshift-config component):
 
-Job: `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml`
+**Pattern**: Static manifest + ignoreDifferences for shared resource
 
-1. Waits for cert-manager to create Certificate `ingress` in `openshift-ingress`
-2. Waits for Certificate to reach Ready condition (Let's Encrypt issued)
-3. Patches IngressController with `defaultCertificate: {name: ingress-certificates}`
-4. Triggers rolling update of router pods with new certificate
-
-**Zero-downtime behavior:**
-- ✅ IngressController starts with auto-generated wildcard certificate (OpenShift default)
-- ✅ Ingress/Routes work immediately with self-signed certificate
-- ✅ Job waits for Let's Encrypt certificate to be Ready (2-5 minutes)
-- ✅ Patch triggers rolling update of router pods (~30 seconds)
-- ✅ High availability maintained during certificate rotation (3 replicas)
-
-**Lesson learned:**
-- ❌ Static + ignoreDifferences = Field never applied
-- ✅ Pure Job = Reliable, predictable, works correctly
-
-## cert-manager Certificate Provisioning
-
-**Pattern**: Dynamic Job with pod readiness checks + ConfigMap-based script extraction
-
-**Purpose**: Create ClusterIssuer and Certificate resources after cert-manager operator is fully initialized.
-
-**Architecture**: Job + ConfigMap for maintainability
-
-The Job uses a ConfigMap-mounted script instead of embedded bash for better maintainability:
+**File**: `components/openshift-config/base/cluster-apiserver-cluster.yaml`
 
 ```yaml
-# Job: components/cert-manager/base/openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+apiVersion: config.openshift.io/v1
+kind: APIServer
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,SkipDryRunOnMissingResource=true
+  name: cluster
 spec:
-  containers:
-  - command: ["/scripts/create-cert-manager-resources.sh"]
-    volumeMounts:
-    - mountPath: /scripts
-      name: scripts
-  volumes:
-  - configMap:
-      name: cert-manager-scripts
-      defaultMode: 0755  # Executable permissions
+  servingCerts:
+    namedCertificates:
+    - names:
+      - CMP_PLACEHOLDER_OCP_API_DOMAIN
+      servingCertificate:
+        name: api-certificates
 ```
 
-**ConfigMap**: `components/cert-manager/base/cert-manager-configmap-scripts.yaml` (204 lines)
+**Why static manifest works**:
+- APIServer is a **shared resource** (created by OpenShift installer)
+- GitOps manages only `servingCerts.namedCertificates` field
+- `ignoreDifferences` prevents ArgoCD from managing OpenShift-controlled fields
+- CMP placeholder replaced with actual API domain at build time
 
-**Benefits of ConfigMap extraction:**
-- ✅ **70% Job file reduction** (105 lines → 35 lines)
-- ✅ **Proper formatting** (no `\n` escapes, readable bash syntax)
-- ✅ **Better maintainability** (edit script without YAML escaping)
-- ✅ **Easier testing** (extract script content to test locally)
-- ✅ **Reusability** (ConfigMap can be mounted by multiple Jobs if needed)
-
-**Pattern applied:** Resolves AUDIT.md ISSUE-003 (Excessive Bash Complexity in Jobs)
-
-**Critical Race Condition Fixed:**
-
-The Job (`create-cluster-cert-manager-resources`) previously waited only for CertManager CR deployment conditions, which caused a race condition during cluster bootstrap:
-
-**Problem:**
-```bash
-# Old approach (BROKEN):
-oc wait certmanager cluster \
-    --for condition=cert-manager-controller-deploymentAvailable \
-    --timeout=120s
-
-# Problem: Deployment conditions check that Deployment resource exists,
-# NOT that pods are running or controller is initialized
-```
-
-**Timeline of race condition:**
-1. CertManager CR shows "deploymentAvailable" (Deployment created)
-2. Job creates certificates immediately
-3. cert-manager pods haven't started yet (may be 60+ seconds later)
-4. cert-manager controller tries to process certificates before ACME client initialized
-5. Let's Encrypt order created, but authorization fetch fails with 404
-6. cert-manager gives up without retry → 1-hour exponential backoff
-
-**Root Cause:**
-- CertManager CR conditions reflect **Deployment readiness** (desired replicas exist)
-- **Not pod readiness** (containers running and passing readiness probes)
-- **Not controller initialization** (ACME client ready to process certificates)
-
-**Fix Applied:**
-```bash
-# New approach (FIXED):
-oc wait certmanager cluster \
-    --for condition=cert-manager-controller-deploymentAvailable \
-    --timeout=120s
-
-# ADDED: Wait for pods to be Ready (containers running + readiness probes passing)
-oc wait pod -n cert-manager \
-    -l app.kubernetes.io/component=controller \
-    --for=condition=Ready \
-    --timeout=120s
-
-oc wait pod -n cert-manager \
-    -l app.kubernetes.io/component=webhook \
-    --for=condition=Ready \
-    --timeout=120s
-```
-
-**Why this works:**
-- Pod `Ready` condition ensures containers are running
-- cert-manager readiness probe confirms controller is responsive
-- ACME client has time to initialize before certificates are created
-- Webhook pod must be ready before validating Certificate resources
-
-**Time added:** ~30-60 seconds (pod startup time)
-
-**Lesson learned:**
-- CertManager CR conditions ≠ cert-manager controller ready
-- Always wait for pod `Ready` condition when controller initialization matters
-- Deployment conditions only guarantee Deployment resource exists, not pod state
-
-**Dynamic TIMESTAMP in Certificate DNS Names:**
-
-The Job intentionally includes a dynamic TIMESTAMP in Certificate dnsNames to ensure unique DNS records for Let's Encrypt DNS-01 challenges:
-
+**ignoreDifferences in ApplicationSet**:
 ```yaml
-dnsNames:
-- "apps.${CLUSTER_DOMAIN}"              # Static - main domain
-- "*.apps.${CLUSTER_DOMAIN}"            # Static - wildcard
-- "apps.${TIMESTAMP}.${CLUSTER_DOMAIN}" # Dynamic - changes on each Job run
+ignoreDifferences:
+- group: config.openshift.io
+  kind: APIServer
+  name: cluster
+  jsonPointers:
+  - /metadata/annotations     # OpenShift-managed
+  - /metadata/ownerReferences # OpenShift-managed
+  - /spec/audit               # OpenShift-managed
 ```
 
-**Why TIMESTAMP changes on each run:**
-- ✅ Ensures unique DNS TXT records for ACME DNS-01 challenges
-- ✅ Prevents Let's Encrypt caching issues during Job retriggers
-- ✅ Allows idempotent Job execution without DNS record conflicts
-- ✅ Static DNS names (primary domain and wildcard) remain consistent for actual cluster usage
+**Watchdog Deployment** (CM-412 workaround):
 
-**Idempotency:**
-- If Certificate exists: `oc apply` updates it with new TIMESTAMP → new Let's Encrypt authorization
-- If Certificate deleted: `oc apply` creates it with new TIMESTAMP → fresh certificate issuance
-- Job is retriggerable (`Force=true`) without issues
+**Purpose**: Continuous monitoring for cert-manager operator stuck states, with automatic recovery.
 
-**Impact:**
-- Primary certificate purpose (securing `*.apps.${CLUSTER_DOMAIN}`) is unaffected
-- TIMESTAMP DNS name is only used during ACME challenge validation, not for routing
-- Certificate remains valid for same static domains across Job runs
+**File**: `components/cert-manager/base/openshift-gitops-deployment-watchdog-certmanager.yaml`
+
+**Implementation**:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watchdog-certmanager
+  namespace: openshift-gitops
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - command: ["/scripts/watchdog-certmanager.sh"]
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /scripts
+          name: scripts
+      volumes:
+      - configMap:
+          name: cert-manager-scripts
+          defaultMode: 0755
+```
+
+**Monitoring Logic** (every 60 seconds):
+```bash
+CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}')
+CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}')
+WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}')
+
+if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
+  oc delete certmanager cluster  # Operator recreates it automatically
+fi
+```
+
+**Why Deployment over Job/CronJob**:
+- ✅ Immediate detection (<60s vs up to 10 minutes)
+- ✅ Continuous monitoring (not scheduled)
+- ✅ Automatic recovery from cluster hibernation
+- ✅ Minimal overhead (~10m CPU when idle)
+- ✅ Better for infrastructure-critical services
+
+**ConfigMap**: `components/cert-manager/base/cert-manager-configmap-scripts.yaml`
+
+**Script extraction benefits**:
+- Readable bash syntax (no YAML escaping)
+- Easier maintenance and testing
+- Reusable across Deployment and Jobs
+
+**Related Bug**: See CM-412 in known-bugs.md for background on operator stuck states.
 
 ## OpenShift Data Foundation (ODF)
 

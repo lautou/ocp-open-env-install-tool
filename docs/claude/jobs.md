@@ -209,61 +209,53 @@ spec:
 - Create new secret with `--from-literal`
 - Hardcoded endpoint values (NooBaa S3 service)
 
-### 3. Shared Resource Patching (4 Jobs)
+### 3. Shared Resource Patching (1 Job)
 
-**Pattern**: Modify cluster-scoped resources that cannot be fully managed by GitOps
+**Pattern**: Runtime patching of cluster-scoped resources requiring dynamic logic
 
 **Why Jobs?**
-- Resources exist at cluster scope (created by installer/operators)
-- GitOps manages subset of fields, operators manage others
-- Static manifests with `ignoreDifferences` **DO NOT WORK** (field never applied)
-- Jobs runtime-patch specific fields
+- Resources require runtime logic (token generation, dependency waiting)
+- Cannot be represented as static manifests
 
-**Jobs:**
-- `openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml` → Set default certificate
-- `openshift-gitops-job-update-cluster-apiserver-cluster.yaml` → Configure API server
-- `openshift-gitops-job-create-cluster-cert-manager-resources.yaml` → Create Certificate CRs
-- `openshift-gitops-job-configure-grafana-datasource-token.yaml` → Patch GrafanaDatasource CR
+**Job:**
+- `openshift-gitops-job-configure-grafana-datasource-token.yaml` → Patch GrafanaDatasource CR with ServiceAccount token
 
-**Template (IngressController patching):**
+**Deprecated Jobs (replaced by static manifests + CMP):**
+- ~~`openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml`~~ → Now static manifest in cluster-ingress
+- ~~`openshift-gitops-job-update-cluster-apiserver-cluster.yaml`~~ → Now static manifest in openshift-config
+- ~~`openshift-gitops-job-create-cluster-cert-manager-resources.yaml`~~ → Now static Certificates with CMP placeholders
+
+**Migration to Static Manifests:**
+
+The "Static + ignoreDifferences doesn't work" assumption was **incorrect for shared resources**.
+
+Static manifests **DO WORK** when:
+- Resource is **shared** (created by OpenShift)
+- GitOps manages **subset of fields**
+- ignoreDifferences ignores **OpenShift-managed fields NOT in Git**
+
 ```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "3"
-  name: update-ingresscontroller-default-certificate
-  namespace: openshift-gitops
+# cluster-ingress/base/openshift-ingress-operator-ingresscontroller-default.yaml
 spec:
-  template:
-    spec:
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          echo "Waiting for Certificate default-ingress-certificate to be ready..."
-          oc wait certificate default-ingress-certificate -n openshift-ingress --for=condition=Ready --timeout=300s
+  defaultCertificate:
+    name: ingress-certificates  # GitOps manages this
 
-          echo "Patching IngressController to use custom certificate..."
-          oc patch ingresscontroller default -n openshift-ingress-operator --type=merge \
-            -p '{"spec":{"defaultCertificate":{"name":"default-ingress-certificate"}}}'
-
-          echo "IngressController patched successfully."
-        image: registry.redhat.io/openshift4/ose-cli:latest
-        name: patch-ingresscontroller
-      restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
+# ApplicationSet ignores OpenShift fields:
+ignoreDifferences:
+- kind: IngressController
+  jsonPointers:
+  - /spec/nodePlacement  # OpenShift-managed, not in Git
 ```
 
-**Key patterns:**
-- `oc wait` for dependency readiness (Certificate CR)
-- `oc patch --type=merge` for strategic merge patch
-- Wave `3` to run after cert-manager resources created
-- PostSync hook (runs after manifests synced)
+**Why this works:**
+- Shared resource pattern (created by installer)
+- GitOps declares only specific fields
+- Delete=false prevents ArgoCD from deleting resource
+- OpenShift continues managing other fields
+
+**Lesson learned:**
+- ❌ Static + ignoreDifferences FAILS when ignoring fields **IN Git** (logical contradiction - "here's config, ignore it")
+- ✅ Static + ignoreDifferences WORKS when ignoring fields **NOT in Git** (shared resource - "manage subset only")
 
 ### 4. Alert Management (1 Job)
 
@@ -974,8 +966,8 @@ hostname: maas-api.apps.${OCP_BASE_DOMAIN}
    - Principle of least privilege (0 cluster-admin usage)
    - Pattern: 1 ServiceAccount per Job type or shared for similar operations
    - Examples:
-     - `console-plugin-manager` - 6 console plugin Jobs (~99% permission reduction)
-     - `cert-manager-operator` - 3 cert-manager Jobs (~95% reduction)
+     - `console-plugin-manager` - 5 console plugin Jobs (~99% permission reduction)
+     - `cert-manager-operator` - watchdog Deployment (~95% reduction from cluster-admin)
      - `loki-s3-secret-creator` - 2 S3 secret Jobs (~95% reduction)
    - See [security.md](security.md) "Job RBAC Security" section for full details
 
@@ -1316,17 +1308,21 @@ oc patch application <app-name> -n openshift-gitops --type=merge -p '{"metadata"
 
 ## Summary
 
-**Jobs are essential** for GitOps automation beyond static manifests. This project uses 21 Jobs across 6 categories:
+**Jobs are essential** for GitOps automation beyond static manifests. This project uses 16 Jobs across 9 categories:
 
-1. **Console Plugin Management** (5) - Patch shared Console CR
-2. **Secret Management** (3) - Extract operator-generated credentials
-3. **Shared Resource Patching** (4) - Runtime configuration of cluster resources
+1. **Console Plugin Management** (6) - Patch shared Console CR
+2. **Secret Management** (2) - Extract operator-generated credentials
+3. **Shared Resource Patching** (1) - Runtime configuration requiring dynamic logic
 4. **Alert Management** (1) - Alertmanager API automation
-5. **Dynamic Configuration** (2) - Inject discovered values
+5. **Dynamic Configuration** (1) - Inject discovered values
 6. **Cleanup** (2) - Remove unwanted resources
 7. **Dependency Waiting** (1) - Cross-component synchronization
 8. **Node Selector Updates** (1) - Post-deployment operator placement
 9. **Infrastructure Creation** (1) - GPU MachineSet generation
+
+**Deprecated Jobs** (replaced by static manifests + CMP):
+- 3 cert-manager Jobs → Now static Certificates with CMP placeholders
+- 1 MaaS Gateway Job → Now static Gateway with CMP placeholders
 
 **Key principles:**
 - Use Jobs for dynamic operations that can't be expressed in static manifests
