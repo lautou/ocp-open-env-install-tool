@@ -103,8 +103,8 @@ data:
                 -e "s|CLUSTER_DOMAIN|${COMPUTED_CLUSTER_DOMAIN}|g" \
                 -e "s|ROOT_DOMAIN|${COMPUTED_ROOT_DOMAIN}|g" \
                 -e "s|CLUSTER_REGION|${DISCOVERED_REGION}|g" \
-                -e "s|AWS_ACCESS_KEY_ID|${ESCAPED_AWS_KEY}|g" \
-                -e "s|AWS_SECRET_ACCESS_KEY|${ESCAPED_AWS_SECRET}|g"
+                -e "s|CMP_AWS_ACCESS_KEY_ID_PLACEHOLDER|${ESCAPED_AWS_KEY}|g" \
+                -e "s|CMP_AWS_SECRET_ACCESS_KEY_PLACEHOLDER|${ESCAPED_AWS_SECRET}|g"
             fi
 
             echo "[CMP] Plugin execution complete" >&2

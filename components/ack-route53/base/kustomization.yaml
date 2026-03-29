@@ -4,9 +4,9 @@ resources:
 - ../../common
 - ack-system-configmap-ack-route53-user-config.yaml
 - ack-system-operatorgroup-ack-route53-operator.yaml
+- ack-system-secret-ack-route53-user-secrets.yaml
 - ack-system-subscription-ack-route53-controller.yaml
 - cluster-namespace-ack-system.yaml
-- openshift-gitops-job-ack-config-injector.yaml
 replacements:
 - source:
     fieldPath: data.ack-route53
