@@ -1,26 +1,36 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  annotations:
-    argocd.argoproj.io/sync-options: Force=true
   name: watchdog-certmanager
   namespace: openshift-gitops
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: watchdog-certmanager
   template:
     metadata:
-      name: watchdog-certmanager
+      labels:
+        app: watchdog-certmanager
     spec:
       containers:
       - command:
-        - /scripts/create-cert-manager-resources.sh
+        - /scripts/watchdog-certmanager.sh
         image: registry.redhat.io/openshift4/ose-cli:latest
-        name: create-cluster-cert-manager-resources
+        name: watchdog-certmanager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
         volumeMounts:
         - mountPath: /scripts
           name: scripts
       nodeSelector:
         node-role.kubernetes.io/infra: ''
-      restartPolicy: Never
+      restartPolicy: Always
       serviceAccountName: cert-manager-operator
       tolerations:
       - key: node-role.kubernetes.io/infra

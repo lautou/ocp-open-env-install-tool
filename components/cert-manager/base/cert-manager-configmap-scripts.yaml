@@ -4,108 +4,50 @@ metadata:
   name: cert-manager-scripts
   namespace: openshift-gitops
 data:
-  create-cert-manager-resources.sh: |
+  watchdog-certmanager.sh: |
     #!/bin/bash
     set -e
 
-    # --- Helper Functions ---
+    echo "===================================="
+    echo "CertManager Watchdog Started"
+    echo "Monitoring for stuck deployments (CM-412 workaround)"
+    echo "===================================="
 
-    wait_for_crd() {
-      echo -n "Waiting for the cert-manager CRD..."
-      until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
-        echo -n "."
-        sleep 5
-      done
-      echo " CRD established."
-    }
-
-    wait_for_initial_cr() {
-      echo -n "Waiting for the initial CertManager 'cluster' CR..."
-      until oc get certmanager cluster &>/dev/null; do
-        echo -n "."
-        sleep 5
-      done
-      echo " Initial CR found."
-    }
-
-    # Robust apply function that retries indefinitely
-    apply_with_retry() {
-      local description=$1
-      local yaml_content=$2
-
-      echo "--- Applying $description ---"
-      # Temporarily disable exit-on-error to handle failures in the loop
-      set +e
-      while true; do
-        echo "$yaml_content" | oc apply -f -
-        if [ $? -eq 0 ]; then
-          echo "✅ $description applied successfully."
-          break
-        else
-          echo "⚠️  Failed to apply $description. This is likely due to RBAC propagation or Webhook unavailability."
-          echo "    Retrying in 10 seconds..."
-          sleep 10
-        fi
-      done
-      set -e
-    }
-
-    # --- Main Execution ---
-
-    wait_for_crd
-    wait_for_initial_cr
-
-    MAX_RETRIES=5
-    ATTEMPT=1
-    SUCCESS=false
-
-    while [ $ATTEMPT -le $MAX_RETRIES ]; do
-      echo "=== Attempt $ATTEMPT/$MAX_RETRIES to initialize CertManager ==="
-
-      echo "Deleting CertManager 'cluster' CR to trigger reconciliation..."
-      oc delete certmanager cluster --ignore-not-found
-
-      echo -n "Waiting for CertManager CR to be recreated (by ArgoCD/Operator)..."
-      while ! oc get certmanager cluster &>/dev/null; do
-        echo -n "."
-        sleep 5
-      done
-      echo " CR Recreated."
-
-      echo "Waiting for CertManager pods/deployments to be ready..."
-      if oc wait certmanager cluster \
-          --for condition=cert-manager-controller-deploymentAvailable \
-          --for condition=cert-manager-cainjector-deploymentAvailable \
-          --for condition=cert-manager-webhook-deploymentAvailable \
-          --timeout=120s; then
-
-          echo "CertManager deployments available, now waiting for pods..."
-          oc wait pod -n cert-manager \
-              -l app.kubernetes.io/component=controller \
-              --for=condition=Ready \
-              --timeout=120s
-
-          oc wait pod -n cert-manager \
-              -l app.kubernetes.io/component=webhook \
-              --for=condition=Ready \
-              --timeout=120s
-
-          echo "CertManager is ready!"
-          SUCCESS=true
-          break
-      else
-          echo "WARNING: Timeout waiting for CertManager. It might be stuck."
-          echo "Retrying loop (will delete CR again)..."
-          ATTEMPT=$((ATTEMPT + 1))
-      fi
+    # Wait for CRD to be available
+    echo "Waiting for CertManager CRD..."
+    until oc get crd certmanagers.operator.openshift.io &>/dev/null; do
+      sleep 5
     done
+    echo "CRD available."
 
-    if [ "$SUCCESS" = false ]; then
-      echo "ERROR: Failed to initialize CertManager after $MAX_RETRIES attempts."
-      exit 1
-    fi
+    # Infinite monitoring loop
+    while true; do
+      # Check if CertManager CR exists
+      if oc get certmanager cluster &>/dev/null 2>&1; then
 
-    echo "===================================="
-    echo "CertManager initialization complete!"
-    echo "Certificates are managed by ArgoCD with CMP placeholders."
-    echo "===================================="
+        # Check deployment conditions (only criteria for stuck detection)
+        CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
+        CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
+        WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
+
+        # If any deployment is not available, CertManager is stuck
+        if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
+          echo "[$(date)] CertManager stuck detected:"
+          echo "  Controller: $CONTROLLER_AVAILABLE"
+          echo "  CAInjector: $CAINJECTOR_AVAILABLE"
+          echo "  Webhook: $WEBHOOK_AVAILABLE"
+          echo "  Deleting CertManager CR to trigger reconciliation..."
+
+          oc delete certmanager cluster --ignore-not-found
+
+          echo "  CR deleted. Operator will recreate it."
+        else
+          echo "[$(date)] CertManager healthy (all deployments available)"
+        fi
+      else
+        echo "[$(date)] CertManager CR not found (waiting for creation)"
+      fi
+
+      # Check every 60 seconds
+      sleep 60
+    done

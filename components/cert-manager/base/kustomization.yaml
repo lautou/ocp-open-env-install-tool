@@ -11,7 +11,7 @@ resources:
 - cluster-crb-cert-manager-clusterissuer-edit.yaml
 - cluster-namespace-cert-manager-operator.yaml
 - openshift-config-certificate-api.yaml
-- openshift-gitops-job-watchdog-certmanager.yaml
+- openshift-gitops-deployment-watchdog-certmanager.yaml
 - openshift-ingress-certificate-ingress.yaml
 replacements:
 - source:
