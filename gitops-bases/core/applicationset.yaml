@@ -54,8 +54,6 @@ spec:
       project: default
       source:
         path: components/{{item}}/overlays/default
-        plugin:
-          name: cluster-domain-replacer
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
         targetRevision: '{{branch}}'
       destination:
