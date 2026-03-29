@@ -8,7 +8,6 @@ spec:
   dnsNames:
   - CMP_PLACEHOLDER_OCP_APPS_DOMAIN
   - '*.CMP_PLACEHOLDER_OCP_APPS_DOMAIN'
-  - apps.CMP_PLACEHOLDER_TIMESTAMP.CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN
   isCA: false
   issuerRef:
     kind: ClusterIssuer

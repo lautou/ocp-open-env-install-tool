@@ -323,12 +323,12 @@ All CMP placeholders use the `CMP_PLACEHOLDER_` prefix for consistency and clari
 
 **Naming benefits**: Consistent prefix pattern, clear CMP identification, semantic naming (OCP_APPS_DOMAIN vs CLUSTER_DOMAIN), no collisions with YAML keys or bash variables
 
-**TIMESTAMP behavior**:
-- **Static per Git commit**: ArgoCD caches CMP-built manifests per commit SHA
-- **Dynamic across commits**: New commits trigger CMP rebuild with new TIMESTAMP
-- **Testing verified**: Multiple syncs of same revision keep identical TIMESTAMP (e.g., `1774792401`)
-- **Purpose**: Provides stable-enough value for Let's Encrypt DNS-01 challenges while allowing updates on code changes
-- **Example usage**: `apps.1774792401.myocp.sandbox3491.opentlc.com` in Certificate dnsNames
+**TIMESTAMP behavior** (DEPRECATED - Removed from Certificate manifests):
+- **NOT cached per commit**: CMP runs `date +%s` (current time), generates NEW timestamp on every Git sync
+- **Causes certificate regeneration**: Every Git commit (even unrelated changes) triggers new cert requests
+- **Let's Encrypt rate limits**: Risk of hitting 5 certificates/domain/week limit with frequent commits
+- **Removed from usage**: TIMESTAMP no longer used in Certificate dnsNames (2026-03-29)
+- **Reason**: Let's Encrypt DNS-01 validation does not require unique dnsNames per deployment
 
 **Implementation**:
 ```yaml
@@ -385,18 +385,18 @@ oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | 
 
 **Security note**: Credentials are replaced at ArgoCD build time, visible in ArgoCD UI (base64-encoded). Suitable for operator-managed credentials that ArgoCD already has access to via RBAC.
 
-**When to use CMP_PLACEHOLDER_TIMESTAMP**:
-- ✅ Let's Encrypt DNS-01 challenge unique record names (e.g., `apps.1774792401.myocp.sandbox3491.opentlc.com`)
-- ✅ Certificate dnsNames requiring per-deployment uniqueness
-- ✅ Resources needing stable-per-commit but changing-across-commits identifiers
-- ❌ NOT for runtime-dynamic values (TIMESTAMP is cached per Git commit by ArgoCD)
-- ❌ NOT for monitoring/logging timestamps (use runtime mechanisms instead)
+**When to use CMP_PLACEHOLDER_TIMESTAMP** (DEPRECATED):
+- ❌ **DO NOT USE** - Removed from all manifests (2026-03-29)
+- ❌ NOT for Certificate dnsNames (causes unnecessary regeneration on every Git commit)
+- ❌ NOT cached per commit (uses `date +%s` = current time, not deterministic)
+- ❌ Risk of Let's Encrypt rate limits (5 certs/domain/week with frequent commits)
 
-**TIMESTAMP caching behavior**:
-- ArgoCD caches CMP-built manifests per Git commit SHA
-- Same revision = same TIMESTAMP across multiple syncs (tested: `1774792401` persisted)
-- New commit = new CMP build = new TIMESTAMP
-- Perfect for cert-manager: stable during cert issuance, refreshed on code updates
+**Why TIMESTAMP was removed**:
+- CMP plugin generates current Unix timestamp (`date +%s`), NOT commit-based
+- Every Git sync (even documentation changes) regenerates TIMESTAMP
+- Changed Certificate dnsNames trigger new cert-manager requests to Let's Encrypt
+- Let's Encrypt DNS-01 validation does NOT require unique dnsNames
+- Static dnsNames (`apps.*.opentlc.com`, `*.apps.*.opentlc.com`) work correctly
 
 **Self-Protection Mechanism**:
 
