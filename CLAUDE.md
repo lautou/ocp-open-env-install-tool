@@ -297,20 +297,25 @@ components/webterminal/overlays/
 **How It Works**:
 
 1. **Plugin Discovery**: ArgoCD detects repositories with `**/kustomization.yaml` files
-2. **API Queries**: CMP queries OpenShift APIs for cluster configuration
+2. **API Queries**: CMP queries OpenShift and Kubernetes APIs for cluster configuration
    - DNS API: `dnses.config.openshift.io/cluster` for domain
    - Infrastructure API: `infrastructures.config.openshift.io/cluster` for region
+   - Secret API: `secrets/aws-creds` in `kube-system` namespace for AWS credentials
 3. **Value Calculation**:
    - `BASE_DOMAIN`: Discovered from DNS API (e.g., `myocp.sandbox3491.opentlc.com`)
    - `CLUSTER_DOMAIN`: Calculated as `apps.${BASE_DOMAIN}` (e.g., `apps.myocp.sandbox3491.opentlc.com`)
    - `ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
    - `CLUSTER_REGION`: Discovered from Infrastructure API (e.g., `eu-central-1`, fallback: `unknown` for non-AWS)
+   - `AWS_ACCESS_KEY_ID`: Extracted and base64-decoded from `aws-creds` Secret
+   - `AWS_SECRET_ACCESS_KEY`: Extracted and base64-decoded from `aws-creds` Secret
 4. **Placeholder Replacement**: Runs `kustomize build . | sed` to replace placeholders in output
 
 **Placeholder Usage**:
 - `CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
 - `ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
 - `CLUSTER_REGION`: AWS region-specific configurations, S3 endpoints, regional resources
+- `AWS_ACCESS_KEY_ID`: AWS access key for static Secret data fields
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key for static Secret data fields
 
 **Implementation**:
 ```yaml
@@ -329,7 +334,7 @@ spec:
 ```
 
 **RBAC Requirements**:
-- ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io` and `infrastructures.config.openshift.io`)
+- ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io` and `infrastructures.config.openshift.io`, plus `get` on `secrets/aws-creds` in `kube-system`)
 - ClusterRoleBinding: Binds to `default` ServiceAccount in `openshift-gitops` namespace
 
 **Files**:
@@ -346,26 +351,43 @@ oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-repo-
 oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | grep "\[CMP\]"
 # Expected output:
 # [CMP] Discovered BASE_DOMAIN: myocp.sandbox3491.opentlc.com
-# [CMP] Discovered CLUSTER_REGION: eu-central-1
+# [CMP] Discovered REGION: eu-central-1
 # [CMP] Computed CLUSTER_DOMAIN: apps.myocp.sandbox3491.opentlc.com
 # [CMP] Computed ROOT_DOMAIN: sandbox3491.opentlc.com
+# [CMP] AWS credentials available: YES
 ```
 
 **When to use CLUSTER_REGION placeholder**:
 - ✅ Static ConfigMap/Secret data fields with region values
 - ✅ Resource annotations/labels referencing region
 - ✅ Any YAML field that doesn't require runtime evaluation
-- ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION` to avoid conflicts)
+- ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION`, `AWS_REGION` to avoid conflicts)
+
+**When to use AWS credentials placeholders**:
+- ✅ Static Secret data fields containing AWS credentials
+- ✅ Base64-encoded values in Secret manifests
+- ✅ Eliminates runtime extraction Jobs (simplifies architecture)
+- ❌ NOT for temporary/rotated credentials (placeholders are baked at ArgoCD build time)
+- ❌ NOT for cross-namespace credential distribution (create Secret in target namespace)
+
+**Security note**: Credentials are replaced at ArgoCD build time, visible in ArgoCD UI (base64-encoded). Suitable for operator-managed credentials that ArgoCD already has access to via RBAC.
 
 **Self-Protection Mechanism**:
 
-The CMP plugin includes self-protection logic to prevent corrupting its own ConfigMap:
-- **Detection**: Checks if working directory contains `openshift-gitops-admin-config`
-- **Action**: Skips placeholder replacement (runs `kustomize build` without `sed`)
-- **Reason**: Prevents replacing variable names like `CMP_CLUSTER_REGION` with actual values (e.g., `CMP_eu-central-1`) in the plugin script itself
-- **Log message**: `[CMP] Detected openshift-gitops-admin-config component, skipping placeholder replacement to avoid self-corruption`
+The CMP plugin includes two layers of self-protection to prevent corrupting its own ConfigMap:
 
-This allows the openshift-gitops-admin-config component to be managed by ArgoCD without the CMP plugin corrupting its own definition.
+1. **Directory Detection** (runtime protection):
+   - **Detection**: Checks if working directory contains `openshift-gitops-admin-config`
+   - **Action**: Skips placeholder replacement (runs `kustomize build` without `sed`)
+   - **Log message**: `[CMP] Detected openshift-gitops-admin-config component, skipping placeholder replacement to avoid self-corruption`
+
+2. **Variable Naming Convention** (build-time protection):
+   - **Internal variables**: Use distinct names (`DISCOVERED_REGION`, `DISCOVERED_AWS_KEY`, `COMPUTED_CLUSTER_DOMAIN`)
+   - **Placeholders**: Use standard names (`CLUSTER_REGION`, `AWS_ACCESS_KEY_ID`, `CLUSTER_DOMAIN`)
+   - **Rationale**: Prevents sed from replacing variable names in the plugin script itself during ArgoCD sync
+   - **Example**: If plugin used `CMP_CLUSTER_REGION` variable, sed would corrupt it to `CMP_eu-central-1=eu-central-1`
+
+This two-layer approach allows the openshift-gitops-admin-config component to be managed by ArgoCD without the CMP plugin corrupting its own definition.
 
 **Important**: Plugin applies automatically to all kustomize-based Applications. No special configuration needed in Application manifests.
 
