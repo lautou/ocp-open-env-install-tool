@@ -119,40 +119,13 @@ data:
       --from-literal awsSecretAccessKey=$SECRET_KEY
 
     echo "Fetching cluster configuration..."
-    export AWS_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
     export OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
     export TIMESTAMP=$(date +%s)
 
-    echo "AWS_REGION=$AWS_REGION"
     echo "OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN"
     echo "TIMESTAMP=$TIMESTAMP"
 
     # --- Applying Resources with Retry Logic ---
-
-    echo "Generating ClusterIssuer YAML..."
-    CLUSTER_ISSUER_YAML=$(cat <<EOFISSUER
-    apiVersion: cert-manager.io/v1
-    kind: ClusterIssuer
-    metadata:
-      name: cluster
-    spec:
-      acme:
-        privateKeySecretRef:
-          name: acme-global
-        server: 'https://acme-v02.api.letsencrypt.org/directory'
-        solvers:
-          - dns01:
-              route53:
-                accessKeyIDSecretRef:
-                  key: awsAccessKey
-                  name: aws-acme
-                region: ${AWS_REGION}
-                secretAccessKeySecretRef:
-                  key: awsSecretAccessKey
-                  name: aws-acme
-    EOFISSUER
-    )
-    apply_with_retry "ClusterIssuer" "$CLUSTER_ISSUER_YAML"
 
     echo "Generating Ingress Certificate YAML..."
     # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
