@@ -4,6 +4,14 @@ metadata:
   name: argocd-cmp-dns-reader
 rules:
 - apiGroups:
+  - ""
+  resourceNames:
+  - aws-creds
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
   - config.openshift.io
   resources:
   - dnses
