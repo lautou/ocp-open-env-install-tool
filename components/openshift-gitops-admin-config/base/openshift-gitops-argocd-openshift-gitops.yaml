@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1beta1
 kind: ArgoCD
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: Delete=false
+    argocd.argoproj.io/sync-options: Delete=false,SkipDryRunOnMissingResource=true
   name: openshift-gitops
   namespace: openshift-gitops
 spec:

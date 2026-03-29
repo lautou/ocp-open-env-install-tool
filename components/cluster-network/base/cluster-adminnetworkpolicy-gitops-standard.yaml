@@ -1,6 +1,8 @@
 apiVersion: policy.networking.k8s.io/v1alpha1
 kind: AdminNetworkPolicy
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: gitops-standard
 spec:
   # Priority: 10 (higher than NetworkPolicy, cannot be overridden)
