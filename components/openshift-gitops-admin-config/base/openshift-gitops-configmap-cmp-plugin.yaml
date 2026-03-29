@@ -40,32 +40,32 @@ data:
 
             # Discover AWS region from OpenShift Infrastructure object using Kubernetes API
             echo "[CMP] Querying Kubernetes API for cluster infrastructure..." >&2
-            CLUSTER_REGION=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
+            CMP_CLUSTER_REGION=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
               --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
               "${KUBE_INFRA_API}" | grep -o '"region"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
 
-            if [ -z "${CLUSTER_REGION}" ]; then
+            if [ -z "${CMP_CLUSTER_REGION}" ]; then
               echo "[CMP WARNING] Failed to query cluster region from API, using 'unknown'" >&2
-              CLUSTER_REGION="unknown"
+              CMP_CLUSTER_REGION="unknown"
             fi
 
             # Calculate domain values
-            # CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
-            CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
+            # CMP_CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
+            CMP_CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
 
-            # ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
+            # CMP_ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
             # Example: myocp.sandbox3491.opentlc.com → sandbox3491.opentlc.com
-            ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
+            CMP_ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
 
             # Log discovered values
             echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
-            echo "[CMP] Discovered CLUSTER_REGION: ${CLUSTER_REGION}" >&2
-            echo "[CMP] Computed CLUSTER_DOMAIN: ${CLUSTER_DOMAIN}" >&2
-            echo "[CMP] Computed ROOT_DOMAIN: ${ROOT_DOMAIN}" >&2
+            echo "[CMP] Discovered CMP_CLUSTER_REGION: ${CMP_CLUSTER_REGION}" >&2
+            echo "[CMP] Computed CMP_CLUSTER_DOMAIN: ${CMP_CLUSTER_DOMAIN}" >&2
+            echo "[CMP] Computed CMP_ROOT_DOMAIN: ${CMP_ROOT_DOMAIN}" >&2
 
             # Build manifests with kustomize and replace placeholders in output
             echo "[CMP] Building manifests and replacing placeholders..." >&2
-            kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g; s|CLUSTER_REGION|${CLUSTER_REGION}|g"
+            kustomize build . | sed "s|CLUSTER_DOMAIN|${CMP_CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${CMP_ROOT_DOMAIN}|g; s|CLUSTER_REGION|${CMP_CLUSTER_REGION}|g"
 
             echo "[CMP] Plugin execution complete" >&2
       discover:
