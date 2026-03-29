@@ -187,6 +187,133 @@ comm -13 <(oc kustomize gitops-profiles/<new-profile> | grep "kind: ApplicationS
 
 ## Component-Specific Issues
 
+### ArgoCD Application Stuck OutOfSync/Missing (Operator CRs)
+
+**Symptom**: Application fails to sync on fresh cluster, stuck in OutOfSync/Missing state with "CRD not found" errors even after retry limit exhausted
+
+**Example Error Messages**:
+```
+certificates.cert-manager.io is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource "certificates" in API group "cert-manager.io" in the namespace "openshift-ingress": RBAC: clusterrole.rbac.authorization.k8s.io "certificates.cert-manager.io-v1-edit" not found
+```
+
+**Root Cause**:
+- ArgoCD validates ALL resources before applying ANY resources
+- Operator Custom Resources (e.g., Certificate, ClusterIssuer) fail validation when CRDs don't exist
+- ArgoCD aborts entire sync without creating the operator Subscription
+- Subscription would install CRDs, but never gets applied
+- Creates a deadlock: CR validation fails → Subscription not created → CRDs never installed
+
+**Debug**:
+```bash
+# Check Application status
+oc get application <app-name> -n openshift-gitops -o yaml | grep -A 20 "operationState:"
+
+# Check if CRDs exist
+oc explain certificates.cert-manager.io
+# Error = CRDs missing
+
+# Check if Subscription was created
+oc get subscription -n cert-manager-operator
+# NotFound = Subscription never applied due to validation failure
+
+# Check Application sync history
+oc get application <app-name> -n openshift-gitops -o jsonpath='{.status.operationState.message}'
+```
+
+**Fix**:
+Add `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true` annotation to ALL operator Custom Resources:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: ingress
+  namespace: openshift-ingress
+spec:
+  # ... certificate spec
+```
+
+**Affected Resources**:
+- cert-manager: Certificate, ClusterIssuer
+- ArgoCD: ArgoCD CR
+- Network Policy: AdminNetworkPolicy, BaselineAdminNetworkPolicy
+- Cluster Autoscaler: ClusterAutoscaler
+- Any operator CR where CRD is installed by the operator
+
+**Prevention**:
+Always add `SkipDryRunOnMissingResource=true` to operator CRs when CRDs are installed by the operator itself.
+
+**See Also**: CLAUDE.md → GitOps Patterns → SkipDryRunOnMissingResource for detailed explanation
+
+---
+
+### ArgoCD Cannot Create Gateway Resources (RBAC)
+
+**Symptom**: Application fails with "gateways.gateway.networking.k8s.io is forbidden" RBAC errors
+
+**Example Error Message**:
+```
+gateways.gateway.networking.k8s.io is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource "gateways" in API group "gateway.networking.k8s.io" in the namespace "openshift-ingress"
+```
+
+**Root Cause**:
+- Gateway API CRDs are installed by the cluster (not by OLM)
+- OLM does not generate aggregate RBAC roles for non-OLM CRDs
+- ArgoCD application controller lacks permissions to manage Gateway resources
+
+**Affected Components**:
+- RHOAI: MaaS Gateway (`maas-default-gateway`)
+- RHCL: Kuadrant Gateways
+- Any component deploying Gateway API resources
+
+**Debug**:
+```bash
+# Check if CRDs exist
+oc get crd gateways.gateway.networking.k8s.io
+
+# Check ArgoCD permissions
+oc auth can-i create gateways.gateway.networking.k8s.io \
+  --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+  -n openshift-ingress
+
+# Check if ClusterRole exists
+oc get clusterrole gateway-api-manager
+```
+
+**Fix**:
+Verify Gateway API RBAC ClusterRole and ClusterRoleBinding exist in `openshift-gitops-admin-config` component:
+
+```yaml
+# ClusterRole: openshift-gitops-clusterrole-gateway-api.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gateway-api-manager
+rules:
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - gatewayclasses
+  - httproutes
+  - grpcroutes
+  - referencegrants
+  verbs:
+  - '*'
+
+# ClusterRoleBinding: openshift-gitops-clusterrolebinding-gateway-api.yaml
+# Binds to: openshift-gitops-argocd-application-controller ServiceAccount
+```
+
+**Prevention**:
+When adding components that deploy Gateway API resources, ensure `openshift-gitops-admin-config` includes Gateway API RBAC grants.
+
+**See Also**: docs/claude/components.md → OpenShift GitOps → RBAC Configuration → Gateway API Resources
+
+---
+
 ### cert-manager Certificate Failures
 
 **Symptom**: Let's Encrypt certificates not issuing

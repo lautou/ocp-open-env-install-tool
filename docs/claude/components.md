@@ -73,6 +73,8 @@ Each component includes:
    - Prevents manual intervention for transient CRD availability issues
 
 3. **RBAC Configuration**:
+
+   **ArgoCD Default Policy**:
    ```yaml
    rbac:
      defaultPolicy: ''
@@ -81,6 +83,50 @@ Each component includes:
        g, cluster-admins, role:admin
      scopes: '[groups]'
    ```
+
+   **Additional ClusterRole Grants**:
+
+   ArgoCD requires explicit RBAC permissions for resources not managed by OLM (Operator Lifecycle Manager). The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
+
+   **a) Gateway API Resources** (`openshift-gitops-clusterrole-gateway-api.yaml`):
+
+   ```yaml
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRole
+   metadata:
+     name: gateway-api-manager
+   rules:
+   - apiGroups:
+     - gateway.networking.k8s.io
+     resources:
+     - gateways
+     - gatewayclasses
+     - httproutes
+     - grpcroutes
+     - referencegrants
+     verbs:
+     - '*'
+   ```
+
+   **Why needed:**
+   - Gateway API CRDs installed by cluster (not by OLM operator)
+   - No OLM-generated aggregate RBAC roles exist
+   - Without these permissions, ArgoCD cannot create Gateway resources
+   - Affects: RHOAI (MaaS Gateway), RHCL (Kuadrant Gateways)
+
+   **Bound to:** `openshift-gitops-argocd-application-controller` ServiceAccount
+
+   **b) Other Operator-Specific ClusterRoles**:
+
+   Additional ClusterRoles grant permissions for operator-managed resources:
+   - `cert-manager-operator`: Manage cert-manager CRs (Certificate, ClusterIssuer)
+   - `console-plugin-manager`: Patch Console CR for plugin enablement
+   - `cleanup-operator`: Delete installer pods in kube-system
+   - `ack-config-operator`: Manage ACK Route53 configuration
+   - `gpu-machineset-operator`: Manage GPU MachineSets
+   - `maas-gateway-operator`: Read DNS config for MaaS Gateway domain discovery
+
+   See `components/openshift-gitops-admin-config/base/` for complete RBAC definitions.
 
 4. **Resource Exclusions**:
    ```yaml

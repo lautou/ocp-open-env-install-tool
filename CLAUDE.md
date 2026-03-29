@@ -480,6 +480,96 @@ ignoreDifferences:
 
 **Key difference from failed pattern**: Ignoring fields **NOT in Git** (managed by OpenShift), not fields **IN Git**.
 
+### ✅ SkipDryRunOnMissingResource for Operator CRs (CRITICAL)
+
+**Pattern**: Add `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true` annotation to ALL operator Custom Resources when CRDs are installed by the operator.
+
+**Problem Without Annotation**:
+
+ArgoCD validates ALL resources before applying ANY resources:
+
+1. **Validation Phase**: ArgoCD attempts dry-run on all manifests
+2. **CRD Missing**: Operator Custom Resource validation fails (CRD doesn't exist yet)
+3. **Sync Aborted**: ArgoCD aborts ENTIRE sync without applying ANY resources
+4. **Deadlock**: Operator Subscription never created → CRDs never installed → CR validation always fails
+
+**Result**: Application stuck in OutOfSync/Missing state forever, even with retry limit exhausted.
+
+**Real-World Impact**:
+
+```
+cert-manager Application on fresh cluster:
+- Retry #1-10: All fail with "certificates.cert-manager.io CRD not found"
+- NO resources deployed (not even the Subscription)
+- Subscription would install CRDs, but never gets applied
+- COMPLETE DEPLOYMENT FAILURE
+```
+
+**Solution**:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: ingress
+  namespace: openshift-ingress
+spec:
+  # ... certificate spec
+```
+
+**How It Works**:
+
+1. **Validation Phase**: ArgoCD skips dry-run for resources with annotation
+2. **Apply Phase**: ArgoCD applies Subscription (installs operator)
+3. **Operator Starts**: Operator creates CRDs
+4. **Retry Phase**: ArgoCD retries, CRDs now exist, CR resources apply successfully
+
+**When to Use**:
+
+✅ **ALL** Custom Resources when CRDs are installed by operators:
+- cert-manager: Certificate, ClusterIssuer
+- ArgoCD: ArgoCD CR
+- ODF: StorageCluster
+- RHOAI: DataScienceCluster
+- Network Policy: AdminNetworkPolicy, BaselineAdminNetworkPolicy
+- Cluster Autoscaler: ClusterAutoscaler
+- Any operator CR where CRD doesn't exist at cluster install time
+
+❌ **DO NOT USE** for:
+- Built-in Kubernetes resources (ConfigMap, Secret, Service, Deployment)
+- OpenShift config resources (where CRDs exist cluster-wide)
+- Resources where CRD is installed separately (not by same Application)
+
+**Exception - Built-in OpenShift CRs**:
+
+Some OpenShift CRs have CRDs installed during cluster creation but may benefit from the annotation for consistency:
+- `config.openshift.io` resources (Network, APIServer, OAuth, IngressController)
+- Use annotation if Application manages these resources to prevent transient failures
+
+**Verification**:
+
+```bash
+# Check if ArgoCD can validate resource
+oc explain certificates.cert-manager.io
+# Error = CRD missing = annotation needed
+
+# After sync with annotation, verify resources created
+oc get certificates -A
+oc get clusterissuers
+```
+
+**Project Status**:
+
+As of 2026-03-29, annotation added to:
+- cert-manager: Certificate (×2), ClusterIssuer (×1)
+- ArgoCD: developer-gitops, openshift-gitops-admin-config
+- ClusterAutoscaler: default
+- NetworkPolicy: AdminNetworkPolicy, BaselineAdminNetworkPolicy
+
+**Critical**: Without this annotation, operator-based components WILL FAIL on fresh cluster deployments.
+
 ### Job Template Refactoring
 
 **Question**: Extract duplicate Jobs into shared templates (DRY)?
