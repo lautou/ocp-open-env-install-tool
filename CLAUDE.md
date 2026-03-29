@@ -692,16 +692,58 @@ egress:
 **Documented components** (non-standard patterns):
 - Console Plugins - Pure Patch Jobs (shared resource)
 - OpenShift GitOps - 4Gi memory, retry limit 10, RBAC, resource exclusions
-- cert-manager - IngressController Job, Certificate provisioning with pod readiness
+- cert-manager - Permanent watchdog Deployment for CM-412, static Certificates with CMP placeholders, certificate usage in cluster-ingress/openshift-config
 - ODF - Dynamic Job with ConfigMap channel management
 - OpenShift Pipelines - TektonConfig profile behavior
-- ACK Route53 - Dynamic config injection Job
+- ACK Route53 - Static Secret with CMP AWS credentials (Job deprecated)
 - Cluster Observability - Required namespace label
 - RHCL (Kuadrant) - 4 operators, OLM-generated names, complete observability stack (kube-state-metrics, Grafana, operator ServiceMonitors)
 - Keycloak (RHBK) - Operator subscription only (no instances deployed)
 - RHOAI - DataScienceCluster, OdhDashboardConfig direct management, MaaS Gateway
 
 **Troubleshooting components**: See [troubleshooting.md](docs/claude/troubleshooting.md)
+
+### CertManager Watchdog Deployment
+
+**Purpose**: Permanent monitoring for CertManager operator stuck states (CM-412 workaround)
+
+**Implementation**: Deployment (not Job/CronJob)
+- **File**: `components/cert-manager/base/openshift-gitops-deployment-watchdog-certmanager.yaml`
+- **Replicas**: 1
+- **Resources**: 10m CPU / 64Mi memory (requests), 100m CPU / 128Mi memory (limits)
+- **Check interval**: Every 60 seconds
+
+**Monitoring logic**:
+```bash
+# Check deployment conditions
+CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}')
+CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}')
+WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}')
+
+# If any != "True" → Delete CertManager CR (operator recreates it)
+if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
+  oc delete certmanager cluster
+fi
+```
+
+**Detection criteria** (deployment conditions only):
+- `cert-manager-controller-deploymentAvailable`
+- `cert-manager-cainjector-deploymentAvailable`
+- `cert-manager-webhook-deploymentAvailable`
+
+**Why Deployment over Job/CronJob**:
+- ✅ Immediate detection (<60s vs up to 10 minutes with CronJob)
+- ✅ Continuous monitoring (not scheduled)
+- ✅ Automatic recovery from cluster hibernation
+- ✅ Minimal overhead (sleeping pod uses ~10m CPU)
+- ✅ Better for infrastructure-critical services
+
+**Certificate management**:
+- Certificates are static manifests managed by ArgoCD with CMP placeholders
+- Certificate usage (IngressController, APIServer) managed in cluster-ingress/openshift-config components
+- Watchdog only ensures CertManager operator stays healthy
+
+**Related**: See CM-412 in [known-bugs.md](docs/claude/known-bugs.md) for background on stuck operator issue.
 
 ### Component Structure Exception: components/common/
 
