@@ -6,11 +6,12 @@ resources:
 - cert-manager-configmap-scripts.yaml
 - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
 - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
+- cert-manager-secret-aws-acme.yaml
 - cluster-certmanager-cluster.yaml
 - cluster-crb-cert-manager-clusterissuer-edit.yaml
 - cluster-namespace-cert-manager-operator.yaml
-# DISABLED: PostSync Jobs temporarily disabled
-#- openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+- openshift-gitops-job-create-cluster-cert-manager-resources.yaml
+# DISABLED: Patch Jobs temporarily disabled
 #- openshift-gitops-job-update-cluster-apiserver-cluster.yaml
 #- openshift-gitops-job-update-openshift-ingress-operator-ingresscontroller-default.yaml
 replacements:

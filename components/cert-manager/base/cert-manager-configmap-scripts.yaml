@@ -105,19 +105,6 @@ data:
       exit 1
     fi
 
-    echo "Read the secret for AWS cloud provider"
-    while ! oc get secret aws-creds -n kube-system &>/dev/null; do
-      echo "Waiting for secret aws-creds in namespace kube-system."
-    done
-    ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
-    SECRET_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
-
-    echo "Create the aws-acme secret"
-    oc delete secret generic aws-acme -n cert-manager --ignore-not-found
-    oc create secret generic aws-acme -n cert-manager \
-      --from-literal awsAccessKey=$ACCESS_KEY \
-      --from-literal awsSecretAccessKey=$SECRET_KEY
-
     echo "Fetching cluster configuration..."
     export OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
     export TIMESTAMP=$(date +%s)
