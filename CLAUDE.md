@@ -804,6 +804,42 @@ egress:
 - **Check interval**: Every 60 seconds
 
 **Monitoring logic**:
+
+Detects two types of stuck states:
+
+**STUCK SCENARIO 1: Race Condition (CR exists but no reconciliation)**
+- CertManager CR exists
+- NO deploymentAvailable conditions present (operator didn't reconcile)
+- NO pods created in cert-manager namespace
+- CR age > 120 seconds (grace period for initial deployment)
+
+**Detection**:
+```bash
+# Check if conditions are missing
+if [ -z "$CONTROLLER_AVAILABLE" ] && [ -z "$CAINJECTOR_AVAILABLE" ] && [ -z "$WEBHOOK_AVAILABLE" ]; then
+  # Check if no pods and CR old enough
+  POD_COUNT=$(oc get pods -n cert-manager --no-headers | wc -l)
+  if [ "$POD_COUNT" -eq 0 ] && [ "$CR_AGE" -gt 120 ]; then
+    oc delete certmanager cluster  # Operator race condition - force recreation
+  fi
+fi
+```
+
+**Why this happens**:
+- Watchdog or ArgoCD deletes CertManager CR
+- ArgoCD immediately recreates it (self-heal enabled)
+- Operator tries to create default CR but sees it already exists
+- Operator enters stuck state without reconciling
+- CR exists but operator never creates deployments/conditions
+
+**Real-world occurrence**: 2026-03-29 19:07-20:16 on main cluster (myocp)
+
+**STUCK SCENARIO 2: Operator Stuck (conditions exist but deployments unavailable)**
+- CertManager CR exists
+- deploymentAvailable conditions exist
+- At least one deployment condition != "True"
+
+**Detection**:
 ```bash
 # Check deployment conditions
 CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}')
@@ -816,10 +852,14 @@ if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" 
 fi
 ```
 
-**Detection criteria** (deployment conditions only):
-- `cert-manager-controller-deploymentAvailable`
-- `cert-manager-cainjector-deploymentAvailable`
-- `cert-manager-webhook-deploymentAvailable`
+**Why this happens**: CM-412 operator bug - operator gets stuck and doesn't reconcile deployments
+
+**Detection criteria**:
+- `cert-manager-controller-deploymentAvailable` status
+- `cert-manager-cainjector-deploymentAvailable` status
+- `cert-manager-webhook-deploymentAvailable` status
+- Pod count in cert-manager namespace
+- CertManager CR age (for grace period)
 
 **Why Deployment over Job/CronJob**:
 - ✅ Immediate detection (<60s vs up to 10 minutes with CronJob)

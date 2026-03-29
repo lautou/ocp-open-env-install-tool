@@ -20,32 +20,81 @@ data:
     done
     echo "CRD available."
 
+    # Track CR age for grace period
+    CR_FIRST_SEEN=""
+
     # Infinite monitoring loop
     while true; do
       # Check if CertManager CR exists
       if oc get certmanager cluster &>/dev/null 2>&1; then
 
-        # Check deployment conditions (only criteria for stuck detection)
-        CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
-        CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
-        WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}' 2>/dev/null || echo "Unknown")
+        # Get CR creation timestamp for age calculation
+        CR_CREATION=$(oc get certmanager cluster -o jsonpath='{.metadata.creationTimestamp}' 2>/dev/null || echo "")
 
-        # If any deployment is not available, CertManager is stuck
-        if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
-          echo "[$(date)] CertManager stuck detected:"
-          echo "  Controller: $CONTROLLER_AVAILABLE"
-          echo "  CAInjector: $CAINJECTOR_AVAILABLE"
-          echo "  Webhook: $WEBHOOK_AVAILABLE"
+        # If this is first time seeing this CR, record it
+        if [ -z "$CR_FIRST_SEEN" ]; then
+          CR_FIRST_SEEN="$CR_CREATION"
+          echo "[$(date)] CertManager CR detected (created: $CR_CREATION)"
+        fi
+
+        # Calculate CR age in seconds
+        if [ -n "$CR_CREATION" ]; then
+          CR_AGE=$(( $(date +%s) - $(date -d "$CR_CREATION" +%s) ))
+        else
+          CR_AGE=0
+        fi
+
+        # Check deployment conditions
+        CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}' 2>/dev/null || echo "")
+        CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}' 2>/dev/null || echo "")
+        WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}' 2>/dev/null || echo "")
+
+        # Check if pods exist
+        POD_COUNT=$(oc get pods -n cert-manager --no-headers 2>/dev/null | wc -l || echo "0")
+
+        # STUCK SCENARIO 1: CR exists but deploymentAvailable conditions are missing/empty
+        # This happens when operator is in a race condition and didn't create deployments
+        if [ -z "$CONTROLLER_AVAILABLE" ] && [ -z "$CAINJECTOR_AVAILABLE" ] && [ -z "$WEBHOOK_AVAILABLE" ]; then
+          if [ "$POD_COUNT" -eq 0 ] && [ "$CR_AGE" -gt 120 ]; then
+            echo "[$(date)] STUCK DETECTED: CR exists but NO conditions and NO pods (age: ${CR_AGE}s)"
+            echo "  This indicates operator race condition (CR exists but operator didn't reconcile)"
+            echo "  Controller condition: MISSING"
+            echo "  CAInjector condition: MISSING"
+            echo "  Webhook condition: MISSING"
+            echo "  Pod count: $POD_COUNT"
+            echo "  Deleting CertManager CR to trigger reconciliation..."
+
+            oc delete certmanager cluster --ignore-not-found
+            CR_FIRST_SEEN=""  # Reset tracking
+
+            echo "  CR deleted. Operator will recreate it."
+          else
+            echo "[$(date)] CertManager initializing (age: ${CR_AGE}s, pods: $POD_COUNT) - waiting for conditions..."
+          fi
+
+        # STUCK SCENARIO 2: Conditions exist but at least one deployment is not available
+        elif [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
+          echo "[$(date)] STUCK DETECTED: Deployment conditions show unavailable"
+          echo "  Controller: ${CONTROLLER_AVAILABLE:-MISSING}"
+          echo "  CAInjector: ${CAINJECTOR_AVAILABLE:-MISSING}"
+          echo "  Webhook: ${WEBHOOK_AVAILABLE:-MISSING}"
+          echo "  Pod count: $POD_COUNT"
           echo "  Deleting CertManager CR to trigger reconciliation..."
 
           oc delete certmanager cluster --ignore-not-found
+          CR_FIRST_SEEN=""  # Reset tracking
 
           echo "  CR deleted. Operator will recreate it."
+
+        # HEALTHY: All conditions True
         else
-          echo "[$(date)] CertManager healthy (all deployments available)"
+          echo "[$(date)] CertManager healthy (all deployments available, pods: $POD_COUNT)"
         fi
+
       else
+        # CR not found
         echo "[$(date)] CertManager CR not found (waiting for creation)"
+        CR_FIRST_SEEN=""  # Reset tracking
       fi
 
       # Check every 60 seconds
