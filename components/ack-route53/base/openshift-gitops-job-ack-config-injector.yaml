@@ -31,9 +31,6 @@ spec:
               AWS_ACCESS_KEY_ID=$(oc extract secret/aws-creds -n kube-system --keys aws_access_key_id --to -)
               AWS_SECRET_ACCESS_KEY=$(oc extract secret/aws-creds -n kube-system --keys aws_secret_access_key --to -)
 
-              echo "Fetching AWS region from cluster infrastructure..."
-              AWS_REGION=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.region}')
-
               echo "Creating ack-route53-user-secrets Secret..."
               cat <<EOF | oc apply -f -
               apiVersion: v1
@@ -47,28 +44,7 @@ spec:
                 AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
               EOF
 
-              echo "Creating ack-route53-user-config ConfigMap..."
-              cat <<EOF | oc apply -f -
-              apiVersion: v1
-              kind: ConfigMap
-              metadata:
-                name: ack-route53-user-config
-                namespace: ack-system
-              data:
-                ACK_ENABLE_DEVELOPMENT_LOGGING: "true"
-                ACK_LOG_LEVEL: "info"
-                ACK_RESOURCE_TAGS: "services.k8s.aws/controller-version=route53-1.2.0,services.k8s.aws/namespace=%K8S_NAMESPACE%"
-                ACK_WATCH_NAMESPACE: ""
-                AWS_REGION: "${AWS_REGION}"
-                AWS_ENDPOINT_URL: ""
-                ENABLE_CARM: "false"
-                ENABLE_LEADER_ELECTION: "true"
-                FEATURE_GATES: ""
-                LEADER_ELECTION_NAMESPACE: ""
-                RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS: "1"
-              EOF
-
-              echo "Configuration injection completed successfully!"
+              echo "Secret creation completed successfully!"
           image: registry.redhat.io/openshift4/ose-cli:latest
           name: config-injector
       nodeSelector:
