@@ -310,12 +310,15 @@ components/webterminal/overlays/
    - `AWS_SECRET_ACCESS_KEY`: Extracted and base64-decoded from `aws-creds` Secret
 4. **Placeholder Replacement**: Runs `kustomize build . | sed` to replace placeholders in output
 
-**Placeholder Usage**:
-- `CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
-- `ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
-- `CLUSTER_REGION`: AWS region-specific configurations, S3 endpoints, regional resources
-- `AWS_ACCESS_KEY_ID`: AWS access key for static Secret data fields
-- `AWS_SECRET_ACCESS_KEY`: AWS secret key for static Secret data fields
+**Placeholder Naming Convention**:
+All CMP placeholders use the `CMP_PLACEHOLDER_` prefix for consistency and clarity:
+- `CMP_PLACEHOLDER_CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
+- `CMP_PLACEHOLDER_ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
+- `CMP_PLACEHOLDER_CLUSTER_REGION`: AWS region-specific configurations, S3 endpoints, regional resources
+- `CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID`: AWS access key for static Secret data fields
+- `CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY`: AWS secret key for static Secret data fields
+
+**Naming benefits**: Consistent prefix pattern, clear CMP identification, no collisions with YAML keys or bash variables
 
 **Implementation**:
 ```yaml
@@ -357,15 +360,15 @@ oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | 
 # [CMP] AWS credentials available: YES
 ```
 
-**When to use CLUSTER_REGION placeholder**:
+**When to use CMP_PLACEHOLDER_CLUSTER_REGION**:
 - ✅ Static ConfigMap/Secret data fields with region values
 - ✅ Resource annotations/labels referencing region
 - ✅ Any YAML field that doesn't require runtime evaluation
 - ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION`, `AWS_REGION` to avoid conflicts)
 
-**When to use AWS credentials placeholders**:
-- ✅ Static Secret data fields containing AWS credentials
-- ✅ Base64-encoded values in Secret manifests
+**When to use CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID / CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY**:
+- ✅ Static Secret stringData fields containing AWS credentials
+- ✅ Avoids YAML key name collisions (Secret field names remain unchanged, only values replaced)
 - ✅ Eliminates runtime extraction Jobs (simplifies architecture)
 - ❌ NOT for temporary/rotated credentials (placeholders are baked at ArgoCD build time)
 - ❌ NOT for cross-namespace credential distribution (create Secret in target namespace)
@@ -383,9 +386,9 @@ The CMP plugin includes two layers of self-protection to prevent corrupting its 
 
 2. **Variable Naming Convention** (build-time protection):
    - **Internal variables**: Use distinct names (`DISCOVERED_REGION`, `DISCOVERED_AWS_KEY`, `COMPUTED_CLUSTER_DOMAIN`)
-   - **Placeholders**: Use standard names (`CLUSTER_REGION`, `AWS_ACCESS_KEY_ID`, `CLUSTER_DOMAIN`)
-   - **Rationale**: Prevents sed from replacing variable names in the plugin script itself during ArgoCD sync
-   - **Example**: If plugin used `CMP_CLUSTER_REGION` variable, sed would corrupt it to `CMP_eu-central-1=eu-central-1`
+   - **Placeholders**: Use `CMP_PLACEHOLDER_` prefix (`CMP_PLACEHOLDER_CLUSTER_REGION`, `CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID`, `CMP_PLACEHOLDER_CLUSTER_DOMAIN`)
+   - **Rationale**: Internal variable names never match placeholder names, preventing sed self-corruption
+   - **Example**: `DISCOVERED_REGION` variable won't be replaced by `s|CMP_PLACEHOLDER_CLUSTER_REGION|...|g` sed command
 
 This two-layer approach allows the openshift-gitops-admin-config component to be managed by ArgoCD without the CMP plugin corrupting its own definition.
 
