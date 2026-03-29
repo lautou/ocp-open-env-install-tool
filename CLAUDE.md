@@ -357,6 +357,16 @@ oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | 
 - ✅ Any YAML field that doesn't require runtime evaluation
 - ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION` to avoid conflicts)
 
+**Self-Protection Mechanism**:
+
+The CMP plugin includes self-protection logic to prevent corrupting its own ConfigMap:
+- **Detection**: Checks if working directory contains `openshift-gitops-admin-config`
+- **Action**: Skips placeholder replacement (runs `kustomize build` without `sed`)
+- **Reason**: Prevents replacing variable names like `CMP_CLUSTER_REGION` with actual values (e.g., `CMP_eu-central-1`) in the plugin script itself
+- **Log message**: `[CMP] Detected openshift-gitops-admin-config component, skipping placeholder replacement to avoid self-corruption`
+
+This allows the openshift-gitops-admin-config component to be managed by ArgoCD without the CMP plugin corrupting its own definition.
+
 **Important**: Plugin applies automatically to all kustomize-based Applications. No special configuration needed in Application manifests.
 
 **Details**: See [components.md](docs/claude/components.md) OpenShift GitOps section for complete implementation details.
