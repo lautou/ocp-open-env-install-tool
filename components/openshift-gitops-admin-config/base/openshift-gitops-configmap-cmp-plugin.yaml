@@ -41,13 +41,13 @@ data:
 
             # Discover AWS region from OpenShift Infrastructure object using Kubernetes API
             echo "[CMP] Querying Kubernetes API for cluster infrastructure..." >&2
-            CMP_CLUSTER_REGION=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
+            DISCOVERED_REGION=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
               --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
               "${KUBE_INFRA_API}" | grep -o '"region"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
 
-            if [ -z "${CMP_CLUSTER_REGION}" ]; then
+            if [ -z "${DISCOVERED_REGION}" ]; then
               echo "[CMP WARNING] Failed to query cluster region from API, using 'unknown'" >&2
-              CMP_CLUSTER_REGION="unknown"
+              DISCOVERED_REGION="unknown"
             fi
 
             # Extract AWS credentials from kube-system/aws-creds Secret
@@ -57,31 +57,31 @@ data:
               "${KUBE_SECRET_API}")
 
             # Extract base64-encoded values and decode
-            CMP_AWS_ACCESS_KEY_ID=$(echo "${SECRET_JSON}" | grep -o '"aws_access_key_id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/' | base64 -d)
-            CMP_AWS_SECRET_ACCESS_KEY=$(echo "${SECRET_JSON}" | grep -o '"aws_secret_access_key"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/' | base64 -d)
+            DISCOVERED_AWS_KEY=$(echo "${SECRET_JSON}" | grep -o '"aws_access_key_id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/' | base64 -d)
+            DISCOVERED_AWS_SECRET=$(echo "${SECRET_JSON}" | grep -o '"aws_secret_access_key"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/' | base64 -d)
 
-            if [ -z "${CMP_AWS_ACCESS_KEY_ID}" ] || [ -z "${CMP_AWS_SECRET_ACCESS_KEY}" ]; then
+            if [ -z "${DISCOVERED_AWS_KEY}" ] || [ -z "${DISCOVERED_AWS_SECRET}" ]; then
               echo "[CMP WARNING] Failed to extract AWS credentials from kube-system/aws-creds secret" >&2
-              CMP_AWS_ACCESS_KEY_ID=""
-              CMP_AWS_SECRET_ACCESS_KEY=""
+              DISCOVERED_AWS_KEY=""
+              DISCOVERED_AWS_SECRET=""
             else
               echo "[CMP] Successfully extracted AWS credentials" >&2
             fi
 
             # Calculate domain values
-            # CMP_CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
-            CMP_CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
+            # COMPUTED_CLUSTER_DOMAIN: OpenShift routes domain (apps.BASE_DOMAIN)
+            COMPUTED_CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"
 
-            # CMP_ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
+            # COMPUTED_ROOT_DOMAIN: Remove first subdomain from BASE_DOMAIN
             # Example: myocp.sandbox3491.opentlc.com → sandbox3491.opentlc.com
-            CMP_ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
+            COMPUTED_ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')
 
             # Log discovered values (never log actual credentials!)
             echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
-            echo "[CMP] Discovered CMP_CLUSTER_REGION: ${CMP_CLUSTER_REGION}" >&2
-            echo "[CMP] Computed CMP_CLUSTER_DOMAIN: ${CMP_CLUSTER_DOMAIN}" >&2
-            echo "[CMP] Computed CMP_ROOT_DOMAIN: ${CMP_ROOT_DOMAIN}" >&2
-            if [ -n "${CMP_AWS_ACCESS_KEY_ID}" ]; then
+            echo "[CMP] Discovered REGION: ${DISCOVERED_REGION}" >&2
+            echo "[CMP] Computed CLUSTER_DOMAIN: ${COMPUTED_CLUSTER_DOMAIN}" >&2
+            echo "[CMP] Computed ROOT_DOMAIN: ${COMPUTED_ROOT_DOMAIN}" >&2
+            if [ -n "${DISCOVERED_AWS_KEY}" ]; then
               echo "[CMP] AWS credentials available: YES" >&2
             else
               echo "[CMP] AWS credentials available: NO" >&2
@@ -96,15 +96,15 @@ data:
               kustomize build .
             else
               # Escape special characters in credentials for sed
-              ESCAPED_AWS_ACCESS_KEY_ID=$(echo "${CMP_AWS_ACCESS_KEY_ID}" | sed 's/[\/&]/\\&/g')
-              ESCAPED_AWS_SECRET_ACCESS_KEY=$(echo "${CMP_AWS_SECRET_ACCESS_KEY}" | sed 's/[\/&]/\\&/g')
+              ESCAPED_AWS_KEY=$(echo "${DISCOVERED_AWS_KEY}" | sed 's/[\/&]/\\&/g')
+              ESCAPED_AWS_SECRET=$(echo "${DISCOVERED_AWS_SECRET}" | sed 's/[\/&]/\\&/g')
 
               kustomize build . | sed \
-                -e "s|CLUSTER_DOMAIN|${CMP_CLUSTER_DOMAIN}|g" \
-                -e "s|ROOT_DOMAIN|${CMP_ROOT_DOMAIN}|g" \
-                -e "s|CLUSTER_REGION|${CMP_CLUSTER_REGION}|g" \
-                -e "s|AWS_ACCESS_KEY_ID|${ESCAPED_AWS_ACCESS_KEY_ID}|g" \
-                -e "s|AWS_SECRET_ACCESS_KEY|${ESCAPED_AWS_SECRET_ACCESS_KEY}|g"
+                -e "s|CLUSTER_DOMAIN|${COMPUTED_CLUSTER_DOMAIN}|g" \
+                -e "s|ROOT_DOMAIN|${COMPUTED_ROOT_DOMAIN}|g" \
+                -e "s|CLUSTER_REGION|${DISCOVERED_REGION}|g" \
+                -e "s|AWS_ACCESS_KEY_ID|${ESCAPED_AWS_KEY}|g" \
+                -e "s|AWS_SECRET_ACCESS_KEY|${ESCAPED_AWS_SECRET}|g"
             fi
 
             echo "[CMP] Plugin execution complete" >&2
