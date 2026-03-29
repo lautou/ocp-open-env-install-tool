@@ -1,0 +1,23 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: maas-default-gateway
+  namespace: openshift-ingress
+spec:
+  gatewayClassName: data-science-gateway-class
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    hostname: maas-api.CLUSTER_DOMAIN
+    name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: ingress-certificates
+      mode: Terminate
