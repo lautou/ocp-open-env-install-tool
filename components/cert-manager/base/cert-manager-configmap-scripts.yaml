@@ -105,60 +105,7 @@ data:
       exit 1
     fi
 
-    echo "Fetching cluster configuration..."
-    export OCP_BASE_DOMAIN=$(oc get dns.config.openshift.io/cluster -o jsonpath='{.spec.baseDomain}')
-    export TIMESTAMP=$(date +%s)
-
-    echo "OCP_BASE_DOMAIN=$OCP_BASE_DOMAIN"
-    echo "TIMESTAMP=$TIMESTAMP"
-
-    # --- Applying Resources with Retry Logic ---
-
-    echo "Generating Ingress Certificate YAML..."
-    # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
-    # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-    # The static DNS names (apps.${OCP_BASE_DOMAIN} and wildcard) remain consistent
-    INGRESS_CERT_YAML=$(cat <<EOFINGRESS
-    apiVersion: cert-manager.io/v1
-    kind: Certificate
-    metadata:
-      name: ingress
-      namespace: openshift-ingress
-    spec:
-      isCA: false
-      commonName: "apps.${OCP_BASE_DOMAIN}"
-      secretName: ingress-certificates
-      dnsNames:
-      - "apps.${OCP_BASE_DOMAIN}"
-      - "*.apps.${OCP_BASE_DOMAIN}"
-      - "apps.${TIMESTAMP}.${OCP_BASE_DOMAIN}"
-      issuerRef:
-        name: cluster
-        kind: ClusterIssuer
-    EOFINGRESS
-    )
-    apply_with_retry "Ingress Certificate" "$INGRESS_CERT_YAML"
-
-    echo "Generating API Certificate YAML..."
-    # Note: TIMESTAMP DNS name is intentionally dynamic (changes on each Job run)
-    # Purpose: Ensures unique DNS records for Let's Encrypt DNS-01 challenges
-    # The static DNS name (api.${OCP_BASE_DOMAIN}) remains consistent
-    API_CERT_YAML=$(cat <<EOFAPI
-    apiVersion: cert-manager.io/v1
-    kind: Certificate
-    metadata:
-      name: api
-      namespace: openshift-config
-    spec:
-      isCA: false
-      commonName: "api.${OCP_BASE_DOMAIN}"
-      secretName: api-certificates
-      dnsNames:
-      - "api.${OCP_BASE_DOMAIN}"
-      - "api.${TIMESTAMP}.${OCP_BASE_DOMAIN}"
-      issuerRef:
-        name: cluster
-        kind: ClusterIssuer
-    EOFAPI
-    )
-    apply_with_retry "API Certificate" "$API_CERT_YAML"
+    echo "===================================="
+    echo "CertManager initialization complete!"
+    echo "Certificates are managed by ArgoCD with CMP placeholders."
+    echo "===================================="
