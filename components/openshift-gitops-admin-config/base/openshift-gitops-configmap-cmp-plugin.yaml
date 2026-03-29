@@ -24,17 +24,29 @@ data:
 
             # Kubernetes API credentials
             KUBE_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-            KUBE_API="https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster"
+            KUBE_DNS_API="https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster"
+            KUBE_INFRA_API="https://kubernetes.default.svc/apis/config.openshift.io/v1/infrastructures/cluster"
 
             # Discover cluster domain from OpenShift DNS object using Kubernetes API
             echo "[CMP] Querying Kubernetes API for cluster DNS..." >&2
             BASE_DOMAIN=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
               --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-              "${KUBE_API}" | grep -o '"baseDomain"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
+              "${KUBE_DNS_API}" | grep -o '"baseDomain"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
 
             if [ -z "${BASE_DOMAIN}" ]; then
               echo "[CMP ERROR] Failed to query cluster DNS object from API" >&2
               exit 1
+            fi
+
+            # Discover AWS region from OpenShift Infrastructure object using Kubernetes API
+            echo "[CMP] Querying Kubernetes API for cluster infrastructure..." >&2
+            CLUSTER_REGION=$(curl -s -H "Authorization: Bearer ${KUBE_TOKEN}" \
+              --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+              "${KUBE_INFRA_API}" | grep -o '"region"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
+
+            if [ -z "${CLUSTER_REGION}" ]; then
+              echo "[CMP WARNING] Failed to query cluster region from API, using 'unknown'" >&2
+              CLUSTER_REGION="unknown"
             fi
 
             # Calculate domain values
@@ -47,12 +59,13 @@ data:
 
             # Log discovered values
             echo "[CMP] Discovered BASE_DOMAIN: ${BASE_DOMAIN}" >&2
+            echo "[CMP] Discovered CLUSTER_REGION: ${CLUSTER_REGION}" >&2
             echo "[CMP] Computed CLUSTER_DOMAIN: ${CLUSTER_DOMAIN}" >&2
             echo "[CMP] Computed ROOT_DOMAIN: ${ROOT_DOMAIN}" >&2
 
             # Build manifests with kustomize and replace placeholders in output
             echo "[CMP] Building manifests and replacing placeholders..." >&2
-            kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g"
+            kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g; s|CLUSTER_REGION|${CLUSTER_REGION}|g"
 
             echo "[CMP] Plugin execution complete" >&2
       discover:

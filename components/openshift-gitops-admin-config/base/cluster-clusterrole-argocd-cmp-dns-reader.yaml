@@ -7,6 +7,7 @@ rules:
   - config.openshift.io
   resources:
   - dnses
+  - infrastructures
   verbs:
   - get
   - list
