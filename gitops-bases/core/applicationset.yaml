@@ -72,6 +72,12 @@ spec:
         - /metadata/ownerReferences
         kind: ConfigMap
         name: cluster-versions
+      - group: ''
+        jsonPointers:
+        - /data
+        kind: ConfigMap
+        name: cmp-plugin
+        namespace: openshift-gitops
       - group: config.openshift.io
         jsonPointers:
         - /spec/clusterNetwork
