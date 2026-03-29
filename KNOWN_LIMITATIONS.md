@@ -174,32 +174,32 @@ The following operators lack infra node placement configuration capabilities:
 
 #### Network Observability
 - **JIRA:** [NETOBSERV-2575](https://issues.redhat.com/browse/NETOBSERV-2575)
-- **Title:** TODO: Add title from JIRA
+- **Title:** "Ability to configure node-selector and tolerations for netobserv-plugin-static"
 - **Status:** Open
-- **Impact:** FlowCollector agents and processors cannot be placed on infra nodes
+- **Impact:** netobserv-plugin-static and FlowCollector components cannot be placed on infra nodes
 - **Workaround:** None currently available
 
 #### Additional Tracked Issues
 
 **Enhancement Requests (RFEs):**
-- **[RFE-8721](https://issues.redhat.com/browse/RFE-8721)** - TODO: Add title from JIRA
+- **[RFE-8721](https://issues.redhat.com/browse/RFE-8721)** - "Red Hat build of Kueue: Allow node-selector and taints configuration for Kueue components"
 - **[RFE-8722](https://issues.redhat.com/browse/RFE-8722)** - TODO: Add title from JIRA
-- **[RFE-8791](https://issues.redhat.com/browse/RFE-8791)** - TODO: Add title from JIRA
-- **[RHAIRFE-1244](https://issues.redhat.com/browse/RHAIRFE-1244)** - TODO: Add title from JIRA
+- **[RFE-8791](https://issues.redhat.com/browse/RFE-8791)** - "Gateway API: Ability to configure nodeSelector/tolerations in GatewayClass"
+- **[RHAIRFE-1244](https://issues.redhat.com/browse/RHAIRFE-1244)** - "Improve Install of Service Mesh 3 Operator"
 
 **OpenShift Bugs:**
 - **[OCPBUGS-9274](https://issues.redhat.com/browse/OCPBUGS-9274)** - TODO: Add title from JIRA
-- **[OCPBUGS-49690](https://issues.redhat.com/browse/OCPBUGS-49690)** - TODO: Add title from JIRA
-- **[OCPBUGS-51091](https://issues.redhat.com/browse/OCPBUGS-51091)** - TODO: Add title from JIRA
+- **[OCPBUGS-49690](https://issues.redhat.com/browse/OCPBUGS-49690)** - "[RHOCP4.17] networking-console-plugin pods should run on control plane nodes"
+- **[OCPBUGS-51091](https://issues.redhat.com/browse/OCPBUGS-51091)** - "[RHOCP4.18] migrator pod should run on control plane node"
 - **[OCPBUGS-74211](https://issues.redhat.com/browse/OCPBUGS-74211)** - TODO: Add title from JIRA
 - **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - TODO: Add title from JIRA
-- **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - TODO: Add title from JIRA
+- **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node"
 
 **Data Foundation Bugs:**
-- **[DFBUGS-5355](https://issues.redhat.com/browse/DFBUGS-5355)** - TODO: Add title from JIRA
+- **[DFBUGS-5355](https://issues.redhat.com/browse/DFBUGS-5355)** - "odf-prometheus-operator and odf-external-snapshotter-operator-stable pods does not have node.ocs.openshift.io/storage toleration"
 
 **Service Platform Bugs:**
-- **[SRVKP-8922](https://issues.redhat.com/browse/SRVKP-8922)** - TODO: Add title from JIRA
+- **[SRVKP-8922](https://issues.redhat.com/browse/SRVKP-8922)** - "The Results configuration is not being propagated from TektonConfig to Results"
 
 ### Business Impact
 
