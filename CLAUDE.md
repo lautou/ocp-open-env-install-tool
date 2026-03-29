@@ -312,13 +312,23 @@ components/webterminal/overlays/
 
 **Placeholder Naming Convention**:
 All CMP placeholders use the `CMP_PLACEHOLDER_` prefix for consistency and clarity:
-- `CMP_PLACEHOLDER_CLUSTER_DOMAIN`: OpenShift Routes, Gateway API HTTPRoute hostnames (uses `apps.` subdomain)
-- `CMP_PLACEHOLDER_ROOT_DOMAIN`: Wildcard certificates, parent domain DNS configurations
-- `CMP_PLACEHOLDER_CLUSTER_REGION`: AWS region-specific configurations, S3 endpoints, regional resources
+- `CMP_PLACEHOLDER_ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
+- `CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN`: Base cluster domain (e.g., `myocp.sandbox3491.opentlc.com`)
+- `CMP_PLACEHOLDER_OCP_APPS_DOMAIN`: Apps subdomain (e.g., `apps.myocp.sandbox3491.opentlc.com`) - for Routes, Gateway HTTPRoutes
+- `CMP_PLACEHOLDER_OCP_API_DOMAIN`: API subdomain (e.g., `api.myocp.sandbox3491.opentlc.com`)
+- `CMP_PLACEHOLDER_TIMESTAMP`: Unix timestamp (e.g., `1774792401`) - for unique DNS challenge names in Let's Encrypt DNS-01
+- `CMP_PLACEHOLDER_CLUSTER_REGION`: AWS region (e.g., `eu-central-1`) - for region-specific configs, S3 endpoints
 - `CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID`: AWS access key for static Secret data fields
 - `CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY`: AWS secret key for static Secret data fields
 
-**Naming benefits**: Consistent prefix pattern, clear CMP identification, no collisions with YAML keys or bash variables
+**Naming benefits**: Consistent prefix pattern, clear CMP identification, semantic naming (OCP_APPS_DOMAIN vs CLUSTER_DOMAIN), no collisions with YAML keys or bash variables
+
+**TIMESTAMP behavior**:
+- **Static per Git commit**: ArgoCD caches CMP-built manifests per commit SHA
+- **Dynamic across commits**: New commits trigger CMP rebuild with new TIMESTAMP
+- **Testing verified**: Multiple syncs of same revision keep identical TIMESTAMP (e.g., `1774792401`)
+- **Purpose**: Provides stable-enough value for Let's Encrypt DNS-01 challenges while allowing updates on code changes
+- **Example usage**: `apps.1774792401.myocp.sandbox3491.opentlc.com` in Certificate dnsNames
 
 **Implementation**:
 ```yaml
@@ -374,6 +384,19 @@ oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | 
 - ❌ NOT for cross-namespace credential distribution (create Secret in target namespace)
 
 **Security note**: Credentials are replaced at ArgoCD build time, visible in ArgoCD UI (base64-encoded). Suitable for operator-managed credentials that ArgoCD already has access to via RBAC.
+
+**When to use CMP_PLACEHOLDER_TIMESTAMP**:
+- ✅ Let's Encrypt DNS-01 challenge unique record names (e.g., `apps.1774792401.myocp.sandbox3491.opentlc.com`)
+- ✅ Certificate dnsNames requiring per-deployment uniqueness
+- ✅ Resources needing stable-per-commit but changing-across-commits identifiers
+- ❌ NOT for runtime-dynamic values (TIMESTAMP is cached per Git commit by ArgoCD)
+- ❌ NOT for monitoring/logging timestamps (use runtime mechanisms instead)
+
+**TIMESTAMP caching behavior**:
+- ArgoCD caches CMP-built manifests per Git commit SHA
+- Same revision = same TIMESTAMP across multiple syncs (tested: `1774792401` persisted)
+- New commit = new CMP build = new TIMESTAMP
+- Perfect for cert-manager: stable during cert issuance, refreshed on code updates
 
 **Self-Protection Mechanism**:
 
