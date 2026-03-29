@@ -17,7 +17,7 @@ spec:
         - -c
         - |
           oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found
-          oc delete project openshift-builds --ignore-not-found
+          oc delete namespace openshift-builds --ignore-not-found
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: delete-openshift-builds-resources
       nodeSelector:
