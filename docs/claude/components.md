@@ -1325,6 +1325,93 @@ spec:
 - Internal service: `maas-default-gateway-data-science-gateway-class.openshift-ingress.svc.cluster.local:443`
 - Supports HTTPRoute and GRPCRoute attachments
 
+### HardwareProfile for GPU Workloads
+
+**Pattern**: Direct CR management with namespace-level ArgoCD RBAC
+
+HardwareProfiles define resource configurations for AI/ML workloads in RHOAI:
+
+```yaml
+# components/rhoai/base/redhat-ods-applications-hardwareprofile-gpus.yaml
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/display-name: gpus
+  name: gpus
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+  - defaultCount: 2
+    displayName: CPU
+    identifier: cpu
+    maxCount: 4
+    minCount: 1
+    resourceType: CPU
+  - defaultCount: 4Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 8Gi
+    minCount: 2Gi
+    resourceType: Memory
+  - defaultCount: 1
+    displayName: GPU
+    identifier: nvidia.com/gpu
+    maxCount: 2
+    minCount: 1
+    resourceType: Accelerator
+  scheduling:
+    node:
+      nodeSelector: {}
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+    type: Node
+```
+
+**RBAC Requirement:**
+
+The `redhat-ods-applications` namespace **MUST** have the ArgoCD managed-by label:
+
+```yaml
+# components/rhoai/base/cluster-namespace-redhat-ods-applications.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops  # CRITICAL for RBAC
+    openshift.io/cluster-monitoring: "true"
+  name: redhat-ods-applications
+```
+
+**Why this label is required:**
+- Grants ArgoCD application controller permissions to manage resources in the namespace
+- Without this label, ArgoCD cannot patch/update HardwareProfile resources
+- Error without label: `User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot patch resource "hardwareprofiles"`
+
+**Operator-Managed Annotations:**
+
+The RHOAI operator automatically adds runtime annotations to HardwareProfile resources:
+- `opendatahub.io/dashboard-feature-visibility` - UI visibility settings
+- `opendatahub.io/disabled` - Enable/disable status
+- `opendatahub.io/modified-date` - Last modification timestamp
+
+**These annotations do NOT cause sync drift.** ArgoCD manages the spec and core annotations (display-name), while the operator manages runtime metadata. No ignoreDifferences configuration is needed.
+
+**Verified Behavior:**
+- ✅ ArgoCD syncs HardwareProfile without conflicts
+- ✅ Operator annotations coexist with GitOps-managed fields
+- ✅ Application remains Synced and Healthy
+- ✅ No ignoreDifferences required (namespace label is sufficient)
+
+**Use Case:**
+Enables RHOAI users to select GPU-enabled resource profiles when creating:
+- Jupyter notebooks with GPU support
+- Model training workloads
+- Model serving deployments
+- Distributed inference workloads
+
 **Version Management:**
 
 Operator channel managed via `cluster-versions` ConfigMap:
