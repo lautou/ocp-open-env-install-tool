@@ -192,7 +192,7 @@
   - DO NOT fix technical debt unless explicitly requested
 
   Current State Awareness:
-  - 15 Jobs remaining (potential migration candidates)
+  - 16 Jobs remaining (potential migration candidates)
   - 14/35 namespaces missing managed-by label (DO NOT FIX - focus on new work)
   - CM-412 requires permanent watchdog Deployment
   - OLM install plan grouping workaround in place (namespace isolation for AI profile)

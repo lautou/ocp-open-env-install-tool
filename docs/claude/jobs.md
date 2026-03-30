@@ -6,7 +6,7 @@
 
 This project uses **Kubernetes Jobs** extensively to automate Day 2 operations that cannot be accomplished with static manifests alone. Jobs handle dynamic configuration, secret management, resource patching, and cleanup tasks.
 
-**Total Jobs**: 20 across 12 components
+**Total Jobs**: 16 across 10 components
 
 **Why Jobs?**
 - Dynamic value discovery (e.g., extracting auto-generated secrets)
@@ -85,7 +85,7 @@ metadata:
 
 ## Job Categories
 
-### 1. Console Plugin Management (5 Jobs)
+### 1. Console Plugin Management (6 Jobs)
 
 **Pattern**: Pure Patch Jobs for shared Console CR
 
@@ -98,8 +98,9 @@ metadata:
 **Jobs:**
 - `openshift-gitops-job-enable-gitops-console-plugin.yaml` → `gitops-plugin`
 - `openshift-gitops-job-enable-pipelines-console-plugin.yaml` → `pipelines-console-plugin`
-- `openshift-gitops-job-disable-pipelines-console-plugin.yaml` → Removes plugin
+- `openshift-gitops-job-disable-pipelines-console-plugin.yaml` → Removes `pipelines-console-plugin`
 - `openshift-gitops-job-enable-odf-console-plugins.yaml` → `odf-console`, `odf-client-console`
+- `openshift-gitops-job-disable-odf-console-plugins.yaml` → Removes `odf-console`, `odf-client-console`
 - `openshift-gitops-job-enable-kuadrant-console-plugin.yaml` → `kuadrant-console-plugin`
 
 **Template:**
@@ -145,7 +146,7 @@ spec:
 - JSON Patch with `op: add` to append to array
 - Uses `ose-cli` image for `oc` command
 
-### 2. Secret Management (3 Jobs)
+### 2. Secret Management (2 Jobs)
 
 **Pattern**: Dynamic value discovery from operator-generated secrets
 
@@ -157,7 +158,6 @@ spec:
 **Jobs:**
 - `openshift-gitops-job-create-secret-logging-loki-s3.yaml` → Extracts S3 creds for Loki logging
 - `openshift-gitops-job-create-secret-netobserv-loki-s3.yaml` → Extracts S3 creds for NetObserv
-- `openshift-gitops-job-configure-grafana-datasource-token.yaml` → Creates token for Grafana datasource
 
 **Template (S3 secret extraction):**
 ```yaml
@@ -367,7 +367,7 @@ spec:
 
 **Security**: Uses dedicated `create-alert-silences` ServiceAccount (principle of least privilege)
 
-### 5. Dynamic Configuration Injection (2 Jobs)
+### 5. Dynamic Configuration Injection (1 Job)
 
 **Pattern**: Generate runtime configuration based on cluster state
 
@@ -377,7 +377,9 @@ spec:
 
 **Jobs:**
 - `openshift-gitops-job-ack-config-injector.yaml` → Inject AWS credentials into ACK controller
-- `openshift-gitops-job-create-maas-gateway.yaml` → Create MaaS Gateway with discovered endpoints
+
+**Deprecated Jobs (replaced by static manifests):**
+- ~~`openshift-gitops-job-create-maas-gateway.yaml`~~ → Now static Gateway manifest with CMP placeholders
 
 **Template (ACK config injection):**
 ```yaml
