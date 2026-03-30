@@ -54,3 +54,9 @@ spec:
         - /spec/templateOrder
         kind: OdhDashboardConfig
         name: odh-dashboard-config
+      - group: infrastructure.opendatahub.io
+        jsonPointers:
+        - /metadata/annotations/opendatahub.io~1dashboard-feature-visibility
+        - /metadata/annotations/opendatahub.io~1disabled
+        - /metadata/annotations/opendatahub.io~1modified-date
+        kind: HardwareProfile
