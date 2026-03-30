@@ -30,7 +30,7 @@ data:
   devworkspace: "fast"  # Usually coupled with Web Terminal
   openshift-builds: "builds-1.7"
   openshift-gitops: "gitops-1.19"
-  openshift-pipelines: "pipelines-1.20"
+  openshift-pipelines: "pipelines-1.21"
   web-terminal: "fast"
 
   # Infrastructure & Storage
