@@ -259,58 +259,41 @@ gateways.gateway.networking.k8s.io is forbidden: User "system:serviceaccount:ope
 ```
 
 **Root Cause**:
-- Gateway API CRDs are installed by the cluster (not by OLM)
-- OLM does not generate aggregate RBAC roles for non-OLM CRDs
-- ArgoCD application controller lacks permissions to manage Gateway resources
+Gateway API resources are namespace-scoped. ArgoCD can manage them in namespaces with the `argocd.argoproj.io/managed-by: openshift-gitops` label.
 
 **Affected Components**:
-- RHOAI: MaaS Gateway (`maas-default-gateway`)
-- RHCL: Kuadrant Gateways
-- Any component deploying Gateway API resources
+- RHOAI: MaaS Gateway (`maas-default-gateway` in `openshift-ingress`)
+- RHCL: Kuadrant Gateways (in `kuadrant-system`)
 
 **Debug**:
 ```bash
 # Check if CRDs exist
 oc get crd gateways.gateway.networking.k8s.io
 
+# Check namespace label
+oc get namespace openshift-ingress -o jsonpath='{.metadata.labels.argocd\.argoproj\.io/managed-by}'
+
 # Check ArgoCD permissions
 oc auth can-i create gateways.gateway.networking.k8s.io \
   --as=system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
   -n openshift-ingress
-
-# Check if ClusterRole exists
-oc get clusterrole gateway-api-manager
 ```
 
 **Fix**:
-Verify Gateway API RBAC ClusterRole and ClusterRoleBinding exist in `openshift-gitops-admin-config` component:
+Ensure the target namespace has the managed-by label:
 
 ```yaml
-# ClusterRole: openshift-gitops-clusterrole-gateway-api.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: gateway-api-manager
-rules:
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - gateways
-  - gatewayclasses
-  - httproutes
-  - grpcroutes
-  - referencegrants
-  verbs:
-  - '*'
-
-# ClusterRoleBinding: openshift-gitops-clusterrolebinding-gateway-api.yaml
-# Binds to: openshift-gitops-argocd-application-controller ServiceAccount
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
+  name: openshift-ingress
 ```
 
-**Prevention**:
-When adding components that deploy Gateway API resources, ensure `openshift-gitops-admin-config` includes Gateway API RBAC grants.
+The `argocd.argoproj.io/managed-by` label grants namespace-level RBAC to the ArgoCD application controller ServiceAccount, allowing it to manage all resources in that namespace.
 
-**See Also**: docs/claude/components.md → OpenShift GitOps → RBAC Configuration → Gateway API Resources
+**Note**: Cluster-scoped Gateway API RBAC is NOT required. Namespace-level permissions via the managed-by label are sufficient.
 
 ---
 
