@@ -110,45 +110,14 @@ Each component includes:
 
    ArgoCD requires explicit RBAC permissions for resources not managed by OLM (Operator Lifecycle Manager). The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
 
-   **a) Gateway API Resources** (`components/cluster-ingress/base/cluster-clusterrole-gateway-api-manager.yaml`):
+   **Operator-Specific ClusterRoles**:
 
-   ```yaml
-   apiVersion: rbac.authorization.k8s.io/v1
-   kind: ClusterRole
-   metadata:
-     name: gateway-api-manager
-   rules:
-   - apiGroups:
-     - gateway.networking.k8s.io
-     resources:
-     - gateways
-     - gatewayclasses
-     - httproutes
-     - grpcroutes
-     - referencegrants
-     verbs:
-     - '*'
-   ```
-
-   **Why needed:**
-   - Gateway API CRDs installed by cluster (not by OLM operator)
-   - No OLM-generated aggregate RBAC roles exist
-   - Without these permissions, ArgoCD cannot create Gateway resources
-   - Affects: RHOAI (MaaS Gateway), RHCL (Kuadrant Gateways)
-
-   **Bound to:** `openshift-gitops-argocd-application-controller` ServiceAccount
-
-   **Location:** Defined in `cluster-ingress` component (core infrastructure for gateway resources)
-
-   **b) Other Operator-Specific ClusterRoles**:
-
-   Additional ClusterRoles grant permissions for operator-managed resources:
+   ClusterRoles grant permissions for operator-managed resources:
    - `cert-manager-operator`: Manage cert-manager CRs (Certificate, ClusterIssuer)
    - `console-plugin-manager`: Patch Console CR for plugin enablement
    - `cleanup-operator`: Delete installer pods in kube-system
    - `ack-config-operator`: Manage ACK Route53 configuration
    - `gpu-machineset-operator`: Manage GPU MachineSets
-   - `maas-gateway-operator`: Read DNS config for MaaS Gateway domain discovery
 
    See `components/openshift-gitops-admin-config/base/` for complete RBAC definitions.
 
@@ -1331,46 +1300,49 @@ metadata:
 
 ### MaaS Gateway for Model Serving
 
-**Pattern**: Dynamic Job with cluster domain injection
+**Pattern**: Static manifest with CMP placeholder, namespace-level RBAC
+
+**Location**: `components/cluster-ingress/base/openshift-ingress-gateway-maas-default-gateway.yaml`
 
 Models as a Service requires a Gateway API resource for exposing model endpoints:
 
 ```yaml
-# Created by: components/rhoai/base/openshift-gitops-job-create-maas-gateway.yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: maas-default-gateway
   namespace: openshift-ingress
 spec:
   gatewayClassName: data-science-gateway-class  # RHOAI's Gateway controller
   listeners:
-    - allowedRoutes:
-        namespaces:
-          from: All  # Cross-namespace routing for model serving
-      hostname: maas-api.apps.<cluster-domain>
-      name: https
-      port: 443
-      protocol: HTTPS
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: ingress-certificates  # Let's Encrypt wildcard cert
-        mode: Terminate
+  - allowedRoutes:
+      namespaces:
+        from: All  # Cross-namespace routing for model serving
+    hostname: maas-api.CMP_PLACEHOLDER_OCP_APPS_DOMAIN
+    name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: ingress-certificates  # Let's Encrypt wildcard cert
+      mode: Terminate
 ```
 
-**Job Implementation:**
-- Extracts cluster domain from `dns.config.openshift.io/cluster`
-- Creates Gateway with dynamically generated hostname
-- Uses RHOAI's `data-science-gateway-class` GatewayClass
-- References Let's Encrypt certificate created by cert-manager
-- Runs with `Force=true` for retriggerable execution
+**Why static manifest works:**
+- CMP plugin replaces `CMP_PLACEHOLDER_OCP_APPS_DOMAIN` with cluster apps domain at build time
+- Gateway is namespace-scoped resource in `openshift-ingress`
+- Namespace has `argocd.argoproj.io/managed-by: openshift-gitops` label
+- Namespace-level RBAC is sufficient - no ClusterRole needed
+- Simpler than Job-based approach, direct declarative management
 
 **Gateway Status:**
 - Creates AWS ELB LoadBalancer service
 - Assigns external hostname: `<uuid>.eu-central-1.elb.amazonaws.com`
 - Internal service: `maas-default-gateway-data-science-gateway-class.openshift-ingress.svc.cluster.local:443`
-- Supports HTTPRoute and GRPCRoute attachments
+- Supports HTTPRoute and GRPCRoute attachments for model serving
 
 ### HardwareProfile for GPU Workloads
 
