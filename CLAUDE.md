@@ -140,28 +140,34 @@ ignoreDifferences:
 
 ### ✅ Shared Resources with ignoreDifferences (WORKS)
 
-**Pattern**: Cluster-scoped resources **partially managed by OpenShift** + **partially configured by GitOps**.
+**Pattern**: Resources **managed by multiple ArgoCD Applications** simultaneously.
 
 **Use when**:
-- Resource exists at cluster scope (created by installer/operators)
-- GitOps configures **subset of fields**
-- OpenShift manages other fields
-- ArgoCD detects drift, tries delete/recreate → deletion **blocked** (protected resource)
+- Multiple Applications reference the same resource (e.g., shared ConfigMap)
+- Each Application sync updates ArgoCD metadata annotations
+- Need to prevent sync conflicts between Applications
 
-**Example**: Network CR
+**Example**: cluster-versions ConfigMap
 ```yaml
+# Managed by ALL ApplicationSets (17+ Applications)
+# Each sync updates tracking-id annotation to current Application
 ignoreDifferences:
-  - group: config.openshift.io
-    kind: Network
-    name: cluster
+  - group: ''
+    kind: ConfigMap
+    name: cluster-versions
     jsonPointers:
-      - /spec/clusterNetwork  # OpenShift-managed
-      - /spec/serviceNetwork  # OpenShift-managed
+      - /metadata/annotations  # ArgoCD tracking-id changes per sync
 ```
 
-**Result**: ArgoCD ignores OpenShift fields, manages only GitOps-declared fields, no deletion attempts.
+**Why this works**:
+- ConfigMap referenced by all ApplicationSets via Kustomize replacements
+- Each Application that syncs updates `argocd.argoproj.io/tracking-id` to itself
+- Ignoring annotations prevents false drift detection
+- No labels or ownerReferences on this ConfigMap (not needed in ignore list)
 
-**Key difference from failed pattern**: Ignoring fields **NOT in Git** (managed by OpenShift), not fields **IN Git**.
+**Result**: All Applications sync successfully, no conflicts over tracking metadata.
+
+**Key pattern**: Ignoring ArgoCD's own metadata that conflicts in multi-Application scenarios.
 
 ### ✅ SkipDryRunOnMissingResource for Operator CRs (CRITICAL)
 
