@@ -165,93 +165,134 @@ Each component includes:
 
    **Configuration:** `spec.resourceHealthChecks` in ArgoCD CR (Lua scripts)
 
-6. **ConfigManagementPlugin (CMP) for Dynamic Cluster Domain Replacement**:
+6. **ConfigManagementPlugin (CMP) for Dynamic Cluster Configuration**:
 
-   **Purpose**: Automatically discovers cluster domain and replaces placeholders in manifests at build time.
+   **Purpose**: Automatically discovers cluster domain, region, and AWS credentials, replacing placeholders in manifests at ArgoCD build time.
 
-   **Architecture**:
-   - CMP sidecar container in repo-server pod
-   - Queries Kubernetes API for cluster DNS object
-   - Replaces `CLUSTER_DOMAIN` and `ROOT_DOMAIN` placeholders in kustomize output
+   **Architecture**: ConfigManagementPlugin (CMP) sidecar in ArgoCD repo-server pod.
 
-   **Components**:
+   **How It Works**:
+
+   1. **Plugin Discovery**: ArgoCD detects repositories with `**/kustomization.yaml` files
+   2. **API Queries**: CMP queries OpenShift and Kubernetes APIs for cluster configuration
+      - DNS API: `dnses.config.openshift.io/cluster` for domain
+      - Infrastructure API: `infrastructures.config.openshift.io/cluster` for region
+      - Secret API: `secrets/aws-creds` in `kube-system` namespace for AWS credentials
+   3. **Value Calculation**:
+      - `BASE_DOMAIN`: Discovered from DNS API (e.g., `myocp.sandbox3491.opentlc.com`)
+      - `CLUSTER_DOMAIN`: Calculated as `apps.${BASE_DOMAIN}` (e.g., `apps.myocp.sandbox3491.opentlc.com`)
+      - `ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
+      - `CLUSTER_REGION`: Discovered from Infrastructure API (e.g., `eu-central-1`, fallback: `unknown` for non-AWS)
+      - `AWS_ACCESS_KEY_ID`: Extracted and base64-decoded from `aws-creds` Secret
+      - `AWS_SECRET_ACCESS_KEY`: Extracted and base64-decoded from `aws-creds` Secret
+   4. **Placeholder Replacement**: Runs `kustomize build . | sed` to replace placeholders in output
+
+   **Placeholder Naming Convention**:
+   All CMP placeholders use the `CMP_PLACEHOLDER_` prefix for consistency and clarity:
+   - `CMP_PLACEHOLDER_ROOT_DOMAIN`: Parent domain (e.g., `sandbox3491.opentlc.com`)
+   - `CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN`: Base cluster domain (e.g., `myocp.sandbox3491.opentlc.com`)
+   - `CMP_PLACEHOLDER_OCP_APPS_DOMAIN`: Apps subdomain (e.g., `apps.myocp.sandbox3491.opentlc.com`) - for Routes, Gateway HTTPRoutes
+   - `CMP_PLACEHOLDER_OCP_API_DOMAIN`: API subdomain (e.g., `api.myocp.sandbox3491.opentlc.com`)
+   - `CMP_PLACEHOLDER_TIMESTAMP`: Unix timestamp (e.g., `1774792401`) - for unique DNS challenge names in Let's Encrypt DNS-01
+   - `CMP_PLACEHOLDER_CLUSTER_REGION`: AWS region (e.g., `eu-central-1`) - for region-specific configs, S3 endpoints
+   - `CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID`: AWS access key for static Secret data fields
+   - `CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY`: AWS secret key for static Secret data fields
+
+   **Naming benefits**: Consistent prefix pattern, clear CMP identification, semantic naming (OCP_APPS_DOMAIN vs CLUSTER_DOMAIN), no collisions with YAML keys or bash variables
+
+   **⚠️ TIMESTAMP behavior** (DEPRECATED - Removed from Certificate manifests):
+   - **NOT cached per commit**: CMP runs `date +%s` (current time), generates NEW timestamp on every Git sync
+   - **Causes certificate regeneration**: Every Git commit (even unrelated changes) triggers new cert requests
+   - **Let's Encrypt rate limits**: Risk of hitting 5 certificates/domain/week limit with frequent commits
+   - **Removed from usage**: TIMESTAMP no longer used in Certificate dnsNames (2026-03-29)
+   - **Reason**: Let's Encrypt DNS-01 validation does not require unique dnsNames per deployment
+
+   **Why TIMESTAMP was removed**:
+   - CMP plugin generates current Unix timestamp (`date +%s`), NOT commit-based
+   - Every Git sync (even documentation changes) regenerates TIMESTAMP
+   - Changed Certificate dnsNames trigger new cert-manager requests to Let's Encrypt
+   - Let's Encrypt DNS-01 validation does NOT require unique dnsNames
+   - Static dnsNames (`apps.*.opentlc.com`, `*.apps.*.opentlc.com`) work correctly
+
+   **Implementation**:
    ```yaml
-   # ConfigMap: components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml
-   # Defines the plugin behavior and domain calculation logic
-
-   # ArgoCD CR modification: openshift-gitops-argocd-openshift-gitops.yaml
-   repo:
-     mountsatoken: true  # Enable ServiceAccount token mounting
-     sidecarContainers:
-     - name: cmp-cluster-domain
-       image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843...
-       command: [/var/run/argocd/argocd-cmp-server]
-       volumeMounts:
+   # ArgoCD CR modification (openshift-gitops-argocd-openshift-gitops.yaml)
+   spec:
+     repo:
+       mountsatoken: true  # Enable ServiceAccount token for Kubernetes API access
+       sidecarContainers:
+       - name: cmp-cluster-domain
+         image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843...
+         # ServiceAccount token auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/
+       volumes:
        - name: cmp-plugin
-         mountPath: /home/argocd/cmp-server/config/plugin.yaml
-         subPath: plugin.yaml
-       # ServiceAccount token auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/
-     volumes:
-     - name: cmp-plugin
-       configMap:
-         name: cmp-plugin
-
-   # RBAC: cluster-clusterrole-argocd-cmp-dns-reader.yaml
-   # Grants default ServiceAccount permission to read DNS cluster resources
+         configMap:
+           name: cmp-plugin  # Plugin definition
    ```
 
-   **Domain Calculation**:
-   ```bash
-   # Queries OpenShift DNS API
-   BASE_DOMAIN=$(curl -H "Authorization: Bearer ${KUBE_TOKEN}" \
-     https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster \
-     | grep baseDomain)
+   **RBAC Requirements**:
+   - ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io` and `infrastructures.config.openshift.io`, plus `get` on `secrets/aws-creds` in `kube-system`)
+   - ClusterRoleBinding: Binds to `default` ServiceAccount in `openshift-gitops` namespace
 
-   # Example: myocp.sandbox3491.opentlc.com
-
-   # Calculates two domain values:
-   CLUSTER_DOMAIN="apps.${BASE_DOMAIN}"  # apps.myocp.sandbox3491.opentlc.com
-   ROOT_DOMAIN=$(echo "${BASE_DOMAIN}" | sed 's/^[^.]*\.//')  # sandbox3491.opentlc.com
-
-   # Replaces placeholders in kustomize output:
-   kustomize build . | sed "s|CLUSTER_DOMAIN|${CLUSTER_DOMAIN}|g; s|ROOT_DOMAIN|${ROOT_DOMAIN}|g"
-   ```
-
-   **Why These Domain Values**:
-   - `CLUSTER_DOMAIN`: OpenShift routes use `apps.` subdomain (e.g., for HTTPRoute hostnames)
-   - `ROOT_DOMAIN`: Parent domain for wildcard certificates and DNS configurations
-
-   **Plugin Discovery**:
-   - Matches repositories with `**/kustomization.yaml` glob pattern
-   - Automatically applies to all kustomize-based Applications
-
-   **Security**:
-   - Uses ServiceAccount token authentication (`mountsatoken: true`)
-   - RBAC: ClusterRole grants read-only access to DNS cluster resources
-   - Bound to `default` ServiceAccount in `openshift-gitops` namespace
+   **Files**:
+   - ConfigMap: `components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml`
+   - ClusterRole: `components/openshift-gitops-admin-config/base/cluster-clusterrole-argocd-cmp-dns-reader.yaml`
+   - ClusterRoleBinding: `components/openshift-gitops-admin-config/base/cluster-crb-argocd-cmp-dns-reader.yaml`
 
    **Verification**:
    ```bash
-   # Check CMP sidecar is running
+   # Check sidecar running (should show 2/2 containers)
    oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-repo-server
-   # Should show 2/2 containers (argocd-repo-server + cmp-cluster-domain)
 
-   # Check CMP logs
-   oc logs -n openshift-gitops <repo-server-pod> -c cmp-cluster-domain
-   # Should show: "argocd-cmp-server v3.1.12+... serving on .../cluster-domain-replacer-v1.0.sock"
-
-   # Test DNS API access
-   oc exec -n openshift-gitops <repo-server-pod> -c cmp-cluster-domain -- \
-     curl -s -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-     --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-     https://kubernetes.default.svc/apis/config.openshift.io/v1/dnses/cluster
+   # Check CMP logs for discovered values
+   oc logs <repo-server-pod> -n openshift-gitops -c cmp-cluster-domain --tail=50 | grep "\[CMP\]"
+   # Expected output:
+   # [CMP] Discovered BASE_DOMAIN: myocp.sandbox3491.opentlc.com
+   # [CMP] Discovered REGION: eu-central-1
+   # [CMP] Computed CLUSTER_DOMAIN: apps.myocp.sandbox3491.opentlc.com
+   # [CMP] Computed ROOT_DOMAIN: sandbox3491.opentlc.com
+   # [CMP] AWS credentials available: YES
    ```
 
-   **Files**:
-   - ConfigMap: `openshift-gitops-configmap-cmp-plugin.yaml`
-   - ClusterRole: `cluster-clusterrole-argocd-cmp-dns-reader.yaml`
-   - ClusterRoleBinding: `cluster-crb-argocd-cmp-dns-reader.yaml`
-   - ArgoCD CR: `openshift-gitops-argocd-openshift-gitops.yaml` (sidecar + mountsatoken)
+   **When to use CMP_PLACEHOLDER_CLUSTER_REGION**:
+   - ✅ Static ConfigMap/Secret data fields with region values
+   - ✅ Resource annotations/labels referencing region
+   - ✅ Any YAML field that doesn't require runtime evaluation
+   - ❌ NOT for bash variables in Jobs (use distinct names like `OCP_REGION`, `BASE_REGION`, `AWS_REGION` to avoid conflicts)
+
+   **When to use CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID / CMP_PLACEHOLDER_AWS_SECRET_ACCESS_KEY**:
+   - ✅ Static Secret stringData fields containing AWS credentials
+   - ✅ Avoids YAML key name collisions (Secret field names remain unchanged, only values replaced)
+   - ✅ Eliminates runtime extraction Jobs (simplifies architecture)
+   - ❌ NOT for temporary/rotated credentials (placeholders are baked at ArgoCD build time)
+   - ❌ NOT for cross-namespace credential distribution (create Secret in target namespace)
+
+   **Security note**: Credentials are replaced at ArgoCD build time, visible in ArgoCD UI (base64-encoded). Suitable for operator-managed credentials that ArgoCD already has access to via RBAC.
+
+   **When to use CMP_PLACEHOLDER_TIMESTAMP** (DEPRECATED):
+   - ❌ **DO NOT USE** - Removed from all manifests (2026-03-29)
+   - ❌ NOT for Certificate dnsNames (causes unnecessary regeneration on every Git commit)
+   - ❌ NOT cached per commit (uses `date +%s` = current time, not deterministic)
+   - ❌ Risk of Let's Encrypt rate limits (5 certs/domain/week with frequent commits)
+
+   **Self-Protection Mechanism**:
+
+   The CMP plugin includes two layers of self-protection to prevent corrupting its own ConfigMap:
+
+   1. **Directory Detection** (runtime protection):
+      - **Detection**: Checks if working directory contains `openshift-gitops-admin-config`
+      - **Action**: Skips placeholder replacement (runs `kustomize build` without `sed`)
+      - **Log message**: `[CMP] Detected openshift-gitops-admin-config component, skipping placeholder replacement to avoid self-corruption`
+
+   2. **Variable Naming Convention** (build-time protection):
+      - **Internal variables**: Use distinct names (`DISCOVERED_REGION`, `DISCOVERED_AWS_KEY`, `COMPUTED_CLUSTER_DOMAIN`)
+      - **Placeholders**: Use `CMP_PLACEHOLDER_` prefix (`CMP_PLACEHOLDER_CLUSTER_REGION`, `CMP_PLACEHOLDER_AWS_ACCESS_KEY_ID`, `CMP_PLACEHOLDER_CLUSTER_DOMAIN`)
+      - **Rationale**: Internal variable names never match placeholder names, preventing sed self-corruption
+      - **Example**: `DISCOVERED_REGION` variable won't be replaced by `s|CMP_PLACEHOLDER_CLUSTER_REGION|...|g` sed command
+
+   This two-layer approach allows the openshift-gitops-admin-config component to be managed by ArgoCD without the CMP plugin corrupting its own definition.
+
+   **Important**: Plugin applies automatically to all kustomize-based Applications. No special configuration needed in Application manifests.
 
 **Troubleshooting:**
 
@@ -275,6 +316,182 @@ Common issues and solutions:
 **Version Management:**
 
 ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
+
+## Cluster Network (AdminNetworkPolicy)
+
+**Pattern**: Zero-trust network isolation using AdminNetworkPolicy (ANP) + BaselineAdminNetworkPolicy (BANP)
+
+**Architecture**: Defense-in-depth with three priority tiers
+1. **AdminNetworkPolicy** (priority 10, highest) - Explicit Allow rules for cluster services
+2. **NetworkPolicy** (medium priority) - User/developer policies (if any)
+3. **BaselineAdminNetworkPolicy** (lowest priority) - Default deny fallback
+
+**Opt-in mechanism**: Policies only apply to namespaces labeled `network-policy.gitops/enforce: "true"`
+
+**Resources**:
+- `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
+- `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
+- RBAC: `cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
+
+**API Version**: `policy.networking.k8s.io/v1alpha1` (OpenShift 4.20)
+
+**Subject (where policy applies)**:
+```yaml
+subject:
+  namespaces:
+    matchLabels:
+      network-policy.gitops/enforce: "true"
+```
+
+Only namespaces with this label have ANP rules applied (opt-in mechanism).
+
+**ANP Rules** (action: Allow, cannot be overridden):
+
+**Ingress Rules** (FROM these namespaces):
+
+| Rule | Namespace Selector | Label Used | Purpose |
+|------|-------------------|------------|---------|
+| `allow-openshift-ingress` | `network.openshift.io/policy-group: ingress` | OpenShift auto-labeled | Ingress controller routing |
+| `allow-openshift-monitoring` | `kubernetes.io/metadata.name: openshift-monitoring` | Kubernetes auto-labeled | Prometheus scraping |
+| `allow-openshift-user-workload-monitoring` | `kubernetes.io/metadata.name: openshift-user-workload-monitoring` | Kubernetes auto-labeled | UWM Prometheus scraping |
+
+**Egress Rules** (TO these destinations):
+
+| Rule | Namespace Selector | Label Used | Purpose |
+|------|-------------------|------------|---------|
+| `allow-dns` | `kubernetes.io/metadata.name: openshift-dns` | Kubernetes auto-labeled | DNS queries (5353 UDP/TCP) |
+| `allow-kube-api` | `nodes:` (control-plane) | Node selector, not namespace | Kubernetes API (6443 TCP) |
+| `allow-openshift-ingress` | `network.openshift.io/policy-group: ingress` | OpenShift auto-labeled | App routing |
+| `allow-openshift-logging` | `kubernetes.io/metadata.name: openshift-logging` | Kubernetes auto-labeled | Log forwarding |
+| `allow-openshift-monitoring` | `kubernetes.io/metadata.name: openshift-monitoring` | Kubernetes auto-labeled | Metrics pushing |
+
+**Label Types**:
+
+1. **Standard Kubernetes labels** (auto-created):
+   - `kubernetes.io/metadata.name: <namespace-name>` - Every namespace has this set to its name
+
+2. **OpenShift policy-group labels** (auto-created for infra namespaces):
+   - `network.openshift.io/policy-group: ingress` - Applied to openshift-ingress
+
+3. **Custom opt-in label** (manual):
+   - `network-policy.gitops/enforce: "true"` - Apply to enable ANP for namespace
+
+**Example selector patterns**:
+```yaml
+# Pattern 1: Match by namespace name (standard Kubernetes label)
+namespaces:
+  matchLabels:
+    kubernetes.io/metadata.name: openshift-monitoring
+
+# Pattern 2: Match by policy group (OpenShift infrastructure label)
+namespaces:
+  matchLabels:
+    network.openshift.io/policy-group: ingress
+
+# Pattern 3: Match control-plane nodes (for Kube API)
+nodes:
+  matchExpressions:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+```
+
+**Note**: Same-namespace traffic is NOT controlled by ANP. Use namespace-scoped NetworkPolicy for intra-namespace isolation.
+
+**BANP Rules** (action: Deny, applies when nothing else matches):
+- Deny all egress to 0.0.0.0/0 (blocks everything not explicitly allowed)
+
+**Why this architecture**:
+- ANP guarantees critical cluster services always work (highest priority)
+- Developer NetworkPolicies can add restrictions without breaking monitoring/ingress
+- BANP provides default-deny fallback only when ANP and NetworkPolicy don't match
+- Prevents accidental lockout scenarios (DNS, monitoring, ingress always allowed)
+
+**⚠️ IMPORTANT: sameLabels NOT SUPPORTED in v1alpha1**
+
+The `sameLabels` and `notSameLabels` fields were **removed from the AdminNetworkPolicy v1alpha1 API** used in OpenShift 4.20. These fields were originally designed for tenancy use cases but were removed due to complexity concerns.
+
+**What happened:**
+- `sameLabels` was intended to allow same-namespace traffic control
+- The upstream community removed it from v1alpha1 API
+- When OVN-Kubernetes encounters `sameLabels`, it normalizes it to `namespaces: {}` (matches ALL namespaces - dangerous!)
+- NPEP-122 is being developed as a better tenancy API proposal
+
+**For same-namespace traffic isolation:**
+Use **NetworkPolicy** (namespace-scoped) instead of AdminNetworkPolicy (cluster-scoped):
+
+```yaml
+# Use NetworkPolicy for same-namespace traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: <your-namespace>
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector: {}
+  egress:
+  - to:
+    - podSelector: {}
+```
+
+**References:**
+- [NPEP-122: Better tenancy API proposal](https://network-policy-api.sigs.k8s.io/npeps/npep-122/)
+- [AdminNetworkPolicy OVN-Kubernetes docs](https://ovn-kubernetes.io/features/network-security-controls/admin-network-policy/)
+
+**Deployment impact**: Zero until namespace labeled. Safe incremental rollout.
+
+**Enable for namespace**:
+```bash
+oc label namespace <namespace-name> network-policy.gitops/enforce=true
+```
+
+**⚠️ CRITICAL: Kubernetes API Access Requires `nodes:` Selector**
+
+**Problem**: IP-based rules (`networks: [172.30.0.1/32]`) DO NOT work for Kubernetes API access.
+
+**Root Cause**: OVN-Kubernetes performs DNAT **before** ANP evaluation:
+- Service IP `172.30.0.1:443` → Control-Plane-Node-IP:`6443`
+- ANP sees post-DNAT destination (node IP, not service IP)
+- Host-network endpoints require `nodes:` peer selector
+
+**Correct syntax** (use `nodes:` selector with port 6443):
+```yaml
+egress:
+- name: allow-kube-api
+  action: Allow
+  to:
+  - nodes:
+      matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+  ports:
+  - portNumber:
+      port: 6443  # API server host port (post-DNAT)
+      protocol: TCP
+```
+
+**Why this works**:
+- Matches control plane nodes (where kube-apiserver runs on host network)
+- Uses port 6443 (API server host port, not Service port 443)
+- Works with host-network endpoints (nodes don't belong to pod network)
+
+**Failed approaches** (do NOT use):
+- ❌ `networks: [172.30.0.1/32]` - ANP sees node IP after DNAT
+- ❌ `networks: [172.30.0.0/16]` - Node IPs not in service CIDR
+- ❌ `namespaces: {matchLabels: {kubernetes.io/metadata.name: default}}` - Nodes not in pod network
+
+**This is intended behavior** (confirmed by Red Hat Engineering, 2026-03-27):
+- Network policies evaluate post-DNAT (resolved endpoint IPs)
+- Not a bug or limitation of ANP v1alpha1
+
+**Requirements**:
+- OVN-Kubernetes network plugin (default in OpenShift 4.11+)
+- AdminNetworkPolicy API v1alpha1 (available in OpenShift 4.14+)
 
 ## cert-manager
 
@@ -304,14 +521,9 @@ spec:
   dnsNames:
   - CMP_PLACEHOLDER_OCP_APPS_DOMAIN
   - '*.CMP_PLACEHOLDER_OCP_APPS_DOMAIN'
-  - apps.CMP_PLACEHOLDER_TIMESTAMP.CMP_PLACEHOLDER_OCP_CLUSTER_DOMAIN  # Unique DNS challenge
 ```
 
-**TIMESTAMP Behavior**:
-- ArgoCD caches CMP-built manifests per Git commit SHA
-- Same revision → same TIMESTAMP (stable during certificate issuance)
-- New commit → new CMP build → new TIMESTAMP (allows updates)
-- Perfect for cert-manager: stable enough for issuance, refreshes on code changes
+**Note**: CMP_PLACEHOLDER_TIMESTAMP was removed from Certificate dnsNames (2026-03-29) due to Let's Encrypt rate limit concerns. Static dnsNames work correctly for DNS-01 validation.
 
 **IngressController Configuration** (cluster-ingress component):
 
@@ -416,16 +628,63 @@ spec:
           defaultMode: 0755
 ```
 
-**Monitoring Logic** (every 60 seconds):
+**Monitoring Logic**:
+
+Detects two types of stuck states (checks every 60 seconds):
+
+**STUCK SCENARIO 1: Race Condition (CR exists but no reconciliation)**
+- CertManager CR exists
+- NO deploymentAvailable conditions present (operator didn't reconcile)
+- NO pods created in cert-manager namespace
+- CR age > 120 seconds (grace period for initial deployment)
+
+**Detection**:
 ```bash
+# Check if conditions are missing
+if [ -z "$CONTROLLER_AVAILABLE" ] && [ -z "$CAINJECTOR_AVAILABLE" ] && [ -z "$WEBHOOK_AVAILABLE" ]; then
+  # Check if no pods and CR old enough
+  POD_COUNT=$(oc get pods -n cert-manager --no-headers | wc -l)
+  if [ "$POD_COUNT" -eq 0 ] && [ "$CR_AGE" -gt 120 ]; then
+    oc delete certmanager cluster  # Operator race condition - force recreation
+  fi
+fi
+```
+
+**Why this happens**:
+- Watchdog or ArgoCD deletes CertManager CR
+- ArgoCD immediately recreates it (self-heal enabled)
+- Operator tries to create default CR but sees it already exists
+- Operator enters stuck state without reconciling
+- CR exists but operator never creates deployments/conditions
+
+**Real-world occurrence**: 2026-03-29 19:07-20:16 on main cluster (myocp)
+
+**STUCK SCENARIO 2: Operator Stuck (conditions exist but deployments unavailable)**
+- CertManager CR exists
+- deploymentAvailable conditions exist
+- At least one deployment condition != "True"
+
+**Detection**:
+```bash
+# Check deployment conditions
 CONTROLLER_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-controller-deploymentAvailable")].status}')
 CAINJECTOR_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-cainjector-deploymentAvailable")].status}')
 WEBHOOK_AVAILABLE=$(oc get certmanager cluster -o jsonpath='{.status.conditions[?(@.type=="cert-manager-webhook-deploymentAvailable")].status}')
 
+# If any != "True" → Delete CertManager CR (operator recreates it)
 if [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
-  oc delete certmanager cluster  # Operator recreates it automatically
+  oc delete certmanager cluster
 fi
 ```
+
+**Why this happens**: CM-412 operator bug - operator gets stuck and doesn't reconcile deployments
+
+**Detection criteria**:
+- `cert-manager-controller-deploymentAvailable` status
+- `cert-manager-cainjector-deploymentAvailable` status
+- `cert-manager-webhook-deploymentAvailable` status
+- Pod count in cert-manager namespace
+- CertManager CR age (for grace period)
 
 **Why Deployment over Job/CronJob**:
 - ✅ Immediate detection (<60s vs up to 10 minutes)
