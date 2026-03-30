@@ -8,7 +8,6 @@ resources:
 - cluster-openshiftbuild-cluster.yaml
 - openshift-builds-operatorgroup-openshift-builds-operator.yaml
 - openshift-builds-subscription-openshift-builds-operator.yaml
-- openshift-gitops-job-check-and-wait-openshift-pipelines.yaml
 - openshift-gitops-job-delete-openshift-builds-resources.yaml
 replacements:
 - source:
