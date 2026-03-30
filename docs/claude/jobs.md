@@ -433,7 +433,9 @@ spec:
 
 **Jobs:**
 - `openshift-gitops-job-cleanup-installer-pods.yaml` → Delete failed installer pods
-- `openshift-gitops-job-delete-openshift-builds-resources.yaml` → Remove OpenShift Builds (superseded by Pipelines)
+- `openshift-gitops-job-delete-openshift-builds-resources.yaml` → Remove OpenShift Builds operator (superseded by Pipelines)
+  - Uses proper operator cleanup sequence (Subscription → CSV → CR finalizer removal → Namespace)
+  - See "Pattern: Operator Cleanup with Finalizer Handling" below
 
 **Template (cleanup failed pods):**
 ```yaml
@@ -804,6 +806,106 @@ done
 echo "Failed after 5 attempts"
 exit 1
 ```
+
+#### Pattern: Operator Cleanup with Finalizer Handling (PostDelete)
+
+**Problem**: Deleting operator Custom Resources with finalizers can cause deadlock when using `--cascade=foreground`. The operator continues running while the Job waits indefinitely for the CR to be deleted, causing timeout and BackoffLimitExceeded failure.
+
+**Solution**: Delete resources in proper order (Subscription → CSV → CR with finalizer removal → Namespace):
+
+```bash
+set -e
+
+# Step 1: Delete Subscription (stops operator updates)
+echo "Step 1: Deleting Subscription..."
+if oc get subscription <operator-name> -n <namespace> &>/dev/null; then
+  oc delete subscription <operator-name> -n <namespace> --ignore-not-found
+  echo "✅ Subscription deleted"
+else
+  echo "ℹ️  Subscription not found"
+fi
+
+# Step 2: Delete CSV (stops operator)
+echo "Step 2: Deleting ClusterServiceVersion..."
+CSV_NAME=$(oc get csv -n <namespace> -o name 2>/dev/null | grep <operator-name> || echo "")
+if [ -n "$CSV_NAME" ]; then
+  oc delete $CSV_NAME -n <namespace> --ignore-not-found
+  echo "✅ CSV deleted: $CSV_NAME"
+else
+  echo "ℹ️  CSV not found"
+fi
+
+# Step 3: Wait for operator pods to terminate
+echo "Step 3: Waiting for operator pods to terminate..."
+if oc get pods -l app=<operator-label> -n <namespace> &>/dev/null; then
+  oc wait --for=delete pod -l app=<operator-label> -n <namespace> --timeout=120s 2>/dev/null || \
+    echo "⚠️  Timeout waiting for pods (continuing anyway)"
+  echo "✅ Operator pods terminated"
+else
+  echo "ℹ️  No operator pods found"
+fi
+
+# Step 4: Remove finalizer from CR (if operator didn't clean up)
+echo "Step 4: Removing finalizer from CR..."
+if oc get <cr-kind> <cr-name> &>/dev/null; then
+  FINALIZER_COUNT=$(oc get <cr-kind> <cr-name> -o jsonpath='{.metadata.finalizers}' 2>/dev/null | \
+    grep -c "<finalizer-name>" || echo "0")
+  if [ "$FINALIZER_COUNT" -gt 0 ]; then
+    oc patch <cr-kind> <cr-name> --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' \
+      2>/dev/null || echo "⚠️  Failed to remove finalizer (may already be removed)"
+    echo "✅ Finalizer removed"
+  else
+    echo "ℹ️  No finalizer found (operator already cleaned up)"
+  fi
+else
+  echo "ℹ️  CR not found"
+fi
+
+# Step 5: Delete CR
+echo "Step 5: Deleting CR..."
+if oc get <cr-kind> <cr-name> &>/dev/null; then
+  oc delete <cr-kind> <cr-name> --ignore-not-found --timeout=60s
+  echo "✅ CR deleted"
+else
+  echo "ℹ️  CR already deleted"
+fi
+
+# Step 6: Delete namespace
+echo "Step 6: Deleting namespace..."
+if oc get namespace <namespace> &>/dev/null; then
+  oc delete namespace <namespace> --ignore-not-found --timeout=120s
+  echo "✅ Namespace deleted"
+else
+  echo "ℹ️  Namespace already deleted"
+fi
+
+echo "✅ Cleanup completed successfully"
+```
+
+**Required RBAC** (example for `cleanup-operator` ClusterRole):
+
+```yaml
+rules:
+- apiGroups: [""]
+  resources: [namespaces, pods]
+  verbs: [delete, list, get]
+- apiGroups: [<operator-api-group>]
+  resources: [<cr-plural>]
+  verbs: [delete, get, patch]  # patch required for finalizer removal
+- apiGroups: [operators.coreos.com]
+  resources: [subscriptions, clusterserviceversions]
+  verbs: [delete, list, get]
+```
+
+**Key points**:
+- ✅ Stops operator before deleting CR (prevents finalizer deadlock)
+- ✅ Fallback finalizer removal if operator doesn't clean up
+- ✅ Idempotent (safe to retry on failure)
+- ✅ Comprehensive logging for troubleshooting
+- ✅ Timeouts prevent infinite waiting
+- ❌ Never use `--cascade=foreground` for operator CRs with finalizers
+
+**Example**: `components/openshift-builds/base/openshift-gitops-job-delete-openshift-builds-resources.yaml`
 
 ---
 
