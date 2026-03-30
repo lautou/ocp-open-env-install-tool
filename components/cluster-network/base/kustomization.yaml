@@ -4,4 +4,6 @@ kind: Kustomization
 resources:
   - cluster-adminnetworkpolicy-gitops-standard.yaml
   - cluster-baselineadminnetworkpolicy-gitops-baseline.yaml
+  - cluster-clusterrole-manage-network-policies.yaml
+  - cluster-crb-anp-manage-gitops.yaml
   - cluster-network-cluster.yaml 

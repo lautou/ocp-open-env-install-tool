@@ -5,8 +5,6 @@ resources:
   - cluster-clusterrole-argocd-cmp-dns-reader.yaml
   - cluster-clusterrole-delete-project.yaml
   - cluster-clusterrole-edit-crd.yaml
-  - cluster-clusterrole-manage-network-policies.yaml
-  - cluster-crb-anp-manage-gitops.yaml
   - cluster-crb-argocd-cmp-dns-reader.yaml
   - cluster-crb-delete-project-openshift-gitopsopenshift-gitops-argocd-application-controller.yaml
   - cluster-crb-edit-crd-openshift-gitops-openshift-gitops-argocd-application-controller.yaml
