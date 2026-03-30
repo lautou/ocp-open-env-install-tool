@@ -367,6 +367,38 @@ Only namespaces with this label have ANP rules applied (opt-in mechanism).
 | `allow-openshift-logging` | `kubernetes.io/metadata.name: openshift-logging` | Kubernetes auto-labeled | Log forwarding |
 | `allow-openshift-monitoring` | `kubernetes.io/metadata.name: openshift-monitoring` | Kubernetes auto-labeled | Metrics pushing |
 
+### Network Diagnostics Configuration
+
+**Pattern**: Static manifest for shared cluster-scoped resource
+
+**File**: `components/cluster-network/base/cluster-network-cluster.yaml`
+
+```yaml
+apiVersion: config.openshift.io/v1
+kind: Network
+metadata:
+  name: cluster
+spec:
+  networkDiagnostics:
+    sourcePlacement:
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+```
+
+**Purpose**: Configures network diagnostics pods to run on infrastructure nodes.
+
+**Field ownership**:
+- **GitOps manages**: `spec.networkDiagnostics.sourcePlacement` (infra node placement)
+- **OpenShift manages**: `spec.clusterNetwork`, `spec.serviceNetwork`, `spec.networkType`, `spec.externalIP` (set during installation)
+
+**No ignoreDifferences needed**: Both systems coexist, each managing their own fields. No sync conflicts occur.
+
+### AdminNetworkPolicy Labels
+
 **Label Types**:
 
 1. **Standard Kubernetes labels** (auto-created):
@@ -556,7 +588,7 @@ spec:
 
 **APIServer Configuration** (openshift-config component):
 
-**Pattern**: Static manifest + ignoreDifferences for shared resource
+**Pattern**: Static manifest for shared cluster-scoped resource
 
 **File**: `components/openshift-config/base/cluster-apiserver-cluster.yaml`
 
@@ -579,20 +611,12 @@ spec:
 **Why static manifest works**:
 - APIServer is a **shared resource** (created by OpenShift installer)
 - GitOps manages only `servingCerts.namedCertificates` field
-- `ignoreDifferences` prevents ArgoCD from managing OpenShift-controlled fields
+- OpenShift manages installation fields (`spec.audit`, metadata annotations, ownerReferences)
 - CMP placeholder replaced with actual API domain at build time
 
-**ignoreDifferences in ApplicationSet**:
-```yaml
-ignoreDifferences:
-- group: config.openshift.io
-  kind: APIServer
-  name: cluster
-  jsonPointers:
-  - /metadata/annotations     # OpenShift-managed
-  - /metadata/ownerReferences # OpenShift-managed
-  - /spec/audit               # OpenShift-managed
-```
+**RBAC**: `openshift-gitops-clusterrole-cert-manager-operator` grants `patch` permissions on `apiservers`
+
+**No ignoreDifferences needed**: Explicit ClusterRole RBAC is sufficient. ArgoCD and OpenShift coexist, each managing their own fields.
 
 **Watchdog Deployment** (CM-412 workaround):
 
