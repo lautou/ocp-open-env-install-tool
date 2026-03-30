@@ -129,7 +129,7 @@ Three-layer modular system:
    - Structure: `components/<name>/base` + `components/<name>/overlays/<variant>`
 
 2. **Bases** (`gitops-bases/`) - ApplicationSets bundling components
-   - Categories: `core`, `storage`, `logging`, `acs`, `acm`, `ai`, `netobserv`, `ossm`
+   - Categories: `core`, `storage`, `logging`, `acs`, `acm`, `ai`, `netobserv`, `devops`, `rh-connectivity-link`
    - Structure: `gitops-bases/<category>/<variant>/applicationset.yaml`
 
 3. **Profiles** (`gitops-profiles/`) - Top-level Kustomize manifests

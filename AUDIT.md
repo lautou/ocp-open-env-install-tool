@@ -198,7 +198,7 @@ components/common/
 
 ### 3.2 ApplicationSet Analysis
 
-**Total ApplicationSets:** 20
+**Total ApplicationSets:** 19
 **Pattern:** List generator with dynamic `{{item}}` substitution
 
 **Example Structure:**
@@ -237,15 +237,13 @@ repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
 
 **Affected Files:**
 - `gitops-bases/core/applicationset.yaml`
-- `gitops-bases/ai/applicationset.yaml`
+- `gitops-bases/ai/applicationset.yaml` (includes rh-connectivity-link)
 - `gitops-bases/storage/*/applicationset.yaml` (4 files)
 - `gitops-bases/logging/*/applicationset.yaml` (4 files)
 - `gitops-bases/acm/*/applicationset.yaml` (2 files)
 - `gitops-bases/acs/*/applicationset.yaml` (2 files)
-- `gitops-bases/devops/*/applicationset.yaml` (2 files)
+- `gitops-bases/devops/*/applicationset.yaml` (2 files - default includes service mesh)
 - `gitops-bases/netobserv/*/applicationset.yaml` (2 files)
-- `gitops-bases/ossm/applicationset.yaml`
-- `gitops-bases/rh-connectivity-link/default/applicationset.yaml`
 
 **Recommendation:**
 ```yaml
@@ -265,8 +263,8 @@ repoURL: $(GIT_REPO_URL)  # From bootstrap ConfigMap
 
 | Profile | Use Case | Components | Bases Used |
 |---------|----------|-----------|-----------|
-| ocp-standard | Baseline cluster | 18 | core, devops, logging/pico, netobserv, storage/mcg-only, ossm |
-| ocp-ai | AI/ML workloads | 23 | core, devops/ai, logging/pico, storage/mcg-only, ossm, ai |
+| ocp-standard | Baseline cluster | 25 | core, devops (incl. service mesh), logging/pico, netobserv, storage/mcg-only |
+| ocp-ai | AI/ML workloads | 28 | core, devops/ai (no service mesh), logging/pico, storage/mcg-only, ai |
 | ocp-acm-hub | Multi-cluster mgmt | 19 | standard + acm/hub |
 | ocp-acs-central | Security operations | 19 | standard + acs/central |
 | ocp-odf-full-aws-performance | High-perf storage | 18 | standard + storage/full-aws-performance |
@@ -1502,7 +1500,7 @@ grep -r "serviceAccountName: openshift-gitops-argocd-application-controller" \
 | **Overlays** | 48+ variants |
 | **Profiles** | 13 |
 | **GitOps Bases** | 11 groups |
-| **ApplicationSets** | 20 |
+| **ApplicationSets** | 19 |
 | **Total YAML Files** | 304 |
 | **Jobs** | 21 |
 | **Secrets** | 6 (non-credential) |
@@ -1714,7 +1712,9 @@ gitops-bases/
 │   ├── hub/
 │   └── managed/
 ├── ai/
-├── ossm/
+├── devops/
+│   ├── ai/
+│   └── default/
 └── rh-connectivity-link/
     └── default/
 ```
