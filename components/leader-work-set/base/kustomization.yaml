@@ -15,4 +15,4 @@ replacements:
     - spec.channel
     select:
       kind: Subscription
-      name: lws-operator
+      name: leader-worker-set
