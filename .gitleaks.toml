@@ -1,0 +1,22 @@
+# Gitleaks configuration for handling demo secrets
+# Documentation: https://source.redhat.com/departments/it/it_information_security/leaktk/leaktk_guides/false_positives_in_git_repos
+
+# Allow gitleaks to use its built in rules.
+# This is optional for LeakTK which always applies its rules.
+[extend]
+useDefault = true
+
+[allowlist]
+# Grafana OAuth proxy session secret for demo/lab environments.
+# This is a static placeholder value for local cluster cookie encryption.
+# Context: Public GitOps template repository for demo/lab deployments.
+regexes = [
+    # Grafana OAuth proxy session secret (32-byte base64 value)
+    '''\bICZe4MUarpjLDz43oEH0ngSuT2c5HqeSCHRVmQfzJXk=\b''',
+]
+
+# Alternative: You can also ignore by file path
+paths = [
+    # Uncomment if needed to ignore entire files
+    # '''^components/rh-connectivity-link/base/monitoring-secret-grafana-proxy\.yaml$''',
+]
