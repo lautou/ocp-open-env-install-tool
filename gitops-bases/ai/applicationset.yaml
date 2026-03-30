@@ -12,7 +12,7 @@ spec:
       - branch: master
         item: nvidia-gpu-operator
       - branch: master
-        item: rhbar
+        item: rh-connectivity-link
       - branch: master
         item: rhoai
   template:

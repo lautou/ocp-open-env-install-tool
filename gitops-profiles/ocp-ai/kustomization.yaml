@@ -6,7 +6,6 @@ resources:
 - ../../gitops-bases/devops/ai
 - ../../gitops-bases/logging/pico
 - ../../gitops-bases/netobserv/default
-- ../../gitops-bases/rh-connectivity-link/default
 - ../../gitops-bases/storage/mcg-only
 
 # Git repository configuration (injected into ApplicationSets)
