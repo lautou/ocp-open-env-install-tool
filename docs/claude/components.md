@@ -1302,7 +1302,7 @@ metadata:
 
 **Pattern**: Static manifest with CMP placeholder, namespace-level RBAC
 
-**Location**: `components/cluster-ingress/base/openshift-ingress-gateway-maas-default-gateway.yaml`
+**Location**: `components/rhoai/base/openshift-ingress-gateway-maas-default-gateway.yaml`
 
 Models as a Service requires a Gateway API resource for exposing model endpoints:
 
