@@ -5,7 +5,6 @@ resources:
 - ../../gitops-bases/devops/default
 - ../../gitops-bases/logging/extra-small
 - ../../gitops-bases/netobserv/default
-- ../../gitops-bases/ossm
 - ../../gitops-bases/storage/mcg-only
 
 # Git repository configuration (injected into ApplicationSets)
