@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../common
+- cluster-namespace-openshift-lws-operator.yaml
+- openshift-lws-operator-operatorgroup-openshift-lws-operator.yaml
+- openshift-lws-operator-subscription-openshift-lws-operator.yaml
+replacements:
+- source:
+    fieldPath: data.lws
+    kind: ConfigMap
+    name: cluster-versions
+  targets:
+  - fieldPaths:
+    - spec.channel
+    select:
+      kind: Subscription
+      name: lws-operator

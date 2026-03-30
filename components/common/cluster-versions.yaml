@@ -44,6 +44,7 @@ data:
 
   # AI
   kueue: "stable-v1.2"
+  lws: "stable-v1.0"
   nvidia-gpu-operator: "v25.10"
   rhoai: "stable-3.3"
 
