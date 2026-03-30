@@ -1332,3 +1332,131 @@ Operator channel managed via `cluster-versions` ConfigMap:
 - Subscription fallback: `stable-3.x` (generic channel for future upgrades)
 
 **Installation**: Part of the `ai` gitops-base, deployed in profiles: `ocp-ai`, `ocp-standard`, etc.
+## Leader Worker Set Operator
+
+**Purpose**: Provides an API for deploying a group of pods as a unit of replication, addressing AI/ML inference workloads deployment patterns, especially multi-host inference where LLMs are sharded across multiple devices.
+
+**Installation**: Deployed in `openshift-lws-operator` namespace. Included in AI-focused profiles.
+
+**Namespace**: `openshift-lws-operator`
+
+**Key Components:**
+
+### LeaderWorkerSetOperator CR
+
+The cluster-scoped LeaderWorkerSetOperator CR controls the operator lifecycle:
+
+```yaml
+# components/leader-work-set/base/cluster-leaderworkersetoperator-cluster.yaml
+apiVersion: operator.openshift.io/v1
+kind: LeaderWorkerSetOperator
+metadata:
+  name: cluster
+spec:
+  logLevel: Normal
+  operatorLogLevel: Normal
+```
+
+**Available Fields:**
+- `logLevel`: Component logging level (Normal, Debug, Trace, TraceAll)
+- `operatorLogLevel`: Operator logging level (Normal, Debug, Trace, TraceAll)
+- `managementState`: Operator management state (Managed, Unmanaged, Force, Removed)
+- `observedConfig`: Sparse config observed from cluster state
+- `unsupportedConfigOverrides`: Override final configuration (unsupported, blocks upgrades)
+
+**Managed Resources:**
+- **lws-controller-manager**: Deployment managing LeaderWorkerSet resources
+  - Replicas: 2 (high availability)
+  - Image: `registry.redhat.io/leader-worker-set/lws-rhel9`
+
+### Known Limitation: Infra Node Placement
+
+**Issue**: The LeaderWorkerSetOperator CR does NOT support nodeSelector or tolerations configuration for the lws-controller-manager deployment.
+
+**Impact:**
+- Operator Subscription pod correctly uses infra nodeSelector/tolerations (configured in Subscription spec.config)
+- lws-controller-manager deployment pods run on worker nodes instead of infra nodes
+- Prevents following OpenShift best practices for infrastructure workload separation
+
+**Tracking:**
+- **JIRA**: [RHOAIENG-55981](https://issues.redhat.com/browse/RHOAIENG-55981) - "LeaderWorkerSetOperator - Add nodeSelector and tolerations configuration"
+- **Status**: Open - Feature Request
+- **Detailed Documentation**: `JIRA-LeaderWorkerSet-InfraNodes.md`
+- **Also Tracked In**: `KNOWN_LIMITATIONS.md` - Operator Pod Placement on Infra Nodes
+
+**Requested API Enhancement:**
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: LeaderWorkerSetOperator
+metadata:
+  name: cluster
+spec:
+  logLevel: Normal
+  operatorLogLevel: Normal
+  nodePlacement:  # Requested feature (not currently available)
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
+```
+
+**Current Workarounds:**
+- ❌ Manual deployment patching: Reverted by operator reconciliation
+- ❌ unsupportedConfigOverrides: Blocks cluster upgrades, unsupported
+
+**Verification:**
+```bash
+# Check current pod placement
+oc get pods -n openshift-lws-operator -o wide
+
+# Check node roles
+oc get node <node-name> --show-labels | grep node-role
+
+# Expected: lws-controller-manager pods on worker nodes (limitation)
+# Expected: openshift-lws-operator pod on infra node (correct)
+```
+
+### LeaderWorkerSet API (Workload CRD)
+
+The LeaderWorkerSet API (separate from the operator CR) is used to deploy AI/ML workloads:
+
+**CRD**: `leaderworkersets.leaderworkerset.x-k8s.io`
+
+**Purpose**: Deploys pods grouped into units with one leader and multiple workers, ideal for:
+- Multi-host LLM inference (model sharding across GPUs)
+- Distributed training workloads
+- Leader-worker patterns with coordinated scaling
+
+**Example Use Case**: Deploy a sharded LLM across 4 GPUs on 2 nodes
+```yaml
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: llm-inference
+  namespace: ai-workloads
+spec:
+  replicas: 2  # 2 groups (leader + workers)
+  leaderWorkerTemplate:
+    size: 2  # 2 pods per group (1 leader + 1 worker)
+    leaderTemplate:
+      spec:
+        containers:
+        - name: llm-leader
+          # Leader pod configuration
+    workerTemplate:
+      spec:
+        containers:
+        - name: llm-worker
+          # Worker pod configuration
+```
+
+**Documentation**: See [Red Hat OpenShift AI workloads - Leader Worker Set Operator](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/ai_workloads/leader-worker-set-operator)
+
+**Version Management:**
+
+Operator channel managed via `cluster-versions` ConfigMap:
+- `lws: "stable-v1.0"` (ConfigMap - actual deployed version)
+- Subscription: `leader-worker-set` (package name in Red Hat Operators catalog)
+
+**Installation**: Part of the `ai` gitops-base, deployed in profile: `ocp-ai`

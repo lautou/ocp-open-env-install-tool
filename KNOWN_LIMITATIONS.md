@@ -165,6 +165,29 @@ Many OpenShift operators do NOT support configuring node selectors and toleratio
 
 The following operators lack infra node placement configuration capabilities:
 
+#### Leader Worker Set Operator
+- **JIRA:** [RHOAIENG-55981](https://issues.redhat.com/browse/RHOAIENG-55981)
+- **Title:** "LeaderWorkerSetOperator - Add nodeSelector and tolerations configuration"
+- **Status:** Open - Feature Request
+- **Impact:** lws-controller-manager deployment runs on worker nodes instead of infra nodes
+- **Affected Versions:** OpenShift 4.19, 4.20, 4.21; Leader Worker Set Operator v1.0.0
+- **Current CR Spec:** Only supports `logLevel`, `operatorLogLevel`, `managementState`, `observedConfig`, `unsupportedConfigOverrides`
+- **Requested API:**
+  ```yaml
+  spec:
+    nodePlacement:
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
+  ```
+- **Workaround:** None available (manual deployment patching reverted by operator reconciliation)
+- **Notes:**
+  - Operator Subscription pod correctly uses infra nodeSelector/tolerations (configured in Subscription spec.config)
+  - Controller-manager deployment pods do NOT respect infra placement
+  - Detailed ticket documentation: `JIRA-LeaderWorkerSet-InfraNodes.md`
+
 #### OpenShift Builds
 - **JIRA:** [RFE-8720](https://issues.redhat.com/browse/RFE-8720)
 - **Title:** "Builds for RH Openshift: Allow node-selector and taints configuration for build operator components"
@@ -356,4 +379,4 @@ done
 
 ---
 
-**Last Updated:** 2026-03-29
+**Last Updated:** 2026-03-30
