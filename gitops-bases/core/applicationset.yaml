@@ -32,8 +32,6 @@ spec:
       - branch: master
         item: nfd
       - branch: master
-        item: openshift-builds
-      - branch: master
         item: openshift-config
       - branch: master
         item: openshift-gitops-admin-config
