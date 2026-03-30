@@ -88,7 +88,7 @@ Each component includes:
 
    ArgoCD requires explicit RBAC permissions for resources not managed by OLM (Operator Lifecycle Manager). The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
 
-   **a) Gateway API Resources** (`openshift-gitops-clusterrole-gateway-api.yaml`):
+   **a) Gateway API Resources** (`components/rhoai/base/cluster-clusterrole-gateway-api-manager.yaml`):
 
    ```yaml
    apiVersion: rbac.authorization.k8s.io/v1
@@ -115,6 +115,8 @@ Each component includes:
    - Affects: RHOAI (MaaS Gateway), RHCL (Kuadrant Gateways)
 
    **Bound to:** `openshift-gitops-argocd-application-controller` ServiceAccount
+
+   **Location:** Defined in `rhoai` component (co-located with Gateway CR)
 
    **b) Other Operator-Specific ClusterRoles**:
 
@@ -331,7 +333,7 @@ ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
 **Resources**:
 - `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
 - `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
-- RBAC: `cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
+- RBAC: `components/cluster-network/base/cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
 
 **API Version**: `policy.networking.k8s.io/v1alpha1` (OpenShift 4.20)
 
@@ -1257,29 +1259,28 @@ subjects:
     namespace: openshift-gitops
 ```
 
-**ignoreDifferences Configuration:**
+**RBAC Pattern:**
 
-The `ai` ApplicationSet ignores operator-managed fields to prevent sync conflicts:
+OdhDashboardConfig uses **namespace-level RBAC** (same pattern as HardwareProfile):
 
 ```yaml
-# gitops-bases/ai/applicationset.yaml
-ignoreDifferences:
-  - group: opendatahub.io
-    kind: OdhDashboardConfig
-    name: odh-dashboard-config
-    jsonPointers:
-      - /metadata/annotations      # Operator-managed platform annotations
-      - /metadata/labels
-      - /metadata/ownerReferences
-      - /spec/hardwareProfileOrder # Operator-populated lists
-      - /spec/templateDisablement
-      - /spec/templateOrder
+# components/rhoai/base/cluster-namespace-redhat-ods-applications.yaml
+metadata:
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops  # Grants ArgoCD edit permissions
 ```
 
+**No ignoreDifferences needed:**
+- The `managed-by` label provides sufficient RBAC for ArgoCD to manage the CR
+- Operator adds runtime annotations/labels (e.g., `platform.opendatahub.io/*`)
+- Operator manages dynamic spec fields (`hardwareProfileOrder`, `templateDisablement`, `templateOrder`)
+- ArgoCD manages declared spec fields (`dashboardConfig`, `notebookController`)
+- No sync conflicts occur - each system manages its own fields
+
 **Why this approach:**
-- ✅ GitOps-native: CR managed like any other Kubernetes resource
-- ✅ No Job complexity: Direct declarative management
-- ✅ Clear ownership: ArgoCD owns `dashboardConfig` section, operator owns metadata
+- ✅ Simple: Single namespace label grants all necessary permissions
+- ✅ No ignoreDifferences: Namespace RBAC handles operator-managed metadata
+- ✅ GitOps-native: CR managed like any other namespace-scoped resource
 - ✅ Auditable: Changes tracked in Git, visible in ArgoCD UI
 
 ### MaaS Gateway for Model Serving
@@ -1404,6 +1405,11 @@ The RHOAI operator automatically adds runtime annotations to HardwareProfile res
 - ✅ Operator annotations coexist with GitOps-managed fields
 - ✅ Application remains Synced and Healthy
 - ✅ No ignoreDifferences required (namespace label is sufficient)
+
+**Pattern Applies To:**
+- HardwareProfile (this section)
+- OdhDashboardConfig (see above)
+- Any namespace-scoped CR in `redhat-ods-applications` where operator adds runtime metadata
 
 **Use Case:**
 Enables RHOAI users to select GPU-enabled resource profiles when creating:
