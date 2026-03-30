@@ -8,6 +8,8 @@ spec:
   - list:
       elements:
       - branch: master
+        item: apicurio-registry
+      - branch: master
         item: openshift-pipelines
       - branch: master
         item: webterminal
