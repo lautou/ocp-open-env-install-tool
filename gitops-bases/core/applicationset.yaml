@@ -78,11 +78,3 @@ spec:
         kind: ConfigMap
         name: cmp-plugin
         namespace: openshift-gitops
-      - group: config.openshift.io
-        jsonPointers:
-        - /spec/clusterNetwork
-        - /spec/serviceNetwork
-        - /spec/networkType
-        - /spec/externalIP
-        kind: Network
-        name: cluster
