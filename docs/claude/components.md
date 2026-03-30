@@ -324,7 +324,7 @@ ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
 **Resources**:
 - `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
 - `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
-- RBAC: `components/cluster-network/base/cluster-clusterrole-manage-network-policies.yaml` (ArgoCD permissions)
+- RBAC: `components/cluster-network/base/cluster-clusterrole-manage-admin-network-policies.yaml` (ArgoCD permissions)
 
 **API Version**: `policy.networking.k8s.io/v1alpha1` (OpenShift 4.20)
 

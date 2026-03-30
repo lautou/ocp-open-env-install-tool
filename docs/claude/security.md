@@ -278,8 +278,8 @@ Egress:
 
 - `components/cluster-network/base/cluster-adminnetworkpolicy-gitops-standard.yaml`
 - `components/cluster-network/base/cluster-baselineadminnetworkpolicy-gitops-baseline.yaml`
-- `components/openshift-gitops-admin-config/base/cluster-clusterrole-manage-network-policies.yaml`
-- `components/openshift-gitops-admin-config/base/cluster-crb-manage-network-policies-*.yaml`
+- `components/cluster-network/base/cluster-clusterrole-manage-admin-network-policies.yaml`
+- `components/cluster-network/base/cluster-crb-manage-admin-network-policies-gitops.yaml`
 
 **Requirements:**
 
