@@ -65,13 +65,6 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-      - group: config.openshift.io
-        jsonPointers:
-        - /metadata/annotations
-        - /metadata/ownerReferences
-        - /spec/audit
-        kind: APIServer
-        name: cluster
       - group: ''
         jsonPointers:
         - /metadata/labels
