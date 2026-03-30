@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manage-openshiftbuilds
+rules:
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - openshiftbuilds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

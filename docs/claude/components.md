@@ -800,6 +800,61 @@ spec:
 
 **Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
 
+## OpenShift Builds (Shipwright)
+
+**Purpose**: Extends Kubernetes with a framework for building container images from source code using various build strategies (Buildpacks, Buildah, Kaniko, ko).
+
+**Namespace**: `openshift-builds`
+
+**Configuration**:
+
+The OpenShiftBuild cluster CR is managed declaratively via GitOps:
+
+```yaml
+# components/openshift-builds/base/cluster-openshiftbuild-cluster.yaml
+apiVersion: operator.openshift.io/v1alpha1
+kind: OpenShiftBuild
+metadata:
+  name: cluster
+spec:
+  sharedResource:
+    state: Disabled  # SharedResource CSI driver disabled
+  shipwright:
+    build:
+      state: Enabled  # Core Shipwright build functionality
+```
+
+**Why SharedResource CSI Driver Disabled?**
+
+The SharedResource CSI driver feature (`sharedResource.state`) is disabled because:
+
+1. **Deployment Issues**: The `shared-resource-csi-driver-webhook` Deployment fails to create ReplicaSets
+2. **Alert Noise**: Causes persistent `KubeDeploymentReplicasMismatch` alerts
+3. **Root Cause**: OpenShift Builds operator reconciliation loop blocks on TektonConfig readiness (PipelinesAsCode component)
+4. **Impact**: No functional impact - SharedResource feature allows sharing Secrets/ConfigMaps across namespaces, which is not required for basic build functionality
+5. **Workaround**: Disable feature to eliminate alerts while preserving core Shipwright builds capability
+
+**Dependency Management**:
+
+OpenShift Builds depends on OpenShift Pipelines (Tekton) being installed first. A PreSync Job ensures proper ordering:
+
+```yaml
+# components/openshift-builds/base/openshift-gitops-job-check-and-wait-openshift-pipelines.yaml
+# PreSync wave -1: Waits for OpenShift Pipelines operator to be ready before deploying OpenShift Builds
+```
+
+This Job checks if OpenShift Pipelines is already installed in `openshift-operators` and waits for the CSV to be ready before allowing OpenShift Builds installation to proceed. If Pipelines is not found, it assumes OpenShift Builds operator will manage its own Pipelines installation.
+
+**RBAC**:
+
+The component includes a ClusterRole for managing OpenShiftBuild cluster-scoped CRs:
+- `cluster-clusterrole-manage-openshiftbuilds.yaml`
+- `cluster-crb-manage-openshiftbuilds-gitops.yaml`
+
+**Enabled Features**:
+- ✅ Shipwright builds (core build strategies)
+- ❌ SharedResource CSI driver (disabled due to deployment issues)
+
 ## AWS Controllers for Kubernetes (ACK) - Route53
 
 **Purpose**: Enables Kubernetes-native management of AWS Route53 resources (HostedZones, RecordSets, HealthChecks) via custom resources.

@@ -2,7 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
+- cluster-clusterrole-manage-openshiftbuilds.yaml
+- cluster-crb-manage-openshiftbuilds-gitops.yaml
 - cluster-namespace-openshift-builds.yaml
+- cluster-openshiftbuild-cluster.yaml
 - openshift-builds-operatorgroup-openshift-builds-operator.yaml
 - openshift-builds-subscription-openshift-builds-operator.yaml
 - openshift-gitops-job-check-and-wait-openshift-pipelines.yaml
