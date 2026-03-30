@@ -4,6 +4,28 @@
 
 **Note**: Only components with non-standard patterns or special requirements are documented here. Simple operator deployments without special configuration are intentionally omitted (discoverable via filesystem).
 
+## ⚠️ IMPORTANT: ignoreDifferences Guidance
+
+**Default**: Avoid ignoreDifferences. Most components do NOT need it.
+
+**When adding ignoreDifferences**:
+1. **Test first** - Try without ignoreDifferences, only add if sync fails
+2. **Minimal scope** - Add one field at a time, test each addition
+3. **Verify necessity** - Check if RBAC/namespace labels solve the issue instead
+4. **Document why** - Explain the specific conflict being resolved
+
+**Common mistakes**:
+- ❌ Adding entire `/metadata` block when only `/metadata/annotations` needed
+- ❌ Copying ignoreDifferences from other resources without testing
+- ❌ Ignoring fields that ArgoCD can manage with proper RBAC
+
+**Recent validations** (2026-03-30):
+- Cluster-scoped resources (APIServer, Network): RBAC sufficient, no ignores needed
+- Namespace-scoped operator CRs (HardwareProfile, OdhDashboardConfig): namespace managed-by label sufficient
+- Shared ConfigMaps (cluster-versions): Only annotations need ignoring
+
+See CLAUDE.md for complete ignoreDifferences patterns and testing workflow.
+
 ## Console Plugins
 
 **Pattern**: Pure Patch Jobs (no static manifests)

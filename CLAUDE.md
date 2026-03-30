@@ -117,6 +117,34 @@ Components use overlays for deployment variants. Common patterns:
 
 ## GitOps Patterns
 
+### ⚠️ CRITICAL: ignoreDifferences Best Practices
+
+**Default approach**: Avoid ignoreDifferences whenever possible.
+
+**When required**:
+1. **Test incrementally** - Add one field at a time, verify sync after each
+2. **Minimal scope** - Only ignore the specific field causing drift
+3. **Document why** - Each ignore needs clear justification
+4. **Prefer RBAC** - Explicit ClusterRole permissions often eliminate need for ignores
+
+**Testing workflow**:
+```bash
+# 1. Remove ignoreDifferences entry
+# 2. Push change
+# 3. Verify sync status (oc get applicationset <name>)
+# 4. Check resource state (oc get <resource> -o yaml)
+# 5. Only re-add if genuine conflict confirmed
+```
+
+**Recent findings** (2026-03-30):
+- ✅ APIServer: No ignoreDifferences needed (RBAC sufficient)
+- ✅ Network: No ignoreDifferences needed (RBAC sufficient)
+- ✅ cluster-versions ConfigMap: Only `/metadata/annotations` needed (not labels/ownerReferences)
+- ✅ HardwareProfile: No ignoreDifferences needed (namespace managed-by label sufficient)
+- ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient)
+
+**Excessive ignores are technical debt** - Test carefully before adding.
+
 ### ❌ Static Manifest + ignoreDifferences (DOES NOT WORK)
 
 **CRITICAL**: Pattern is logically contradictory.
