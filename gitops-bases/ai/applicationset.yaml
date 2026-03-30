@@ -37,20 +37,10 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-      - group: 
+      - group:
         jsonPointers:
         - /metadata/labels
         - /metadata/annotations
         - /metadata/ownerReferences
         kind: ConfigMap
         name: cluster-versions
-      - group: opendatahub.io
-        jsonPointers:
-        - /metadata/annotations
-        - /metadata/labels
-        - /metadata/ownerReferences
-        - /spec/hardwareProfileOrder
-        - /spec/templateDisablement
-        - /spec/templateOrder
-        kind: OdhDashboardConfig
-        name: odh-dashboard-config
