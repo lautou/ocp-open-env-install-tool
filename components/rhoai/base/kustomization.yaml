@@ -8,6 +8,7 @@ resources:
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
+- redhat-ods-applications-hardwareprofile-gpus.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
