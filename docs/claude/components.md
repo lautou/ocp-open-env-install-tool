@@ -110,7 +110,7 @@ Each component includes:
 
    ArgoCD requires explicit RBAC permissions for resources not managed by OLM (Operator Lifecycle Manager). The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
 
-   **a) Gateway API Resources** (`components/rhoai/base/cluster-clusterrole-gateway-api-manager.yaml`):
+   **a) Gateway API Resources** (`components/cluster-ingress/base/cluster-clusterrole-gateway-api-manager.yaml`):
 
    ```yaml
    apiVersion: rbac.authorization.k8s.io/v1
@@ -138,7 +138,7 @@ Each component includes:
 
    **Bound to:** `openshift-gitops-argocd-application-controller` ServiceAccount
 
-   **Location:** Defined in `rhoai` component (co-located with Gateway CR)
+   **Location:** Defined in `cluster-ingress` component (core infrastructure for gateway resources)
 
    **b) Other Operator-Specific ClusterRoles**:
 
