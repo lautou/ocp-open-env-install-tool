@@ -9,11 +9,24 @@ rules:
   - ""
   resources:
   - namespaces
+  - pods
   verbs:
   - delete
+  - list
 - apiGroups:
   - operator.openshift.io
   resources:
   - openshiftbuilds
   verbs:
   - delete
+  - get
+  - patch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  - clusterserviceversions
+  verbs:
+  - delete
+  - list
+  - get

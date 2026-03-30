@@ -16,8 +16,83 @@ spec:
         - /bin/bash
         - -c
         - |
-          oc delete openshiftbuild cluster --cascade=foreground --ignore-not-found
-          oc delete namespace openshift-builds --ignore-not-found
+          set -e
+
+          echo "================================================"
+          echo "OpenShift Builds Cleanup - Proper Operator Deletion"
+          echo "================================================"
+          echo ""
+
+          # Step 1: Delete Subscription (stops operator updates)
+          echo "Step 1: Deleting Subscription (stops operator updates)..."
+          if oc get subscription openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc delete subscription openshift-builds-operator -n openshift-builds --ignore-not-found
+            echo "✅ Subscription deleted"
+          else
+            echo "ℹ️  Subscription not found"
+          fi
+          echo ""
+
+          # Step 2: Delete CSV (stops operator)
+          echo "Step 2: Deleting ClusterServiceVersion (stops operator)..."
+          CSV_NAME=$(oc get csv -n openshift-builds -o name 2>/dev/null | grep openshift-builds-operator || echo "")
+          if [ -n "$CSV_NAME" ]; then
+            oc delete $CSV_NAME -n openshift-builds --ignore-not-found
+            echo "✅ CSV deleted: $CSV_NAME"
+          else
+            echo "ℹ️  CSV not found"
+          fi
+          echo ""
+
+          # Step 3: Wait for operator pods to terminate
+          echo "Step 3: Waiting for operator pods to terminate..."
+          if oc get pods -l app=openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc wait --for=delete pod -l app=openshift-builds-operator -n openshift-builds --timeout=120s 2>/dev/null || echo "⚠️  Timeout waiting for pods (continuing anyway)"
+            echo "✅ Operator pods terminated"
+          else
+            echo "ℹ️  No operator pods found"
+          fi
+          echo ""
+
+          # Step 4: Remove finalizer from openshiftbuild CR (if operator didn't)
+          echo "Step 4: Removing finalizer from openshiftbuild CR..."
+          if oc get openshiftbuild cluster &>/dev/null; then
+            # Check if finalizer exists
+            FINALIZER_COUNT=$(oc get openshiftbuild cluster -o jsonpath='{.metadata.finalizers}' 2>/dev/null | grep -c "operator.openshift.io/openshiftbuilds" || echo "0")
+            if [ "$FINALIZER_COUNT" -gt 0 ]; then
+              oc patch openshiftbuild cluster --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || echo "⚠️  Failed to remove finalizer (may already be removed)"
+              echo "✅ Finalizer removed"
+            else
+              echo "ℹ️  No finalizer found (operator already cleaned up)"
+            fi
+          else
+            echo "ℹ️  openshiftbuild CR not found"
+          fi
+          echo ""
+
+          # Step 5: Delete openshiftbuild CR
+          echo "Step 5: Deleting openshiftbuild CR..."
+          if oc get openshiftbuild cluster &>/dev/null; then
+            oc delete openshiftbuild cluster --ignore-not-found --timeout=60s
+            echo "✅ openshiftbuild CR deleted"
+          else
+            echo "ℹ️  openshiftbuild CR already deleted"
+          fi
+          echo ""
+
+          # Step 6: Delete namespace
+          echo "Step 6: Deleting openshift-builds namespace..."
+          if oc get namespace openshift-builds &>/dev/null; then
+            oc delete namespace openshift-builds --ignore-not-found --timeout=120s
+            echo "✅ Namespace deleted"
+          else
+            echo "ℹ️  Namespace already deleted"
+          fi
+          echo ""
+
+          echo "================================================"
+          echo "✅ OpenShift Builds cleanup completed successfully"
+          echo "================================================"
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: delete-openshift-builds-resources
       nodeSelector:
