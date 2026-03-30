@@ -6,7 +6,7 @@
 
 This project uses **Kubernetes Jobs** extensively to automate Day 2 operations that cannot be accomplished with static manifests alone. Jobs handle dynamic configuration, secret management, resource patching, and cleanup tasks.
 
-**Total Jobs**: 16 across 10 components
+**Total Jobs**: 15 across 10 components
 
 **Why Jobs?**
 - Dynamic value discovery (e.g., extracting auto-generated secrets)
@@ -487,60 +487,27 @@ spec:
 - Idempotent (safe if no pods found)
 - `Force=true` to run every sync
 
-### 7. Dependency Waiting (1 Job)
+### 7. Dependency Waiting (0 Jobs) - PATTERN REMOVED
 
-**Pattern**: Wait for cross-component dependencies before proceeding
+**Pattern**: ~~Wait for cross-component dependencies before proceeding~~
 
-**Why Jobs?**
-- Component A depends on Component B being fully operational
-- ArgoCD sync doesn't guarantee cross-component ordering
+**Status**: **REMOVED** (2026-03-31) - No longer needed
 
-**Job:**
-- `openshift-gitops-job-check-and-wait-openshift-pipelines.yaml` → Wait for Pipelines operator before deploying Builds
+**Historical context:**
+Previously, `openshift-builds` included a PreSync Job (`check-and-wait-openshift-pipelines`) that waited for OpenShift Pipelines to be ready before deploying OpenShift Builds.
 
-**Template:**
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "-1"
-  name: check-and-wait-openshift-pipelines
-  namespace: openshift-gitops
-spec:
-  template:
-    spec:
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          echo "Waiting for OpenShift Pipelines operator to be ready..."
+**Why removed:**
+- Both operators are deployed together in devops profiles via their respective ApplicationSets
+- Operators handle their own dependency reconciliation internally
+- OpenShift Builds operator waits for Tekton components during its reconciliation loop
+- Unnecessary complexity when both are installed simultaneously
 
-          # Wait for TektonConfig CRD to exist
-          until oc get crd tektonconfigs.operator.tekton.dev 2>/dev/null; do
-            echo "Waiting for TektonConfig CRD..."
-            sleep 10
-          done
+**Alternative approach:**
+Deploy both operators via ApplicationSets and let operator reconciliation handle timing:
+- `openshift-builds` → core ApplicationSet
+- `openshift-pipelines` → devops ApplicationSet
 
-          # Wait for TektonConfig to be ready
-          oc wait tektonconfig config --for=condition=Ready --timeout=600s
-
-          echo "OpenShift Pipelines is ready."
-        image: registry.redhat.io/openshift4/ose-cli:latest
-        name: wait-pipelines
-      restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
-```
-
-**Key patterns:**
-- `PreSync` hook (runs before manifests)
-- Wave `-1` (runs first)
-- `until oc get crd` for CRD availability
-- `oc wait --for=condition=Ready` for resource readiness
+Operators retry internally until dependencies are met.
 
 ### 8. Operator Node Selector Updates (1 Job)
 
@@ -1412,7 +1379,7 @@ oc patch application <app-name> -n openshift-gitops --type=merge -p '{"metadata"
 
 ## Summary
 
-**Jobs are essential** for GitOps automation beyond static manifests. This project uses 16 Jobs across 9 categories:
+**Jobs are essential** for GitOps automation beyond static manifests. This project uses 15 Jobs across 9 categories:
 
 1. **Console Plugin Management** (6) - Patch shared Console CR
 2. **Secret Management** (2) - Extract operator-generated credentials
@@ -1420,7 +1387,7 @@ oc patch application <app-name> -n openshift-gitops --type=merge -p '{"metadata"
 4. **Alert Management** (1) - Alertmanager API automation
 5. **Dynamic Configuration** (1) - Inject discovered values
 6. **Cleanup** (2) - Remove unwanted resources
-7. **Dependency Waiting** (1) - Cross-component synchronization
+7. **Dependency Waiting** (0) - Cross-component synchronization (pattern removed)
 8. **Node Selector Updates** (1) - Post-deployment operator placement
 9. **Infrastructure Creation** (1) - GPU MachineSet generation
 

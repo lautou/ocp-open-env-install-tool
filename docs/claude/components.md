@@ -834,16 +834,13 @@ The SharedResource CSI driver feature (`sharedResource.state`) is disabled becau
 4. **Impact**: No functional impact - SharedResource feature allows sharing Secrets/ConfigMaps across namespaces, which is not required for basic build functionality
 5. **Workaround**: Disable feature to eliminate alerts while preserving core Shipwright builds capability
 
-**Dependency Management**:
+**Deployment**:
 
-OpenShift Builds depends on OpenShift Pipelines (Tekton) being installed first. A PreSync Job ensures proper ordering:
+OpenShift Builds and OpenShift Pipelines are deployed together via their respective ApplicationSets:
+- `openshift-builds` → core ApplicationSet
+- `openshift-pipelines` → devops ApplicationSet
 
-```yaml
-# components/openshift-builds/base/openshift-gitops-job-check-and-wait-openshift-pipelines.yaml
-# PreSync wave -1: Waits for OpenShift Pipelines operator to be ready before deploying OpenShift Builds
-```
-
-This Job checks if OpenShift Pipelines is already installed in `openshift-operators` and waits for the CSV to be ready before allowing OpenShift Builds installation to proceed. If Pipelines is not found, it assumes OpenShift Builds operator will manage its own Pipelines installation.
+Both operators can be installed simultaneously without ordering dependencies. The OpenShift Builds operator will wait for Tekton components to be ready during its reconciliation loop.
 
 **RBAC**:
 
