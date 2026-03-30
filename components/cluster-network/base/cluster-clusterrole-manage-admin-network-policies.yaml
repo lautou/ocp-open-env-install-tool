@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: manage-network-policies
+  name: manage-admin-network-policies
 rules:
 - apiGroups:
   - policy.networking.k8s.io
