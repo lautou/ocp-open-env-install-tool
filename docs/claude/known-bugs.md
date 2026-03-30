@@ -208,7 +208,73 @@ oc get statefulset noobaa-db-pg -n openshift-storage \
 
 ---
 
-### 6. Kuadrant istio-pod-monitor TargetDown
+### 4. Apicurio Registry UI PodDisruptionBudgetAtLimit
+
+**Alert Name:** `PodDisruptionBudgetAtLimit`
+**Component:** Apicurio Registry - UI Component
+**Namespace:** `apicurio`
+**PodDisruptionBudget:** `apicurio-studio-ui-poddisruptionbudget`
+
+**Issue:**
+The Apicurio Registry Operator creates a PodDisruptionBudget for the UI component with `minAvailable: 1` in a single-replica deployment, resulting in 0 allowed disruptions. This triggers the PodDisruptionBudgetAtLimit alert even though this is the expected configuration for a single-replica workload.
+
+**Impact:**
+- False-positive PodDisruptionBudgetAtLimit alerts
+- No actual impact on Apicurio Registry functionality
+- UI operates normally with single replica and proper PDB protection
+- Alert fatigue and operational confusion
+
+**Root Cause:**
+PDB configuration in Apicurio Registry Operator creates `minAvailable: 1` for single-replica UI deployment, which mathematically results in 0 allowed disruptions (1 available - 1 required = 0). This is the same pattern as NooBaa and llama-stack operators.
+
+**Status:**
+- **JIRA:** [APICURIO-24](https://issues.redhat.com/browse/APICURIO-24) - Apicurio Registry UI PodDisruptionBudget triggers false-positive alert in single-replica deployment
+- **Reported:** 2026-03-30
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
+- **Fix ETA:** TBD (pending operator update to skip PDB for single-replica deployments)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = PodDisruptionBudgetAtLimit
+         - poddisruptionbudget = apicurio-studio-ui-poddisruptionbudget
+         - namespace = apicurio
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
+   - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
+
+**Verification:**
+```bash
+# Check PDB configuration
+oc get pdb apicurio-studio-ui-poddisruptionbudget -n apicurio -o yaml
+
+# Check allowed disruptions
+oc get pdb apicurio-studio-ui-poddisruptionbudget -n apicurio \
+  -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
+
+# Expected: 0 (triggers the alert)
+
+# Check UI deployment replica count
+oc get deployment apicurio-studio-ui-deployment -n apicurio \
+  -o jsonpath='{.spec.replicas}{"\n"}'
+
+# Expected: 1 (single replica)
+```
+
+---
+
+### 5. Kuadrant istio-pod-monitor TargetDown
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat Connectivity Link (RHCL) - Kuadrant Operator
