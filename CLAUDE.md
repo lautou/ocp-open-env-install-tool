@@ -32,7 +32,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
 - **[known-bugs.md](docs/claude/known-bugs.md)** - False-positive alerts and upstream bugs
 - **[installation.md](docs/claude/installation.md)** - Installation flow, session recovery, profiles
-- **[security.md](docs/claude/security.md)** - AWS Secrets Manager, Job QoS, tenant isolation
+- **[security.md](docs/claude/security.md)** - AWS Secrets Manager, Job QoS, tenant isolation, InfoSec leak detection (.gitleaks.toml)
 - **[troubleshooting.md](docs/claude/troubleshooting.md)** - Common issues and debugging
 
 **Project audit**: Complete codebase analysis available:

@@ -350,3 +350,142 @@ egress:
 See [`monitoring.md`](monitoring.md) for details on security requirements for Alertmanager configuration.
 
 **Audit script**: `scripts/audit_alertmanager_secrets.sh` - Use before committing changes to verify no credentials leaked.
+
+## Git Security and Leak Detection
+
+**Purpose**: Handle Red Hat InfoSec leak detection alerts for demo/lab placeholder values.
+
+### InfoSec Leak Detection Tools
+
+Red Hat Information Security scans all git repositories using:
+- **PwnedAlert**: Automated scans of committed code (email alerts sent to repo owners)
+- **rh-pre-commit**: Pre-commit hook to catch secrets before commit (optional, recommended)
+- **Pattern Distribution Server**: Centralized leak patterns (gitleaks-compatible)
+
+**What gets flagged**:
+- Generic secrets (hardcoded passwords, API keys, session secrets)
+- Private keys (SSH, TLS, GPG)
+- Cloud credentials (AWS, Azure, GCP)
+- Tokens (OAuth, JWT, service tokens)
+
+### Handling False Positives
+
+**Problem**: Demo/lab GitOps repositories intentionally contain static placeholder values for reproducible deployments.
+
+**Solution**: Use `.gitleaks.toml` allowlist file (recommended by InfoSec).
+
+**When to use allowlist**:
+- ✅ Public GitOps template repository with demo/lab placeholders
+- ✅ Hardcoded demo credentials from upstream projects (e.g., Red Hat workshops)
+- ✅ Static session secrets for local cluster encryption (non-unique across deployments)
+- ✅ Test data that looks like secrets but has no authentication value
+
+**When NOT to use allowlist**:
+- ❌ Production secrets (rotate and remove from git history immediately)
+- ❌ Real AWS/cloud credentials (use AWS Secrets Manager, rotate keys)
+- ❌ Personal tokens or API keys
+
+### .gitleaks.toml Configuration
+
+**Location**: Repository root (`.gitleaks.toml`)
+
+**Format**:
+```toml
+# Gitleaks configuration for handling demo secrets
+# Documentation: https://source.redhat.com/departments/it/it_information_security/leaktk/leaktk_guides/false_positives_in_git_repos
+
+[extend]
+useDefault = true
+
+[allowlist]
+# Description of why this value is safe (context, source, purpose)
+regexes = [
+    # Exact value to match (use \b for word boundaries)
+    '''\bICZe4MUarpjLDz43oEH0ngSuT2c5HqeSCHRVmQfzJXk=\b''',
+]
+
+# Alternative: Ignore by file path
+paths = [
+    '''^components/example/monitoring-secret\.yaml$''',
+]
+```
+
+**Best Practices**:
+- Document WHY each value is safe (source, context, purpose)
+- Use `regexes` for specific values (preferred - more precise)
+- Use `paths` for entire test/example directories
+- Be specific to avoid accidentally allowing real leaks
+- Link to upstream source if demo secret is from external project
+
+### Inline Annotations (Alternative)
+
+**Pattern**: Add `# notsecret` comment to YAML lines
+
+**Example**:
+```yaml
+stringData:
+  session_secret: ICZe4MUarpjLDz43oEH0ngSuT2c5HqeSCHRVmQfzJXk= # notsecret
+```
+
+**Limitations**:
+- ❌ Does NOT cover past commits (only prevents future alerts)
+- ❌ Requires comment on every occurrence
+- ✅ Provides inline documentation
+
+**Recommendation**: Use `.gitleaks.toml` (covers history) + `# notsecret` (inline docs) for belt-and-suspenders.
+
+### Current Allowlist
+
+**File**: `.gitleaks.toml`
+
+**Allowed values**:
+1. **Grafana OAuth proxy session secret** (`ICZe4MUarpjLDz43oEH0ngSuT2c5HqeSCHRVmQfzJXk=`)
+   - Purpose: Cookie encryption for local cluster Grafana OAuth proxy
+   - Context: Static placeholder for demo/lab environments (non-unique across clusters)
+   - Location: `components/rh-connectivity-link/base/monitoring-secret-grafana-proxy.yaml`
+   - InfoSec alert: 2026-03-30 (false positive resolved)
+
+### Responding to InfoSec Alerts
+
+**Email subject**: "Potential leak of secrets or sensitive data in repo..."
+
+**Steps**:
+1. **Review flagged location** (check URL in email)
+2. **Determine if real leak or false positive**
+3. **If false positive**:
+   - Add to `.gitleaks.toml` allowlist with documentation
+   - Optionally add `# notsecret` comment for inline clarity
+   - Reply to InfoSec email explaining false positive
+4. **If real leak**:
+   - Contact `infosec@redhat.com` immediately (if Red Hat credentials)
+   - Rotate/invalidate leaked credentials
+   - Remove from git history using `git-filter-repo` (see InfoSec docs)
+   - Force push changes (coordinate with team if needed)
+
+**Email template** (false positive):
+```
+Subject: Re: Potential leak in <repo-name> - FALSE POSITIVE
+
+Hello Information Security Team,
+
+Thank you for the alert. I have reviewed the potential leak and confirmed this is a FALSE POSITIVE.
+
+Location: <file-path>:<line>
+Value: <description>
+
+Reason: This is a static placeholder value for demo/lab environments in a public GitOps template repository. The value is intentionally public and poses no security risk.
+
+Actions taken:
+1. Added .gitleaks.toml allowlist file
+2. Documented context and purpose
+3. Commit: <commit-hash> - "<commit-message>"
+
+Best regards,
+<Your Name>
+```
+
+### Related Documentation
+
+- InfoSec Pattern Distribution Server: https://source.redhat.com/departments/it/it_information_security/leaktk
+- Git Filter-Repo guide: https://source.redhat.com/departments/it/it_information_security/leaktk/leaktk_guides/git_filter_repo
+- rh-pre-commit hook: https://source.redhat.com/departments/it/it_information_security/leaktk/leaktk_components/rh_pre_commit
