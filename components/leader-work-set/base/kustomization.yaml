@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
+- cluster-leaderworkersetoperator-cluster.yaml
 - cluster-namespace-openshift-lws-operator.yaml
 - openshift-lws-operator-operatorgroup-openshift-lws-operator.yaml
 - openshift-lws-operator-subscription-openshift-lws-operator.yaml
