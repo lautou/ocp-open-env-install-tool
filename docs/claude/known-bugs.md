@@ -627,7 +627,7 @@ cat > /tmp/mlflow-silence.json <<EOF
   "startsAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
   "endsAt": "$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)",
   "createdBy": "admin",
-  "comment": "Known bug: mlflow-operator v2.0.0 broken metrics endpoint - See KNOWN_BUGS.md"
+  "comment": "Known bug: mlflow-operator ServiceMonitor targets non-existent metrics endpoint (JIRA: RHOAIENG-54791) - See KNOWN_BUGS.md"
 }
 EOF
 
