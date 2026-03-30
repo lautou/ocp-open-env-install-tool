@@ -1,0 +1,8 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhb-apicurio-registry-operator
+  namespace: rhb-apicurio-registry-operator
+spec:
+  targetNamespaces:
+  - rhb-apicurio-registry-operator
