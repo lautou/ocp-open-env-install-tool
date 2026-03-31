@@ -33,6 +33,8 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 3. **NooBaa database PodDisruptionBudgetAtLimit** - ODF NooBaa single-replica PostgreSQL PDB (JIRA: DFBUGS-5294)
 4. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
 5. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
+6. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
+7. **InsightsRecommendationActive (MCP maxUnavailable)** - Installer does not set explicit maxUnavailable in MachineConfigPools (JIRA: TBD)
 
 ## Adding New Alert Silences
 

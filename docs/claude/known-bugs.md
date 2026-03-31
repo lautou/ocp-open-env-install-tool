@@ -360,6 +360,106 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
+### 7. Insights Recommendation - MachineConfigPool maxUnavailable Not Set
+
+**Alert Name:** `InsightsRecommendationActive`
+**Component:** Installer / Machine Config Operator
+**Rule ID:** `ccx_rules_ocp.external.rules.mcp_unavailable_machine_count`
+**Risk Level:** 2 (Medium)
+
+**Issue:**
+OpenShift installer creates MachineConfigPools (both master and worker) without explicitly setting the `spec.maxUnavailable` field, relying on implicit defaults. Red Hat Insights flags this OOTB configuration as a potential risk, warning that "MachineConfigPool will never finish updating when the 'unavailableMachineCount' is greater than 'maxUnavailable' in the MachineConfigPool."
+
+**Impact:**
+- False-positive Insights recommendation on all OOTB clusters
+- Alert appears after cluster reboots or Insights data collection events
+- Creates confusion: "Why is Red Hat warning about Red Hat's own defaults?"
+- No actual functional impact - MCO uses default value of 1 correctly
+
+**Root Cause:**
+Product quality issue - Installer omits explicit `maxUnavailable` configuration during cluster bootstrapping:
+
+```yaml
+# OOTB Configuration (installer-created)
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+  name: master
+spec:
+  # maxUnavailable: null  ← Field omitted, defaults to 1
+  nodeSelector:
+    matchLabels:
+      node-role.kubernetes.io/master: ""
+```
+
+The implicit default (`maxUnavailable: 1`) is functionally correct, especially for master pools with etcd quorum requirements, but the lack of explicit configuration triggers Insights analysis rules.
+
+**Status:**
+- **JIRA:** TBD (bug report to be filed with Red Hat)
+- **Confirmed on:** OpenShift 4.20.14, 4.20.15 (likely all 4.x versions)
+- **Clusters affected:** All OOTB IPI installations
+- **Workaround:** Alert routed to null receiver + Alertmanager silence active
+- **Fix ETA:** Requires installer changes to set explicit values
+
+**Evidence:**
+Verified on multiple clusters (sandbox3491, sandbox2845):
+- Both have `maxUnavailable: null` on master and worker MCPs
+- Both have etcd preDrain lifecycle hooks (requires maxUnavailable=1)
+- Insights recommendation appears inconsistently based on data collection timing
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = InsightsRecommendationActive
+         - description =~ .*MachineConfigPool.*unavailableMachineCount.*maxUnavailable.*
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
+   - **Effect:** Alert shows as "suppressed" in web console
+   - **Automation:** Runs automatically on every cluster deployment
+
+**Verification:**
+```bash
+# Check if maxUnavailable is explicitly set or null
+oc get machineconfigpool master worker -o json | \
+  jq '.items[] | {name: .metadata.name, maxUnavailable: .spec.maxUnavailable}'
+
+# Expected OOTB: Both show null
+
+# Check default behavior is correct
+oc explain machineconfigpool.spec.maxUnavailable
+# Documentation states: "The default value is 1"
+
+# Check etcd lifecycle hooks (require maxUnavailable=1)
+oc get machine -n openshift-machine-api -o json | \
+  jq '.items[] | select(.metadata.name | contains("master")) | .spec.lifecycleHooks'
+
+# Verify Insights recommendation
+oc get insightsoperator cluster -o json | \
+  jq '.status.insightsReport.healthChecks[] | select(.description | contains("MachineConfigPool"))'
+```
+
+**Manual Fix (Optional):**
+If you prefer explicit configuration over relying on defaults:
+```bash
+# Set explicit value matching the implicit default
+oc patch machineconfigpool master --type=merge -p '{"spec":{"maxUnavailable":1}}'
+oc patch machineconfigpool worker --type=merge -p '{"spec":{"maxUnavailable":1}}'
+```
+
+**Note:** This is a product quality bug, not a functional issue. The cluster operates correctly with implicit defaults, but best practices suggest safety-critical parameters should be explicit rather than implicit.
+
+---
+
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA. These can be disabled via the `support` Secret in `openshift-config` namespace.
