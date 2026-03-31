@@ -217,7 +217,7 @@ type: Opaque
 - `service` (can use `svc` alias)
 - `job`
 - `role`
-- `rolebinding`
+- `rolebinding` (can use `rb` alias - prevents long filenames)
 
 **Examples**:
 ```
@@ -281,8 +281,8 @@ Jobs run in `openshift-gitops` namespace but operate on other namespaces. Use `o
 | Resource Type | Filename Pattern | Example |
 |--------------|-----------------|---------|
 | Role | `<target-namespace>-role-<role-name>.yaml` | `cert-manager-role-cert-manager-operator.yaml` |
-| RoleBinding | `<target-namespace>-rolebinding-<binding-name>.yaml` | `cert-manager-rolebinding-cert-manager-operator.yaml` |
-| ClusterRole | `cluster-clusterrole-<role-name>.yaml` or `cluster-cr-<name>.yaml` | `cluster-clusterrole-edit-certificates.yaml` |
+| RoleBinding | `<target-namespace>-rolebinding-<binding-name>.yaml` or `<target-namespace>-rb-<binding-name>.yaml` | `cert-manager-rb-cert-manager-operator.yaml` |
+| ClusterRole | `cluster-clusterrole-<role-name>.yaml` or `cluster-cr-<name>.yaml` | `cluster-cr-edit-certificates.yaml` |
 | ClusterRoleBinding | `cluster-clusterrolebinding-<binding-name>.yaml` or `cluster-crb-<name>.yaml` | `cluster-crb-cert-manager-operator.yaml` |
 
 **CRITICAL - Cross-Namespace RBAC**:
@@ -296,6 +296,7 @@ For Roles/RoleBindings that grant permissions in a different namespace than wher
 
 # ServiceAccount in openshift-gitops, RoleBinding in kube-system namespace
 ✅ kube-system-rolebinding-cleanup-operator.yaml
+✅ kube-system-rb-cleanup-operator.yaml  (rb alias to prevent long filenames)
 ❌ openshift-gitops-rolebinding-cleanup-operator-kube-system.yaml
 ```
 
@@ -369,7 +370,6 @@ subjects:
 
 **DO NOT use**:
 - ❌ Version numbers in filenames: `sealed-secrets-controller-0.27.1.yaml`
-- ❌ Wrong aliases: `rb` (use `rolebinding`)
 - ❌ Namespace prefix on cluster-scoped: `openshift-gitops-clusterrole-*.yaml`
 - ❌ Source namespace on cross-namespace RBAC: `openshift-gitops-role-*-cert-manager.yaml`
 
@@ -378,8 +378,9 @@ subjects:
 - ✅ `cm` for ConfigMap (official Kubernetes short name)
 - ✅ `svc` for Service (official Kubernetes short name)
 - ✅ `deploy` for Deployment (official Kubernetes short name)
-- ✅ `cr` for ClusterRole (conventional)
-- ✅ `crb` for ClusterRoleBinding (conventional)
+- ✅ `cr` for ClusterRole (prevents long filenames)
+- ✅ `crb` for ClusterRoleBinding (prevents long filenames)
+- ✅ `rb` for RoleBinding (prevents long filenames)
 
 ---
 
