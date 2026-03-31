@@ -209,10 +209,10 @@ type: Opaque
 
 **Pattern**: `<namespace>-<resource-type>-<resource-name>.yaml`
 
-**Common resource types** (use full name, not alias):
-- `configmap` (NOT cm)
+**Common resource types** (aliases allowed where indicated):
+- `configmap` (can use `cm` alias)
 - `secret`
-- `serviceaccount` (NOT sa)
+- `serviceaccount` (can use `sa` alias - official Kubernetes short name)
 - `deployment` (can use `deploy` alias)
 - `service` (can use `svc` alias)
 - `job`
@@ -224,11 +224,11 @@ type: Opaque
 ✅ openshift-monitoring-configmap-cluster-monitoring-config.yaml
 ✅ cert-manager-secret-aws-acme.yaml
 ✅ openshift-gitops-serviceaccount-cert-manager-operator.yaml
+✅ openshift-logging-sa-collector.yaml  (sa is valid alias)
 ✅ openshift-gitops-deployment-watchdog-certmanager.yaml
 ✅ openshift-monitoring-job-create-alert-silences.yaml
 
 ❌ cert-manager-configmap-scripts.yaml  (wrong: should use actual namespace openshift-gitops)
-❌ openshift-logging-sa-collector.yaml  (wrong: use serviceaccount not sa)
 ❌ cluster-versions.yaml                (wrong: missing namespace + type)
 ```
 
@@ -340,14 +340,46 @@ subjects:
 
 ---
 
+#### Special Prefix - TEMPORARY-FIX-
+
+**Purpose**: Visual indicator for bug workarounds that should be removed when upstream fixes are available.
+
+**When to use**:
+- ✅ Workarounds for known operator bugs (e.g., broken metrics endpoints)
+- ✅ Temporary fixes pending upstream resolution
+- ✅ Configurations that will be removed in future versions
+
+**Pattern**: `TEMPORARY-FIX-<standard-naming>.yaml`
+
+**Example**:
+```
+✅ TEMPORARY-FIX-openshift-operators-redhat-secret-loki-operator-controller-manager-metrics-token.yaml
+   → Indicates this Secret is a workaround for a bug
+   → Will be removed when Loki operator fixes the metrics token issue
+```
+
+**Documentation requirement**:
+- ✅ Document the bug/issue in comments within the YAML file
+- ✅ Reference JIRA/GitHub issue if available
+- ✅ Note when this can be removed (e.g., "Remove when operator v2.1+ is deployed")
+
+---
+
 #### File Naming Anti-Patterns
 
 **DO NOT use**:
 - ❌ Version numbers in filenames: `sealed-secrets-controller-0.27.1.yaml`
-- ❌ Temporary prefixes: `TEMPORARY-FIX-openshift-operators-redhat-secret-*.yaml`
-- ❌ Wrong aliases: `sa` (use `serviceaccount`), `rb` (use `rolebinding`)
+- ❌ Wrong aliases: `rb` (use `rolebinding`)
 - ❌ Namespace prefix on cluster-scoped: `openshift-gitops-clusterrole-*.yaml`
 - ❌ Source namespace on cross-namespace RBAC: `openshift-gitops-role-*-cert-manager.yaml`
+
+**Valid aliases** (these ARE acceptable):
+- ✅ `sa` for ServiceAccount (official Kubernetes short name)
+- ✅ `cm` for ConfigMap (official Kubernetes short name)
+- ✅ `svc` for Service (official Kubernetes short name)
+- ✅ `deploy` for Deployment (official Kubernetes short name)
+- ✅ `cr` for ClusterRole (conventional)
+- ✅ `crb` for ClusterRoleBinding (conventional)
 
 ---
 
