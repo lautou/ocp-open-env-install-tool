@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
 - ../../common
 - cert-manager-clusterissuer-cluster.yaml
-- cert-manager-configmap-scripts.yaml
 - cert-manager-operator-operatorgroup-openshift-cert-manager-operator.yaml
 - cert-manager-operator-subscription-openshift-cert-manager-operator.yaml
 - cert-manager-secret-aws-acme.yaml
@@ -11,6 +10,7 @@ resources:
 - cluster-crb-cert-manager-clusterissuer-edit.yaml
 - cluster-namespace-cert-manager-operator.yaml
 - openshift-config-certificate-api.yaml
+- openshift-gitops-configmap-scripts.yaml
 - openshift-gitops-deployment-watchdog-certmanager.yaml
 - openshift-ingress-certificate-ingress.yaml
 replacements:
