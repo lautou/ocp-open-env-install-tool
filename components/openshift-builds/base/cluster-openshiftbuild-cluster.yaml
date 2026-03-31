@@ -6,7 +6,7 @@ metadata:
   name: cluster
 spec:
   sharedResource:
-    state: Disabled
+    state: Enabled
   shipwright:
     build:
       state: Enabled
