@@ -31,9 +31,10 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 1. **mlflow-operator TargetDown** - RHOAI mlflow-operator v2.0.0 has broken metrics endpoint ServiceMonitor (JIRA: RHOAIENG-54791)
 2. **llama-stack PodDisruptionBudgetAtLimit** - RHOAI llama-stack operator PDB with 1 replica (JIRA: RHAIENG-3783)
 3. **NooBaa database PodDisruptionBudgetAtLimit** - ODF NooBaa single-replica PostgreSQL PDB (JIRA: DFBUGS-5294)
-4. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
-5. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
-6. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
+4. **Apicurio Registry UI PodDisruptionBudgetAtLimit** - Apicurio Registry UI single-replica PDB (JIRA: APICURIO-24)
+5. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
+6. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
+7. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
 
 ## Adding New Alert Silences
 
@@ -124,7 +125,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - Creates 10-year silences via Alertmanager API for all known bugs
    - **Retry logic**: 3 attempts per silence with 5-second delays
    - **Verification**: Confirms each silence was created successfully via API query
-   - **Final validation**: Verifies 5+ active silences exist before completing
+   - **Final validation**: Verifies 7+ active silences exist before completing
    - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
@@ -136,8 +137,10 @@ The manual silence creation steps above are kept for reference, but in practice,
    - mlflow-operator TargetDown (broken metrics endpoint) (JIRA: RHOAIENG-54791)
    - llama-stack PodDisruptionBudgetAtLimit (JIRA: RHAIENG-3783)
    - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294)
+   - Apicurio Registry UI PodDisruptionBudgetAtLimit (JIRA: APICURIO-24)
    - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)
    - InsightsRecommendationActive (config migration)
+   - Kuadrant istio-pod-monitor TargetDown (JIRA: CONNLINK-911)
 
 **Reliability Improvements (2026-03-23):**
 
