@@ -818,21 +818,15 @@ metadata:
   name: cluster
 spec:
   sharedResource:
-    state: Disabled  # SharedResource CSI driver disabled
+    state: Enabled  # SharedResource CSI driver for sharing Secrets/ConfigMaps across namespaces
   shipwright:
     build:
       state: Enabled  # Core Shipwright build functionality
 ```
 
-**Why SharedResource CSI Driver Disabled?**
+**SharedResource CSI Driver**:
 
-The SharedResource CSI driver feature (`sharedResource.state`) is disabled because:
-
-1. **Deployment Issues**: The `shared-resource-csi-driver-webhook` Deployment fails to create ReplicaSets
-2. **Alert Noise**: Causes persistent `KubeDeploymentReplicasMismatch` alerts
-3. **Root Cause**: OpenShift Builds operator reconciliation loop blocks on TektonConfig readiness (PipelinesAsCode component)
-4. **Impact**: No functional impact - SharedResource feature allows sharing Secrets/ConfigMaps across namespaces, which is not required for basic build functionality
-5. **Workaround**: Disable feature to eliminate alerts while preserving core Shipwright builds capability
+The SharedResource CSI driver allows Secrets and ConfigMaps to be shared across namespaces for build operations. Previously disabled due to deployment issues (`KubeDeploymentReplicasMismatch` alerts from failed ReplicaSet creation), this feature is now enabled as the underlying bug appears to have been resolved in recent operator versions.
 
 **Deployment**:
 
@@ -850,7 +844,7 @@ The component includes a ClusterRole for managing OpenShiftBuild cluster-scoped 
 
 **Enabled Features**:
 - ✅ Shipwright builds (core build strategies)
-- ❌ SharedResource CSI driver (disabled due to deployment issues)
+- ✅ SharedResource CSI driver (cross-namespace Secret/ConfigMap sharing)
 
 ## AWS Controllers for Kubernetes (ACK) - Route53
 
