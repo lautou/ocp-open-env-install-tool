@@ -3,9 +3,9 @@ kind: Kustomization
 resources:
 - ../../common
 - cluster-crb-observability-uiplugin-edit.yaml
+- cluster-namespace-openshift-observability-operator.yaml
 - cluster-uiplugin-logging.yaml
 - cluster-uiplugin-monitoring.yaml
-- openshift-observability-operator-namespace.yaml
 - openshift-observability-operator-operatorgroup-observability-operator.yaml
 - openshift-observability-operator-subscription-cluster-observability-operator.yaml
 replacements:
