@@ -26,38 +26,38 @@ resources:
   - openshift-gitops-configmap-cmp-plugin.yaml
   - openshift-gitops-job-cleanup-installer-pods.yaml
   - openshift-gitops-job-enable-gitops-console-plugin.yaml
-  - openshift-gitops-role-ack-config-operator-ack-system.yaml
-  - openshift-gitops-role-ack-config-operator-kube-system.yaml
-  - openshift-gitops-role-cert-manager-operator-cert-manager.yaml
-  - openshift-gitops-role-cert-manager-operator-kube-system.yaml
-  - openshift-gitops-role-cert-manager-operator-openshift-config.yaml
-  - openshift-gitops-role-cert-manager-operator-openshift-ingress.yaml
-  - openshift-gitops-role-cert-manager-operator-openshift-ingress-operator.yaml
-  - openshift-gitops-role-cleanup-operator-kube-controller-manager.yaml
-  - openshift-gitops-role-dependency-waiter-openshift-operators.yaml
-  - openshift-gitops-role-grafana-datasource-configurator.yaml
-  - openshift-gitops-role-gpu-machineset-operator-machine-api.yaml
+  - ack-system-rb-ack-config-operator.yaml
+  - ack-system-role-ack-config-operator.yaml
+  - cert-manager-rb-cert-manager-operator.yaml
+  - cert-manager-role-cert-manager-operator.yaml
+  - kube-system-rb-ack-config-operator.yaml
+  - kube-system-rb-cert-manager-operator.yaml
+  - kube-system-role-ack-config-operator.yaml
+  - kube-system-role-cert-manager-operator.yaml
+  - monitoring-rb-grafana-datasource-configurator.yaml
+  - monitoring-role-grafana-datasource-configurator.yaml
+  - netobserv-rb-loki-s3-secret-creator.yaml
+  - netobserv-role-loki-s3-secret-creator.yaml
+  - openshift-config-rb-cert-manager-operator.yaml
+  - openshift-config-role-cert-manager-operator.yaml
   - openshift-gitops-role-gpu-machineset-operator-openshift-gitops.yaml
-  - openshift-gitops-role-loki-s3-secret-creator-logging.yaml
-  - openshift-gitops-role-loki-s3-secret-creator-netobserv.yaml
   - openshift-gitops-role-odf-subscription-configurator-openshift-gitops.yaml
-  - openshift-gitops-role-odf-subscription-configurator-openshift-storage.yaml
-  - openshift-gitops-rolebinding-ack-config-operator-ack-system.yaml
-  - openshift-gitops-rolebinding-ack-config-operator-kube-system.yaml
-  - openshift-gitops-rolebinding-cert-manager-operator-cert-manager.yaml
-  - openshift-gitops-rolebinding-cert-manager-operator-kube-system.yaml
-  - openshift-gitops-rolebinding-cert-manager-operator-openshift-config.yaml
-  - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress.yaml
-  - openshift-gitops-rolebinding-cert-manager-operator-openshift-ingress-operator.yaml
-  - openshift-gitops-rolebinding-cleanup-operator-kube-controller-manager.yaml
-  - openshift-gitops-rolebinding-dependency-waiter-openshift-operators.yaml
-  - openshift-gitops-rolebinding-grafana-datasource-configurator.yaml
-  - openshift-gitops-rolebinding-gpu-machineset-operator-machine-api.yaml
   - openshift-gitops-rolebinding-gpu-machineset-operator-openshift-gitops.yaml
-  - openshift-gitops-rolebinding-loki-s3-secret-creator-logging.yaml
-  - openshift-gitops-rolebinding-loki-s3-secret-creator-netobserv.yaml
   - openshift-gitops-rolebinding-odf-subscription-configurator-openshift-gitops.yaml
-  - openshift-gitops-rolebinding-odf-subscription-configurator-openshift-storage.yaml
+  - openshift-ingress-operator-rb-cert-manager-operator.yaml
+  - openshift-ingress-operator-role-cert-manager-operator.yaml
+  - openshift-ingress-rb-cert-manager-operator.yaml
+  - openshift-ingress-role-cert-manager-operator.yaml
+  - openshift-kube-controller-manager-rb-cleanup-operator.yaml
+  - openshift-kube-controller-manager-role-cleanup-operator.yaml
+  - openshift-logging-rb-loki-s3-secret-creator.yaml
+  - openshift-logging-role-loki-s3-secret-creator.yaml
+  - openshift-machine-api-rb-gpu-machineset-operator.yaml
+  - openshift-machine-api-role-gpu-machineset-operator.yaml
+  - openshift-operators-rb-dependency-waiter.yaml
+  - openshift-operators-role-dependency-waiter.yaml
+  - openshift-storage-rb-odf-subscription-configurator.yaml
+  - openshift-storage-role-odf-subscription-configurator.yaml
   - openshift-gitops-serviceaccount-ack-config-operator.yaml
   - openshift-gitops-serviceaccount-cert-manager-operator.yaml
   - openshift-gitops-serviceaccount-cleanup-operator.yaml
