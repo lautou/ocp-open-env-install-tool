@@ -197,7 +197,161 @@ type: Opaque
 
 ---
 
-### 4. SkipDryRunOnMissingResource Annotation (CRITICAL)
+### 4. YAML File Naming Conventions (MANDATORY)
+
+**Rule**: ALL YAML manifest files MUST follow strict naming patterns based on resource scope and type.
+
+**Purpose**: Consistent naming improves discoverability, reduces naming conflicts, and makes kustomization.yaml resource lists easier to scan.
+
+---
+
+#### Namespaced Resources
+
+**Pattern**: `<namespace>-<resource-type>-<resource-name>.yaml`
+
+**Common resource types** (use full name, not alias):
+- `configmap` (NOT cm)
+- `secret`
+- `serviceaccount` (NOT sa)
+- `deployment` (can use `deploy` alias)
+- `service` (can use `svc` alias)
+- `job`
+- `role`
+- `rolebinding`
+
+**Examples**:
+```
+✅ openshift-monitoring-configmap-cluster-monitoring-config.yaml
+✅ cert-manager-secret-aws-acme.yaml
+✅ openshift-gitops-serviceaccount-cert-manager-operator.yaml
+✅ openshift-gitops-deployment-watchdog-certmanager.yaml
+✅ openshift-monitoring-job-create-alert-silences.yaml
+
+❌ cert-manager-configmap-scripts.yaml  (wrong: should use actual namespace openshift-gitops)
+❌ openshift-logging-sa-collector.yaml  (wrong: use serviceaccount not sa)
+❌ cluster-versions.yaml                (wrong: missing namespace + type)
+```
+
+**Special case - Jobs in openshift-gitops namespace**:
+
+Jobs run in `openshift-gitops` namespace but operate on other namespaces. Use `openshift-gitops` prefix:
+```
+✅ openshift-gitops-job-create-gpu-machineset.yaml
+❌ openshift-storage-job-update-subscriptions.yaml  (wrong: Job is in gitops namespace)
+```
+
+---
+
+#### Cluster-Scoped Resources
+
+**Pattern**: `cluster-<resource-type>-<resource-name>.yaml`
+
+**Common resource types**:
+- `namespace`
+- `clusterrole` (can use `cr` alias)
+- `clusterrolebinding` (can use `crb` alias)
+- `apiserver`
+- `network`
+- `ingresscontroller`
+- `clusterautoscaler`
+- `adminnetworkpolicy`
+- `baselineadminnetworkpolicy`
+
+**Examples**:
+```
+✅ cluster-namespace-openshift-monitoring.yaml
+✅ cluster-clusterrole-edit-clusterautoscaler.yaml
+✅ cluster-cr-cert-manager-operator.yaml           (alias)
+✅ cluster-crb-autoscaler-clusterautoscaler-edit.yaml
+✅ cluster-apiserver-cluster.yaml
+✅ cluster-network-cluster.yaml
+✅ cluster-ingresscontroller-default.yaml
+
+❌ openshift-gitops-clusterrole-ack-config-operator.yaml    (wrong: missing cluster- prefix)
+❌ grafana-operator-namespace.yaml                          (wrong: missing cluster- prefix)
+❌ openshift-ingress-operator-ingresscontroller-default.yaml (wrong: missing cluster- prefix)
+```
+
+---
+
+#### RBAC Resources - Special Naming Rules
+
+**Filename patterns**:
+
+| Resource Type | Filename Pattern | Example |
+|--------------|-----------------|---------|
+| Role | `<target-namespace>-role-<role-name>.yaml` | `cert-manager-role-cert-manager-operator.yaml` |
+| RoleBinding | `<target-namespace>-rolebinding-<binding-name>.yaml` | `cert-manager-rolebinding-cert-manager-operator.yaml` |
+| ClusterRole | `cluster-clusterrole-<role-name>.yaml` or `cluster-cr-<name>.yaml` | `cluster-clusterrole-edit-certificates.yaml` |
+| ClusterRoleBinding | `cluster-clusterrolebinding-<binding-name>.yaml` or `cluster-crb-<name>.yaml` | `cluster-crb-cert-manager-operator.yaml` |
+
+**CRITICAL - Cross-Namespace RBAC**:
+
+For Roles/RoleBindings that grant permissions in a different namespace than where the ServiceAccount lives, use the **TARGET namespace** in the filename, NOT the source namespace.
+
+```yaml
+# ServiceAccount in openshift-gitops, Role in cert-manager namespace
+✅ cert-manager-role-cert-manager-operator.yaml
+❌ openshift-gitops-role-cert-manager-operator-cert-manager.yaml
+
+# ServiceAccount in openshift-gitops, RoleBinding in kube-system namespace
+✅ kube-system-rolebinding-cleanup-operator.yaml
+❌ openshift-gitops-rolebinding-cleanup-operator-kube-system.yaml
+```
+
+**Resource name patterns (inside YAML metadata.name)**:
+
+| Resource | Name Pattern | Example |
+|----------|-------------|---------|
+| Role / ClusterRole | `<action>-<resources>` | `manage-certificates`, `edit-configmaps` |
+| RoleBinding | `<role-name>-<target-sa/user/group>` | `manage-certificates-gitops` |
+| ClusterRoleBinding | `<clusterrole-name>-<target-sa/user/group>` | `edit-certificates-cert-manager-operator` |
+
+**Example complete RBAC set**:
+
+```yaml
+# File: cert-manager-role-cert-manager-operator.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager-operator        # <action>-<resources>
+  namespace: cert-manager
+rules:
+- apiGroups: ["cert-manager.io"]
+  resources: [certificates, clusterissuers]
+  verbs: [get, list, create, patch]
+
+---
+# File: cert-manager-rolebinding-cert-manager-operator.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager-operator-gitops  # <role>-<target-sa>
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cert-manager-operator
+subjects:
+- kind: ServiceAccount
+  name: cert-manager-operator
+  namespace: openshift-gitops
+```
+
+---
+
+#### File Naming Anti-Patterns
+
+**DO NOT use**:
+- ❌ Version numbers in filenames: `sealed-secrets-controller-0.27.1.yaml`
+- ❌ Temporary prefixes: `TEMPORARY-FIX-openshift-operators-redhat-secret-*.yaml`
+- ❌ Wrong aliases: `sa` (use `serviceaccount`), `rb` (use `rolebinding`)
+- ❌ Namespace prefix on cluster-scoped: `openshift-gitops-clusterrole-*.yaml`
+- ❌ Source namespace on cross-namespace RBAC: `openshift-gitops-role-*-cert-manager.yaml`
+
+---
+
+### 5. SkipDryRunOnMissingResource Annotation (CRITICAL)
 
 **Rule**: Add annotation to ALL operator Custom Resources where CRDs are installed by the operator.
 
@@ -241,7 +395,7 @@ spec:
 
 ---
 
-### 5. Operator Cleanup Pattern (6-Step Sequence)
+### 6. Operator Cleanup Pattern (6-Step Sequence)
 
 **Problem**: Finalizer deadlock with `--cascade=foreground` - operator keeps running while Job waits indefinitely for CR deletion.
 
@@ -292,7 +446,7 @@ rules:
 
 ---
 
-### 6. Job RBAC Security
+### 7. Job RBAC Security
 
 **Rule**: Dedicated ServiceAccount for EVERY Job (no cluster-admin, no default ServiceAccount).
 
@@ -345,7 +499,7 @@ spec:
 
 ---
 
-### 7. Alert Silencing (Dual-Layer Required)
+### 8. Alert Silencing (Dual-Layer Required)
 
 **Problem**: Single-layer silencing either routes alerts OR hides them, not both.
 
@@ -374,7 +528,7 @@ routes:
 
 ---
 
-### 8. GitOps Consolidation Criteria
+### 9. GitOps Consolidation Criteria
 
 **When to consolidate ApplicationSets**:
 - ✅ **Perfect alignment**: Same profiles use both ApplicationSets (check all 13 profiles)
@@ -395,7 +549,7 @@ routes:
 
 ---
 
-### 9. Documentation Philosophy (CRITICAL)
+### 10. Documentation Philosophy (CRITICAL)
 
 **What to document in CLAUDE.md**:
 - ✅ Patterns/anti-patterns (Shared resource patterns, Pure Job patterns, failed approaches)
@@ -427,7 +581,7 @@ routes:
 
 ---
 
-### 10. Git Safety Protocol
+### 11. Git Safety Protocol
 
 **Rules**:
 - ✅ **Never amend commits** (especially after pre-commit hook failures - creates NEW commit instead)
@@ -449,7 +603,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 
 ---
 
-### 11. Namespace Isolation (OLM Install Plan Grouping Workaround)
+### 12. Namespace Isolation (OLM Install Plan Grouping Workaround)
 
 **Context**: OLM groups operator upgrades in same namespace into single install plan.
 
@@ -468,7 +622,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 
 ---
 
-### 12. InfoSec Leak Detection (.gitleaks.toml)
+### 13. InfoSec Leak Detection (.gitleaks.toml)
 
 **Context**: Red Hat Information Security scans all git repositories for leaked secrets.
 
