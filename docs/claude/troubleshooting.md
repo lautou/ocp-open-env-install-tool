@@ -334,6 +334,109 @@ oc get subscription -n openshift-storage <subscription-name> -o yaml | grep -A5 
 oc logs -n openshift-storage job/update-subscriptions-node-selector
 ```
 
+### RHOAI Models as a Service Dashboard Not Showing Models
+
+**Symptom**: LLMInferenceServices with MaaS configuration do not appear in the RHOAI dashboard "AI asset endpoints → Models as a service" tab
+
+**Example Error**: Browser console shows API error when accessing the MaaS tab:
+```json
+{
+  "error": {
+    "code": "service_unavailable",
+    "message": "MaaS service is not available"
+  }
+}
+```
+
+**Affected Version**: RHOAI 3.3.0
+
+**Root Cause**:
+The gen-ai-ui backend component cannot discover the maas-api service URL. Gen-ai-ui container logs show empty URL during initialization:
+```
+time=2026-03-31T21:12:46.108Z level=INFO msg="Using real MaaS client factory" url=""
+```
+
+This prevents the dashboard from fetching the list of MaaS-enabled models, even though:
+- All CRs show Ready status (DataScienceCluster, ModelsAsService, Dashboard)
+- OdhDashboardConfig has `modelAsService: true`
+- maas-api service exists and is healthy
+- Network connectivity works (gen-ai-ui can reach maas-api)
+- Models are correctly configured and accessible via external URLs
+
+**Debug**:
+```bash
+# Check gen-ai-ui logs for MaaS client initialization
+oc logs -n redhat-ods-applications deployment/rhods-dashboard -c gen-ai-ui | grep -i maas
+
+# Should show "url=\"\"" instead of actual service URL
+
+# Verify maas-api service exists and is healthy
+oc get svc maas-api -n redhat-ods-applications
+oc exec -n redhat-ods-applications deployment/maas-api -- curl -k -s https://localhost:8443/health
+# Should return: {"status":"healthy"}
+
+# Check if models are correctly configured
+oc get llminferenceservice -n <namespace> -o yaml | grep -A 5 "alpha.maas.opendatahub.io/tiers"
+
+# Verify models are accessible via external URL
+curl -k https://maas-api.apps.<cluster-domain>/<namespace>/<model-name>/health
+```
+
+**Verification of Correct Configuration**:
+```bash
+# LLMInferenceService should have:
+# 1. MaaS tiers annotation
+oc get llminferenceservice <name> -n <namespace> -o jsonpath='{.metadata.annotations.alpha\.maas\.opendatahub\.io/tiers}'
+# Expected: ["test","free"] or similar
+
+# 2. Dashboard label
+oc get llminferenceservice <name> -n <namespace> -o jsonpath='{.metadata.labels.opendatahub\.io/dashboard}'
+# Expected: "true"
+
+# 3. Stop annotation set to false
+oc get llminferenceservice <name> -n <namespace> -o jsonpath='{.metadata.annotations.serving\.kserve\.io/stop}'
+# Expected: "false"
+
+# 4. NO genai-asset label (mutually exclusive with MaaS)
+oc get llminferenceservice <name> -n <namespace> -o jsonpath='{.metadata.labels.opendatahub\.io/genai-asset}'
+# Expected: (empty/no output)
+
+# 5. Check CR status
+oc get modelsasservice default-modelsasservice -o jsonpath='{.status.phase}'
+# Expected: Ready
+
+oc get dashboard default-dashboard -o jsonpath='{.status.phase}'
+# Expected: Ready
+```
+
+**Workaround**:
+Models ARE accessible via their external URLs through the Gateway:
+```bash
+# Get model URL from LLMInferenceService status
+oc get llminferenceservice <name> -n <namespace> -o jsonpath='{.status.url}'
+
+# Example: https://maas-api.apps.myocp.sandbox3491.opentlc.com/laurent/mybeautifulmodel
+
+# Use this URL directly for inference requests
+curl -k https://maas-api.apps.<cluster-domain>/<namespace>/<model-name>/v1/models
+```
+
+**Impact**:
+- **Severity**: High - Dashboard MaaS listing completely non-functional
+- **Scope**: All RHOAI 3.3.0 deployments with MaaS enabled
+- **Business Impact**: Users cannot discover or manage MaaS models via dashboard UI
+- **Workaround Quality**: Partial - models work but require manual URL construction
+
+**Status**:
+- **JIRA**: [Create ticket using template above]
+- **Platform Bug**: Service discovery failure in gen-ai-ui component
+- **Fix ETA**: Pending Red Hat investigation
+- **Recommendation**: Open Red Hat support case for RHOAI 3.3.0 MaaS feature
+
+**Reference**: Full investigation details in conversation transcript `c5f3e798-75bf-4c72-8f67-2d9602cd1bef.jsonl`
+
+---
+
 ### Known False-Positive Alerts
 
 See [`known-bugs.md`](known-bugs.md) for comprehensive list of silenced alerts and root causes.

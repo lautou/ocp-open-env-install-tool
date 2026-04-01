@@ -45,7 +45,19 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 ## YAML Formatting Standards
 
-**CRITICAL**: All Kubernetes YAML manifests and Kustomize files MUST follow alphabetical ordering rules.
+**CRITICAL**: All Kubernetes YAML manifests and Kustomize files MUST follow alphabetical ordering and naming convention rules.
+
+### File Naming Conventions
+
+**Mandatory patterns**: All YAML resource files MUST follow standardized naming conventions.
+
+**For detailed naming rules**: See [docs/claude/gitops-specialist-agent.md](docs/claude/gitops-specialist-agent.md) section "YAML File Naming Conventions"
+
+**Quick reference**:
+- Namespaced resources: `<namespace>-<type>-<name>.yaml`
+- Cluster-scoped resources: `cluster-<type>-<name>.yaml`
+- Aliases allowed: sa, cm, svc, deploy, rb, crb, cr (to prevent excessive filename length)
+- Special prefix: `TEMPORARY-FIX-` (intentional indicator for upstream bug workarounds)
 
 ### Kustomization Files
 
