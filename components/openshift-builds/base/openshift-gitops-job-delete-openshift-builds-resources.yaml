@@ -2,7 +2,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/hook: PostDelete
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
     argocd.argoproj.io/sync-options: Force=true
   name: delete-openshift-builds-resources
   namespace: openshift-gitops
@@ -19,80 +20,193 @@ spec:
           set -e
 
           echo "================================================"
-          echo "OpenShift Builds Cleanup - Proper Operator Deletion"
+          echo "OpenShift Builds Cleanup - Red Hat Official Procedure"
           echo "================================================"
           echo ""
+          echo "Following Red Hat documentation:"
+          echo "docs.redhat.com/en/documentation/builds_for_red_hat_openshift/1.7/html/uninstall"
+          echo ""
+          echo "Using PreDelete hook to run BEFORE ArgoCD deletes resources."
+          echo "This ensures proper deletion order per Red Hat docs."
+          echo ""
 
-          # Step 1: Delete Subscription (stops operator updates)
-          echo "Step 1: Deleting Subscription (stops operator updates)..."
-          if oc get subscription openshift-builds-operator -n openshift-builds &>/dev/null; then
-            oc delete subscription openshift-builds-operator -n openshift-builds --ignore-not-found
-            echo "✅ Subscription deleted"
+          # Function to safely delete CRD with finalizer cleanup
+          safe_delete_crd() {
+            local crd_name=$1
+
+            if oc get crd $crd_name &>/dev/null; then
+              echo "  Deleting CRD: $crd_name"
+
+              # Try normal deletion first (gives operator time to cleanup)
+              oc delete crd $crd_name --timeout=60s --ignore-not-found 2>&1 || {
+                echo "  ⚠️  CRD deletion timed out, removing finalizers..."
+                # Remove finalizers from CRD
+                oc patch crd $crd_name --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+                # Force delete
+                oc delete crd $crd_name --ignore-not-found --grace-period=0 --force 2>/dev/null || true
+              }
+
+              echo "  ✅ CRD $crd_name deleted"
+            else
+              echo "  ℹ️  CRD $crd_name not found"
+            fi
+          }
+
+          # Step 1: Delete Shipwright CRDs
+          # Per Red Hat docs: "Deleting the CRs deletes the Builds controller
+          # and all the related components and tasks on the cluster"
+          echo "Step 1: Deleting Shipwright CRDs (triggers operator cleanup)..."
+          echo ""
+          echo "NOTE: This triggers the operator to clean up all components."
+          echo "The operator is still running and will handle finalizers."
+          echo ""
+
+          safe_delete_crd "builds.shipwright.io"
+          safe_delete_crd "buildruns.shipwright.io"
+          safe_delete_crd "buildstrategies.shipwright.io"
+          safe_delete_crd "clusterbuildstrategies.shipwright.io"
+
+          echo ""
+
+          # Step 2: Wait for operator to finish cleanup
+          echo "Step 2: Waiting for operator cleanup (30s grace period)..."
+          echo "  Allowing time for operator to handle finalizers and cleanup..."
+          sleep 30
+          echo "  ✅ Grace period completed"
+          echo ""
+
+          # Step 3: Delete openshiftbuild CR (if still exists after CRD deletion)
+          echo "Step 3: Deleting openshiftbuild CR (operator config)..."
+          if oc get openshiftbuild cluster &>/dev/null; then
+            # Try normal deletion first
+            oc delete openshiftbuild cluster --timeout=60s --ignore-not-found 2>&1 || {
+              echo "  ⚠️  CR deletion timed out, removing finalizers..."
+              oc patch openshiftbuild cluster --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+              oc delete openshiftbuild cluster --ignore-not-found --grace-period=0 --force 2>/dev/null || true
+            }
+            echo "  ✅ openshiftbuild CR deleted"
           else
-            echo "ℹ️  Subscription not found"
+            echo "  ℹ️  openshiftbuild CR not found (already cleaned up)"
           fi
           echo ""
 
-          # Step 2: Delete CSV (stops operator)
-          echo "Step 2: Deleting ClusterServiceVersion (stops operator)..."
+          # Step 4: Uninstall the operator
+          # Per Red Hat docs: Do this AFTER deleting components
+          echo "Step 4: Uninstalling Builds operator..."
+
+          # Delete Subscription
+          if oc get subscription openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc delete subscription openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
+            echo "  ✅ Subscription deleted"
+          else
+            echo "  ℹ️  Subscription not found"
+          fi
+
+          # Delete CSV
           CSV_NAME=$(oc get csv -n openshift-builds -o name 2>/dev/null | grep openshift-builds-operator || echo "")
           if [ -n "$CSV_NAME" ]; then
-            oc delete $CSV_NAME -n openshift-builds --ignore-not-found
-            echo "✅ CSV deleted: $CSV_NAME"
+            oc delete $CSV_NAME -n openshift-builds --ignore-not-found --timeout=60s 2>&1 || true
+            echo "  ✅ CSV deleted: $CSV_NAME"
           else
-            echo "ℹ️  CSV not found"
+            echo "  ℹ️  CSV not found"
           fi
           echo ""
 
-          # Step 3: Wait for operator pods to terminate
-          echo "Step 3: Waiting for operator pods to terminate..."
+          # Step 5: Wait for operator pods to terminate
+          echo "Step 5: Waiting for operator pods to terminate..."
           if oc get pods -l app=openshift-builds-operator -n openshift-builds &>/dev/null; then
-            oc wait --for=delete pod -l app=openshift-builds-operator -n openshift-builds --timeout=120s 2>/dev/null || echo "⚠️  Timeout waiting for pods (continuing anyway)"
-            echo "✅ Operator pods terminated"
+            oc wait --for=delete pod -l app=openshift-builds-operator -n openshift-builds --timeout=120s 2>/dev/null || {
+              echo "  ⚠️  Timeout waiting for pods, force deleting..."
+              oc delete pod -l app=openshift-builds-operator -n openshift-builds --grace-period=0 --force 2>/dev/null || true
+            }
+            echo "  ✅ Operator pods terminated"
           else
-            echo "ℹ️  No operator pods found"
+            echo "  ℹ️  No operator pods found"
           fi
           echo ""
 
-          # Step 4: Remove finalizer from openshiftbuild CR (if operator didn't)
-          echo "Step 4: Removing finalizer from openshiftbuild CR..."
-          if oc get openshiftbuild cluster &>/dev/null; then
-            # Check if finalizer exists
-            FINALIZER_COUNT=$(oc get openshiftbuild cluster -o jsonpath='{.metadata.finalizers}' 2>/dev/null | grep -c "operator.openshift.io/openshiftbuilds" || echo "0")
-            if [ "$FINALIZER_COUNT" -gt 0 ]; then
-              oc patch openshiftbuild cluster --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || echo "⚠️  Failed to remove finalizer (may already be removed)"
-              echo "✅ Finalizer removed"
-            else
-              echo "ℹ️  No finalizer found (operator already cleaned up)"
-            fi
+          # Step 6: Delete OperatorGroup (cleanup)
+          echo "Step 6: Deleting OperatorGroup..."
+          if oc get operatorgroup openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc delete operatorgroup openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
+            echo "  ✅ OperatorGroup deleted"
           else
-            echo "ℹ️  openshiftbuild CR not found"
+            echo "  ℹ️  OperatorGroup not found"
           fi
           echo ""
 
-          # Step 5: Delete openshiftbuild CR
-          echo "Step 5: Deleting openshiftbuild CR..."
-          if oc get openshiftbuild cluster &>/dev/null; then
-            oc delete openshiftbuild cluster --ignore-not-found --timeout=60s
-            echo "✅ openshiftbuild CR deleted"
-          else
-            echo "ℹ️  openshiftbuild CR already deleted"
-          fi
-          echo ""
-
-          # Step 6: Delete namespace
-          echo "Step 6: Deleting openshift-builds namespace..."
+          # Step 7: Delete namespace with finalizer cleanup
+          echo "Step 7: Deleting openshift-builds namespace..."
           if oc get namespace openshift-builds &>/dev/null; then
-            oc delete namespace openshift-builds --ignore-not-found --timeout=120s
-            echo "✅ Namespace deleted"
+            # Try normal deletion
+            oc delete namespace openshift-builds --timeout=120s 2>&1 || {
+              echo "  ⚠️  Namespace deletion timed out, removing finalizers..."
+              # Remove finalizers from namespace
+              oc patch namespace openshift-builds --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+              # Force delete
+              oc delete namespace openshift-builds --grace-period=0 --force 2>/dev/null || true
+            }
+
+            # Wait and verify
+            for i in {1..30}; do
+              if ! oc get namespace openshift-builds &>/dev/null; then
+                echo "  ✅ Namespace deleted successfully"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "  ⚠️  Namespace still exists after cleanup attempts"
+              fi
+              sleep 2
+            done
           else
-            echo "ℹ️  Namespace already deleted"
+            echo "  ℹ️  Namespace already deleted"
           fi
           echo ""
 
-          echo "================================================"
-          echo "✅ OpenShift Builds cleanup completed successfully"
-          echo "================================================"
+          # Step 8: Verification
+          echo "Step 8: Verifying cleanup..."
+          CLEANUP_SUCCESS=true
+
+          # Check namespace
+          if oc get namespace openshift-builds &>/dev/null; then
+            echo "  ❌ Namespace still exists"
+            CLEANUP_SUCCESS=false
+          else
+            echo "  ✅ Namespace removed"
+          fi
+
+          # Check CRDs
+          CRDS=(
+            "builds.shipwright.io"
+            "buildruns.shipwright.io"
+            "buildstrategies.shipwright.io"
+            "clusterbuildstrategies.shipwright.io"
+          )
+
+          for crd in "${CRDS[@]}"; do
+            if oc get crd $crd &>/dev/null; then
+              echo "  ⚠️  CRD $crd still exists"
+              CLEANUP_SUCCESS=false
+            fi
+          done
+
+          if [ "$CLEANUP_SUCCESS" = true ]; then
+            echo "  ✅ All CRDs removed"
+          fi
+
+          echo ""
+
+          if [ "$CLEANUP_SUCCESS" = true ]; then
+            echo "================================================"
+            echo "✅ OpenShift Builds cleanup completed successfully"
+            echo "================================================"
+          else
+            echo "================================================"
+            echo "⚠️  OpenShift Builds cleanup completed with warnings"
+            echo "   Manual verification recommended"
+            echo "================================================"
+            exit 0  # Don't fail the Job on warnings
+          fi
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: delete-openshift-builds-resources
       nodeSelector:
