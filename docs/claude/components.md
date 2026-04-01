@@ -1137,6 +1137,68 @@ Operator channel managed via `cluster-versions` ConfigMap:
 
 **Installation**: Part of the `acm/hub` gitops-base, deployed in profile: `ocp-reference`, `ocp-acm-hub`
 
+## Red Hat build of Apicurio Registry
+
+**Purpose**: Provides a schema registry for API and event schema management, supporting Avro, Protobuf, JSON Schema, OpenAPI, and AsyncAPI formats.
+
+**Installation**: Deployed in dedicated `rhb-apicurio-registry-operator` namespace. Available in devops profiles via `gitops-bases/devops/ai`.
+
+**Namespace**: `rhb-apicurio-registry-operator`
+
+**OperatorGroup Configuration:**
+
+The component uses **AllNamespaces mode** to allow ApicurioRegistry instances to be created in any namespace:
+
+```yaml
+# components/rhb-apicurio-registry-operator/overlays/ai/rhb-apicurio-registry-operator-operatorgroup-rhb-apicurio-registry-operator.yaml
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhb-apicurio-registry-operator
+  namespace: rhb-apicurio-registry-operator
+# No spec section → AllNamespaces mode
+```
+
+**AllNamespaces Mode Behavior:**
+
+When `spec.targetNamespaces` is omitted entirely:
+- `status.namespaces` contains empty string `[""]`
+- Operator watches **all namespaces** cluster-wide
+- OLM creates **ClusterRole** and **ClusterRoleBinding** (not namespace-scoped RBAC)
+- ApicurioRegistry3 instances can be created in any namespace
+- Operator logs confirm: `"Watching all namespaces."`
+
+**Why AllNamespaces mode:**
+- Allows application teams to deploy schema registries in their own namespaces
+- Eliminates need for cluster-admin intervention per namespace
+- Simplifies multi-tenant schema registry deployments
+- Operator still runs in dedicated namespace but watches cluster-wide
+
+**Alternative: SingleNamespace Mode**
+
+For restricted deployments, use SingleNamespace mode:
+
+```yaml
+spec:
+  targetNamespaces:
+  - rhb-apicurio-registry-operator  # Only watch this namespace
+```
+
+**Supported Install Modes:**
+
+The operator supports all OLM install modes:
+- ✅ OwnNamespace
+- ✅ SingleNamespace
+- ✅ MultiNamespace
+- ✅ AllNamespaces
+
+**Version Management:**
+
+Operator channel managed via `cluster-versions` ConfigMap:
+- `rhbar: "3.x"` (ConfigMap)
+
+**Installation**: Part of the `devops/ai` gitops-base, deployed in profiles with integration/DevOps capabilities.
+
 ## Red Hat Connectivity Link (RHCL) - Kuadrant
 
 **Purpose**: Provides API gateway capabilities including rate limiting, authentication, DNS management, and TLS policies through the Kuadrant operator stack.
