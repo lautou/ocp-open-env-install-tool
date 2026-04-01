@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This OpenShift Container Platform (OCP) installation tool represents a **mature, well-architected GitOps solution** for automating Day 2 cluster configuration on AWS. The project demonstrates enterprise-grade practices with a modular "Lego" architecture enabling flexible cluster deployments across 13 different profiles.
+This OpenShift Container Platform (OCP) installation tool represents a **mature, well-architected GitOps solution** for automating Day 2 cluster configuration on AWS. The project demonstrates enterprise-grade practices with a modular "Lego" architecture enabling flexible cluster deployments across 14 different profiles.
 
 **Overall Rating:** ⭐⭐⭐⭐☆ (4/5)
 
@@ -1865,7 +1865,7 @@ gitops-bases/
     └── default/
 ```
 
-### A.3 Profiles (13)
+### A.3 Profiles (14)
 
 ```
 ocp-standard
@@ -1875,6 +1875,7 @@ ocp-acs-central
 ocp-acm-hub
 ocp-acm-hub-acs-central
 ocp-ai
+ocp-reference
 ocp-odf-full-aws-lean
 ocp-odf-full-aws-balanced
 ocp-odf-full-aws-performance
