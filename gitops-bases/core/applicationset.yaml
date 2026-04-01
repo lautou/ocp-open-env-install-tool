@@ -1,9 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
   name: cluster-core-components
   namespace: openshift-gitops
 spec:
+  syncPolicy:
+    applicationsSync: create-update
   generators:
   - list:
       elements:
