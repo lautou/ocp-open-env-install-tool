@@ -234,6 +234,70 @@ ArgoCD validates ALL resources before applying ANY resources:
 
 **Critical**: Without this annotation, operator-based components WILL FAIL on fresh cluster deployments.
 
+### ApplicationSet Configuration for PreDelete Hooks
+
+**Pattern**: Configure ApplicationSets to prevent auto-deletion and enable PreDelete hook execution.
+
+**CRITICAL**: PreDelete hooks only execute during **explicit Application deletion** (`oc delete application`), NOT during ApplicationSet pruning (removing from generator list).
+
+**Required Configuration** (applied to all ApplicationSets as of 2026-04-01):
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  syncPolicy:
+    applicationsSync: create-update
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background
+```
+
+**What each setting does**:
+
+| Setting | Purpose |
+|---------|---------|
+| `metadata.finalizers` | Protects Applications from deletion when ApplicationSet deleted (ownerReferences) |
+| `applicationsSync: create-update` | Prevents auto-deletion when Application removed from generator list |
+| `template.metadata.finalizers` | Cascade deletes Application's managed resources (background async) |
+
+**Deletion Behavior**:
+
+**WITHOUT create-update** (default `sync`):
+```
+Remove from generator → ApplicationSet auto-deletes Application
+  → PreDelete hook NEVER executes ❌
+```
+
+**WITH create-update**:
+```
+Remove from generator → Application orphaned (still exists, not managed)
+  → Explicit delete: oc delete application <name>
+  → PreDelete hook executes ✅
+  → Cleanup runs → Application deleted
+```
+
+**Workflow for Component Removal**:
+
+1. Remove component from profile/generator list → commit/push
+2. ApplicationSet orphans Application (not deleted)
+3. Verify: `oc get application <name>` (still exists)
+4. Delete explicitly: `oc delete application <name>`
+5. PreDelete hook runs → cleanup executes
+6. Application deleted after hook succeeds
+
+**Re-deployment**: Add back to generator list → ApplicationSet recreates Application → Component redeploys
+
+**Example Component**: `openshift-builds` PreDelete hook follows Red Hat official uninstall procedure (verified 2026-04-01)
+
+**ArgoCD Version**: PreDelete hooks require ArgoCD 3.3+ (OpenShift GitOps 1.20+)
+
+**Details**: See [jobs.md](docs/claude/jobs.md) section "PreDelete Hooks and ApplicationSet Configuration"
+
 ### Job Template Refactoring
 
 **Question**: Extract duplicate Jobs into shared templates (DRY)?

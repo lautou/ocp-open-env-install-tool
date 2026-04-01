@@ -38,9 +38,15 @@ Jobs integrate with ArgoCD's sync lifecycle using resource hooks to control exec
 | `Skip` | Never (excluded from sync) | Manual execution only |
 | `PostSync` | After successful sync | Configuration, patching shared resources |
 | `SyncFail` | After failed sync | Cleanup, notifications |
+| `PreDelete` | Before app deletion (ArgoCD 3.3+) | Cleanup before resource deletion |
 | `PostDelete` | After app deletion | Resource cleanup |
 
 **Most common**: `PostSync` (used by 90% of Jobs in this project)
+
+**PreDelete vs PostDelete**:
+- **PreDelete**: Executes BEFORE ArgoCD deletes any resources (cleanup runs while resources still exist)
+- **PostDelete**: Executes AFTER ArgoCD deletes resources (cleanup runs after resources are gone)
+- **Recommendation**: Use PreDelete for cleanup that needs to interact with existing resources
 
 ### Hook Annotations
 
@@ -80,6 +86,156 @@ metadata:
 - Example: Secret rotation Jobs that need to run periodically
 
 **Without Force=true**: ArgoCD skips Job if manifest unchanged since last sync (Job never re-runs)
+
+### PreDelete Hooks and ApplicationSet Configuration
+
+**CRITICAL REQUIREMENT**: PreDelete hooks only execute during **explicit Application deletion**, NOT during ApplicationSet pruning.
+
+#### When PreDelete Hooks Execute
+
+✅ **DOES execute**:
+```bash
+oc delete application <name>  # Explicit deletion command
+```
+
+❌ **DOES NOT execute**:
+- ApplicationSet auto-pruning (removing component from generator list)
+- Sync-based resource deletion (removing resource from git)
+
+#### Required ApplicationSet Configuration
+
+For PreDelete hooks to work with ApplicationSet-managed Applications, the ApplicationSet MUST be configured with:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io  # Protects Applications from ownerReference deletion
+spec:
+  syncPolicy:
+    applicationsSync: create-update  # Prevents auto-deletion when removed from generator
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background  # Cascade delete managed resources
+```
+
+**What each setting does**:
+
+1. **ApplicationSet finalizer** (`metadata.finalizers`):
+   - Prevents Applications from being deleted when ApplicationSet is deleted (ownerReferences)
+   - Uses background cascading deletion
+   - **Required** for `create-update` policy to work
+
+2. **applicationsSync: create-update** (`spec.syncPolicy`):
+   - Allows ApplicationSet to **create** and **update** Applications
+   - **Prevents** ApplicationSet from **deleting** Applications when removed from generator list
+   - Applications become "orphaned" when removed (still exist but not managed)
+
+3. **Application finalizer** (`template.metadata.finalizers`):
+   - Controls cascade deletion of Application's managed resources (Deployments, Services, etc.)
+   - **background**: Async deletion, Application deleted immediately, resources cleaned in background
+
+#### Workflow for Component Removal with PreDelete Hooks
+
+**Step 1**: Remove component from profile/generator list
+```yaml
+# gitops-bases/core/applicationset.yaml
+generators:
+- list:
+    elements:
+    - item: cert-manager
+    # - item: openshift-builds  # REMOVED
+    - item: grafana
+```
+Commit and push → ApplicationSet reconciles → Application becomes orphaned (NOT deleted)
+
+**Step 2**: Verify Application orphaned
+```bash
+oc get application openshift-builds -n openshift-gitops
+# Status: Still exists (Synced/Healthy or Degraded)
+```
+
+**Step 3**: Delete Application explicitly
+```bash
+oc delete application openshift-builds -n openshift-gitops
+# PreDelete hook Job created and executed
+# Cleanup runs following custom procedure (e.g., Red Hat official uninstall)
+# Application deleted after hook succeeds
+```
+
+**Step 4** (Optional): Re-add to profile
+```yaml
+# Restore to generator list → ApplicationSet recreates Application → Component redeploys
+```
+
+#### Example: OpenShift Builds PreDelete Hook
+
+**File**: `components/openshift-builds/base/openshift-gitops-job-delete-openshift-builds-resources.yaml`
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/sync-options: Force=true
+  name: delete-openshift-builds-resources
+  namespace: openshift-gitops
+spec:
+  template:
+    spec:
+      containers:
+      - command: ["/bin/bash", "-c"]
+        args:
+        - |
+          # Step 1: Delete Shipwright CRDs (operator still running, handles cleanup)
+          # Step 2: Wait 30s for operator cleanup
+          # Step 3: Delete OpenShiftBuild CR
+          # Step 4: Delete Subscription and CSV
+          # Step 5: Delete OperatorGroup
+          # Step 6: Delete namespace
+          # Step 7: Verify cleanup succeeded
+```
+
+**Execution verified** (2026-04-01):
+- PreDelete Job created within 4 seconds of deletion
+- Followed Red Hat official uninstall procedure
+- Operator cleanly removed (Subscription, CSV, pods deleted)
+- Application deleted after hook completion
+- Job self-deleted (HookSucceeded policy)
+
+#### When to Use PreDelete vs PostDelete
+
+| Scenario | Hook Type | Reason |
+|----------|-----------|--------|
+| Cleanup needs existing resources | **PreDelete** | Resources still exist during hook execution |
+| Backup before deletion | **PreDelete** | Data accessible during hook |
+| Operator requires specific order | **PreDelete** | Control deletion sequence before ArgoCD |
+| Notification after deletion | **PostDelete** | Confirm deletion completed |
+| Simple cleanup | **PostDelete** | Simpler, no ApplicationSet config needed |
+
+**Recommendation**: Use **PreDelete** when cleanup procedure requires resources to exist (e.g., operator uninstall procedures, data backup).
+
+#### ArgoCD Version Requirements
+
+- **PreDelete hooks**: ArgoCD 3.3+ (OpenShift GitOps 1.20+)
+- **PostDelete hooks**: ArgoCD 2.10+ (OpenShift GitOps 1.10+)
+- **applicationsSync policy**: ArgoCD 2.5+
+
+#### ApplicationSets Using create-update Policy
+
+All ApplicationSets in this project are configured with `applicationsSync: create-update`:
+
+- `cluster-core-components` (core gitops-base) - **Configured 2026-04-01**
+- Additional ApplicationSets inherit this pattern for consistency
+
+**Benefits**:
+- Prevents accidental deletion via ApplicationSet pruning
+- Enables PreDelete hook execution for controlled cleanup
+- Supports component lifecycle management (remove → cleanup → restore)
 
 ---
 
