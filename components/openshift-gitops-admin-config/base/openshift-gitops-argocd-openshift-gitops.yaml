@@ -47,7 +47,7 @@ spec:
         memory: 256Mi
     sidecarContainers:
     - name: cmp-cluster-domain
-      image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843e6af30376dfc01875baa86c62a9cb85e4606dc108063edba3aee1b8c
+      image: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:ddf6e5c439c6bfca31a7f25c22cffc5102092184a33b9754c97697f81c78e97a
       command:
       - /var/run/argocd/argocd-cmp-server
       securityContext:

@@ -215,13 +215,28 @@ Each component includes:
        mountsatoken: true  # Enable ServiceAccount token for Kubernetes API access
        sidecarContainers:
        - name: cmp-cluster-domain
-         image: registry.redhat.io/openshift-gitops-1/argocd-rhel8@sha256:e9b0f843...
+         image: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:ddf6e5c439...
+         # RHEL9-based image required for ArgoCD 3.3+ (GLIBC 2.32/2.34 compatibility)
          # ServiceAccount token auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/
        volumes:
        - name: cmp-plugin
          configMap:
            name: cmp-plugin  # Plugin definition
    ```
+
+   **CRITICAL: ArgoCD 3.3+ Requires RHEL9 Image**
+
+   ArgoCD 3.3.2 (included in OpenShift GitOps 1.20) requires GLIBC 2.32+ and 2.34+ for the argocd-cmp-server binary:
+   - ❌ `argocd-rhel8` image: GLIBC too old → CMP container crashes with "version not found" errors
+   - ✅ `argocd-rhel9` image: GLIBC 2.34+ → CMP container runs successfully
+
+   **Error without RHEL9**:
+   ```
+   /var/run/argocd/argocd-cmp-server: /lib64/libc.so.6: version `GLIBC_2.34' not found
+   /var/run/argocd/argocd-cmp-server: /lib64/libc.so.6: version `GLIBC_2.32' not found
+   ```
+
+   **After upgrading OpenShift GitOps to 1.20+**, you MUST update the CMP sidecar image to RHEL9.
 
    **RBAC Requirements**:
    - ClusterRole: `argocd-cmp-dns-reader` (grants `get/list` on `dnses.config.openshift.io` and `infrastructures.config.openshift.io`, plus `get` on `secrets/aws-creds` in `kube-system`)
@@ -309,6 +324,18 @@ Common issues and solutions:
 **Version Management:**
 
 ArgoCD version follows OpenShift GitOps operator channel (managed by OLM).
+
+**Current Versions** (as of 2026-04-01):
+- OpenShift GitOps Operator: 1.20.0
+- ArgoCD: v3.3.2+8a3940d
+- Channel: `gitops-1.20`
+
+**Upgrade Path**:
+When upgrading OpenShift GitOps operator, verify CMP sidecar image compatibility:
+- OpenShift GitOps 1.19 (ArgoCD 3.1): `argocd-rhel8` image compatible
+- OpenShift GitOps 1.20+ (ArgoCD 3.3+): `argocd-rhel9` image **required**
+
+Update the CMP sidecar image in `components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml` after operator upgrades.
 
 ## Cluster Network (AdminNetworkPolicy)
 
