@@ -50,4 +50,4 @@ data:
 
   # Cluster management
   rhacm: "release-2.16"
-  rhacs: "rhacs-4.9"
+  rhacs: "rhacs-4.10"
