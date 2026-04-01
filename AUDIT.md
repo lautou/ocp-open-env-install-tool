@@ -265,7 +265,7 @@ repoURL: $(GIT_REPO_URL)  # From bootstrap ConfigMap
 |---------|----------|-----------|-----------|
 | ocp-standard | Baseline cluster | 25 | core, devops (incl. service mesh), logging/pico, netobserv, storage/mcg-only |
 | ocp-ai | AI/ML workloads | 28 | core, devops/ai (no service mesh), logging/pico, storage/mcg-only, ai |
-| ocp-reference | Reference/testing (AI+ACM) | 32 | acm/hub, ai, core, devops/ai, logging/pico, netobserv, storage/mcg-only |
+| ocp-reference | Reference/testing (AI+ACM+ACS) | 33 | acs/central, acm/hub, ai, core, devops/ai, logging/pico, netobserv, storage/mcg-only |
 | ocp-acm-hub | Multi-cluster mgmt | 19 | standard + acm/hub |
 | ocp-acs-central | Security operations | 19 | standard + acs/central |
 | ocp-odf-full-aws-performance | High-perf storage | 18 | standard + storage/full-aws-performance |
