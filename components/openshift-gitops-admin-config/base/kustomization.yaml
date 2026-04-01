@@ -13,16 +13,16 @@ resources:
   - cluster-group-cluster-admins.yaml
   - cluster-namespace-openshift-kube-controller-manager.yaml
   - openshift-gitops-argocd-openshift-gitops.yaml
-  - openshift-gitops-clusterrole-ack-config-operator.yaml
-  - openshift-gitops-clusterrole-cert-manager-operator.yaml
-  - openshift-gitops-clusterrole-cleanup-operator.yaml
-  - openshift-gitops-clusterrole-console-plugin-manager.yaml
-  - openshift-gitops-clusterrole-gpu-machineset-operator.yaml
-  - openshift-gitops-clusterrolebinding-ack-config-operator.yaml
-  - openshift-gitops-clusterrolebinding-cert-manager-operator.yaml
-  - openshift-gitops-clusterrolebinding-cleanup-operator.yaml
-  - openshift-gitops-clusterrolebinding-console-plugin-manager.yaml
-  - openshift-gitops-clusterrolebinding-gpu-machineset-operator.yaml
+  - cluster-cr-ack-config-operator.yaml
+  - cluster-cr-cert-manager-operator.yaml
+  - cluster-cr-cleanup-operator.yaml
+  - cluster-cr-console-plugin-manager.yaml
+  - cluster-cr-gpu-machineset-operator.yaml
+  - cluster-crb-ack-config-operator.yaml
+  - cluster-crb-cert-manager-operator.yaml
+  - cluster-crb-cleanup-operator.yaml
+  - cluster-crb-console-plugin-manager.yaml
+  - cluster-crb-gpu-machineset-operator.yaml
   - openshift-gitops-configmap-cmp-plugin.yaml
   - openshift-gitops-job-cleanup-installer-pods.yaml
   - openshift-gitops-job-enable-gitops-console-plugin.yaml
