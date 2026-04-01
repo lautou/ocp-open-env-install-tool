@@ -1017,6 +1017,126 @@ This workaround can be removed when:
 - [Red Hat Solution 7087666](https://access.redhat.com/solutions/7087666) - ServiceAccount token secrets in OpenShift 4.11+
 - [Red Hat Solution 7065483](https://access.redhat.com/solutions/7065483) - Manual token secret creation
 
+## Red Hat Advanced Cluster Management (RHACM)
+
+**Purpose**: Multi-cluster management platform for Kubernetes/OpenShift clusters, providing cluster lifecycle, policy governance, application delivery, and search capabilities.
+
+**Installation**: Deployed in `open-cluster-management` namespace. Available in hub profiles via `gitops-bases/acm/hub`.
+
+**Namespace**: `open-cluster-management`
+
+**RBAC Pattern: Namespace Label Sufficient**
+
+ArgoCD can manage ACM resources without explicit ClusterRole/RoleBinding files for many API groups:
+
+```yaml
+# components/rhacm/overlays/hub/cluster-namespace-open-cluster-management.yaml
+metadata:
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
+```
+
+**How it works:**
+- OpenShift GitOps operator automatically creates Role/RoleBinding in namespaces with this label
+- Auto-generated Role includes permissions for many ACM API groups (apps.open-cluster-management.io, cluster.open-cluster-management.io, etc.)
+- ArgoCD application controller can manage namespace-scoped ACM resources without additional RBAC
+
+**Observed limitation:**
+- `search.open-cluster-management.io` API group was not initially visible in the auto-generated Role
+- However, ArgoCD successfully managed Search CR after retries (~2.5 minutes)
+- Namespace label alone proved sufficient - no explicit RoleBinding needed
+
+### Search Persistent Storage Configuration
+
+**Pattern**: Direct CR management with namespace-level RBAC
+
+ACM Search requires persistent storage for production use to prevent data loss and avoid continuous re-indexing:
+
+```yaml
+# components/rhacm/overlays/hub/open-cluster-management-search-search-v2-operator.yaml
+apiVersion: search.open-cluster-management.io/v1alpha1
+kind: Search
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: search-v2-operator
+  namespace: open-cluster-management
+spec:
+  dbStorage:
+    size: 10Gi
+    storageClassName: gp3-csi  # AWS EBS gp3 storage
+  deployments:
+    collector: {}
+    database: {}
+    indexer: {}
+    queryapi: {}
+  nodeSelector:
+    node-role.kubernetes.io/infra: ""
+  tolerations:
+  - key: node-role.kubernetes.io/infra
+    operator: Exists
+```
+
+**Storage Behavior:**
+
+When Search CR is created/updated with `storageClassName`:
+1. ACM operator creates PVC: `gp3-csi-search` (10Gi, RWO)
+2. PVC enters Pending state (WaitForFirstConsumer - gp3-csi uses volumeBindingMode: WaitForFirstConsumer)
+3. search-postgres Deployment updated to mount PVC at `/var/lib/pgsql/data`
+4. Old search-postgres pod terminates
+5. New search-postgres pod scheduled → PVC binds to volume → pod starts with persistent storage
+
+**PVC Persistence:**
+- PVC survives Search CR deletion/recreation
+- Same volume reattaches to new postgres pod
+- Data preserved across operator upgrades and pod restarts
+
+**SearchPVCNotPresentCritical Alert:**
+
+**Alert fires when BOTH conditions met:**
+1. No PVC exists for search (no `*-search` PVC in open-cluster-management namespace)
+2. **AND** one of these high-load/crash conditions:
+   - Managing >10 clusters
+   - >100 combined Subscriptions + ApplicationSets
+   - search-postgres OOMKilled
+   - search-indexer OOMKilled
+   - >100 indexer requests in 30m
+
+**Why it matters:**
+- Without PVC: Search runs in ephemeral mode (data in pod's emptyDir)
+- Pod restart = complete data loss
+- Requires full re-indexing of all cluster resources
+- Performance impact during re-indexing
+
+**Resolution:**
+Add `spec.dbStorage.storageClassName` to Search CR (as shown above).
+
+**MultiClusterHub Configuration:**
+
+```yaml
+# components/rhacm/overlays/hub/open-cluster-management-multiclusterhub-multiclusterhub.yaml
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  name: multiclusterhub
+  namespace: open-cluster-management
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/infra: ""
+  tolerations:
+  - key: node-role.kubernetes.io/infra
+    operator: Exists
+```
+
+Deploys all ACM hub components (multicluster-engine, console, governance, observability, etc.) on infrastructure nodes.
+
+**Version Management:**
+
+Operator channel managed via `cluster-versions` ConfigMap:
+- `rhacm: "release-2.16"` (ConfigMap)
+
+**Installation**: Part of the `acm/hub` gitops-base, deployed in profile: `ocp-reference`, `ocp-acm-hub`
+
 ## Red Hat Connectivity Link (RHCL) - Kuadrant
 
 **Purpose**: Provides API gateway capabilities including rate limiting, authentication, DNS management, and TLS policies through the Kuadrant operator stack.
