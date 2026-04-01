@@ -1,0 +1,21 @@
+apiVersion: search.open-cluster-management.io/v1alpha1
+kind: Search
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: search-v2-operator
+  namespace: open-cluster-management
+spec:
+  dbStorage:
+    size: 10Gi
+    storageClassName: gp3-csi
+  deployments:
+    collector: {}
+    database: {}
+    indexer: {}
+    queryapi: {}
+  nodeSelector:
+    node-role.kubernetes.io/infra: ""
+  tolerations:
+  - key: node-role.kubernetes.io/infra
+    operator: Exists
