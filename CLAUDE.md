@@ -84,7 +84,7 @@ Three-layer modular system:
    - Categories: `core`, `storage`, `logging`, `acs`, `acm`, `ai`, `netobserv`, `devops`, `rh-connectivity-link`
 
 3. **Profiles** (`gitops-profiles/`) - Top-level Kustomize manifests selecting which bases/components to deploy
-   - Examples: `ocp-standard`, `ocp-ai`, `ocp-acs-central`, `ocp-acm-hub`
+   - Examples: `ocp-standard`, `ocp-ai`, `ocp-reference`, `ocp-acs-central`, `ocp-acm-hub`
 
 **Profile determines Day 2 components installed.**
 
