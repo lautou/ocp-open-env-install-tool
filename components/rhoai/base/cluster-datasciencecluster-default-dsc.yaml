@@ -9,7 +9,7 @@ spec:
     aipipelines:
       managementState: Managed
     dashboard:
-      managementState: Removed
+      managementState: Managed
     feastoperator:
       managementState: Managed
     kserve:
