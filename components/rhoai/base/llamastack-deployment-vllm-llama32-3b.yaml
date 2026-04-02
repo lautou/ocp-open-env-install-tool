@@ -46,7 +46,8 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 300
+          failureThreshold: 5
+          initialDelaySeconds: 600
           periodSeconds: 30
           timeoutSeconds: 10
         name: vllm
@@ -58,7 +59,8 @@ spec:
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 60
+          failureThreshold: 5
+          initialDelaySeconds: 600
           periodSeconds: 10
           timeoutSeconds: 5
         resources:
