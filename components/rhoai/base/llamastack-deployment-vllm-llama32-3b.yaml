@@ -38,7 +38,7 @@ spec:
           value: "0"
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: spawn
-        image: quay.io/opendatahub/vllm:stable
+        image: vllm/vllm-openai:latest
         livenessProbe:
           httpGet:
             path: /health
