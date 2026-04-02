@@ -41,7 +41,6 @@ spec:
           memory: 2Gi
     distribution:
       name: rh-dev
-  storage:
-    mountPath: /llama-stack-storage
-    size: 20Gi
-    storageClassName: gp3-csi
+    storage:
+      mountPath: /llama-stack-storage
+      size: 20Gi
