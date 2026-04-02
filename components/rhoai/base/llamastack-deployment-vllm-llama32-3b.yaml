@@ -32,6 +32,7 @@ spec:
         - "2048"
         - --dtype
         - float16
+        - --disable-async-output-proc
         env:
         - name: HF_HUB_OFFLINE
           value: "0"
