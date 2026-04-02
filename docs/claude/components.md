@@ -1691,6 +1691,89 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 - Model serving deployments
 - Distributed inference workloads
 
+### External PostgreSQL Database for LlamaStack
+
+**Pattern**: StatefulSet with persistent storage in dedicated namespace
+
+**Purpose**: Provides PostgreSQL 16 database for LlamaStack operator, simulating an external database service.
+
+**Namespace**: `external-llamastack-db`
+
+**Components Deployed:**
+
+```yaml
+# Namespace
+namespace: external-llamastack-db
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
+    openshift.io/cluster-monitoring: "true"
+
+# StatefulSet with PostgreSQL 16
+image: registry.redhat.io/rhel9/postgresql-16:latest
+replicas: 1
+resources:
+  requests: { cpu: 500m, memory: 1Gi }
+  limits: { cpu: 2, memory: 2Gi }
+
+# PersistentVolumeClaim
+storageClassName: gp3-csi
+storage: 10Gi
+accessModes: ReadWriteOnce
+
+# Secret (demo credentials)
+POSTGRES_USER: llamastack
+POSTGRES_DB: llamastackdb
+POSTGRES_PASSWORD: changeme-demo-only  # Demo/lab placeholder
+
+# Service
+type: ClusterIP
+port: 5432
+```
+
+**Database Configuration:**
+- Version: PostgreSQL 16.13 (Red Hat supported)
+- Database: `llamastackdb`
+- User: `llamastack`
+- Encoding: UTF8
+- Locale: en_US.utf8
+
+**Node Placement:**
+- Infra nodes via nodeSelector + tolerations
+- Ensures database runs on infrastructure nodes
+
+**Health Checks:**
+- Liveness probe: `/usr/libexec/check-container --live`
+- Readiness probe: `/usr/libexec/check-container`
+
+**Connection Information:**
+```bash
+# Internal DNS:
+postgresql.external-llamastack-db.svc.cluster.local:5432
+
+# Connection string:
+postgresql://llamastack:changeme-demo-only@postgresql.external-llamastack-db.svc.cluster.local:5432/llamastackdb
+```
+
+**Security Measures:**
+- Demo credentials marked with `# gitleaks:allow` inline comments
+- Annotation: `security.internal/credential-type: demo-placeholder`
+- Added to `.gitleaks.toml` allowlist to prevent false-positive InfoSec detection
+
+**Why "external" naming:**
+- Simulates external database pattern (database in separate namespace)
+- Demonstrates multi-namespace connectivity for LlamaStack
+- Production deployments would typically use cloud-managed databases
+
+**Files:**
+```
+components/rhoai/base/
+├── cluster-namespace-external-llamastack-db.yaml
+├── external-llamastack-db-pvc-postgresql-data.yaml
+├── external-llamastack-db-secret-postgresql-credentials.yaml
+├── external-llamastack-db-service-postgresql.yaml
+└── external-llamastack-db-statefulset-postgresql.yaml
+```
+
 **Version Management:**
 
 Operator channel managed via `cluster-versions` ConfigMap:

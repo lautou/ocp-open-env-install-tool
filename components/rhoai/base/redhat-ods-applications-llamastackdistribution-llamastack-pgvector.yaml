@@ -1,0 +1,47 @@
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: llamastack-pgvector
+  namespace: redhat-ods-applications
+spec:
+  replicas: 1
+  server:
+    containerSpec:
+      env:
+      - name: INFERENCE_MODEL
+        value: meta-llama/Llama-3.2-3B-Instruct
+      - name: POSTGRES_HOST
+        value: postgresql.external-llamastack-db.svc.cluster.local
+      - name: POSTGRES_PORT
+        value: "5432"
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_DB
+            name: llamastack-db-credentials
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_USER
+            name: llamastack-db-credentials
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: llamastack-db-credentials
+      port: 8321
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 2Gi
+    distribution:
+      name: rh-dev
+  storage:
+    mountPath: /llama-stack-storage
+    size: 20Gi
+    storageClassName: gp3-csi
