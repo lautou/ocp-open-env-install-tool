@@ -14,7 +14,6 @@ resources:
 - external-llamastack-db-service-postgresql.yaml
 - external-llamastack-db-statefulset-postgresql.yaml
 - llamastack-deployment-vllm-llama32-3b.yaml
-- llamastack-secret-huggingface-token.yaml
 - llamastack-service-vllm-llama32-3b.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml

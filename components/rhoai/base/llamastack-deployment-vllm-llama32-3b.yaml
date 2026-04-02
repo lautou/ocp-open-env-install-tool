@@ -20,7 +20,7 @@ spec:
       containers:
       - args:
         - --model
-        - meta-llama/Llama-3.2-3B
+        - ibm-granite/granite-3.3-2b-instruct
         - --host
         - 0.0.0.0
         - --port
@@ -35,12 +35,6 @@ spec:
         env:
         - name: HF_HUB_OFFLINE
           value: "0"
-        - name: HF_TOKEN
-          valueFrom:
-            secretKeyRef:
-              key: token
-              name: huggingface-token
-              optional: true
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: spawn
         image: quay.io/opendatahub/vllm:stable

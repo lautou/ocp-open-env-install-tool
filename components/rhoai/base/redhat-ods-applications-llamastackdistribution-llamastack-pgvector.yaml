@@ -11,7 +11,7 @@ spec:
     containerSpec:
       env:
       - name: INFERENCE_MODEL
-        value: llama32-3b
+        value: granite-3.3-2b-instruct
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_URL
