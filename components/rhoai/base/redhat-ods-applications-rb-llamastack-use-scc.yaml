@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: llamastack-use-scc
+  namespace: redhat-ods-applications
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:openshift-ai-llminferenceservice-scc
+subjects:
+- kind: ServiceAccount
+  name: llamastack-pgvector-sa
+  namespace: redhat-ods-applications
