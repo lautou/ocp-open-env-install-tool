@@ -66,11 +66,6 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
           name: postgresql-data
-      nodeSelector:
-        node-role.kubernetes.io/infra: ""
-      tolerations:
-      - key: node-role.kubernetes.io/infra
-        operator: Exists
       volumes:
       - name: postgresql-data
         persistentVolumeClaim:
