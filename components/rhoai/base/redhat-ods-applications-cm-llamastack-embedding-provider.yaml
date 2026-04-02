@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamastack-embedding-provider
+  namespace: redhat-ods-applications
+data:
+  config.yaml: |
+    providers:
+      inference:
+      - config:
+          api_token: ""
+          base_url: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
+          max_tokens: 4096
+          tls_verify: false
+        provider_id: vllm-embedding
+        provider_type: remote::vllm

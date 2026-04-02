@@ -18,6 +18,7 @@ resources:
 - llamastack-service-vllm-granite-embedding.yaml
 - llamastack-service-vllm-llama32-3b.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
+- redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
 - redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml

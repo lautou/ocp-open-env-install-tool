@@ -49,3 +49,6 @@ spec:
           memory: 2Gi
     distribution:
       name: rh-dev
+    userConfig:
+      configMapName: llamastack-embedding-provider
+      configMapNamespace: redhat-ods-applications
