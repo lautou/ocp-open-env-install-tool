@@ -18,27 +18,26 @@ spec:
         app: vllm-llama32-3b
     spec:
       containers:
-      - args:
+      - command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
         - --model
         - ibm-granite/granite-3.3-2b-instruct
         - --host
         - 0.0.0.0
         - --port
         - "8000"
-        - --device
-        - cpu
-        - --enforce-eager
         - --max-model-len
         - "2048"
-        - --dtype
-        - float16
-        - --disable-async-output-proc
         env:
         - name: HF_HUB_OFFLINE
           value: "0"
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: spawn
-        image: vllm/vllm-openai:latest
+        - name: VLLM_USE_MODELSCOPE
+          value: "false"
+        image: quay.io/opendatahub/vllm:stable
         livenessProbe:
           httpGet:
             path: /health
