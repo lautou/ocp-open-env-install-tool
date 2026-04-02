@@ -10,6 +10,8 @@ spec:
   server:
     containerSpec:
       env:
+      - name: INFERENCE_MODEL
+        value: llama3.2-3b
       - name: POSTGRES_HOST
         value: postgresql.external-llamastack-db.svc.cluster.local
       - name: POSTGRES_PORT
