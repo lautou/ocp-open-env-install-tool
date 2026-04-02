@@ -19,6 +19,8 @@ regexes = [
     '''\bchangeme-demo-only\b''',
     '''\bllamastack\b''',
     '''\bllamastackdb\b''',
+    # HuggingFace token placeholder for model access
+    '''\bhf_REPLACE_WITH_YOUR_TOKEN\b''',
 ]
 
 # Alternative: You can also ignore by file path

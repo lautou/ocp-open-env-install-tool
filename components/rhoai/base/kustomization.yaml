@@ -6,12 +6,17 @@ resources:
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
 - cluster-namespace-external-llamastack-db.yaml
+- cluster-namespace-llamastack.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
 - external-llamastack-db-pvc-postgresql-data.yaml
 - external-llamastack-db-secret-postgresql-credentials.yaml
 - external-llamastack-db-service-postgresql.yaml
 - external-llamastack-db-statefulset-postgresql.yaml
+- llamastack-datascienceproject-llamastack.yaml
+- llamastack-deployment-vllm-llama32-3b.yaml
+- llamastack-secret-huggingface-token.yaml
+- llamastack-service-vllm-llama32-3b.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
 - redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml

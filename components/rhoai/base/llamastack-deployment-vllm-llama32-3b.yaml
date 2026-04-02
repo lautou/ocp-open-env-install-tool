@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vllm-llama32-3b
+  name: vllm-llama32-3b
+  namespace: llamastack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-llama32-3b
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: vllm-llama32-3b
+    spec:
+      containers:
+      - args:
+        - --model
+        - meta-llama/Llama-3.2-3B
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8000"
+        - --device
+        - cpu
+        - --enforce-eager
+        - --max-model-len
+        - "2048"
+        - --dtype
+        - float16
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: huggingface-token
+              optional: true
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: spawn
+        image: quay.io/opendatahub/vllm:stable
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: vllm
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "8"
+            memory: 16Gi
+          requests:
+            cpu: "4"
+            memory: 12Gi
+        volumeMounts:
+        - mountPath: /dev/shm
+          name: dshm
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/worker
+        operator: Exists
+      volumes:
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+        name: dshm
