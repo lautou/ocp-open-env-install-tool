@@ -5,6 +5,7 @@ metadata:
   namespace: redhat-ods-applications
 data:
   config.yaml: |
+    image_name: rh
     providers:
       inference:
       - config:
