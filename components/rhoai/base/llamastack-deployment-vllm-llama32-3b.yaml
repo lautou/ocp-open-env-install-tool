@@ -25,31 +25,22 @@ spec:
         - 0.0.0.0
         - --port
         - "8000"
-        - --device
-        - cpu
         - --max-model-len
-        - "2048"
-        - --disable-async-output-proc
-        - --worker-cls
-        - vllm.worker.cpu_worker.CPUWorker
+        - "4096"
+        - --gpu-memory-utilization
+        - "0.9"
         command:
         - vllm
         env:
         - name: HF_HUB_OFFLINE
           value: "0"
-        - name: VLLM_CPU_ONLY
-          value: "1"
-        - name: VLLM_WORKER_MULTIPROC_METHOD
-          value: spawn
-        - name: VLLM_USE_MODELSCOPE
-          value: "false"
         image: quay.io/opendatahub/vllm:stable
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
           failureThreshold: 5
-          initialDelaySeconds: 600
+          initialDelaySeconds: 300
           periodSeconds: 30
           timeoutSeconds: 10
         name: vllm
@@ -62,24 +53,24 @@ spec:
             path: /health
             port: 8000
           failureThreshold: 5
-          initialDelaySeconds: 600
+          initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 5
         resources:
           limits:
             cpu: "4"
-            memory: 12Gi
+            memory: 16Gi
+            nvidia.com/gpu: "1"
           requests:
             cpu: "2"
             memory: 8Gi
+            nvidia.com/gpu: "1"
         volumeMounts:
         - mountPath: /dev/shm
           name: dshm
-      nodeSelector:
-        node-role.kubernetes.io/worker: ""
+      nodeSelector: {}
       tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/worker
+      - key: nvidia.com/gpu
         operator: Exists
       volumes:
       - emptyDir:
