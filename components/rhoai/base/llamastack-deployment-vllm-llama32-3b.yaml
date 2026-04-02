@@ -30,6 +30,8 @@ spec:
         - --max-model-len
         - "2048"
         - --disable-async-output-proc
+        - --worker-cls
+        - vllm.worker.cpu_worker.CPUWorker
         command:
         - vllm
         env:
