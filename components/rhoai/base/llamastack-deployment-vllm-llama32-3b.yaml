@@ -18,11 +18,8 @@ spec:
         app: vllm-llama32-3b
     spec:
       containers:
-      - command:
-        - python3
-        - -m
-        - vllm.entrypoints.openai.api_server
-        - --model
+      - args:
+        - serve
         - ibm-granite/granite-3.3-2b-instruct
         - --host
         - 0.0.0.0
@@ -33,6 +30,8 @@ spec:
         - --max-model-len
         - "2048"
         - --disable-async-output-proc
+        command:
+        - vllm
         env:
         - name: HF_HUB_OFFLINE
           value: "0"
