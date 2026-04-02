@@ -10,14 +10,18 @@ spec:
   server:
     containerSpec:
       env:
+      - name: EMBEDDING_MODEL
+        value: granite-embedding-125m-english
+      - name: EMBEDDING_URL
+        value: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
+      - name: POSTGRES_HOST
+        value: postgresql.external-llamastack-db.svc.cluster.local
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_URL
         value: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
-      - name: POSTGRES_HOST
-        value: postgresql.external-llamastack-db.svc.cluster.local
       - name: POSTGRES_PORT
         value: "5432"
       - name: POSTGRES_DB
