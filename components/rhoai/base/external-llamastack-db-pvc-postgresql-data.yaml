@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgresql-data
-  namespace: llamastack-db
+  namespace: external-llamastack-db
 spec:
   accessModes:
   - ReadWriteOnce

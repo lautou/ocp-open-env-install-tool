@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgresql
-  namespace: llamastack-db
+  namespace: external-llamastack-db
 spec:
   replicas: 1
   selector:
