@@ -15,8 +15,10 @@ resources:
 - external-llamastack-db-service-postgresql.yaml
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-granite-embedding.yaml
+- llamastack-inferenceservice-llamastack-model.yaml
 - llamastack-secret-pgvector-connection.yaml
 - llamastack-servingruntime-granite-embedding.yaml
+- llamastack-servingruntime-llamastack-model.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml

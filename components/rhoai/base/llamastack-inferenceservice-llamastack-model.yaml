@@ -1,0 +1,48 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/description: Llama 3.2 3B Instruct model with tool calling support
+    openshift.io/display-name: llamastack-model
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: llamastack-model
+  namespace: llamastack
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    imagePullSecrets:
+    - name: secret-ky1hxn
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+      - --dtype=half
+      - --max-model-len=20000
+      - --gpu-memory-utilization=0.80
+      - --enable-auto-tool-choice
+      - --tool-call-parser=llama3_json
+      - --chat-template=/app/data/template/tool_chat_template_llama3.2_json.jinja
+      - --max-num-seqs=128
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+        limits:
+          cpu: "2"
+          memory: 14Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 10Gi
+          nvidia.com/gpu: "1"
+      runtime: llamastack-model
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
