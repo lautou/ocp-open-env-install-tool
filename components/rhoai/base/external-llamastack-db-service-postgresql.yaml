@@ -5,7 +5,10 @@ metadata:
   namespace: external-llamastack-db
 spec:
   ports:
-  - name: postgresql
+  - name: postgres
     port: 5432
+    protocol: TCP
+    targetPort: 5432
   selector:
     app: postgresql
+  type: ClusterIP

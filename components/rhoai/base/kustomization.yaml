@@ -9,10 +9,10 @@ resources:
 - cluster-namespace-llamastack.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
+- external-llamastack-db-deployment-postgresql.yaml
 - external-llamastack-db-pvc-postgresql-data.yaml
 - external-llamastack-db-secret-postgresql-credentials.yaml
 - external-llamastack-db-service-postgresql.yaml
-- external-llamastack-db-statefulset-postgresql.yaml
 # DISABLED FOR TESTING: vLLM inference servers
 # - llamastack-deployment-vllm-granite-embedding.yaml
 # - llamastack-deployment-vllm-llama32-3b.yaml
