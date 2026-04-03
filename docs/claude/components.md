@@ -1626,7 +1626,7 @@ spec:
   - defaultCount: 4Gi
     displayName: Memory
     identifier: memory
-    maxCount: 8Gi
+    maxCount: 24Gi
     minCount: 2Gi
     resourceType: Memory
   - defaultCount: 1
