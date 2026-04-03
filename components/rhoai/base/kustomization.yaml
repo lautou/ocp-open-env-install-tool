@@ -13,9 +13,6 @@ resources:
 - external-llamastack-db-pvc-postgresql-data.yaml
 - external-llamastack-db-secret-postgresql-credentials.yaml
 - external-llamastack-db-service-postgresql.yaml
-# DISABLED FOR TESTING: vLLM inference servers
-# - llamastack-deployment-vllm-granite-embedding.yaml
-# - llamastack-service-vllm-granite-embedding.yaml
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-granite-embedding.yaml
 - llamastack-secret-pgvector-connection.yaml
