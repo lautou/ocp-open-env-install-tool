@@ -20,7 +20,8 @@ resources:
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
-- redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+# DISABLED FOR TESTING: LlamaStackDistribution CR
+# - redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
 - redhat-ods-applications-rb-llamastack-use-scc.yaml
 - redhat-ods-applications-secret-llamastack-db-credentials.yaml
