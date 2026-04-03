@@ -7,19 +7,20 @@ metadata:
     opendatahub.io/model-type: generative
     openshift.io/description: Llama 3.2 3B Instruct model with tool calling support
     openshift.io/display-name: llamastack-model
-    security.opendatahub.io/enable-auth: "false"
+    security.opendatahub.io/enable-auth: "true"
     serving.kserve.io/deploymentMode: RawDeployment
   name: llamastack-model
   namespace: llamastack
 spec:
   predictor:
-    automountServiceAccountToken: false
+    automountServiceAccountToken: true
     deploymentStrategy:
       type: RollingUpdate
     imagePullSecrets:
-    - name: secret-ky1hxn
+    - name: secret-pdjxxu
     maxReplicas: 1
     minReplicas: 1
+    serviceAccountName: llamastack-model-sa
     model:
       args:
       - --dtype=half

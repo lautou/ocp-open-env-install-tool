@@ -16,6 +16,10 @@ resources:
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-granite-embedding.yaml
 - llamastack-inferenceservice-llamastack-model.yaml
+- llamastack-job-populate-llama-stack-secret-tokens.yaml
+- llamastack-sa-granite-embedding-sa.yaml
+- llamastack-sa-llamastack-model-sa.yaml
+- llamastack-secret-granite-embedding-sa-token.yaml
 - llamastack-secret-llama-stack-secret.yaml
 - llamastack-secret-pgvector-connection.yaml
 - llamastack-servingruntime-granite-embedding.yaml

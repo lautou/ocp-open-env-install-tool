@@ -7,19 +7,20 @@ metadata:
     opendatahub.io/model-type: embedding
     openshift.io/description: Granite embedding model for vector embeddings
     openshift.io/display-name: granite-embedding
-    security.opendatahub.io/enable-auth: "false"
+    security.opendatahub.io/enable-auth: "true"
     serving.kserve.io/deploymentMode: RawDeployment
   name: granite-embedding
   namespace: llamastack
 spec:
   predictor:
-    automountServiceAccountToken: false
+    automountServiceAccountToken: true
     deploymentStrategy:
       type: RollingUpdate
     imagePullSecrets:
-    - name: secret-ky1hxn
+    - name: secret-pdjxxu
     maxReplicas: 1
     minReplicas: 1
+    serviceAccountName: granite-embedding-sa
     model:
       args:
       - --dtype=half
