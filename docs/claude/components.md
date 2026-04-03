@@ -1704,7 +1704,7 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 
 #### PostgreSQL 16 with pgvector
 
-**Pattern**: StatefulSet with persistent storage in dedicated namespace
+**Pattern**: Deployment with persistent storage and lifecycle hook for extension initialization
 
 **Purpose**: Provides PostgreSQL 16 database with pgvector extension for vector embeddings storage.
 
@@ -1713,12 +1713,26 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 **Components:**
 
 ```yaml
-# StatefulSet with PostgreSQL 16
-image: registry.redhat.io/rhel9/postgresql-16:latest
-replicas: 1
-resources:
-  requests: { cpu: 500m, memory: 1Gi }
-  limits: { cpu: 2, memory: 2Gi }
+# Deployment with PostgreSQL 16 + pgvector
+image: pgvector/pgvector:pg16  # Official pgvector image (not Red Hat)
+env:
+- name: PGDATA
+  value: /var/lib/postgresql/data/pgdata  # Subdirectory required for fresh PVC mounts
+
+# Lifecycle hook for pgvector extension
+lifecycle:
+  postStart:
+    exec:
+      command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo "Waiting for PostgreSQL to be ready before enabling pgvector..."
+        until PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; do
+          sleep 2
+        done
+        PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 # PersistentVolumeClaim
 storageClassName: gp3-csi
@@ -1736,19 +1750,56 @@ port: 5432
 ```
 
 **Database Configuration:**
-- Version: PostgreSQL 16 (Red Hat supported)
+- Version: PostgreSQL 16.13 (Debian-based pgvector image)
 - Database: `llamastackdb`
 - User: `llamastack`
-- Extension: pgvector (for vector embeddings)
+- Extension: pgvector 0.8.2 (initialized via lifecycle hook)
 - Encoding: UTF8
+- Data directory: `/var/lib/postgresql/data/pgdata` (subdirectory pattern)
+
+**CRITICAL: PGDATA Subdirectory Requirement**
+
+When using fresh PVC mounts, PostgreSQL initialization fails with:
+```
+initdb: error: directory "/var/lib/postgresql/data" exists but is not empty
+initdb: detail: It contains a lost+found directory, perhaps due to it being a mount point.
+```
+
+**Solution**: Set `PGDATA` environment variable to subdirectory:
+```yaml
+env:
+- name: PGDATA
+  value: /var/lib/postgresql/data/pgdata
+```
+
+**Why this is required:**
+- Fresh AWS EBS volumes contain `lost+found` directory at mount point root
+- PostgreSQL initdb requires empty directory
+- PGDATA subdirectory avoids conflict with filesystem metadata
+- Standard PostgreSQL pattern for containerized deployments
+
+**pgvector Extension Initialization:**
+
+The lifecycle.postStart hook ensures pgvector extension is created during pod startup:
+1. Wait for PostgreSQL to accept connections (polls with `SELECT 1`)
+2. Create pgvector extension if not exists
+3. Extension available immediately for LlamaStack RAG operations
+
+**Verification:**
+```bash
+# Check extension installed
+oc exec <pod> -n external-llamastack-db -- \
+  psql -U llamastack -d llamastackdb -c "\dx"
+# Expected output: vector | 0.8.2
+```
 
 **Node Placement:**
 - Scheduled on worker nodes (application workload)
 - No infra node constraints
 
 **Health Checks:**
-- Liveness: `/usr/libexec/check-container --live`
-- Readiness: `/usr/libexec/check-container`
+- Liveness: `pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
+- Readiness: `pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
 
 **Connection:**
 ```
@@ -1758,6 +1809,15 @@ postgresql.external-llamastack-db.svc.cluster.local:5432
 **Security:**
 - Demo credentials marked with `# gitleaks:allow`
 - Added to `.gitleaks.toml` allowlist
+
+**Files:**
+```
+components/rhoai/base/
+├── external-llamastack-db-deployment-postgresql.yaml  # Deployment (not StatefulSet)
+├── external-llamastack-db-pvc-postgresql-data.yaml
+├── external-llamastack-db-secret-postgresql-credentials.yaml
+└── external-llamastack-db-service-postgresql.yaml
+```
 
 #### vLLM Inference Servers
 
@@ -1877,10 +1937,10 @@ oc get llamastackdistribution llamastack-pgvector -n redhat-ods-applications
 components/rhoai/base/
 ├── cluster-namespace-external-llamastack-db.yaml
 ├── cluster-namespace-llamastack.yaml
+├── external-llamastack-db-deployment-postgresql.yaml
 ├── external-llamastack-db-pvc-postgresql-data.yaml
 ├── external-llamastack-db-secret-postgresql-credentials.yaml
 ├── external-llamastack-db-service-postgresql.yaml
-├── external-llamastack-db-statefulset-postgresql.yaml
 ├── llamastack-deployment-vllm-granite-embedding.yaml
 ├── llamastack-deployment-vllm-llama32-3b.yaml
 ├── llamastack-service-vllm-granite-embedding.yaml
