@@ -1691,23 +1691,28 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 - Model serving deployments
 - Distributed inference workloads
 
-### External PostgreSQL Database for LlamaStack
+### LlamaStack RAG Deployment
+
+**Pattern**: Multi-component RAG system with PostgreSQL, vLLM inference, and LlamaStack distribution
+
+**Purpose**: Complete RAG (Retrieval-Augmented Generation) stack for AI applications using IBM Granite models.
+
+**Namespaces**:
+- `external-llamastack-db` - PostgreSQL database
+- `llamastack` - vLLM inference servers
+- `redhat-ods-applications` - LlamaStack distribution
+
+#### PostgreSQL 16 with pgvector
 
 **Pattern**: StatefulSet with persistent storage in dedicated namespace
 
-**Purpose**: Provides PostgreSQL 16 database for LlamaStack operator, simulating an external database service.
+**Purpose**: Provides PostgreSQL 16 database with pgvector extension for vector embeddings storage.
 
 **Namespace**: `external-llamastack-db`
 
-**Components Deployed:**
+**Components:**
 
 ```yaml
-# Namespace
-namespace: external-llamastack-db
-  labels:
-    argocd.argoproj.io/managed-by: openshift-gitops
-    openshift.io/cluster-monitoring: "true"
-
 # StatefulSet with PostgreSQL 16
 image: registry.redhat.io/rhel9/postgresql-16:latest
 replicas: 1
@@ -1731,47 +1736,159 @@ port: 5432
 ```
 
 **Database Configuration:**
-- Version: PostgreSQL 16.13 (Red Hat supported)
+- Version: PostgreSQL 16 (Red Hat supported)
 - Database: `llamastackdb`
 - User: `llamastack`
+- Extension: pgvector (for vector embeddings)
 - Encoding: UTF8
-- Locale: en_US.utf8
 
 **Node Placement:**
-- Infra nodes via nodeSelector + tolerations
-- Ensures database runs on infrastructure nodes
+- Scheduled on worker nodes (application workload)
+- No infra node constraints
 
 **Health Checks:**
-- Liveness probe: `/usr/libexec/check-container --live`
-- Readiness probe: `/usr/libexec/check-container`
+- Liveness: `/usr/libexec/check-container --live`
+- Readiness: `/usr/libexec/check-container`
 
-**Connection Information:**
-```bash
-# Internal DNS:
+**Connection:**
+```
 postgresql.external-llamastack-db.svc.cluster.local:5432
-
-# Connection string:
-postgresql://llamastack:changeme-demo-only@postgresql.external-llamastack-db.svc.cluster.local:5432/llamastackdb
 ```
 
-**Security Measures:**
-- Demo credentials marked with `# gitleaks:allow` inline comments
-- Annotation: `security.internal/credential-type: demo-placeholder`
-- Added to `.gitleaks.toml` allowlist to prevent false-positive InfoSec detection
+**Security:**
+- Demo credentials marked with `# gitleaks:allow`
+- Added to `.gitleaks.toml` allowlist
 
-**Why "external" naming:**
-- Simulates external database pattern (database in separate namespace)
-- Demonstrates multi-namespace connectivity for LlamaStack
-- Production deployments would typically use cloud-managed databases
+#### vLLM Inference Servers
+
+**Pattern**: GPU-accelerated deployments for LLM and embedding models
+
+**Namespace**: `llamastack`
+
+**Components:**
+
+1. **vLLM LLM Server (Granite 3.3-2B-Instruct)**:
+   ```yaml
+   # llamastack-deployment-vllm-llama32-3b.yaml
+   model: ibm-granite/granite-3.3-2b-instruct
+   args:
+     - serve
+     - --dtype=half  # Tesla T4 GPU compatibility (compute capability 7.5)
+     - --max-model-len=4096
+     - --gpu-memory-utilization=0.9
+   resources:
+     requests: { cpu: 2, memory: 8Gi, nvidia.com/gpu: 1 }
+     limits: { cpu: 4, memory: 16Gi, nvidia.com/gpu: 1 }
+   service: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
+   ```
+
+2. **vLLM Embedding Server (Granite Embedding 125M)**:
+   ```yaml
+   # llamastack-deployment-vllm-granite-embedding.yaml
+   model: ibm-granite/granite-embedding-125m-english
+   args:
+     - serve
+     - --dtype=half  # Tesla T4 GPU compatibility
+   resources:
+     requests: { cpu: 1, memory: 4Gi, nvidia.com/gpu: 1 }
+     limits: { cpu: 2, memory: 8Gi, nvidia.com/gpu: 1 }
+   service: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
+   ```
+
+**GPU Requirements:**
+- Uses Tesla T4 GPUs (compute capability 7.5)
+- Requires `--dtype=half` for float16 precision (bfloat16 not supported)
+- GPU nodes provisioned via MachineAutoscaler (g4dn.12xlarge)
+
+**Node Scheduling:**
+- Tolerations for `nvidia.com/gpu` taint
+- Scheduled on GPU-enabled worker nodes
+
+#### LlamaStackDistribution
+
+**Pattern**: Custom resource with userConfig for provider configuration
+
+**Namespace**: `redhat-ods-applications`
+
+```yaml
+# redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  name: llamastack-pgvector
+spec:
+  distribution:
+    name: rh-dev
+  userConfig:
+    configMapName: llamastack-embedding-provider
+    configMapNamespace: redhat-ods-applications
+  server:
+    port: 8321
+    containerSpec:
+      env:
+      - name: INFERENCE_MODEL
+        value: granite-3.3-2b-instruct
+      - name: VLLM_URL
+        value: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
+      - name: EMBEDDING_MODEL
+        value: granite-embedding-125m-english
+      - name: EMBEDDING_URL
+        value: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
+      - name: POSTGRES_HOST
+        value: postgresql.external-llamastack-db.svc.cluster.local
+```
+
+**userConfig Pattern:**
+
+The `rh-dev` distribution requires a `vllm-embedding` provider that's not included by default. Configure via userConfig:
+
+```yaml
+# redhat-ods-applications-cm-llamastack-embedding-provider.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamastack-embedding-provider
+data:
+  config.yaml: |
+    image_name: rh  # Required by StackConfig validation
+    providers:
+      inference:
+      - provider_id: vllm-embedding
+        provider_type: remote::vllm
+        config:
+          base_url: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
+          api_token: ""
+          max_tokens: 4096
+          tls_verify: false
+```
+
+**Status Check:**
+```bash
+oc get llamastackdistribution llamastack-pgvector -n redhat-ods-applications
+# Phase: Ready
+```
+
+**Provided APIs:**
+- agents, batches, datasetio, eval, inference
+- safety, scoring, tool_runtime, vector_io, files
 
 **Files:**
 ```
 components/rhoai/base/
 ├── cluster-namespace-external-llamastack-db.yaml
+├── cluster-namespace-llamastack.yaml
 ├── external-llamastack-db-pvc-postgresql-data.yaml
 ├── external-llamastack-db-secret-postgresql-credentials.yaml
 ├── external-llamastack-db-service-postgresql.yaml
-└── external-llamastack-db-statefulset-postgresql.yaml
+├── external-llamastack-db-statefulset-postgresql.yaml
+├── llamastack-deployment-vllm-granite-embedding.yaml
+├── llamastack-deployment-vllm-llama32-3b.yaml
+├── llamastack-service-vllm-granite-embedding.yaml
+├── llamastack-service-vllm-llama32-3b.yaml
+├── redhat-ods-applications-cm-llamastack-embedding-provider.yaml
+├── redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+├── redhat-ods-applications-rb-llamastack-use-scc.yaml
+└── redhat-ods-applications-secret-llamastack-db-credentials.yaml
 ```
 
 **Version Management:**
