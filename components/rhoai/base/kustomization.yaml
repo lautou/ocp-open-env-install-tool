@@ -17,6 +17,7 @@ resources:
 # - llamastack-deployment-vllm-granite-embedding.yaml
 # - llamastack-service-vllm-granite-embedding.yaml
 - llamastack-configmap-llama32-chat-template.yaml
+- llamastack-secret-pgvector-connection.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
