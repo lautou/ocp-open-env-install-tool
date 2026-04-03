@@ -1,0 +1,44 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: embedding
+    openshift.io/description: Granite embedding model for vector embeddings
+    openshift.io/display-name: granite-embedding
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: granite-embedding
+  namespace: llamastack
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    imagePullSecrets:
+    - name: secret-ky1hxn
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+      - --dtype=half
+      - --max-model-len=512
+      - --gpu-memory-utilization=0.70
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+        limits:
+          cpu: "1"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 6Gi
+          nvidia.com/gpu: "1"
+      runtime: granite-embedding
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-embedding-english-r2
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
