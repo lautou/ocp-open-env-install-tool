@@ -1819,56 +1819,204 @@ components/rhoai/base/
 └── external-llamastack-db-service-postgresql.yaml
 ```
 
-#### vLLM Inference Servers
+#### KServe InferenceService with vLLM
 
-**Pattern**: GPU-accelerated deployments for LLM and embedding models
+**Pattern**: KServe InferenceService with OCI modelcar image and custom chat template
 
 **Namespace**: `llamastack`
 
+**Purpose**: Serves Llama 3.2 3B Instruct model with tool calling capabilities using vLLM on Tesla T4 GPUs.
+
 **Components:**
 
-1. **vLLM LLM Server (Granite 3.3-2B-Instruct)**:
-   ```yaml
-   # llamastack-deployment-vllm-llama32-3b.yaml
-   model: ibm-granite/granite-3.3-2b-instruct
-   args:
-     - serve
-     - --dtype=half  # Tesla T4 GPU compatibility (compute capability 7.5)
-     - --max-model-len=4096
-     - --gpu-memory-utilization=0.9
-   resources:
-     requests: { cpu: 2, memory: 8Gi, nvidia.com/gpu: 1 }
-     limits: { cpu: 4, memory: 16Gi, nvidia.com/gpu: 1 }
-   service: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
-   ```
+**1. InferenceService:**
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: llamastack-model
+  namespace: llamastack
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: llamastack-model
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct
+      args:
+      - --dtype=half
+      - --max-model-len=20000
+      - --gpu-memory-utilization=0.80
+      - --enable-chunked-prefill
+      - --enable-auto-tool-choice
+      - --tool-call-parser=llama3_json
+      - --chat-template=/app/data/template/tool_chat_template_llama3.2_json.jinja
+      - --max-num-seqs=128
+      resources:
+        requests: { cpu: 2, memory: 10Gi, nvidia.com/gpu: 1 }
+        limits: { cpu: 2, memory: 14Gi, nvidia.com/gpu: 1 }
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+```
 
-2. **vLLM Embedding Server (Granite Embedding 125M)**:
-   ```yaml
-   # llamastack-deployment-vllm-granite-embedding.yaml
-   model: ibm-granite/granite-embedding-125m-english
-   args:
-     - serve
-     - --dtype=half  # Tesla T4 GPU compatibility
-   resources:
-     requests: { cpu: 1, memory: 4Gi, nvidia.com/gpu: 1 }
-     limits: { cpu: 2, memory: 8Gi, nvidia.com/gpu: 1 }
-   service: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
-   ```
+**2. ServingRuntime with Chat Template Mount:**
+```yaml
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: llamastack-model
+spec:
+  containers:
+  - name: kserve-container
+    image: registry.redhat.io/rhaiis/vllm-cuda-rhel9@sha256:ec799bb5...
+    volumeMounts:
+    - name: chat-template
+      mountPath: /app/data/template
+      readOnly: true
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 180  # Critical: CUDA graph compilation time
+      periodSeconds: 10
+      timeoutSeconds: 1
+      failureThreshold: 3
+  volumes:
+  - name: chat-template
+    configMap:
+      name: llama32-chat-template
+```
+
+**3. Chat Template ConfigMap:**
+
+File: `llamastack-configmap-llama32-chat-template.yaml`
+
+Contains Jinja2 template for Llama 3.2 tool calling with JSON format parser.
+
+**CRITICAL Configuration for Tesla T4 GPUs:**
+
+**GPU Memory Management:**
+- `--gpu-memory-utilization=0.80` (reduced from default 0.95)
+- `--max-num-seqs=128` (reduced from default 256)
+- **Why:** Tesla T4 has 14.56 GiB total memory
+  - Model requires ~6 GiB for weights
+  - Additional ~8 GiB for KV cache + CUDA graphs
+  - 95% utilization causes OOM during warmup
+  - 80% provides headroom for sampler operations
+
+**Attention Backend:**
+- **Auto-selected:** FLASHINFER (vLLM detects T4 compute capability 7.5)
+- **DO NOT manually specify** `--attention-backend` flag
+- FlashAttention 2 requires compute capability ≥ 8.0 (A100, A10G)
+- Tesla T4 (7.5) incompatible with FA2
+
+**Readiness Probe:**
+- `initialDelaySeconds: 180` **required**
+- CUDA graph compilation takes ~2-3 minutes
+- Without delay: pod crashes before initialization completes
+- Default 30s timeout insufficient for vLLM startup
+
+**Tool Calling Configuration:**
+- `--enable-auto-tool-choice`: Enables automatic tool selection
+- `--tool-call-parser=llama3_json`: Llama 3.2 JSON format
+- `--chat-template=/app/data/template/...`: Custom Jinja2 template
+- Template mounted from ConfigMap at `/app/data/template/`
+
+**Service Endpoint:**
+```
+http://llamastack-model-predictor.llamastack.svc.cluster.local
+```
 
 **GPU Requirements:**
-- Uses Tesla T4 GPUs (compute capability 7.5)
-- Requires `--dtype=half` for float16 precision (bfloat16 not supported)
+- Tesla T4 GPUs (compute capability 7.5)
+- `--dtype=half` for float16 precision (bfloat16 not supported)
 - GPU nodes provisioned via MachineAutoscaler (g4dn.12xlarge)
 
 **Node Scheduling:**
 - Tolerations for `nvidia.com/gpu` taint
 - Scheduled on GPU-enabled worker nodes
 
+**Troubleshooting:**
+
+**Common Issues:**
+
+1. **CUDA Out of Memory during warmup:**
+   ```
+   RuntimeError: CUDA out of memory occurred when warming up sampler with 256 dummy requests.
+   ```
+   **Solution:** Reduce `--gpu-memory-utilization` to 0.80 and add `--max-num-seqs=128`
+
+2. **FlashAttention 2 incompatibility:**
+   ```
+   ERROR: Cannot use FA version 2 is not supported due to FA2 is only supported on devices with compute capability >= 8
+   ```
+   **Solution:** Remove any `--attention-backend` flags, let vLLM auto-select FLASHINFER
+
+3. **Chat template not found:**
+   ```
+   ValueError: The supplied chat template string (/app/data/template/...) appears path-like, but doesn't exist!
+   ```
+   **Solution:** Ensure ConfigMap mounted to ServingRuntime at `/app/data/template/`
+
+4. **Pod CrashLoopBackOff before ready:**
+   **Solution:** Add `readinessProbe.initialDelaySeconds: 180` to ServingRuntime
+
+#### PostgreSQL Connection Secret
+
+**Pattern**: Static Secret with pgvector connection details for LlamaStack
+
+**Namespace**: `llamastack`
+
+**File**: `llamastack-secret-pgvector-connection.yaml`
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    # gitleaks:allow - Demo/lab environment placeholder credentials
+    security.internal/credential-type: demo-placeholder
+  name: pgvector-connection
+  namespace: llamastack
+stringData:
+  # gitleaks:allow - Demo/lab environment placeholder credentials
+  PGVECTOR_HOST: postgresql.external-llamastack-db.svc.cluster.local
+  PGVECTOR_PORT: "5432"
+  # gitleaks:allow - Demo/lab environment placeholder credentials
+  PGVECTOR_DB: llamastackdb
+  # gitleaks:allow - Demo/lab environment placeholder credentials
+  PGVECTOR_USER: llamastack
+  # gitleaks:allow - Demo/lab environment placeholder credentials
+  PGVECTOR_PASSWORD: changeme-demo-only
+```
+
+**Purpose:** Provides PostgreSQL connection details for LlamaStack RAG operations with pgvector extension.
+
+**Required Environment Variables:**
+- `PGVECTOR_HOST` - PostgreSQL service hostname (cluster-internal)
+- `PGVECTOR_PORT` - PostgreSQL port (5432)
+- `PGVECTOR_DB` - Database name
+- `PGVECTOR_USER` - Database user
+- `PGVECTOR_PASSWORD` - Database password
+
+**Security:**
+- Demo credentials marked with `# gitleaks:allow`
+- `security.internal/credential-type: demo-placeholder` annotation
+- For production: use external secret management (Vault, AWS Secrets Manager)
+
+**Verification:**
+```bash
+oc get secret pgvector-connection -n llamastack
+# Expected: Opaque secret with 5 data keys
+```
+
 #### LlamaStackDistribution
 
 **Pattern**: Custom resource with userConfig for provider configuration
 
 **Namespace**: `redhat-ods-applications`
+
+**Status**: DISABLED FOR TESTING (currently commented out in kustomization.yaml)
 
 ```yaml
 # redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
@@ -1889,7 +2037,7 @@ spec:
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
       - name: VLLM_URL
-        value: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
+        value: http://llamastack-model-predictor.llamastack.svc.cluster.local
       - name: EMBEDDING_MODEL
         value: granite-embedding-125m-english
       - name: EMBEDDING_URL
@@ -1897,6 +2045,8 @@ spec:
       - name: POSTGRES_HOST
         value: postgresql.external-llamastack-db.svc.cluster.local
 ```
+
+**Note:** VLLM_URL updated to point to KServe InferenceService endpoint instead of standalone deployment.
 
 **userConfig Pattern:**
 
@@ -1941,15 +2091,20 @@ components/rhoai/base/
 ├── external-llamastack-db-pvc-postgresql-data.yaml
 ├── external-llamastack-db-secret-postgresql-credentials.yaml
 ├── external-llamastack-db-service-postgresql.yaml
-├── llamastack-deployment-vllm-granite-embedding.yaml
-├── llamastack-deployment-vllm-llama32-3b.yaml
-├── llamastack-service-vllm-granite-embedding.yaml
-├── llamastack-service-vllm-llama32-3b.yaml
+├── llamastack-configmap-llama32-chat-template.yaml  # NEW: Chat template for KServe
+├── llamastack-secret-pgvector-connection.yaml       # NEW: PostgreSQL connection
 ├── redhat-ods-applications-cm-llamastack-embedding-provider.yaml
-├── redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+├── redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml  # DISABLED
 ├── redhat-ods-applications-rb-llamastack-use-scc.yaml
 └── redhat-ods-applications-secret-llamastack-db-credentials.yaml
 ```
+
+**Removed Files** (replaced by KServe InferenceService):
+- `llamastack-deployment-vllm-llama32-3b.yaml` (standalone vLLM deployment)
+- `llamastack-service-vllm-llama32-3b.yaml` (standalone vLLM service)
+- `llamastack-secret-huggingface-token.yaml` (not needed for OCI modelcar image)
+
+**Note:** vLLM embedding server files still present but commented out in kustomization.yaml for testing.
 
 **Version Management:**
 
