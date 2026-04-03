@@ -1,0 +1,140 @@
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: lsd-llama-pgvector-remote
+  namespace: llamastack
+spec:
+  replicas: 1
+  server:
+    containerSpec:
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "500Mi"
+        limits:
+          cpu: 4
+          memory: "12Gi"
+      env:
+        # PostgreSQL metadata store (required in RHOAI 3.2)
+        - name: POSTGRES_HOST
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_PORT
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_PASSWORD
+
+        # Remote LLM configuration
+        - name: INFERENCE_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: INFERENCE_MODEL
+        - name: VLLM_URL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_URL
+        - name: VLLM_TLS_VERIFY
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_TLS_VERIFY
+        - name: VLLM_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_API_TOKEN
+        - name: VLLM_MAX_TOKENS
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_MAX_TOKENS
+
+        # Remote embedding configuration
+        - name: EMBEDDING_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: EMBEDDING_MODEL
+        - name: EMBEDDING_PROVIDER_MODEL_ID
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: EMBEDDING_PROVIDER_MODEL_ID
+        - name: VLLM_EMBEDDING_URL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_EMBEDDING_URL
+        - name: VLLM_EMBEDDING_TLS_VERIFY
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_EMBEDDING_TLS_VERIFY
+        - name: VLLM_EMBEDDING_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_EMBEDDING_API_TOKEN
+        - name: VLLM_EMBEDDING_MAX_TOKENS
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-secret
+              key: VLLM_EMBEDDING_MAX_TOKENS
+
+        # Enable and configure pgvector provider
+        - name: ENABLE_PGVECTOR
+          value: "true"
+        - name: PGVECTOR_HOST
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_HOST
+        - name: PGVECTOR_PORT
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_PORT
+        - name: PGVECTOR_DB
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_DB
+        - name: PGVECTOR_USER
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_USER
+        - name: PGVECTOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pgvector-connection
+              key: PGVECTOR_PASSWORD
+
+        - name: FMS_ORCHESTRATOR_URL
+          value: "http://localhost"
+      name: llama-stack
+      port: 8321
+    distribution:
+      name: rh-dev

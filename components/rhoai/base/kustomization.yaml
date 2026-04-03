@@ -24,10 +24,9 @@ resources:
 - llamastack-servingruntime-granite-embedding.yaml
 - llamastack-servingruntime-llamastack-model.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
+- llamastack-llamastackdistribution-lsd-llama-pgvector-remote.yaml
 - redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
-# DISABLED FOR TESTING: LlamaStackDistribution CR
-# - redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
 - redhat-ods-applications-rb-llamastack-use-scc.yaml
 - redhat-ods-applications-secret-llamastack-db-credentials.yaml
