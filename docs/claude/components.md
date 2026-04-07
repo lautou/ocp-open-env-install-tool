@@ -106,9 +106,49 @@ Each component includes:
      scopes: '[groups]'
    ```
 
+   **Namespace-Level RBAC via `argocd.argoproj.io/managed-by` Label**:
+
+   When a namespace has the label `argocd.argoproj.io/managed-by: openshift-gitops`, the OpenShift GitOps operator automatically creates a Role and RoleBinding in that namespace granting the ArgoCD application controller ServiceAccount permissions to manage resources.
+
+   **Auto-Generated Role Pattern**:
+   ```yaml
+   # Auto-created by OpenShift GitOps operator
+   kind: Role
+   metadata:
+     namespace: <labeled-namespace>
+     name: openshift-gitops-argocd-application-controller
+   rules:
+   - apiGroups: ['*']
+     resources: ['*']
+     verbs: [get, list, watch]  # READ permissions for ALL resources
+   
+   # Then specific write permissions for certain resources:
+   - apiGroups: [monitoring.coreos.com]
+     resources: ['*']
+     verbs: ['*']
+   - apiGroups: [operators.coreos.com]
+     resources: [subscriptions]
+     verbs: [create, update, patch, delete]
+   # ... additional specific write grants
+   ```
+
+   **Key Behavior**:
+   - ✅ **All resources get READ access** (`get, list, watch`) - ArgoCD can discover and monitor everything
+   - ⚠️ **Only specific resources get WRITE access** - Not all CRDs are included in write permissions
+   - ⚠️ **Custom Resources often need explicit RBAC** - If ArgoCD cannot patch/create a CR, add explicit Role + RoleBinding
+
+   **When to add explicit namespace RBAC**:
+   - ArgoCD sync fails with `is forbidden: cannot create/patch resource`
+   - Resource is a Custom Resource not in the auto-generated write list
+   - Create Role + RoleBinding in the same namespace granting specific permissions
+
+   **Examples requiring explicit RBAC**:
+   - `searches.search.open-cluster-management.io` (RHACM) - See RHACM section
+   - `gateways.gateway.networking.k8s.io` (Gateway API) - See cluster-ingress component
+
    **Additional ClusterRole Grants**:
 
-   ArgoCD requires explicit RBAC permissions for resources not managed by OLM (Operator Lifecycle Manager). The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
+   ArgoCD requires explicit RBAC permissions for cluster-scoped resources and some namespace-scoped resources not covered by the namespace label. The following ClusterRoles grant the ArgoCD application controller ServiceAccount permissions to manage specific resource types.
 
    **Operator-Specific ClusterRoles**:
 
@@ -815,6 +855,13 @@ The project explicitly configures both `profile` and `targetNamespace`:
 
 ```yaml
 # components/openshift-pipelines/base/cluster-tektonconfig-config.yaml
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonConfig
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "2"  # Deploy AFTER cleanup Job
+  name: config
 spec:
   profile: all                        # Full Tekton components with console integration
   targetNamespace: openshift-pipelines  # Deploy components to standard OpenShift namespace
@@ -826,6 +873,71 @@ spec:
 - Both fields are managed by GitOps (no ignoreDifferences)
 
 **Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
+
+### TektonConfig Race Condition and Sync-Wave Solution
+
+**Problem**: Tekton operator auto-creates TektonConfig immediately after Subscription installation with default `targetNamespace: tekton-pipelines`. When ArgoCD tries to apply our manifest with `targetNamespace: openshift-pipelines`, the admission webhook blocks the change with error: `"Doesn't allow to update targetNamespace, delete existing TektonConfig and create the updated TektonConfig"`.
+
+**Root Cause**: Race condition between operator auto-creation and ArgoCD sync. The webhook requires delete+recreate to change targetNamespace, but operator recreates faster than ArgoCD can sync.
+
+**Solution**: Sync-wave orchestration with cleanup Job
+
+```yaml
+# Wave 0: Subscription (operator installs)
+# components/openshift-pipelines/base/openshift-operators-subscription-openshift-pipelines-operator.yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+
+# Wave 1: Cleanup Job (deletes auto-created TektonConfig if wrong targetNamespace)
+# components/openshift-pipelines/base/openshift-gitops-job-cleanup-auto-tektonconfig.yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          # Wait for operator to be ready
+          sleep 10
+          
+          if oc get tektonconfig config &>/dev/null; then
+            CURRENT_NS=$(oc get tektonconfig config -o jsonpath='{.spec.targetNamespace}')
+            
+            if [[ "$CURRENT_NS" != "openshift-pipelines" ]]; then
+              echo "TektonConfig has wrong targetNamespace, deleting..."
+              oc patch tektonconfig config --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+              oc delete tektonconfig config --wait=false
+              
+              # Wait for deletion (max 60s)
+              for i in {1..30}; do
+                if ! oc get tektonconfig config &>/dev/null; then
+                  echo "TektonConfig deleted successfully"
+                  exit 0
+                fi
+                sleep 2
+              done
+            fi
+          fi
+
+# Wave 2: TektonConfig (ArgoCD creates with correct targetNamespace)
+# Sync-wave annotation shown above
+```
+
+**How it works:**
+1. **Wave 0**: Subscription deploys, operator installs and auto-creates TektonConfig
+2. **Wave 1**: Cleanup Job runs, checks targetNamespace, deletes if wrong, removes finalizer to force deletion
+3. **Wave 2**: ArgoCD creates TektonConfig with correct `targetNamespace: openshift-pipelines`
+
+**Job idempotency:**
+- Job checks current targetNamespace before deleting
+- If already correct (`openshift-pipelines`), skips deletion
+- Prevents unnecessary churn on subsequent syncs
+- TTL cleanup: Job removed 5 minutes after completion
 
 ## OpenShift Builds (Shipwright)
 
@@ -1025,9 +1137,9 @@ This workaround can be removed when:
 
 **Namespace**: `open-cluster-management`
 
-**RBAC Pattern: Namespace Label Sufficient**
+**RBAC Pattern: Namespace Label + Explicit Search RBAC**
 
-ArgoCD can manage ACM resources without explicit ClusterRole/RoleBinding files for many API groups:
+ArgoCD can manage most ACM resources via the namespace label, but Search resources require explicit RBAC:
 
 ```yaml
 # components/rhacm/overlays/hub/cluster-namespace-open-cluster-management.yaml
@@ -1036,15 +1148,50 @@ metadata:
     argocd.argoproj.io/managed-by: openshift-gitops
 ```
 
-**How it works:**
-- OpenShift GitOps operator automatically creates Role/RoleBinding in namespaces with this label
-- Auto-generated Role includes permissions for many ACM API groups (apps.open-cluster-management.io, cluster.open-cluster-management.io, etc.)
-- ArgoCD application controller can manage namespace-scoped ACM resources without additional RBAC
+**How the namespace label works:**
+- OpenShift GitOps operator automatically creates Role/RoleBinding in labeled namespaces
+- Auto-generated Role grants **read** permissions (`get, list, watch`) for ALL resources (`apiGroups: ['*']`)
+- Auto-generated Role grants **write** permissions for specific operator resources (apps.open-cluster-management.io, cluster.open-cluster-management.io, etc.)
+- ArgoCD can manage most namespace-scoped ACM resources without additional RBAC
 
-**Observed limitation:**
-- `search.open-cluster-management.io` API group was not initially visible in the auto-generated Role
-- However, ArgoCD successfully managed Search CR after retries (~2.5 minutes)
-- Namespace label alone proved sufficient - no explicit RoleBinding needed
+**Search Resource Exception:**
+
+The `searches.search.open-cluster-management.io` resource is NOT included in the auto-generated Role's write permissions. Explicit RBAC is required:
+
+```yaml
+# components/rhacm/overlays/hub/open-cluster-management-role-search-edit.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: search-edit
+  namespace: open-cluster-management
+rules:
+- apiGroups: [search.open-cluster-management.io]
+  resources: [searches]
+  verbs: ['*']
+```
+
+```yaml
+# components/rhacm/overlays/hub/open-cluster-management-rb-search-edit.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: search-edit
+  namespace: open-cluster-management
+roleRef:
+  kind: Role
+  name: search-edit
+subjects:
+- kind: ServiceAccount
+  name: openshift-gitops-argocd-application-controller
+  namespace: openshift-gitops
+```
+
+**Why explicit RBAC is needed:**
+- Search is a namespaced custom resource
+- Auto-generated Role only grants read permissions for CRDs not explicitly listed
+- Without explicit Role, ArgoCD cannot patch/update Search resources
+- Error: `cannot patch resource "searches" in API group "search.open-cluster-management.io" in the namespace "open-cluster-management"`
 
 ### Search Persistent Storage Configuration
 
@@ -1586,11 +1733,50 @@ spec:
       mode: Terminate
 ```
 
+**RBAC Requirement for Gateway Creation:**
+
+The `openshift-ingress` namespace has the ArgoCD managed-by label, but Gateway resources require explicit RBAC:
+
+```yaml
+# components/cluster-ingress/base/openshift-ingress-role-gateway-manager.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-manager
+  namespace: openshift-ingress
+rules:
+- apiGroups: [gateway.networking.k8s.io]
+  resources: [gateways]
+  verbs: ['*']
+```
+
+```yaml
+# components/cluster-ingress/base/openshift-ingress-rb-gateway-manager.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-manager
+  namespace: openshift-ingress
+roleRef:
+  kind: Role
+  name: gateway-manager
+subjects:
+- kind: ServiceAccount
+  name: openshift-gitops-argocd-application-controller
+  namespace: openshift-gitops
+```
+
+**Why explicit RBAC is needed:**
+- Gateway is a custom resource from gateway.networking.k8s.io API group
+- Auto-generated Role from namespace label grants only **read** permissions (`get, list, watch`) for CRDs
+- ArgoCD needs **write** permissions to create/update Gateways
+- RBAC defined in cluster-ingress component (shared infrastructure) rather than rhoai component
+- Error without RBAC: `gateways.gateway.networking.k8s.io is forbidden: cannot create resource "gateways"`
+
 **Why static manifest works:**
 - CMP plugin replaces `CMP_PLACEHOLDER_OCP_APPS_DOMAIN` with cluster apps domain at build time
 - Gateway is namespace-scoped resource in `openshift-ingress`
-- Namespace has `argocd.argoproj.io/managed-by: openshift-gitops` label
-- Namespace-level RBAC is sufficient - no ClusterRole needed
+- Explicit Role grants ArgoCD permission to manage Gateways
 - Simpler than Job-based approach, direct declarative management
 
 **Gateway Status:**
