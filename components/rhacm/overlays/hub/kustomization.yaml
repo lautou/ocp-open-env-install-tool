@@ -17,6 +17,8 @@ resources:
 - open-cluster-management-hub-addondeploymentconfig-deploy-config.yaml
 - open-cluster-management-multiclusterhub-multiclusterhub.yaml
 - open-cluster-management-operatorgroup-open-cluster-management.yaml
+- open-cluster-management-rb-search-edit.yaml
+- open-cluster-management-role-search-edit.yaml
 - open-cluster-management-search-search-v2-operator.yaml
 - open-cluster-management-subscription-advanced-cluster-management.yaml
 replacements:
