@@ -725,7 +725,7 @@ mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
 if [ "$INSTALL_TYPE" == "UPI" ]; then
   cp -r "$CLOUDFORMATION_TEMPLATES_DIR" "$UPLOAD_TO_BASTION_DIR/"
 fi
-cp components/common/cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/"
+cp components/common/openshift-gitops-configmap-cluster-versions.yaml "$UPLOAD_TO_BASTION_DIR/argocd/common/cluster-versions.yaml"
 
 cp scripts/bastion_script.sh "$UPLOAD_TO_BASTION_DIR"
 cp scripts/aws_lib.sh "$UPLOAD_TO_BASTION_DIR"
