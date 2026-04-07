@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  name: cleanup-auto-tektonconfig
+  namespace: openshift-gitops
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: cleanup-auto-tektonconfig
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          #!/bin/bash
+          set -e
+
+          echo "Waiting for Tekton operator to be ready..."
+          sleep 10
+
+          if oc get tektonconfig config &>/dev/null; then
+            echo "Found auto-created TektonConfig 'config'"
+
+            # Check if it has our targetNamespace
+            CURRENT_NS=$(oc get tektonconfig config -o jsonpath='{.spec.targetNamespace}')
+            echo "Current targetNamespace: $CURRENT_NS"
+
+            if [[ "$CURRENT_NS" != "openshift-pipelines" ]]; then
+              echo "TektonConfig has wrong targetNamespace ($CURRENT_NS), deleting..."
+
+              # Remove finalizer and delete
+              oc patch tektonconfig config --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || true
+              oc delete tektonconfig config --wait=false || true
+
+              # Wait for deletion
+              for i in {1..30}; do
+                if ! oc get tektonconfig config &>/dev/null; then
+                  echo "TektonConfig deleted successfully"
+                  exit 0
+                fi
+                echo "Waiting for TektonConfig deletion... ($i/30)"
+                sleep 2
+              done
+
+              echo "WARNING: TektonConfig still exists after 60s, forcing finalizer removal"
+              oc patch tektonconfig config --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || true
+              sleep 5
+            else
+              echo "TektonConfig already has correct targetNamespace, skipping"
+            fi
+          else
+            echo "No auto-created TektonConfig found, nothing to clean up"
+          fi
+
+          echo "Cleanup complete"
+        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        imagePullPolicy: IfNotPresent
+        name: cleanup
+      dnsPolicy: ClusterFirst
+      restartPolicy: OnFailure
+      serviceAccount: openshift-gitops-argocd-application-controller
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      terminationGracePeriodSeconds: 30
+  ttlSecondsAfterFinished: 300

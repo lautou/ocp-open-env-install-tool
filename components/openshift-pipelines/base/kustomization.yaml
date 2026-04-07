@@ -4,6 +4,7 @@ resources:
 - ../../common
 - cluster-crb-pipelines-tektonconfig-edit.yaml
 - cluster-tektonconfig-config.yaml
+- openshift-gitops-job-cleanup-auto-tektonconfig.yaml
 - openshift-gitops-job-disable-pipelines-console-plugin.yaml
 - openshift-gitops-job-enable-pipelines-console-plugin.yaml
 - openshift-operators-subscription-openshift-pipelines-operator.yaml
