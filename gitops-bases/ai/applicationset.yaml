@@ -9,9 +9,8 @@ spec:
       elements:
       - branch: master
         item: kueue
-      # DISABLED FOR TESTING: LWS Operator
-      # - branch: master
-      #   item: leader-work-set
+      - branch: master
+        item: leader-work-set
       - branch: master
         item: nvidia-gpu-operator
       - branch: master
