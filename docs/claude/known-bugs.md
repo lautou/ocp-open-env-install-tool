@@ -489,6 +489,93 @@ oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | b
 
 ---
 
+### 3. MachineConfigPool maxUnavailable Configuration
+
+**Recommendation:** `MachineConfigPool will never finish updating when the 'unavailableMachineCount' is greater than 'maxUnavailable' in the MachineConfigPool`
+**Rule ID:** `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
+**Component:** Machine Config Operator
+**Risk Level:** Moderate
+**Namespace:** N/A (cluster-wide configuration)
+
+**Issue:**
+Insights flags MachineConfigPools with `maxUnavailable: null` (which defaults to 1) as potentially problematic, warning that updates may never complete if unavailableMachineCount exceeds maxUnavailable. However, both master and worker pools are fully updated with unavailableMachineCount=0, indicating no actual issue.
+
+**Impact:**
+- Moderate risk Insights recommendation appears in console
+- No actual impact on cluster updates or node management
+- MachineConfigPools update normally with default maxUnavailable=1
+- Recommendation appears in Insights Advisor dashboard
+- False-positive when pools are fully updated
+
+**Root Cause:**
+The Insights rule checks for the presence of explicit `maxUnavailable` configuration but flags it as an issue when the field is null (relying on defaults). The default behavior (maxUnavailable=1) is correct for controlled, rolling updates and the recommendation fires even when no nodes are unavailable (unavailableMachineCount=0).
+
+**Status:**
+- **JIRA:** TBD (Insights rule false-positive)
+- **Reported:** 2026-04-07 during cluster deployment
+- **Workaround:** Recommendation disabled in Insights configuration + Alertmanager routing/silence
+- **Fix ETA:** Unknown (requires Insights rule refinement to check actual unavailableMachineCount)
+
+**Mitigation Applied:**
+
+**Insights Configuration** (GitOps-managed):
+```yaml
+# Location: components/openshift-config/base/openshift-config-secret-support.yaml
+insights:
+  disabled_recommendations:
+    - rule_id: "ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable"
+```
+
+**Alertmanager Routing** (GitOps-managed):
+```yaml
+# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+routes:
+  - matchers:
+      - alertname = InsightsRecommendationActive
+      - description =~ .*MachineConfigPool.*unavailableMachineCount.*maxUnavailable.*
+    receiver: 'null'
+    continue: false
+```
+
+**Alertmanager Silence** (Automated via GitOps Job):
+- **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+- **Duration:** 10 years from cluster deployment
+- **Created by:** argocd-automation
+- **Effect:** Alert shows as "suppressed" in web console
+- **Automation:** Runs automatically on every cluster deployment
+
+**Verification:**
+```bash
+# Check MachineConfigPool status
+oc get mcp master worker -o json | jq -r '.items[] | {
+  name: .metadata.name, 
+  maxUnavailable: .spec.maxUnavailable, 
+  machineCount: .status.machineCount, 
+  unavailableMachineCount: .status.unavailableMachineCount
+}'
+
+# Expected:
+# master: maxUnavailable=null (defaults to 1), unavailableMachineCount=0
+# worker: maxUnavailable=null (defaults to 1), unavailableMachineCount=0
+
+# View disabled recommendations
+oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
+
+# Verify recommendation no longer appears (24-48 hours after disabling)
+# View in Red Hat Hybrid Cloud Console:
+# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
+# The machineconfigpool_maxunavailable recommendation should not appear
+```
+
+**Important:**
+- **Default is correct**: null maxUnavailable defaults to 1, which is appropriate for rolling updates
+- **False-positive detection**: Recommendation fires even when unavailableMachineCount=0
+- Explicitly setting `maxUnavailable: 1` would silence the Insights rule but is unnecessary
+- Insights recommendations may take 24-48 hours to refresh after disabling
+- Changes persist across cluster upgrades
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
