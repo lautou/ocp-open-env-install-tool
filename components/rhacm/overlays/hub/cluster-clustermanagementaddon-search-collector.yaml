@@ -1,13 +1,12 @@
-apiVersion: addon.open-cluster-management.io/v1alpha1
+apiVersion: addon.open-cluster-management.io/v1beta1
 kind: ClusterManagementAddOn
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: search-collector
 spec:
-  supportedConfigs:
-    - defaultConfig:
-        name: deploy-config
-        namespace: open-cluster-management-hub
-      group: addon.open-cluster-management.io
+  defaultConfigs:
+    - group: addon.open-cluster-management.io
+      name: deploy-config
+      namespace: open-cluster-management-hub
       resource: addondeploymentconfigs
