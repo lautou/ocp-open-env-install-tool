@@ -70,7 +70,50 @@ metadata:
 - Controls execution order within same hook type
 - Lower numbers execute first (can be negative)
 - Default wave: `0`
-- Waves in this project: `-1`, `0`, `3`, `10`
+- Waves in this project: `-1`, `0`, `1`, `2`, `3`, `10`
+
+**⚠️ CRITICAL: Hooks and Sync-Waves are Mutually Exclusive**
+
+When BOTH `hook` and `sync-wave` annotations are present:
+- ✅ ArgoCD treats the resource as a **HOOK**
+- ❌ The `sync-wave` annotation is **COMPLETELY IGNORED**
+- ⚠️ Misleading configuration - suggests wave execution, but actually hook behavior
+
+**Incorrect pattern** (sync-wave is ignored):
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PostSync      # Takes precedence
+    argocd.argoproj.io/sync-wave: "3"     # IGNORED - misleading!
+```
+
+**Correct patterns**:
+1. **Use sync-wave for regular resources** (no hook annotation):
+   ```yaml
+   metadata:
+     annotations:
+       argocd.argoproj.io/sync-wave: "1"   # Executes in wave 1
+   ```
+
+2. **Use hook for hook resources** (omit sync-wave unless ordering hooks):
+   ```yaml
+   metadata:
+     annotations:
+       argocd.argoproj.io/hook: PostSync   # Executes after all waves
+   ```
+
+3. **Use BOTH only to order hooks relative to other hooks**:
+   ```yaml
+   metadata:
+     annotations:
+       argocd.argoproj.io/hook: Sync       # Sync hook
+       argocd.argoproj.io/sync-wave: "1"   # Among Sync hooks, execute in wave 1
+   ```
+
+**Execution order**:
+- Regular resources execute in sync-wave order: `-1`, `0`, `1`, `2`, ...
+- PostSync hooks execute AFTER all regular resources (regardless of sync-wave)
+- Sync hooks execute during normal sync (can use sync-wave for ordering among Sync hooks)
 
 ### Force Execution
 
@@ -265,6 +308,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
   name: enable-gitops-console-plugin
   namespace: openshift-gitops
@@ -290,17 +335,20 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/infra: ''
       restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
+      serviceAccountName: console-plugin-manager
       tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
 ```
 
 **Key patterns:**
+- `hook: PostSync` → Executes after all sync waves complete
+- `hook-delete-policy: BeforeHookCreation` → Deletes old Job before creating new one
 - `Force=true` → Runs every sync
 - Idempotency check with `grep -qw`
 - JSON Patch with `op: add` to append to array
 - Uses `ose-cli` image for `oc` command
+- Dedicated ServiceAccount: `console-plugin-manager` (least-privilege RBAC)
 
 ### 2. Secret Management (2 Jobs)
 

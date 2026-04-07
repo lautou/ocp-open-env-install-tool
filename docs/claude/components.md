@@ -937,7 +937,7 @@ spec:
 - Job checks current targetNamespace before deleting
 - If already correct (`openshift-pipelines`), skips deletion
 - Prevents unnecessary churn on subsequent syncs
-- TTL cleanup: Job removed 5 minutes after completion
+- **Sync hook**: Marked as `argocd.argoproj.io/hook: Sync` for proper ArgoCD lifecycle management
 
 ## OpenShift Builds (Shipwright)
 
