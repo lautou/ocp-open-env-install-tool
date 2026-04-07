@@ -2426,4 +2426,6 @@ Operator channel managed via `cluster-versions` ConfigMap:
 - `lws: "stable-v1.0"` (ConfigMap - actual deployed version)
 - Subscription: `leader-worker-set` (package name in Red Hat Operators catalog)
 
-**Installation**: Part of the `ai` gitops-base, deployed in profile: `ocp-ai`
+**Installation**: Part of the `ai` gitops-base, deployed in profiles: `ocp-ai`, `ocp-reference`
+
+**Configuration Status**: Re-enabled as of 2026-04-07 (previously disabled for testing). Deployed with known API limitation for controller-manager pod placement (see above).
