@@ -3,4 +3,6 @@ kind: Kustomization
 
 resources:
   - cluster-ingresscontroller-default.yaml
-  - cluster-namespace-openshift-ingress.yaml # Required for Cert-Manager Certificate resource creation for ingress 
+  - cluster-namespace-openshift-ingress.yaml # Required for Cert-Manager Certificate resource creation for ingress
+  - openshift-ingress-rb-gateway-manager.yaml
+  - openshift-ingress-role-gateway-manager.yaml 
