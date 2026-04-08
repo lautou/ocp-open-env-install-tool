@@ -44,14 +44,208 @@
 
 ### Controller OOMKilled
 
-**Symptom**: argocd-application-controller pod restarts with exit code 137
+**Symptom**: argocd-application-controller pod restarts with exit code 137, enters CrashLoopBackOff
 
-**Solution**: Memory limit increased to 4Gi in manifests (already applied)
+**Common Triggers**:
+- Upgrading from GitOps 1.19 to 1.20+ without increasing memory
+- Initial cluster deployment with insufficient memory limits
+- Large ApplicationSet reconciliation with 30+ Applications
+
+**Version-Specific Requirements**:
+
+| GitOps Version | Min Memory | Recommended |
+|----------------|------------|-------------|
+| 1.19.x | 4Gi | 4Gi |
+| 1.20.x+ | 6Gi | **8Gi** |
+
+**Debug**:
+```bash
+# Check current memory limit
+oc get argocd openshift-gitops -n openshift-gitops -o jsonpath='{.spec.controller.resources.limits.memory}'
+
+# Check pod termination reason
+oc get pod -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller
+oc get pod openshift-gitops-application-controller-0 -n openshift-gitops \
+  -o jsonpath='{.status.containerStatuses[0].lastState.terminated}' | jq .
+
+# Look for: "exitCode": 137, "reason": "OOMKilled"
+```
+
+**Solution**:
+
+**Option 1: Update via ArgoCD manifest** (GitOps way)
+```bash
+# Edit the ArgoCD CR manifest
+vim components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml
+
+# Change controller.resources.limits.memory to 8Gi
+# Commit and push changes
+git add components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml
+git commit -m "Increase ArgoCD controller memory to 8Gi"
+git push
+
+# Sync Application
+argocd app sync openshift-gitops-admin-config
+
+# Note: ArgoCD may crash during sync, manual patch may be needed (see Option 2)
+```
+
+**Option 2: Emergency manual patch** (fastest)
+```bash
+# Directly patch the ArgoCD CR (bypasses GitOps temporarily)
+oc patch argocd openshift-gitops -n openshift-gitops --type=merge \
+  -p '{"spec":{"controller":{"resources":{"limits":{"memory":"8Gi"}}}}}'
+
+# Pod will automatically recreate with new limit
+# Wait for pod to be Running
+oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller -w
+
+# Then update Git to match (Option 1) to maintain GitOps consistency
+```
 
 **Verification**:
 ```bash
-oc get pod -n openshift-gitops -l app.kubernetes.io/name=argocd-application-controller
+# Check pod is running without restarts
+oc get pod -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller
+
+# Should show: READY 1/1, STATUS Running, RESTARTS 0
+
+# Check ArgoCD status
+oc get argocd openshift-gitops -n openshift-gitops -o jsonpath='{.status.phase}'
+# Should show: Available
+
+# Verify all Applications syncing properly
+oc get application.argoproj.io -n openshift-gitops | grep -c "Synced.*Healthy"
 ```
+
+**GitOps 1.20 Upgrade Note**:
+When upgrading from GitOps 1.19 to 1.20, increase controller memory to 8Gi **before** changing the subscription channel. If you forget, the controller will OOMKill during the initial reconciliation after upgrade. Use Option 2 (manual patch) for immediate recovery, then update Git manifests.
+
+### Upgrading GitOps Versions
+
+**Purpose**: Procedure to upgrade OpenShift GitOps operator across minor versions (e.g., 1.19 → 1.20)
+
+**Version Control**: GitOps versions are pinned in `components/common/openshift-gitops-configmap-cluster-versions.yaml`
+
+**Why Versions Are Pinned**:
+- Prevents automatic upgrades to untested versions
+- Ensures consistent deployments across clusters
+- Allows controlled testing before production rollout
+- Centralizes version management for all operators
+
+**Upgrade Procedure** (Example: GitOps 1.19 → 1.20):
+
+**Step 1: Update cluster-versions ConfigMap**
+```bash
+# Edit the ConfigMap
+vim components/common/openshift-gitops-configmap-cluster-versions.yaml
+
+# Change the version
+# Before: openshift-gitops: "gitops-1.19"
+# After:  openshift-gitops: "gitops-1.20"
+
+# Commit change
+git add components/common/openshift-gitops-configmap-cluster-versions.yaml
+git commit -m "Upgrade OpenShift GitOps to 1.20"
+git push origin master
+```
+
+**Step 2: Increase controller memory (CRITICAL for 1.20+)**
+```bash
+# Edit ArgoCD CR manifest
+vim components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml
+
+# Update controller memory
+# Before: memory: 4Gi
+# After:  memory: 8Gi
+
+# Commit change
+git add components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml
+git commit -m "Increase ArgoCD controller memory to 8Gi for GitOps 1.20"
+git push origin master
+```
+
+**Step 3: Update operator subscription channel**
+```bash
+# Update subscription (ArgoCD doesn't manage its own operator subscription)
+oc patch subscription.operators.coreos.com openshift-gitops-operator \
+  -n openshift-gitops-operator --type=merge \
+  -p '{"spec":{"channel":"gitops-1.20"}}'
+
+# Check upgrade progress
+oc get csv -n openshift-gitops-operator | grep gitops
+# Should show new version Installing → Replacing → Succeeded
+```
+
+**Step 4: Apply memory increase immediately**
+```bash
+# Manual patch (faster than waiting for ArgoCD sync during upgrade)
+oc patch argocd openshift-gitops -n openshift-gitops --type=merge \
+  -p '{"spec":{"controller":{"resources":{"limits":{"memory":"8Gi"}}}}}'
+
+# Controller pod will recreate with new memory limit
+```
+
+**Step 5: Monitor upgrade**
+```bash
+# Watch operator upgrade
+oc get csv -n openshift-gitops-operator -w
+
+# Watch controller pod (may restart during upgrade)
+oc get pods -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller -w
+
+# Check for OOMKills (exit code 137)
+oc get pod openshift-gitops-application-controller-0 -n openshift-gitops \
+  -o jsonpath='{.status.containerStatuses[0].lastState.terminated}' | jq .
+
+# If OOMKilled: increase memory further (6Gi → 8Gi → 10Gi if needed)
+```
+
+**Step 6: Verify all Applications**
+```bash
+# Check ArgoCD is Available
+oc get argocd openshift-gitops -n openshift-gitops -o jsonpath='{.status.phase}'
+
+# List all Application statuses
+oc get application.argoproj.io -n openshift-gitops \
+  -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'
+
+# Count healthy Applications
+oc get application.argoproj.io -n openshift-gitops -o json | \
+  jq -r '.items[] | select(.status.sync.status=="Synced" and .status.health.status=="Healthy") | .metadata.name' | wc -l
+
+# Should match total Application count
+```
+
+**Common Issues During Upgrade**:
+
+1. **Controller OOMKilled** → Increase memory (see Controller OOMKilled section)
+2. **Applications OutOfSync** → Wait for automatic resync or manually sync
+3. **Operator stuck Installing** → Check operator logs for CRD conflicts
+4. **Old pods not terminating** → May need to delete stuck pods manually
+
+**Rollback Procedure** (if upgrade fails):
+```bash
+# Revert subscription channel
+oc patch subscription.operators.coreos.com openshift-gitops-operator \
+  -n openshift-gitops-operator --type=merge \
+  -p '{"spec":{"channel":"gitops-1.19"}}'
+
+# Operator will downgrade automatically (may require pod deletions)
+
+# Revert Git changes
+git revert <commit-hash>
+git push origin master
+```
+
+**Post-Upgrade Verification**:
+- ✅ All Applications: Synced + Healthy
+- ✅ Controller pod: Running without restarts
+- ✅ ArgoCD status: Available
+- ✅ Console plugin: Working in OpenShift web console
+- ✅ Git commits: Match cluster state
+
+**Expected Upgrade Duration**: 5-10 minutes (excluding troubleshooting)
 
 ### Applications Stuck OutOfSync
 

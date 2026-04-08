@@ -64,17 +64,27 @@ Each component includes:
      resources:
        limits:
          cpu: '2'
-         memory: 4Gi  # Increased from default 3Gi
+         memory: 8Gi  # Version-specific, see below
        requests:
          cpu: 250m
-         memory: 2Gi  # Increased from default 1Gi
+         memory: 2Gi
    ```
 
-   **Why 4Gi memory?**
-   - Default 3Gi causes OOMKilled crashes (exit code 137) in production clusters
-   - Controller manages 25-30+ applications with complex CRDs
-   - Memory usage spikes during reconciliation of large ApplicationSets
-   - 4Gi provides stable operation with headroom for growth
+   **Version-Specific Memory Requirements**:
+   
+   | GitOps Version | Min Memory | Recommended | Cluster Size |
+   |----------------|------------|-------------|--------------|
+   | 1.19.x | 4Gi | 4Gi | 25-30 Applications |
+   | 1.20.x+ | 6Gi | **8Gi** | 30-35 Applications |
+   
+   **Why 8Gi for GitOps 1.20+?**
+   - GitOps 1.20 (ArgoCD 3.3+) has significantly higher memory requirements than 1.19
+   - Testing showed OOMKills (exit code 137) with both 4Gi and 6Gi during reconciliation
+   - 8Gi provides stable operation with 33+ Applications
+   - Likely due to improved caching and concurrent reconciliation in newer version
+   - Memory usage spikes during ApplicationSet rollouts and bulk syncs
+   
+   **Upgrade Note**: When upgrading from GitOps 1.19 to 1.20, increase memory to 8Gi **before** or **immediately after** operator upgrade to prevent OOMKill crashes during initial reconciliation.
 
 2. **ApplicationSet Retry Configuration**:
    All ApplicationSets configured with:
