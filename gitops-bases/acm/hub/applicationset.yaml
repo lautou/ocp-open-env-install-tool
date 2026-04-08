@@ -29,6 +29,7 @@ spec:
       ignoreDifferences:
       - group: addon.open-cluster-management.io
         jsonPointers:
+        - /spec/defaultConfigs
         - /spec/installStrategy
         kind: ClusterManagementAddOn
       - group:
