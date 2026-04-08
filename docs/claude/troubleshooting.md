@@ -579,6 +579,146 @@ oc get subscription -n openshift-storage <subscription-name> -o yaml | grep -A5 
 oc logs -n openshift-storage job/update-subscriptions-node-selector
 ```
 
+### Loki Ingester Flush Failures - Invalid S3 Credentials
+
+**Symptom**: LokiIngesterFlushFailureRateCritical alert firing, Loki ingester pods logging S3 flush errors
+
+**Example Error**:
+```
+level=error caller=flush.go:261 component=ingester msg="failed to flush" 
+err="store put chunk: InvalidAccessKeyId: The AWS access key Id you provided does not exist in our records. status code: 403"
+```
+
+**Root Cause**: 
+Invalid AWS credentials in `logging-loki-s3` secret after NooBaa instance recreation/deletion.
+
+**Common Triggers**:
+- Accidental deletion of `openshift-storage` Application during troubleshooting
+- Manual deletion of NooBaa resources
+- ODF upgrade/reinstall that recreates NooBaa instance
+
+**Why this happens**:
+1. Loki uses S3 bucket provided by NooBaa (via ObjectBucketClaim)
+2. NooBaa generates unique AWS-compatible credentials for each bucket
+3. When NooBaa instance is deleted/recreated, old credentials become invalid
+4. `logging-loki-s3` secret still contains old credentials
+5. Loki cannot flush log chunks to S3 → flush failures → alert fires
+
+**Debug**:
+```bash
+# Check Loki ingester logs for S3 errors
+oc logs -n openshift-logging logging-loki-ingester-0 --tail=100 | grep -i "flush.*error"
+
+# Check OBC status
+oc get obc logging-loki -n openshift-logging
+
+# Check when secret was last updated
+oc get secret logging-loki-s3 -n openshift-logging -o jsonpath='{.metadata.creationTimestamp}'
+
+# Check when NooBaa was created (should match OBC age)
+oc get noobaa -n openshift-storage -o jsonpath='{.items[0].metadata.creationTimestamp}'
+```
+
+**Fix**:
+
+**Step 1: Recreate ObjectBucketClaim** (if needed)
+
+If OBC is older than NooBaa instance, delete and recreate it:
+
+```bash
+# Delete OBC (ArgoCD will recreate)
+oc delete obc logging-loki -n openshift-logging
+
+# If OBC stuck with finalizer
+oc patch obc logging-loki -n openshift-logging --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+
+# Delete associated ObjectBucket if it exists
+oc get objectbucket | grep logging-loki
+oc delete objectbucket obc-openshift-logging-logging-loki
+
+# If ObjectBucket stuck with finalizer
+oc patch objectbucket obc-openshift-logging-logging-loki --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+
+# Restart NooBaa operator to process new OBC
+oc delete pod -n openshift-storage -l app=noobaa,noobaa-operator=deployment
+
+# Wait for OBC to become Bound
+oc get obc logging-loki -n openshift-logging -w
+```
+
+**Step 2: Update Loki S3 secret with new credentials**
+
+Extract new credentials from OBC and update Loki secret:
+
+```bash
+# Get new credentials from OBC secret
+ACCESS_KEY=$(oc get secret logging-loki -n openshift-logging -o jsonpath='{.data.AWS_ACCESS_KEY_ID}')
+SECRET_KEY=$(oc get secret logging-loki -n openshift-logging -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}')
+BUCKET=$(oc get secret logging-loki -n openshift-logging -o jsonpath='{.data.BUCKET_NAME}')
+ENDPOINT=$(oc get secret logging-loki -n openshift-logging -o jsonpath='{.data.BUCKET_HOST}')
+REGION=$(oc get secret logging-loki -n openshift-logging -o jsonpath='{.data.BUCKET_REGION}')
+
+# Update logging-loki-s3 secret
+oc patch secret logging-loki-s3 -n openshift-logging --type=json -p="[
+  {\"op\": \"replace\", \"path\": \"/data/access_key_id\", \"value\": \"$ACCESS_KEY\"},
+  {\"op\": \"replace\", \"path\": \"/data/access_key_secret\", \"value\": \"$SECRET_KEY\"},
+  {\"op\": \"replace\", \"path\": \"/data/bucketnames\", \"value\": \"$BUCKET\"},
+  {\"op\": \"replace\", \"path\": \"/data/endpoint\", \"value\": \"$ENDPOINT\"},
+  {\"op\": \"replace\", \"path\": \"/data/region\", \"value\": \"$REGION\"}
+]"
+```
+
+**Step 3: Restart Loki ingester pods**
+
+```bash
+# Restart all ingester pods to pick up new credentials
+oc delete pod -n openshift-logging -l app.kubernetes.io/component=ingester
+
+# Wait for pods to be ready (StatefulSet restarts sequentially)
+oc get pods -n openshift-logging -l app.kubernetes.io/component=ingester -w
+
+# Verify no flush errors in logs
+oc logs -n openshift-logging logging-loki-ingester-0 --tail=50 | grep -i "flush.*error"
+```
+
+**Verification**:
+```bash
+# Check ingester pods are healthy
+oc get pods -n openshift-logging -l app.kubernetes.io/component=ingester
+
+# Monitor logs for successful flushes (no errors)
+oc logs -n openshift-logging logging-loki-ingester-0 --tail=20 --follow
+
+# Check alert clears (may take 5-10 minutes)
+# Alert threshold: flush failure rate > threshold for sustained period
+```
+
+**Prevention**:
+- Avoid deleting `openshift-storage` Application unless absolutely necessary
+- If ODF must be reinstalled, update Loki credentials immediately after
+- The `create-secret-logging-loki-s3` Job (PostSync hook) should run automatically on `openshift-logging` Application sync to regenerate credentials
+
+**Alternative (automated)**: Trigger Job to regenerate secret
+
+```bash
+# Delete Job to force ArgoCD to recreate it
+oc delete job create-secret-logging-loki-s3 -n openshift-gitops
+
+# Trigger sync on openshift-logging Application
+oc patch application openshift-logging -n openshift-gitops --type merge \
+  -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{}}}'
+
+# Job will extract credentials from OBC and update logging-loki-s3 secret
+oc logs -n openshift-gitops job/create-secret-logging-loki-s3 --follow
+
+# Still need to restart ingester pods (Step 3 above)
+```
+
+**Related Issues**:
+- NooBaa bucket access denied
+- Loki compactor S3 errors (same credentials used)
+- OpenShift Logging retention issues (logs not persisted to S3)
+
 ### RHOAI Models as a Service Dashboard Not Showing Models
 
 **Symptom**: LLMInferenceServices with MaaS configuration do not appear in the RHOAI dashboard "AI asset endpoints → Models as a service" tab
