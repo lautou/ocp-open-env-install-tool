@@ -62,14 +62,14 @@ spec:
             echo "Processing: $SUB"
 
             echo -n "Waiting for subscription..."
-            while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+            while ! oc get subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
               echo -n "."
               sleep 5
             done
             echo " Found!"
 
             echo "Patching..."
-            oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+            oc patch subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
             echo "✅ Patched."
           done
 
@@ -79,14 +79,14 @@ spec:
             echo "Processing: $SUB"
 
             echo -n "Waiting for subscription..."
-            while ! oc get subscription "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+            while ! oc get subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
               echo -n "."
               sleep 5
             done
             echo " Found!"
 
             echo "Patching..."
-            oc patch subscription "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+            oc patch subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
             echo "✅ Patched."
           done
 

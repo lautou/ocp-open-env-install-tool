@@ -95,15 +95,15 @@ spec:
           echo "Step 4: Uninstalling Builds operator..."
 
           # Delete Subscription
-          if oc get subscription openshift-builds-operator -n openshift-builds &>/dev/null; then
-            oc delete subscription openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
+          if oc get subscription.operators.coreos.com openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc delete subscription.operators.coreos.com openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
             echo "  ✅ Subscription deleted"
           else
             echo "  ℹ️  Subscription not found"
           fi
 
           # Delete CSV
-          CSV_NAME=$(oc get csv -n openshift-builds -o name 2>/dev/null | grep openshift-builds-operator || echo "")
+          CSV_NAME=$(oc get csv.operators.coreos.com -n openshift-builds -o name 2>/dev/null | grep openshift-builds-operator || echo "")
           if [ -n "$CSV_NAME" ]; then
             oc delete $CSV_NAME -n openshift-builds --ignore-not-found --timeout=60s 2>&1 || true
             echo "  ✅ CSV deleted: $CSV_NAME"
@@ -127,8 +127,8 @@ spec:
 
           # Step 6: Delete OperatorGroup (cleanup)
           echo "Step 6: Deleting OperatorGroup..."
-          if oc get operatorgroup openshift-builds-operator -n openshift-builds &>/dev/null; then
-            oc delete operatorgroup openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
+          if oc get operatorgroup.operators.coreos.com openshift-builds-operator -n openshift-builds &>/dev/null; then
+            oc delete operatorgroup.operators.coreos.com openshift-builds-operator -n openshift-builds --ignore-not-found --timeout=30s 2>&1 || true
             echo "  ✅ OperatorGroup deleted"
           else
             echo "  ℹ️  OperatorGroup not found"

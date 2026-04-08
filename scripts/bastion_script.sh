@@ -214,17 +214,17 @@ configure_day2_gitops() {
   fi
 
   echo "Day2: Waiting for OpenShift GitOps Operator Subscription..."
-  if ! oc wait sub openshift-gitops-operator -n openshift-gitops-operator --for jsonpath='{.status.installPlanRef.name}' --timeout 300s; then
+  if ! oc wait subscription.operators.coreos.com openshift-gitops-operator -n openshift-gitops-operator --for jsonpath='{.status.installPlanRef.name}' --timeout 300s; then
     echo "ERROR: Day2: Timeout waiting for GitOps Subscription InstallPlan."
     return 1
   fi
-  local day2_install_plan_name=$(oc get sub openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
-  local day2_csv_name=$(oc get installplan "$day2_install_plan_name" -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
+  local day2_install_plan_name=$(oc get subscription.operators.coreos.com openshift-gitops-operator -n openshift-gitops-operator -o jsonpath='{.status.installPlanRef.name}')
+  local day2_csv_name=$(oc get installplan.operators.coreos.com "$day2_install_plan_name" -n openshift-gitops-operator -o jsonpath='{.spec.clusterServiceVersionNames[0]}')
   echo "Day2: Found InstallPlan: $day2_install_plan_name for CSV: $day2_csv_name."
 
   echo -n "Day2: Waiting for CSV '$day2_csv_name' to be created..."
   local csv_exists_timeout=120
-  while ! oc get csv "$day2_csv_name" -n openshift-gitops-operator > /dev/null 2>&1; do
+  while ! oc get csv.operators.coreos.com "$day2_csv_name" -n openshift-gitops-operator > /dev/null 2>&1; do
     csv_exists_timeout=$((csv_exists_timeout - 5))
     if [ "$csv_exists_timeout" -le 0 ]; then
       echo "ERROR: Day2: Timeout waiting for CSV '$day2_csv_name' to be created."
@@ -236,7 +236,7 @@ configure_day2_gitops() {
   echo " CSV '$day2_csv_name' created."
 
   echo -n "Day2: Waiting for OpenShift GitOps Operator CSV '$day2_csv_name' to succeed..."
-  if ! oc wait csv "$day2_csv_name" -n openshift-gitops-operator --for jsonpath='{.status.phase}'=Succeeded --timeout 600s > /dev/null; then
+  if ! oc wait csv.operators.coreos.com "$day2_csv_name" -n openshift-gitops-operator --for jsonpath='{.status.phase}'=Succeeded --timeout 600s > /dev/null; then
     echo "ERROR: Day2: Timeout waiting for GitOps CSV '$day2_csv_name'."
     return 1
   fi
