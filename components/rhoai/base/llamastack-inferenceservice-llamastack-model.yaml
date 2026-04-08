@@ -17,8 +17,6 @@ spec:
     automountServiceAccountToken: true
     deploymentStrategy:
       type: RollingUpdate
-    imagePullSecrets:
-    - name: secret-pdjxxu
     maxReplicas: 1
     minReplicas: 1
     serviceAccountName: llamastack-model-sa
