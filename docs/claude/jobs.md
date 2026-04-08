@@ -1246,6 +1246,58 @@ hostname: maas-api.apps.${OCP_BASE_DOMAIN}
      - `loki-s3-secret-creator` - 2 S3 secret Jobs (~95% reduction)
    - See [security.md](security.md) "Job RBAC Security" section for full details
 
+5. **Always use explicit API groups for OLM resources**
+   - **CRITICAL on clusters with RHACM installed**
+   - OLM and RHACM share resource names (subscription, channel, etc.)
+   - Generic commands resolve to wrong API group → Forbidden errors → infinite loops
+
+   **Problem:**
+   ```bash
+   # ❌ WRONG - Ambiguous on RHACM clusters
+   oc get subscription my-operator -n my-namespace
+   
+   # Result: Uses apps.open-cluster-management.io (RHACM)
+   # Expected: operators.coreos.com (OLM)
+   # Error: Forbidden (ServiceAccount has OLM RBAC, not RHACM RBAC)
+   ```
+
+   **Solution - Always specify full resource type:**
+   ```bash
+   # ✅ CORRECT - Explicit API group
+   oc get subscription.operators.coreos.com my-operator -n my-namespace
+   oc patch subscription.operators.coreos.com my-operator -n my-namespace --type=merge -p "$PATCH"
+   oc delete subscription.operators.coreos.com my-operator -n my-namespace
+   oc wait subscription.operators.coreos.com my-operator --for=...
+   ```
+
+   **OLM resources requiring explicit API groups:**
+   - `subscription.operators.coreos.com` - **CRITICAL** (conflicts with RHACM)
+   - `csv.operators.coreos.com` (ClusterServiceVersion)
+   - `installplan.operators.coreos.com`
+   - `operatorgroup.operators.coreos.com`
+   - `catalogsource.operators.coreos.com`
+
+   **RHACM conflicting resources:**
+   - `subscription` → `apps.open-cluster-management.io/v1` (RHACM app deployments)
+   - `channel` → `apps.open-cluster-management.io/v1`
+   - `helmrelease` → `apps.open-cluster-management.io/v1`
+   - `placementrule` → `apps.open-cluster-management.io/v1`
+
+   **Real-world failure (fixed in 8ab206e):**
+   - **Job**: `update-odf-subscriptions-node-selector`
+   - **Symptom**: Running 24+ hours, stuck in infinite wait loop
+   - **Root cause**: `oc get subscription` resolved to RHACM API
+   - **Error**: `Forbidden: User "..." cannot get resource "subscriptions" in API group "apps.open-cluster-management.io"`
+   - **Loop logic**: Command failed → `! command` = true → wait loop continues forever
+   - **Fix**: Added `.operators.coreos.com` to all subscription references
+   - **Result**: Job completes in 30 seconds instead of running forever
+
+   **When this matters:**
+   - ✅ Always use explicit API groups (defensive coding)
+   - ✅ Especially critical on `ocp-reference` profile (includes RHACM)
+   - ✅ Prevents failures when RHACM added to existing clusters
+   - ✅ Makes RBAC errors clearer (correct API group, actual permission issue)
+
 ### RBAC Security Patterns
 
 **All Jobs in this project follow production-ready RBAC patterns:**

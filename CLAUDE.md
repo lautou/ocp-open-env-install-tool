@@ -349,6 +349,47 @@ Remove from generator → Application orphaned (still exists, not managed)
 
 **When to add explicit value**: Only when overriding default to `Manual`
 
+### OLM Resource API Groups - RHACM Conflict
+
+**Pattern**: Always use explicit API groups for OLM resources in Job scripts and CLI commands.
+
+**CRITICAL on clusters with RHACM installed**: OLM and RHACM share resource type names, causing API group ambiguity.
+
+**The Problem**:
+- **OLM**: `subscription.operators.coreos.com` (operator installations)
+- **RHACM**: `subscription.apps.open-cluster-management.io` (application deployments)
+- Generic `oc get subscription` → defaults to RHACM API
+- Jobs have RBAC for OLM API, not RHACM API
+- Result: Forbidden errors → infinite wait loops → Jobs never complete
+
+**Always use explicit API groups in Jobs/scripts**:
+```bash
+# ❌ WRONG - Ambiguous (resolves to RHACM on clusters with ACM)
+oc get subscription my-operator -n my-namespace
+
+# ✅ CORRECT - Explicit API group
+oc get subscription.operators.coreos.com my-operator -n my-namespace
+```
+
+**OLM resources requiring explicit API groups**:
+- `subscription.operators.coreos.com` - **CRITICAL** (conflicts with RHACM)
+- `csv.operators.coreos.com` (ClusterServiceVersion)
+- `installplan.operators.coreos.com`
+- `operatorgroup.operators.coreos.com`
+
+**Real failure** (fixed in 8ab206e):
+- Job `update-odf-subscriptions-node-selector` stuck 24+ hours in wait loop
+- Root cause: `oc get subscription` → Forbidden (wrong API group)
+- Fix: Added `.operators.coreos.com` to all commands
+- Result: Job completes in 30 seconds instead of infinite loop
+
+**When this matters**:
+- ✅ All profiles with RHACM installed (`ocp-reference`, `ocp-acm-hub`)
+- ✅ Any cluster where RHACM might be added later
+- ✅ Defensive coding (prevents future breakage)
+
+**See**: [jobs.md](docs/claude/jobs.md) "Best Practices" and [troubleshooting.md](docs/claude/troubleshooting.md) "Job Stuck in Infinite Loop"
+
 ## Component Notes
 
 **IMPORTANT**: Most component details moved to external docs.

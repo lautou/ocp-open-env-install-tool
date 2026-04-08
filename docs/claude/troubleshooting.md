@@ -107,6 +107,134 @@ Update Job command to use correct API or add missing RBAC permissions to Cluster
 - ServiceAccount has `namespaces` delete permission (core API)
 - No RBAC change needed
 
+### Job Stuck in Infinite Loop - OLM API Group Ambiguity
+
+**Symptom**: Job running for hours/days, stuck in wait loop with repeating dots in logs, KubeJobNotCompleted alert firing
+
+**Root Cause**: On clusters with **BOTH** OLM and RHACM installed, generic `oc get subscription` commands resolve to wrong API group
+
+**The Problem:**
+
+Kubernetes has TWO different "subscription" resource types:
+- **OLM (Operator Lifecycle Manager)**: `subscription.operators.coreos.com` - for operator installations
+- **RHACM (Red Hat ACM)**: `subscription.apps.open-cluster-management.io` - for application deployments
+
+When you run `oc get subscription` without explicit API group:
+- **Default resolution**: RHACM API (`apps.open-cluster-management.io`)
+- **RBAC configured for**: OLM API (`operators.coreos.com`)
+- **Result**: `Forbidden` error (ServiceAccount has no RHACM permissions)
+
+**Job fails but loop continues:**
+```bash
+# Job script wait loop
+while ! oc get subscription "$NAME" -n "$NS" >/dev/null 2>&1; do
+  echo -n "."
+  sleep 5
+done
+
+# What happens:
+# 1. oc get subscription → Uses apps.open-cluster-management.io (RHACM API)
+# 2. Error: Forbidden (ServiceAccount has operators.coreos.com RBAC, not RHACM RBAC)
+# 3. Command fails (exit code 1)
+# 4. ! command = true (negation)
+# 5. Loop continues waiting forever
+# 6. OLM subscription actually exists but cannot be found
+```
+
+**How to Diagnose:**
+
+1. Check Job pod logs:
+   ```bash
+   oc logs <job-pod-name> -n openshift-gitops
+   
+   # Look for:
+   # - Infinite dots: "Waiting for subscription..........."
+   # - No progress after startup messages
+   ```
+
+2. Test command manually in Job pod:
+   ```bash
+   # Wrong API (fails on RHACM clusters)
+   oc exec <pod> -- oc get subscription <name> -n <namespace>
+   # Error: Forbidden: User "..." cannot get resource "subscriptions" in API group "apps.open-cluster-management.io"
+   
+   # Correct API (works)
+   oc exec <pod> -- oc get subscription.operators.coreos.com <name> -n <namespace>
+   # Shows the subscription successfully
+   ```
+
+3. Verify RHACM is installed:
+   ```bash
+   oc get subscription.apps.open-cluster-management.io --all-namespaces
+   # If results found → RHACM installed → API conflict exists
+   ```
+
+**Solution:**
+
+Add explicit API group to ALL OLM resource commands:
+
+```bash
+# ❌ WRONG - Ambiguous
+oc get subscription my-operator -n my-namespace
+oc patch subscription my-operator -n my-namespace --type=merge -p "$PATCH"
+oc delete subscription my-operator -n my-namespace
+oc wait subscription my-operator -n my-namespace --for=...
+
+# ✅ CORRECT - Explicit API group
+oc get subscription.operators.coreos.com my-operator -n my-namespace
+oc patch subscription.operators.coreos.com my-operator -n my-namespace --type=merge -p "$PATCH"
+oc delete subscription.operators.coreos.com my-operator -n my-namespace
+oc wait subscription.operators.coreos.com my-operator -n my-namespace --for=...
+```
+
+**OLM resources requiring explicit API groups:**
+- `subscription.operators.coreos.com` - **CRITICAL** (conflicts with RHACM)
+- `csv.operators.coreos.com` (ClusterServiceVersion)
+- `installplan.operators.coreos.com`
+- `operatorgroup.operators.coreos.com`
+- `catalogsource.operators.coreos.com`
+
+**Example Failure (fixed in 8ab206e):**
+
+**Job**: `update-odf-subscriptions-node-selector`
+- **Runtime**: 24+ hours stuck in loop
+- **Symptoms**: 
+  - KubeJobNotCompleted alert firing
+  - Logs showing infinite dots: "Waiting for subscription.................."
+  - Pod restarts: 2 (backoff retries)
+- **Root cause**: 
+  - Lines 65, 72, 82, 89: `oc get subscription` / `oc patch subscription`
+  - Resolved to `apps.open-cluster-management.io` (RHACM)
+  - RBAC configured for `operators.coreos.com` (OLM)
+  - Forbidden error → infinite wait loop
+- **Fix**: Added `.operators.coreos.com` to all subscription references
+- **Result**: Job completes in ~30 seconds
+
+**Immediate Fix for Stuck Jobs:**
+
+1. Delete the stuck Job:
+   ```bash
+   oc delete job <job-name> -n openshift-gitops
+   ```
+
+2. Fix the Job manifest (add `.operators.coreos.com`)
+
+3. Commit and push changes
+
+4. ArgoCD recreates Job with fixed script via PostSync hook
+
+5. Job completes successfully
+
+**Prevention:**
+- ✅ Always use explicit API groups for OLM resources (defensive coding)
+- ✅ Especially critical on `ocp-reference` profile (includes RHACM)
+- ✅ Test Jobs on RHACM-enabled clusters before production
+
+**Related Issues:**
+- All Jobs working with OLM operators (subscriptions, CSVs, InstallPlans)
+- Bastion installation script (GitOps operator installation)
+- Cleanup Jobs (operator uninstallation)
+
 ### Partial Sync Cycles
 
 **Symptom**: Application repeatedly shows "Partial sync operation succeeded" every 5-6 minutes, health cycles between Healthy → Missing
