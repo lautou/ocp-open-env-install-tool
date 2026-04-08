@@ -107,6 +107,123 @@ Update Job command to use correct API or add missing RBAC permissions to Cluster
 - ServiceAccount has `namespaces` delete permission (core API)
 - No RBAC change needed
 
+### Partial Sync Cycles
+
+**Symptom**: Application repeatedly shows "Partial sync operation succeeded" every 5-6 minutes, health cycles between Healthy → Missing
+
+**Root Causes**:
+
+**1. Job with TTL but no ArgoCD hook annotation**
+
+When a Job has `ttlSecondsAfterFinished` but is NOT marked as an ArgoCD hook:
+- Job completes → TTL controller deletes Job after timeout
+- ArgoCD detects deletion → re-syncs to recreate Job
+- Result: Continuous sync cycle every TTL period
+
+**Solution**: Mark Job as ArgoCD hook to exclude from drift detection
+
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: Sync  # or PreSync/PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+```
+
+**Example**: OpenShift Pipelines cleanup-auto-tektonconfig Job (fixed in 0813d6e)
+
+**2. API version mismatch (operator converts resources)**
+
+When manifests use deprecated API version but operator converts to newer version:
+- Operator converts resource at runtime (e.g., v1alpha1 → v1beta1)
+- Operator may rename fields during conversion
+- ArgoCD compares desired (old API) vs actual (new API) → detects drift
+- Result: "Partial sync operation succeeded" continuously
+
+**Solution**: Update manifests to match operator's current API version
+
+```yaml
+# Before (causes drift)
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddon
+spec:
+  supportedConfigs:  # Old field name
+    - defaultConfig: {...}
+
+# After (matches operator)
+apiVersion: addon.open-cluster-management.io/v1beta1
+kind: ClusterManagementAddon
+spec:
+  defaultConfigs:  # New field name (no nested defaultConfig)
+    - group: addon.open-cluster-management.io
+      name: deploy-config
+```
+
+**Example**: RHACM ClusterManagementAddon resources (fixed in d931ec8)
+
+**3. Operator-managed fields causing auto-heal cycles**
+
+When operator dynamically manages fields that are not in manifests:
+- Operator adds/modifies fields at runtime based on addon configuration
+- ArgoCD compares static manifest vs dynamic operator state → detects drift
+- Auto-heal triggers sync to restore manifest state
+- Operator immediately re-adds its managed fields
+- Result: Continuous auto-heal cycle every 4-8 minutes
+
+**Solution**: Add ignoreDifferences for operator-managed fields
+
+```yaml
+# In ApplicationSet
+spec:
+  template:
+    spec:
+      ignoreDifferences:
+      - group: addon.open-cluster-management.io
+        kind: ClusterManagementAddOn
+        jsonPointers:
+        - /spec/defaultConfigs      # Operator adds/updates addon configs
+        - /spec/installStrategy     # Operator manages deployment strategy
+```
+
+**Why both fields are needed**:
+- `/spec/installStrategy`: Operator determines Manual vs Placements deployment
+- `/spec/defaultConfigs`: Operator adds addon-specific entries and updates versions
+
+**Common mistakes**:
+- ❌ Ignoring only `/spec/installStrategy` (insufficient - defaultConfigs also drift)
+- ❌ Trying to declare these fields in manifests (operator overrides them anyway)
+- ✅ Ignore both fields, let operator manage them completely
+
+**Example**: RHACM ClusterManagementAddon auto-heal cycles (fixed in dd38d0e)
+- cluster-proxy: Operator adds extra defaultConfigs entry for proxy configuration
+- managed-serviceaccount: Operator updates version (2.10 → 2.11) in defaultConfigs
+- Both resources had installStrategy added by operator
+
+**How to debug**:
+
+1. Check Application status:
+   ```bash
+   oc get application <app-name> -n openshift-gitops \
+     -o jsonpath='{.status.operationState.message}'
+   ```
+
+2. Compare desired vs actual:
+   ```bash
+   # Get ArgoCD's desired state
+   oc get application <app-name> -n openshift-gitops -o yaml
+
+   # Get actual cluster state
+   oc get <resource> <name> -n <namespace> -o yaml
+   ```
+
+3. Look for API version or field name differences
+4. Check operator logs for conversion messages:
+   ```bash
+   oc logs -n <operator-namespace> deployment/<operator-name>
+   ```
+
+**Prevention**: Always use latest stable API versions for operator CRDs, mark Jobs with TTL as ArgoCD hooks
+
 ### ApplicationSet Ownership Conflicts
 
 **Symptom**: "Object X is already owned by another ApplicationSet controller Y"

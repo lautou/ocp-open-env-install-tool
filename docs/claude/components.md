@@ -1284,6 +1284,169 @@ Operator channel managed via `cluster-versions` ConfigMap:
 
 **Installation**: Part of the `acm/hub` gitops-base, deployed in profile: `ocp-reference`, `ocp-acm-hub`
 
+### ClusterManagementAddon API Version Migration
+
+**Pattern**: Use v1beta1 API with defaultConfigs field (not v1alpha1 with supportedConfigs)
+
+**CRITICAL**: ClusterManagementAddon resources MUST use `addon.open-cluster-management.io/v1beta1` API version to prevent partial sync cycles.
+
+**Problem**: ACM operator converts v1alpha1 manifests to v1beta1 at runtime and renames the `supportedConfigs` field to `defaultConfigs`. This causes ArgoCD to detect continuous drift:
+
+```yaml
+# ❌ OLD (v1alpha1) - Causes partial sync cycles
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddon
+spec:
+  supportedConfigs:
+    - defaultConfig:
+        name: deploy-config
+        namespace: open-cluster-management-hub
+      group: addon.open-cluster-management.io
+      resource: addondeploymentconfigs
+```
+
+```yaml
+# ✅ NEW (v1beta1) - Matches operator state
+apiVersion: addon.open-cluster-management.io/v1beta1
+kind: ClusterManagementAddon
+spec:
+  defaultConfigs:
+    - group: addon.open-cluster-management.io
+      name: deploy-config
+      namespace: open-cluster-management-hub
+      resource: addondeploymentconfigs
+```
+
+**Key differences**:
+- API version: `v1alpha1` → `v1beta1`
+- Field name: `supportedConfigs` → `defaultConfigs`
+- Field structure: No nested `defaultConfig` object in v1beta1
+
+**Why this matters**:
+- v1alpha1 manifests work initially (operator converts them)
+- But ArgoCD compares desired (v1alpha1) vs actual (v1beta1) → detects drift
+- Result: "Partial sync operation succeeded" every 5-6 minutes
+- Fix: Use v1beta1 directly in manifests to match operator state
+
+**Affected resources** (8 ClusterManagementAddons in hub overlay):
+- application-manager
+- cert-policy-controller
+- cluster-proxy
+- config-policy-controller
+- governance-policy-framework
+- managed-serviceaccount
+- search-collector
+- work-manager
+
+**Historical context**: ACM deprecated v1alpha1 API in favor of v1beta1 (2.16+). Always use latest stable API version for operator CRDs.
+
+### Operator-Managed Fields and ignoreDifferences
+
+**Pattern**: Ignore operator-managed `spec` fields to prevent auto-heal cycles
+
+**CRITICAL**: ACM operator dynamically manages `spec.defaultConfigs` and `spec.installStrategy` fields on ClusterManagementAddon resources. Static manifests CANNOT match operator's dynamic state.
+
+**Problem**: Auto-heal cycles every 4-8 minutes caused by operator-managed fields
+
+The ACM operator enriches ClusterManagementAddon resources with runtime configuration:
+
+**1. spec.installStrategy** - Operator determines deployment strategy:
+```yaml
+# Our manifest: Field not declared
+spec:
+  defaultConfigs: [...]
+
+# Cluster state: Operator adds installStrategy
+spec:
+  defaultConfigs: [...]
+  installStrategy:
+    type: Placements  # or Manual, determined by operator
+    placements:
+      - name: global
+        namespace: open-cluster-management-global-set
+```
+
+**2. spec.defaultConfigs** - Operator adds addon-specific entries:
+```yaml
+# Our manifest: Minimal baseline
+spec:
+  defaultConfigs:
+    - group: addon.open-cluster-management.io
+      name: deploy-config
+      namespace: open-cluster-management-hub
+      resource: addondeploymentconfigs
+
+# Cluster state: Operator adds extra entries
+spec:
+  defaultConfigs:
+    - group: proxy.open-cluster-management.io      # ← ADDED by operator
+      name: cluster-proxy
+      resource: managedproxyconfigurations
+    - group: addon.open-cluster-management.io
+      name: deploy-config
+      namespace: open-cluster-management-hub
+      resource: addondeploymentconfigs
+```
+
+**3. Version updates** - Operator updates addon versions:
+```yaml
+# Our manifest: May have old version
+spec:
+  defaultConfigs:
+    - name: managed-serviceaccount-2.10  # Old version
+
+# Cluster state: Operator updates to current version
+spec:
+  defaultConfigs:
+    - name: managed-serviceaccount-2.11  # Updated by operator
+```
+
+**Without ignoreDifferences**:
+1. ArgoCD compares static manifest vs dynamic operator state
+2. Detects drift in `spec.defaultConfigs` and/or `spec.installStrategy`
+3. Auto-heal triggers sync to restore manifest state
+4. Operator immediately re-adds its managed fields
+5. ArgoCD detects drift again → continuous cycle every 4-8 minutes
+
+**Solution**: Ignore both operator-managed fields in ApplicationSet:
+
+```yaml
+# gitops-bases/acm/hub/applicationset.yaml
+spec:
+  template:
+    spec:
+      ignoreDifferences:
+      - group: addon.open-cluster-management.io
+        kind: ClusterManagementAddOn
+        jsonPointers:
+        - /spec/defaultConfigs      # Operator adds/updates entries
+        - /spec/installStrategy     # Operator manages deployment strategy
+```
+
+**Why both fields are required**:
+- Ignoring only `/spec/installStrategy` is INSUFFICIENT (attempted in 80da465, failed)
+- Both fields are actively managed by operator based on:
+  - ACM version and addon versions
+  - Addon-specific configuration requirements
+  - Managed cluster enrollment state
+
+**Result**:
+- ✅ No more auto-heal cycles
+- ✅ Operator continues managing fields as designed
+- ✅ Our manifests provide minimal baseline, operator enriches with runtime config
+
+**Affected resources** (auto-heal previously targeting these):
+- `cluster-proxy` - Extra defaultConfigs entry + installStrategy
+- `managed-serviceaccount` - Version updates in defaultConfigs + installStrategy
+- `work-manager` - installStrategy placements
+
+**Pattern type**: Shared Resources with ignoreDifferences (operator co-manages resources we declare)
+
+**Historical fixes**:
+- d931ec8: Fixed API version mismatch (v1alpha1 → v1beta1)
+- 80da465: Added ignoreDifferences for /spec/installStrategy (insufficient)
+- dd38d0e: Added /spec/defaultConfigs to ignoreDifferences (complete fix)
+
 ## Red Hat build of Apicurio Registry
 
 **Purpose**: Provides a schema registry for API and event schema management, supporting Avro, Protobuf, JSON Schema, OpenAPI, and AsyncAPI formats.

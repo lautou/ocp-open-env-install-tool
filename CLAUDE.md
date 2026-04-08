@@ -148,12 +148,13 @@ Components use overlays for deployment variants. Common patterns:
 # 5. Only re-add if genuine conflict confirmed
 ```
 
-**Recent findings** (2026-03-30):
-- ✅ APIServer: No ignoreDifferences needed (RBAC sufficient)
-- ✅ Network: No ignoreDifferences needed (RBAC sufficient)
-- ✅ cluster-versions ConfigMap: Only `/metadata/annotations` needed (not labels/ownerReferences)
-- ✅ HardwareProfile: No ignoreDifferences needed (namespace managed-by label sufficient)
-- ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient)
+**Recent findings**:
+- ✅ APIServer: No ignoreDifferences needed (RBAC sufficient) - 2026-03-30
+- ✅ Network: No ignoreDifferences needed (RBAC sufficient) - 2026-03-30
+- ✅ cluster-versions ConfigMap: Only `/metadata/annotations` needed (not labels/ownerReferences) - 2026-03-30
+- ✅ HardwareProfile: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
+- ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
+- ✅ RHACM ClusterManagementAddons: Require `/spec/defaultConfigs` AND `/spec/installStrategy` (operator-managed) - 2026-04-08
 
 **Excessive ignores are technical debt** - Test carefully before adding.
 
@@ -208,6 +209,33 @@ ignoreDifferences:
 **Result**: All Applications sync successfully, no conflicts over tracking metadata.
 
 **Key pattern**: Ignoring ArgoCD's own metadata that conflicts in multi-Application scenarios.
+
+**Example 2**: RHACM ClusterManagementAddons (operator-managed fields)
+```yaml
+# Operator dynamically manages spec fields we don't declare
+ignoreDifferences:
+  - group: addon.open-cluster-management.io
+    kind: ClusterManagementAddOn
+    jsonPointers:
+    - /spec/defaultConfigs      # Operator adds addon-specific configs
+    - /spec/installStrategy     # Operator determines deployment strategy
+```
+
+**Why this works**:
+- ACM operator enriches ClusterManagementAddon resources with runtime configuration
+- Operator adds `defaultConfigs` entries specific to each addon (e.g., proxy configs)
+- Operator sets `installStrategy` based on addon type (Manual vs Placements)
+- Operator updates versions in `defaultConfigs` during ACM upgrades (e.g., 2.10 → 2.11)
+- Our manifests provide minimal baseline, operator owns these fields completely
+
+**Why BOTH fields are required**:
+- Ignoring only `/spec/installStrategy` is insufficient (80da465 attempted, failed)
+- Operator manages both fields independently and dynamically
+- Must ignore both to prevent auto-heal cycles every 4-8 minutes
+
+**Result**: No auto-heal cycles, operator manages fields as designed (fixed in dd38d0e)
+
+**Key pattern**: Ignoring operator-managed fields that cannot be statically declared in manifests.
 
 ### ✅ SkipDryRunOnMissingResource for Operator CRs (CRITICAL)
 
