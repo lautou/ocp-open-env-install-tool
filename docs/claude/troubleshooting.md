@@ -719,6 +719,108 @@ oc logs -n openshift-gitops job/create-secret-logging-loki-s3 --follow
 - Loki compactor S3 errors (same credentials used)
 - OpenShift Logging retention issues (logs not persisted to S3)
 
+### LokiStackComponentsNotReadyWarning - Invalid Secret Structure
+
+**Symptom**: LokiStackComponentsNotReadyWarning alert firing, LokiStack in degraded state
+
+**Error in LokiStack status**:
+```
+Invalid object storage secret contents: missing secret field: bucketnames
+```
+
+**Root Cause**: 
+The `logging-loki-s3` secret has empty values for required fields (`bucketnames`, `endpoint`, `region`).
+
+**Common Triggers**:
+- Manual patching of `logging-loki-s3` secret without setting all required fields
+- Incomplete secret recreation after troubleshooting S3 credential issues
+- Script errors that only partially populate the secret
+
+**Required Secret Fields**:
+The `logging-loki-s3` secret must contain all of these fields with non-empty values:
+- `access_key_id` - AWS access key from NooBaa OBC
+- `access_key_secret` - AWS secret key from NooBaa OBC
+- `bucketnames` - Bucket name (typically "logging-loki")
+- `endpoint` - S3 endpoint URL (e.g., "https://s3.openshift-storage.svc")
+- `region` - AWS region (e.g., "eu")
+- `insecure` - TLS verification flag ("true" for NooBaa internal S3)
+
+**Debug**:
+```bash
+# Check LokiStack status
+oc get lokistack logging-loki -n openshift-logging -o jsonpath='{.status.conditions}' | jq .
+
+# Check secret contents (decode base64)
+oc get secret logging-loki-s3 -n openshift-logging -o jsonpath='{.data}' | \
+  jq -r 'to_entries[] | "\(.key): \(.value | @base64d)"'
+
+# Look for empty values - these are the problem
+# Expected output should show all fields with actual values
+```
+
+**Fix**:
+
+**Option 1: Delete Secret and Resync (Recommended)**
+
+Use the automated PostSync Job to recreate the secret properly:
+
+```bash
+# Delete invalid secret
+oc delete secret logging-loki-s3 -n openshift-logging
+
+# Trigger ArgoCD sync to run PostSync Job
+argocd app sync openshift-logging
+
+# Wait for Job to complete (reads OBC credentials and creates secret)
+oc logs -n openshift-gitops job/create-secret-logging-loki-s3 --follow
+
+# Verify secret has all required fields
+oc get secret logging-loki-s3 -n openshift-logging -o jsonpath='{.data}' | \
+  jq -r 'to_entries[] | "\(.key): \(.value | @base64d)"'
+
+# Wait for LokiStack to become Ready (pods will roll out automatically)
+oc get lokistack logging-loki -n openshift-logging -w
+```
+
+**Option 2: Manual Secret Patch (Quick Fix)**
+
+If you need immediate fix without waiting for sync:
+
+```bash
+# Patch secret with missing fields
+oc patch secret logging-loki-s3 -n openshift-logging --type=json -p='[
+  {"op": "replace", "path": "/data/bucketnames", "value": "'"$(echo -n "logging-loki" | base64)"'"},
+  {"op": "replace", "path": "/data/endpoint", "value": "'"$(echo -n "https://s3.openshift-storage.svc" | base64)"'"},
+  {"op": "replace", "path": "/data/region", "value": "'"$(echo -n "eu" | base64)"'"}
+]'
+
+# LokiStack should detect valid secret and roll out pods automatically
+```
+
+**Verification**:
+```bash
+# Check LokiStack is Ready
+oc get lokistack logging-loki -n openshift-logging
+
+# Check all component types are Ready (7 types)
+oc get lokistack logging-loki -n openshift-logging -o jsonpath='{.status.components}' | jq .
+
+# Verify pods are running
+oc get pods -n openshift-logging | grep loki
+
+# Check alert clears (typically 1-5 minutes after components Ready)
+```
+
+**Prevention**:
+- Use the `create-secret-logging-loki-s3` PostSync Job instead of manual patching
+- If manual intervention needed, ensure all 6 required fields are populated
+- Trigger `argocd app sync openshift-logging` to recreate secret properly
+- Avoid partial secret updates that leave fields empty
+
+**Related Issues**:
+- Loki ingester flush failures (caused by invalid credentials - see previous section)
+- LokiStack components not starting (waiting for valid storage secret)
+
 ### RHOAI Models as a Service Dashboard Not Showing Models
 
 **Symptom**: LLMInferenceServices with MaaS configuration do not appear in the RHOAI dashboard "AI asset endpoints → Models as a service" tab
