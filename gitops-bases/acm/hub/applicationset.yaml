@@ -27,7 +27,11 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-      - group: 
+      - group: addon.open-cluster-management.io
+        jsonPointers:
+        - /spec/installStrategy
+        kind: ClusterManagementAddOn
+      - group:
         jsonPointers:
         - /metadata/labels
         - /metadata/annotations
