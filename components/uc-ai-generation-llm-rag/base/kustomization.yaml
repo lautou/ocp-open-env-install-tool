@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
+- cluster-crb-argocd-manage-uc-workload.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
 - ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
