@@ -9,7 +9,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: pipeline-runner-pipelines
+      serviceAccountName: default
       restartPolicy: Never
       containers:
       - name: patch-bucket
@@ -19,6 +19,23 @@ spec:
         - -c
         - |
           set -e
+
+          echo "Waiting for pipeline-runner-pipelines service account..."
+          timeout=120
+          while [ $timeout -gt 0 ]; do
+            if oc get serviceaccount pipeline-runner-pipelines -n ai-generation-llm-rag >/dev/null 2>&1; then
+              echo "Service account found"
+              break
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 5
+            timeout=$((timeout - 5))
+          done
+
+          if [ $timeout -le 0 ]; then
+            echo "ERROR: Timeout waiting for service account"
+            exit 1
+          fi
 
           echo "Waiting for OBC ConfigMap to be created..."
           timeout=60

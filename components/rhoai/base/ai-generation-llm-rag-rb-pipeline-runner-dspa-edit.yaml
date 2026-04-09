@@ -5,7 +5,7 @@ metadata:
   namespace: ai-generation-llm-rag
 subjects:
   - kind: ServiceAccount
-    name: pipeline-runner-pipelines
+    name: default
     namespace: ai-generation-llm-rag
 roleRef:
   apiGroup: rbac.authorization.k8s.io
