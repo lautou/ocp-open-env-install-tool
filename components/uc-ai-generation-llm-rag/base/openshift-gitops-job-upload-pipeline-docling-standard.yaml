@@ -20,16 +20,26 @@ spec:
         - |
           set -e
 
-          echo "Waiting for DSPA pods to be ready..."
-          oc wait --for=condition=ready pod -l app=ds-pipeline-pipelines -n ai-generation-llm-rag --timeout=180s
-          echo "DSPA pods are ready"
+          echo "Waiting for DSPA API to be available..."
+          timeout=180
+          while [ $timeout -gt 0 ]; do
+            if curl -s -k -o /dev/null -w "%{http_code}" https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/pipelines | grep -q "200\|401\|403"; then
+              echo "DSPA API is responding"
+              break
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 5
+            timeout=$((timeout - 5))
+          done
 
-          echo "Waiting for DSPA service to be available..."
-          sleep 10
+          if [ $timeout -le 0 ]; then
+            echo "ERROR: Timeout waiting for DSPA API"
+            exit 1
+          fi
 
-          echo "Fetching pipeline definition from ConfigMap..."
+          echo "Copying pipeline definition from mounted ConfigMap..."
           mkdir -p /tmp/pipelines
-          oc get configmap pipeline-docling-standard -n ai-generation-llm-rag -o jsonpath='{.data.pipeline\.yaml}' > /tmp/pipelines/pipeline.yaml
+          cp /pipeline/pipeline.yaml /tmp/pipelines/pipeline.yaml
 
           if [ ! -s /tmp/pipelines/pipeline.yaml ]; then
             echo "ERROR: Pipeline definition is empty or not found"
@@ -43,6 +53,9 @@ spec:
 
           python3 /scripts/upload-pipeline.py
         volumeMounts:
+        - name: pipeline-definition
+          mountPath: /pipeline
+          readOnly: true
         - name: upload-script
           mountPath: /scripts
           readOnly: true
@@ -50,6 +63,9 @@ spec:
         - name: PIPELINE_FILE
           value: /tmp/pipelines/pipeline.yaml
       volumes:
+      - name: pipeline-definition
+        configMap:
+          name: pipeline-docling-standard
       - name: upload-script
         configMap:
           name: pipeline-upload-script
