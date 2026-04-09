@@ -2307,6 +2307,11 @@ dspa-mariadb.external-rhoai-db.svc.cluster.local:3306
 ```yaml
 apiVersion: datasciencepipelinesapplications.opendatahub.io/v1
 kind: DataSciencePipelinesApplication
+metadata:
+  name: pipelines
+  namespace: ai-generation-llm-rag
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   database:
     externalDB:
@@ -2317,7 +2322,54 @@ spec:
       passwordSecret:
         name: dspa-mariadb-password
         key: password
+  objectStorage:
+    externalStorage:
+      host: s3.openshift-storage.svc
+      port: "443"
+      bucket: "ai-generation-llm-rag-pipelines"  # Static bucket name - critical!
+      scheme: https
+      s3CredentialsSecret:
+        accessKey: AWS_ACCESS_KEY_ID
+        secretKey: AWS_SECRET_ACCESS_KEY
+        secretName: pipeline-artifacts  # Auto-created by OBC
 ```
+
+**CRITICAL: Static Bucket Name Pattern**
+
+**Always use static bucket names** in OBC, never auto-generated names:
+
+```yaml
+# ✅ CORRECT - Static bucket name
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: pipeline-artifacts
+  namespace: ai-generation-llm-rag
+spec:
+  bucketName: ai-generation-llm-rag-pipelines  # Static, predictable name
+  storageClassName: openshift-storage.noobaa.io
+```
+
+```yaml
+# ❌ WRONG - Auto-generated bucket name
+spec:
+  generateBucketName: pipeline-artifacts  # Creates UUID suffix
+```
+
+**Why static names are required:**
+
+1. **Chicken-and-egg problem**: OBC creates bucket name at runtime, but DSPA needs bucket name to deploy
+2. **Auto-generated names**: OBC adds UUID suffix (e.g., `pipeline-artifacts-43b455e5-...`)
+3. **DSPA validation**: DSPA fails if bucket field is empty, even temporarily
+4. **PostSync Jobs fail**: Attempting to patch bucket name after DSPA creation doesn't work reliably
+5. **Static approach**: Simple, declarative, robust for redeployment
+
+**Credentials managed automatically:**
+- OBC creates Secret `pipeline-artifacts` with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- DSPA references this Secret for S3 access
+- No manual credential management needed
+
+**Result**: DSPA deploys successfully on first sync, no dynamic patching required.
 
 **Security:**
 - Demo credentials marked with `# gitleaks:allow`

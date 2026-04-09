@@ -6,7 +6,7 @@
 
 This project uses **Kubernetes Jobs** extensively to automate Day 2 operations that cannot be accomplished with static manifests alone. Jobs handle dynamic configuration, secret management, resource patching, and cleanup tasks.
 
-**Total Jobs**: 15 across 10 components
+**Total Jobs**: 14 across 10 components
 
 **Why Jobs?**
 - Dynamic value discovery (e.g., extracting auto-generated secrets)
@@ -1083,6 +1083,58 @@ rules:
 ---
 
 ## Best Practices
+
+### Prefer Static Configuration Over Jobs
+
+**Principle**: Use static manifests whenever possible. Jobs should be last resort.
+
+**Anti-pattern example** (removed in commit d6cd56f):
+```yaml
+# ❌ BAD: Using PostSync Job to patch dynamic bucket name
+# DSPA with empty bucket field (fails validation)
+spec:
+  objectStorage:
+    externalStorage:
+      bucket: ""  # Empty - will be patched by Job
+
+# PostSync Job patches DSPA after OBC creates bucket
+# Problems: 
+# - Chicken-and-egg problem (DSPA needs bucket to deploy)
+# - Unnecessary complexity
+# - Race conditions
+# - Fragile for redeployment
+```
+
+**Correct pattern**:
+```yaml
+# ✅ GOOD: Static bucket name, no Job needed
+# OBC with static bucket name
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+spec:
+  bucketName: ai-generation-llm-rag-pipelines  # Static, predictable
+
+# DSPA with hardcoded bucket name
+spec:
+  objectStorage:
+    externalStorage:
+      bucket: "ai-generation-llm-rag-pipelines"  # Same static name
+```
+
+**Result**: Simple, declarative, robust. No PostSync Job needed.
+
+**When Jobs ARE required:**
+- ✅ Shared resources (Console CR modified by multiple components)
+- ✅ Runtime API calls (Alertmanager silence API)
+- ✅ Dynamic discovery when static values impossible (cluster domain, AWS region)
+- ✅ Cleanup operations (PreDelete hooks)
+
+**When Jobs are NOT required:**
+- ❌ Values that can be static (bucket names, passwords)
+- ❌ One-time patching that static config could handle
+- ❌ Workarounds for poor manifest design
+
+**Rule**: If you're writing a PostSync Job, first ask: "Can this be static configuration instead?"
 
 ### Shell Scripting
 

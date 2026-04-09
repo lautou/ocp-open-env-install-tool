@@ -28,7 +28,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **Externalized docs**: Complex topics moved to `docs/claude/`:
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns (CMP plugin, network policies, cert-manager, ODF, RHCL, ACK, etc.)
-- **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (16 Jobs)
+- **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (14 Jobs)
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
 - **[known-bugs.md](docs/claude/known-bugs.md)** - False-positive alerts and upstream bugs
 - **[installation.md](docs/claude/installation.md)** - Installation flow, session recovery, profiles
