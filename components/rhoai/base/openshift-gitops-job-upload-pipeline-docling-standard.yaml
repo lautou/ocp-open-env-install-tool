@@ -20,22 +20,12 @@ spec:
         - |
           set -e
 
-          echo "Waiting for DSPA to be ready..."
-          timeout=180
-          while [ $timeout -gt 0 ]; do
-            if curl -s -k https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/healthz | grep -q "ok"; then
-              echo "DSPA API is ready"
-              break
-            fi
-            echo "Waiting... ($timeout seconds remaining)"
-            sleep 5
-            timeout=$((timeout - 5))
-          done
+          echo "Waiting for DSPA pods to be ready..."
+          oc wait --for=condition=ready pod -l app=ds-pipeline-pipelines -n ai-generation-llm-rag --timeout=180s
+          echo "DSPA pods are ready"
 
-          if [ $timeout -le 0 ]; then
-            echo "ERROR: Timeout waiting for DSPA API"
-            exit 1
-          fi
+          echo "Waiting for DSPA service to be available..."
+          sleep 10
 
           echo "Fetching pipeline definition from ConfigMap..."
           mkdir -p /tmp/pipelines
