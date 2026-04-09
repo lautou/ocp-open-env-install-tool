@@ -45,6 +45,8 @@ data:
 
         try:
             pipeline_id = client.get_pipeline_id(PIPELINE_NAME)
+            if not pipeline_id:
+                raise ValueError("Pipeline ID is None")
             print(f"Pipeline '{PIPELINE_NAME}' exists (ID: {pipeline_id})")
 
             try:
