@@ -13,7 +13,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: upload-pipeline
-        image: registry.redhat.io/rhoai/odh-ml-pipelines-api-server-v2-rhel9:3.3.0-1778018286
+        image: registry.access.redhat.com/ubi9/python-311:latest
         command:
         - /bin/bash
         - -c
