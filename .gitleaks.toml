@@ -10,15 +10,17 @@ useDefault = true
 # Grafana OAuth proxy session secret for demo/lab environments.
 # This is a static placeholder value for local cluster cookie encryption.
 # Context: Public GitOps template repository for demo/lab deployments.
-# PostgreSQL demo credentials for llamastack-db namespace.
+# Database demo credentials for external-rhoai-db namespace.
 # These are placeholder values for demo/lab deployments only.
 regexes = [
     # Grafana OAuth proxy session secret (32-byte base64 value)
     '''\bICZe4MUarpjLDz43oEH0ngSuT2c5HqeSCHRVmQfzJXk=\b''',
-    # PostgreSQL demo credentials (llamastack-db)
+    # PostgreSQL demo credentials (llamastack-postgresql)
     '''\bchangeme-demo-only\b''',
     '''\bllamastack\b''',
     '''\bllamastackdb\b''',
+    # MariaDB demo credentials (dspa-mariadb)
+    '''\bmlpipeline\b''',
     # HuggingFace token placeholder for model access
     '''\bhf_REPLACE_WITH_YOUR_TOKEN\b''',
 ]
