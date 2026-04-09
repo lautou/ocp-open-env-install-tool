@@ -2,6 +2,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: pipelines-kubeflow-edit
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 rules:
 - apiGroups:
   - pipelines.kubeflow.org
