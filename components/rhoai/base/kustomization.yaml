@@ -3,14 +3,14 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
-- ai-generation-llm-rag-cm-pipeline-upload-script.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
-- ai-generation-llm-rag-job-upload-pipeline-docling-standard.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
-- ai-generation-llm-rag-rb-pipeline-uploader.yaml
-- ai-generation-llm-rag-role-pipeline-uploader.yaml
-- ai-generation-llm-rag-sa-pipeline-uploader.yaml
+- ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
+- ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
+- openshift-gitops-cm-pipeline-upload-script.yaml
+- openshift-gitops-job-upload-pipeline-docling-standard.yaml
+- openshift-gitops-sa-pipeline-uploader.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml

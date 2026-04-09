@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: upload-pipeline-docling-standard
-  namespace: ai-generation-llm-rag
+  namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
@@ -37,22 +37,29 @@ spec:
             exit 1
           fi
 
-          # Install KFP SDK
+          echo "Fetching pipeline definition from ConfigMap..."
+          mkdir -p /tmp/pipelines
+          oc get configmap pipeline-docling-standard -n ai-generation-llm-rag -o jsonpath='{.data.pipeline\.yaml}' > /tmp/pipelines/pipeline.yaml
+
+          if [ ! -s /tmp/pipelines/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition is empty or not found"
+            exit 1
+          fi
+
+          echo "Pipeline definition fetched ($(wc -l < /tmp/pipelines/pipeline.yaml) lines)"
+
+          echo "Installing KFP SDK..."
           pip install --quiet kfp==2.14.6
 
-          # Run Python upload script
           python3 /scripts/upload-pipeline.py
         volumeMounts:
-        - name: pipeline-definition
-          mountPath: /pipelines
-          readOnly: true
         - name: upload-script
           mountPath: /scripts
           readOnly: true
+        env:
+        - name: PIPELINE_FILE
+          value: /tmp/pipelines/pipeline.yaml
       volumes:
-      - name: pipeline-definition
-        configMap:
-          name: pipeline-docling-standard
       - name: upload-script
         configMap:
           name: pipeline-upload-script
