@@ -23,9 +23,9 @@ spec:
         key: password
   objectStorage:
     externalStorage:
-      host: BUCKET_HOST_PLACEHOLDER
+      host: s3.openshift-storage.svc
       port: "443"
-      bucket: BUCKET_NAME_PLACEHOLDER
+      bucket: "" # Populated by OBC ConfigMap - bucket name is auto-generated
       scheme: https
       s3CredentialsSecret:
         accessKey: AWS_ACCESS_KEY_ID
