@@ -6,12 +6,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  apiServer:
-    stripEOF: true
-    terminateStatus: Cancelled
-    autoUpdatePipelineDefaultVersion: true
-    archiveLogs: false
-    collectMetrics: true
   database:
     externalDB:
       host: dspa-mariadb.external-uc-generation-llm-rag.svc.cluster.local
