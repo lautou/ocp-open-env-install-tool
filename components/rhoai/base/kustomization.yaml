@@ -2,9 +2,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
+- ai-generation-llm-rag-dspa-pipelines.yaml
+- ai-generation-llm-rag-obc-pipeline-artifacts.yaml
+- ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-namespace-ai-generation-llm-rag.yaml
 - cluster-namespace-external-rhoai-db.yaml
 - cluster-namespace-llamastack.yaml
 - cluster-namespace-redhat-ods-applications.yaml
@@ -48,3 +52,27 @@ replacements:
     select:
       kind: Subscription
       name: rhods-operator
+- source:
+    fieldPath: data.BUCKET_NAME
+    kind: ConfigMap
+    name: pipeline-artifacts
+    namespace: ai-generation-llm-rag
+  targets:
+  - fieldPaths:
+    - spec.objectStorage.externalStorage.bucket
+    select:
+      kind: DataSciencePipelinesApplication
+      name: pipelines
+      namespace: ai-generation-llm-rag
+- source:
+    fieldPath: data.BUCKET_HOST
+    kind: ConfigMap
+    name: pipeline-artifacts
+    namespace: ai-generation-llm-rag
+  targets:
+  - fieldPaths:
+    - spec.objectStorage.externalStorage.host
+    select:
+      kind: DataSciencePipelinesApplication
+      name: pipelines
+      namespace: ai-generation-llm-rag
