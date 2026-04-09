@@ -10,4 +10,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: create-alert-silences
-  namespace: openshift-monitoring
+  namespace: openshift-gitops

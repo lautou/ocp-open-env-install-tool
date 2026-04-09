@@ -2,4 +2,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: create-alert-silences
-  namespace: openshift-monitoring
+  namespace: openshift-gitops
