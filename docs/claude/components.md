@@ -2057,23 +2057,23 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 **Purpose**: Complete RAG (Retrieval-Augmented Generation) stack for AI applications using IBM Granite models.
 
 **Namespaces**:
-- `external-llamastack-db` - PostgreSQL database
+- `external-rhoai-db` - Shared database namespace (PostgreSQL for LlamaStack, MariaDB for DSPA)
 - `llamastack` - vLLM inference servers
 - `redhat-ods-applications` - LlamaStack distribution
 
-#### PostgreSQL 16 with pgvector
+#### PostgreSQL 15 with pgvector
 
 **Pattern**: Deployment with persistent storage and lifecycle hook for extension initialization
 
-**Purpose**: Provides PostgreSQL 16 database with pgvector extension for vector embeddings storage.
+**Purpose**: Provides PostgreSQL 15 database with pgvector extension for vector embeddings storage.
 
-**Namespace**: `external-llamastack-db`
+**Namespace**: `external-rhoai-db`
 
 **Components:**
 
 ```yaml
-# Deployment with PostgreSQL 16 + pgvector
-image: pgvector/pgvector:pg16  # Official pgvector image (not Red Hat)
+# Deployment with PostgreSQL 15 + pgvector
+image: pgvector/pgvector:pg15  # Official pgvector image (not Red Hat)
 env:
 - name: PGDATA
   value: /var/lib/postgresql/data/pgdata  # Subdirectory required for fresh PVC mounts
@@ -2109,7 +2109,7 @@ port: 5432
 ```
 
 **Database Configuration:**
-- Version: PostgreSQL 16.13 (Debian-based pgvector image)
+- Version: PostgreSQL 15 (Debian-based pgvector image)
 - Database: `llamastackdb`
 - User: `llamastack`
 - Extension: pgvector 0.8.2 (initialized via lifecycle hook)
@@ -2147,7 +2147,7 @@ The lifecycle.postStart hook ensures pgvector extension is created during pod st
 **Verification:**
 ```bash
 # Check extension installed
-oc exec <pod> -n external-llamastack-db -- \
+oc exec deployment/llamastack-postgresql -n external-rhoai-db -- \
   psql -U llamastack -d llamastackdb -c "\dx"
 # Expected output: vector | 0.8.2
 ```
@@ -2162,7 +2162,7 @@ oc exec <pod> -n external-llamastack-db -- \
 
 **Connection:**
 ```
-postgresql.external-llamastack-db.svc.cluster.local:5432
+llamastack-postgresql.external-rhoai-db.svc.cluster.local:5432
 ```
 
 **Security:**
@@ -2172,10 +2172,178 @@ postgresql.external-llamastack-db.svc.cluster.local:5432
 **Files:**
 ```
 components/rhoai/base/
-├── external-llamastack-db-deployment-postgresql.yaml  # Deployment (not StatefulSet)
-├── external-llamastack-db-pvc-postgresql-data.yaml
-├── external-llamastack-db-secret-postgresql-credentials.yaml
-└── external-llamastack-db-service-postgresql.yaml
+├── external-rhoai-db-deployment-llamastack-postgresql.yaml
+├── external-rhoai-db-pvc-llamastack-postgresql.yaml
+├── external-rhoai-db-secret-llamastack-postgresql-credentials.yaml
+└── external-rhoai-db-service-llamastack-postgresql.yaml
+```
+
+#### MariaDB with TLS for DSPA
+
+**Pattern**: Deployment with OpenShift Service CA TLS for DataSciencePipelinesApplication
+
+**Purpose**: Provides MariaDB database with TLS encryption for RHOAI Data Science Pipelines (Kubeflow Pipelines).
+
+**Namespace**: `external-rhoai-db`
+
+**Components:**
+
+```yaml
+# Service with OpenShift Service CA annotation
+apiVersion: v1
+kind: Service
+metadata:
+  name: dspa-mariadb
+  namespace: external-rhoai-db
+  annotations:
+    # OpenShift Service CA automatically creates TLS certificate
+    service.beta.openshift.io/serving-cert-secret-name: dspa-mariadb-tls
+spec:
+  ports:
+  - port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app: dspa-mariadb
+  type: ClusterIP
+
+# Deployment with TLS configuration
+image: registry.redhat.io/rhel9/mariadb-105:1-1775695255
+env:
+- name: MYSQL_USER
+  valueFrom:
+    secretKeyRef:
+      name: dspa-mariadb-credentials
+      key: username
+- name: MYSQL_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: dspa-mariadb-credentials
+      key: password
+- name: MYSQL_DATABASE
+  valueFrom:
+    secretKeyRef:
+      name: dspa-mariadb-credentials
+      key: database
+volumeMounts:
+- mountPath: /var/lib/mysql
+  name: data
+- mountPath: /etc/mysql-certs
+  name: tls-certs
+  readOnly: true
+- mountPath: /etc/my.cnf.d/tls.cnf
+  name: tls-config
+  subPath: tls.cnf
+  readOnly: true
+
+# ConfigMap with MariaDB TLS configuration
+data:
+  tls.cnf: |
+    [mysqld]
+    ssl-ca=/etc/mysql-certs/tls.crt
+    ssl-cert=/etc/mysql-certs/tls.crt
+    ssl-key=/etc/mysql-certs/tls.key
+
+# Secret credentials (demo/lab)
+username: mlpipeline
+password: changeme-demo-only  # Demo/lab placeholder
+database: mlpipeline
+
+# PersistentVolumeClaim
+storageClassName: gp3-csi
+storage: 10Gi
+accessModes: ReadWriteOnce
+```
+
+**CRITICAL: OpenShift Service CA Pattern**
+
+**Why OpenShift Service CA instead of cert-manager:**
+
+1. **Automatic trust**: All cluster components automatically trust OpenShift's internal CA
+2. **Zero configuration**: No manual CA injection or certificate distribution
+3. **Auto-renewal**: OpenShift handles certificate rotation automatically
+4. **Standard pattern**: Recommended approach for internal service-to-service TLS
+
+**Service annotation triggers automatic certificate creation:**
+```yaml
+annotations:
+  service.beta.openshift.io/serving-cert-secret-name: dspa-mariadb-tls
+```
+
+**Result**: OpenShift creates Secret `dspa-mariadb-tls` with:
+- `tls.crt` - Server certificate (trusted by all pods)
+- `tls.key` - Private key
+
+**DSPA External Database Requirement:**
+
+DataSciencePipelinesApplication **requires TLS** for external database connections. Without TLS:
+```
+Error: TLS requested but server does not support TLS
+```
+
+**Database Configuration:**
+- Version: MariaDB 10.5 (RHEL9-based)
+- Database: `mlpipeline`
+- User: `mlpipeline`
+- TLS: OpenShift Service CA (automatic)
+- Data directory: `/var/lib/mysql`
+
+**Health Checks:**
+```yaml
+livenessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin -u $MYSQL_USER --ssl-ca=/etc/mysql-certs/tls.crt ping
+```
+
+**Connection:**
+```
+dspa-mariadb.external-rhoai-db.svc.cluster.local:3306
+```
+
+**DSPA Configuration Example:**
+```yaml
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1
+kind: DataSciencePipelinesApplication
+spec:
+  database:
+    externalDB:
+      host: dspa-mariadb.external-rhoai-db.svc.cluster.local
+      port: "3306"
+      username: mlpipeline
+      pipelineDBName: mlpipeline
+      passwordSecret:
+        name: dspa-mariadb-password
+        key: password
+```
+
+**Security:**
+- Demo credentials marked with `# gitleaks:allow`
+- Added to `.gitleaks.toml` allowlist (mlpipeline)
+- TLS enforced for all connections
+- For production: use external secret management
+
+**Files:**
+```
+components/rhoai/base/
+├── external-rhoai-db-configmap-dspa-mariadb-tls-config.yaml
+├── external-rhoai-db-deployment-dspa-mariadb.yaml
+├── external-rhoai-db-pvc-dspa-mariadb.yaml
+├── external-rhoai-db-secret-dspa-mariadb-credentials.yaml
+└── external-rhoai-db-service-dspa-mariadb.yaml
+```
+
+**Verification:**
+```bash
+# Check TLS secret created by OpenShift Service CA
+oc get secret dspa-mariadb-tls -n external-rhoai-db
+
+# Test TLS connectivity
+oc exec deployment/dspa-mariadb -n external-rhoai-db -- \
+  mysql -u mlpipeline -p --ssl-ca=/etc/mysql-certs/tls.crt \
+  -e "SHOW STATUS LIKE 'Ssl_cipher';"
 ```
 
 #### KServe InferenceService with vLLM
@@ -2339,7 +2507,7 @@ metadata:
   namespace: llamastack
 stringData:
   # gitleaks:allow - Demo/lab environment placeholder credentials
-  PGVECTOR_HOST: postgresql.external-llamastack-db.svc.cluster.local
+  PGVECTOR_HOST: llamastack-postgresql.external-rhoai-db.svc.cluster.local
   PGVECTOR_PORT: "5432"
   # gitleaks:allow - Demo/lab environment placeholder credentials
   PGVECTOR_DB: llamastackdb
@@ -2402,7 +2570,7 @@ spec:
       - name: EMBEDDING_URL
         value: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
       - name: POSTGRES_HOST
-        value: postgresql.external-llamastack-db.svc.cluster.local
+        value: llamastack-postgresql.external-rhoai-db.svc.cluster.local
 ```
 
 **Note:** VLLM_URL updated to point to KServe InferenceService endpoint instead of standalone deployment.
@@ -2444,12 +2612,12 @@ oc get llamastackdistribution llamastack-pgvector -n redhat-ods-applications
 **Files:**
 ```
 components/rhoai/base/
-├── cluster-namespace-external-llamastack-db.yaml
+├── cluster-namespace-external-rhoai-db.yaml
 ├── cluster-namespace-llamastack.yaml
-├── external-llamastack-db-deployment-postgresql.yaml
-├── external-llamastack-db-pvc-postgresql-data.yaml
-├── external-llamastack-db-secret-postgresql-credentials.yaml
-├── external-llamastack-db-service-postgresql.yaml
+├── external-rhoai-db-deployment-llamastack-postgresql.yaml
+├── external-rhoai-db-pvc-llamastack-postgresql.yaml
+├── external-rhoai-db-secret-llamastack-postgresql-credentials.yaml
+├── external-rhoai-db-service-llamastack-postgresql.yaml
 ├── llamastack-configmap-llama32-chat-template.yaml  # NEW: Chat template for KServe
 ├── llamastack-secret-pgvector-connection.yaml       # NEW: PostgreSQL connection
 ├── redhat-ods-applications-cm-llamastack-embedding-provider.yaml
