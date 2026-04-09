@@ -4,5 +4,5 @@ metadata:
   name: pipeline-artifacts
   namespace: ai-generation-llm-rag
 spec:
-  generateBucketName: pipeline-artifacts
+  bucketName: ai-generation-llm-rag-pipelines
   storageClassName: openshift-storage.noobaa.io

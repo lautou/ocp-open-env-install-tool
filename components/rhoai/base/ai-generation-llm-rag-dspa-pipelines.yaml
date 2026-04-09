@@ -25,7 +25,7 @@ spec:
     externalStorage:
       host: s3.openshift-storage.svc
       port: "443"
-      bucket: "" # Populated by OBC ConfigMap - bucket name is auto-generated
+      bucket: "ai-generation-llm-rag-pipelines"
       scheme: https
       s3CredentialsSecret:
         accessKey: AWS_ACCESS_KEY_ID

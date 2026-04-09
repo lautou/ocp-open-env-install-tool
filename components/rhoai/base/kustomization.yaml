@@ -3,9 +3,7 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-dspa-pipelines.yaml
-- ai-generation-llm-rag-job-patch-dspa-bucket.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
-- ai-generation-llm-rag-rb-pipeline-runner-dspa-edit.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
