@@ -4,10 +4,9 @@ resources:
 - ../../common
 - ai-generation-llm-rag-pipeline-docling-gpu.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
-- cluster-cr-pipelines-kubeflow-edit.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
-- cluster-crb-pipelines-kubeflow-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-namespace-ai-generation-llm-rag.yaml
 - cluster-namespace-external-rhoai-db.yaml
 - cluster-namespace-llamastack.yaml
 - cluster-namespace-redhat-ods-applications.yaml
