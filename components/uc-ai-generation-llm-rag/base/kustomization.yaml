@@ -3,12 +3,14 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
-- cluster-crb-argocd-manage-uc-workload.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
 - ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
+- ai-generation-llm-rag-rb-pipeline-manager.yaml
 - ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
+- ai-generation-llm-rag-role-pipeline-manager.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
+- cluster-crb-argocd-manage-uc-workload.yaml
 - cluster-namespace-ai-generation-llm-rag.yaml
 - cluster-namespace-external-uc-generation-llm-rag.yaml
 - external-uc-generation-llm-rag-configmap-dspa-mariadb-tls-config.yaml

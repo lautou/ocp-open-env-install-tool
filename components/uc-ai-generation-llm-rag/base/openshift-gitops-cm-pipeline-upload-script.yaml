@@ -36,7 +36,12 @@ data:
         print(f"Version: {version_name}")
         print(f"DSPA: {DSPA_HOST}")
 
-        client = kfp.Client(host=DSPA_HOST, verify_ssl=False)
+        # Read ServiceAccount token for authentication
+        token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        with open(token_path, 'r') as f:
+            token = f.read().strip()
+
+        client = kfp.Client(host=DSPA_HOST, verify_ssl=False, existing_token=token)
 
         try:
             pipeline_id = client.get_pipeline_id(PIPELINE_NAME)
