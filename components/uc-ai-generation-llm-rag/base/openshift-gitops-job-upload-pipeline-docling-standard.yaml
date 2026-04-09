@@ -11,6 +11,27 @@ spec:
     spec:
       serviceAccountName: pipeline-uploader
       restartPolicy: Never
+      initContainers:
+      - name: fetch-pipeline
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Fetching pipeline definition from ConfigMap..."
+          oc get configmap pipeline-docling-standard -n ai-generation-llm-rag \
+            -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
+
+          if [ ! -s /pipeline/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition is empty or not found"
+            exit 1
+          fi
+
+          echo "Pipeline definition fetched ($(wc -l < /pipeline/pipeline.yaml) lines)"
+        volumeMounts:
+        - name: pipeline-data
+          mountPath: /pipeline
       containers:
       - name: upload-pipeline
         image: registry.access.redhat.com/ubi9/python-311:latest
@@ -37,23 +58,20 @@ spec:
             exit 1
           fi
 
-          echo "Copying pipeline definition from mounted ConfigMap..."
-          mkdir -p /tmp/pipelines
-          cp /pipeline/pipeline.yaml /tmp/pipelines/pipeline.yaml
-
-          if [ ! -s /tmp/pipelines/pipeline.yaml ]; then
-            echo "ERROR: Pipeline definition is empty or not found"
+          echo "Using pipeline definition from init container..."
+          if [ ! -s /pipeline/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition not found in shared volume"
             exit 1
           fi
 
-          echo "Pipeline definition fetched ($(wc -l < /tmp/pipelines/pipeline.yaml) lines)"
+          echo "Pipeline definition available ($(wc -l < /pipeline/pipeline.yaml) lines)"
 
           echo "Installing KFP SDK..."
           pip install --quiet kfp==2.14.6
 
           python3 /scripts/upload-pipeline.py
         volumeMounts:
-        - name: pipeline-definition
+        - name: pipeline-data
           mountPath: /pipeline
           readOnly: true
         - name: upload-script
@@ -61,11 +79,10 @@ spec:
           readOnly: true
         env:
         - name: PIPELINE_FILE
-          value: /tmp/pipelines/pipeline.yaml
+          value: /pipeline/pipeline.yaml
       volumes:
-      - name: pipeline-definition
-        configMap:
-          name: pipeline-docling-standard
+      - name: pipeline-data
+        emptyDir: {}
       - name: upload-script
         configMap:
           name: pipeline-upload-script
