@@ -2,8 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
+- ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
+- ai-generation-llm-rag-cm-pipeline-upload-script.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
+- ai-generation-llm-rag-job-upload-pipeline-docling-standard.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
+- ai-generation-llm-rag-rb-pipeline-uploader.yaml
+- ai-generation-llm-rag-role-pipeline-uploader.yaml
+- ai-generation-llm-rag-sa-pipeline-uploader.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml

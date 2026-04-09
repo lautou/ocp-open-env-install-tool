@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-uploader
+  namespace: ai-generation-llm-rag
+subjects:
+- kind: ServiceAccount
+  name: pipeline-uploader
+  namespace: ai-generation-llm-rag
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pipeline-uploader

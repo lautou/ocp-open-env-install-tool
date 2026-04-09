@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-pipeline-docling-standard
+  namespace: ai-generation-llm-rag
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      serviceAccountName: pipeline-uploader
+      restartPolicy: Never
+      containers:
+      - name: upload-pipeline
+        image: registry.redhat.io/rhoai/odh-ml-pipelines-api-server-v2-rhel9:3.3.0-1778018286
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Waiting for DSPA to be ready..."
+          timeout=180
+          while [ $timeout -gt 0 ]; do
+            if curl -s -k https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/healthz | grep -q "ok"; then
+              echo "DSPA API is ready"
+              break
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 5
+            timeout=$((timeout - 5))
+          done
+
+          if [ $timeout -le 0 ]; then
+            echo "ERROR: Timeout waiting for DSPA API"
+            exit 1
+          fi
+
+          # Install KFP SDK
+          pip install --quiet kfp==2.14.6
+
+          # Run Python upload script
+          python3 /scripts/upload-pipeline.py
+        volumeMounts:
+        - name: pipeline-definition
+          mountPath: /pipelines
+          readOnly: true
+        - name: upload-script
+          mountPath: /scripts
+          readOnly: true
+      volumes:
+      - name: pipeline-definition
+        configMap:
+          name: pipeline-docling-standard
+      - name: upload-script
+        configMap:
+          name: pipeline-upload-script
+          defaultMode: 0755
