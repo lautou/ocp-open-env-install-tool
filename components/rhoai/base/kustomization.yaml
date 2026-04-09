@@ -9,6 +9,7 @@ resources:
 - ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
 - openshift-gitops-cm-pipeline-upload-script.yaml
+- openshift-gitops-job-delete-rhoai-resources.yaml
 - openshift-gitops-job-upload-pipeline-docling-standard.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
