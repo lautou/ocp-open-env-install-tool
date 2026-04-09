@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-pipeline-docling-gpu.yaml
+- ai-generation-llm-rag-rb-gitops-pipelines-edit.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
