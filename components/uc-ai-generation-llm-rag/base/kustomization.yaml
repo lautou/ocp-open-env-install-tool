@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../common
+- ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
+- ai-generation-llm-rag-dspa-pipelines.yaml
+- ai-generation-llm-rag-obc-pipeline-artifacts.yaml
+- ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
+- ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
+- ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
+- cluster-namespace-ai-generation-llm-rag.yaml
+- cluster-namespace-external-uc-generation-llm-rag.yaml
+- external-uc-generation-llm-rag-configmap-dspa-mariadb-tls-config.yaml
+- external-uc-generation-llm-rag-deployment-dspa-mariadb.yaml
+- external-uc-generation-llm-rag-pvc-dspa-mariadb.yaml
+- external-uc-generation-llm-rag-secret-dspa-mariadb-credentials.yaml
+- external-uc-generation-llm-rag-service-dspa-mariadb.yaml
+- openshift-gitops-cm-pipeline-upload-script.yaml
+- openshift-gitops-job-upload-pipeline-docling-standard.yaml
+- openshift-gitops-sa-pipeline-uploader.yaml

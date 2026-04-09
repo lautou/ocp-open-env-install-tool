@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- uc-ai-generation-llm-rag.yaml
 - ../../gitops-bases/ai
 - ../../gitops-bases/core
 - ../../gitops-bases/devops/ai
@@ -14,7 +15,7 @@ configMapGenerator:
   literals:
   - repoURL=https://github.com/lautou/ocp-open-env-install-tool.git
 
-# Replace hardcoded Git URLs in all ApplicationSets
+# Replace hardcoded Git URLs in all ApplicationSets and Applications
 replacements:
 - source:
     kind: ConfigMap
@@ -25,3 +26,7 @@ replacements:
       kind: ApplicationSet
     fieldPaths:
     - spec.template.spec.source.repoURL
+  - select:
+      kind: Application
+    fieldPaths:
+    - spec.source.repoURL

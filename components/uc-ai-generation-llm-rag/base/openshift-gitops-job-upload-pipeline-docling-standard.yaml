@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-pipeline-docling-standard
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      serviceAccountName: pipeline-uploader
+      restartPolicy: Never
+      containers:
+      - name: upload-pipeline
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Waiting for DSPA pods to be ready..."
+          oc wait --for=condition=ready pod -l app=ds-pipeline-pipelines -n ai-generation-llm-rag --timeout=180s
+          echo "DSPA pods are ready"
+
+          echo "Waiting for DSPA service to be available..."
+          sleep 10
+
+          echo "Fetching pipeline definition from ConfigMap..."
+          mkdir -p /tmp/pipelines
+          oc get configmap pipeline-docling-standard -n ai-generation-llm-rag -o jsonpath='{.data.pipeline\.yaml}' > /tmp/pipelines/pipeline.yaml
+
+          if [ ! -s /tmp/pipelines/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition is empty or not found"
+            exit 1
+          fi
+
+          echo "Pipeline definition fetched ($(wc -l < /tmp/pipelines/pipeline.yaml) lines)"
+
+          echo "Installing KFP SDK..."
+          pip install --quiet kfp==2.14.6
+
+          python3 /scripts/upload-pipeline.py
+        volumeMounts:
+        - name: upload-script
+          mountPath: /scripts
+          readOnly: true
+        env:
+        - name: PIPELINE_FILE
+          value: /tmp/pipelines/pipeline.yaml
+      volumes:
+      - name: upload-script
+        configMap:
+          name: pipeline-upload-script
+          defaultMode: 0755
