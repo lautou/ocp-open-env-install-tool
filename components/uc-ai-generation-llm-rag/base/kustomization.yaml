@@ -8,7 +8,6 @@ resources:
 - ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
 - ai-generation-llm-rag-rb-pipeline-manager.yaml
 - ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
-- ai-generation-llm-rag-role-pipeline-manager.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
 - cluster-crb-argocd-manage-uc-workload.yaml
 - cluster-namespace-ai-generation-llm-rag.yaml
