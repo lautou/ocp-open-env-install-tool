@@ -246,9 +246,9 @@ data:
             parameterType: NUMBER_INTEGER
           pdf_urls:
             defaultValue:
-            - https://arxiv.org/pdf/2206.01062.pdf
-            - https://arxiv.org/pdf/2203.01017.pdf
-            - https://arxiv.org/pdf/2305.03393.pdf
+            - https://github.com/docling-project/docling/raw/v2.43.0/tests/data/pdf/2206.01062.pdf
+            - https://github.com/docling-project/docling/raw/v2.43.0/tests/data/pdf/2203.01017v2.pdf
+            - https://github.com/docling-project/docling/raw/v2.43.0/tests/data/pdf/2305.03393v1.pdf
             isOptional: true
             parameterType: LIST
           postgres_database:
