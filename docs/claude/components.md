@@ -3417,7 +3417,7 @@ rules:
   resources: [inferenceservices]
   verbs: [get, list]
 ---
-# RoleBinding grants access to consumer ServiceAccount
+# RoleBinding grants access to consumer ServiceAccounts
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -3428,12 +3428,18 @@ roleRef:
   name: inferenceservice-user
 subjects:
 - kind: ServiceAccount
-  name: default  # Consumer's ServiceAccount
+  name: default  # Consumer's default ServiceAccount
   namespace: ai-generation-llm-rag  # Consumer's namespace
+- kind: ServiceAccount
+  name: pipeline-runner-pipelines  # CRITICAL: Pipeline pods use this SA, not default
+  namespace: ai-generation-llm-rag
 ```
+
+**CRITICAL**: Pipeline pods in RHOAI use ServiceAccount `pipeline-runner-pipelines`, NOT `default`. Both ServiceAccounts must be granted access to prevent 403 Forbidden errors during pipeline execution.
 
 **When to Grant Access**:
 - Create separate RoleBinding for each consumer namespace
+- Include ALL ServiceAccounts used by consumer workloads (default + pipeline-runner-pipelines for DSPA namespaces)
 - Use minimal permissions (get, list only - no create/update/delete)
 - Consumer ServiceAccount uses its own token (automatic Kubernetes injection)
 
@@ -4003,4 +4009,52 @@ oc get pod <pod> -o jsonpath='{.spec.containers[?(@.name=="main")].volumeMounts}
 - Pipeline run: chunk-data-6ckcz
 - Duration: 5 minutes 24 seconds
 - All 8 test PDFs converted and chunked successfully
+
+#### convert-store-embeddings Pipeline: 403 Forbidden from Embedding Service (FIXED)
+
+**Issue**: Pipeline fails at generate-embeddings stage with HTTP 403 Forbidden when calling granite-embedding InferenceService.
+
+**Root Cause**:
+- Pipeline pods run with ServiceAccount `pipeline-runner-pipelines` (not `default`)
+- RoleBinding `allow-pipeline-access` only granted access to `default` ServiceAccount
+- Result: Pipeline pods have no RBAC to access InferenceService in ai-embedding-service namespace
+
+**Error Message**:
+```
+403 Client Error: Forbidden for url: https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443/v1/embeddings
+```
+
+**Fix Applied** (commit `eae505d`):
+
+Updated `ai-embedding-service-rb-allow-pipeline-access.yaml` to include both ServiceAccounts:
+```yaml
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ai-generation-llm-rag
+- kind: ServiceAccount
+  name: pipeline-runner-pipelines  # ADDED
+  namespace: ai-generation-llm-rag
+```
+
+**Why Both ServiceAccounts Are Needed**:
+- `default`: Used by some DSPA components and custom pods
+- `pipeline-runner-pipelines`: Used by KFP v2 pipeline execution pods
+- Cannot assume which SA a workload will use - grant both for complete coverage
+
+**Investigation Commands**:
+```bash
+# Check which ServiceAccount pipeline pods use
+oc get pod <pipeline-pod> -n ai-generation-llm-rag -o jsonpath='{.spec.serviceAccountName}'
+# Output: pipeline-runner-pipelines
+
+# Verify RoleBinding subjects
+oc get rolebinding allow-pipeline-access -n ai-embedding-service -o yaml
+```
+
+**Status**: ✅ Fixed and tested successfully (2026-04-10)
+- Pipeline run: convert-store-embeddings-8fg6z
+- Duration: 4 minutes 16 seconds
+- Generated 161 embeddings (768-dim) and stored in PostgreSQL
+- Semantic search verified with 0.90 similarity scores
 
