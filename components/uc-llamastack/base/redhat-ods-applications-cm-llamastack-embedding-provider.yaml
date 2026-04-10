@@ -10,8 +10,8 @@ data:
       inference:
       - config:
           api_token: ""
-          base_url: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
-          max_tokens: 4096
+          base_url: https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443/v1
+          max_tokens: 8192
           tls_verify: false
         provider_id: vllm-embedding
         provider_type: remote::vllm
