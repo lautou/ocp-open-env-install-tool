@@ -14,9 +14,13 @@ resources:
 - cluster-namespace-external-db-generation-llm-rag.yaml
 - external-db-generation-llm-rag-configmap-dspa-mariadb-tls-config.yaml
 - external-db-generation-llm-rag-deployment-dspa-mariadb.yaml
+- external-db-generation-llm-rag-deployment-rag-postgresql.yaml
 - external-db-generation-llm-rag-pvc-dspa-mariadb.yaml
+- external-db-generation-llm-rag-pvc-rag-postgresql.yaml
 - external-db-generation-llm-rag-secret-dspa-mariadb-credentials.yaml
+- external-db-generation-llm-rag-secret-rag-postgresql-credentials.yaml
 - external-db-generation-llm-rag-service-dspa-mariadb.yaml
+- external-db-generation-llm-rag-service-rag-postgresql.yaml
 - openshift-gitops-cm-pipeline-upload-script.yaml
 - openshift-gitops-job-upload-pipeline-docling-standard.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml
