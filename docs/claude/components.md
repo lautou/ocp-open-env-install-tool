@@ -3963,23 +3963,44 @@ See `docs/claude/rag-retrieval-guide.md` for:
 - OpenShift pods run as non-root with restricted `/tmp/` write access
 - Pipeline tries to download `sentence-transformers/all-MiniLM-L6-v2` → Permission denied
 
-**Fix Applied** (commit `62cb253`):
+**Fix Applied** (2 parts):
+
+**Part 1: RHOAI KFP v2 Compatibility** (commit `04cde66`):
 ```yaml
-platforms:
-  kubernetes:
-    deploymentSpec:
-      executors:
-        exec-docling-chunk:
-          env:
-          - name: HF_HOME
-            value: /mainctrfs/.cache  # Uses DSPA-provided writable cache
+# CORRECT: env in executor container spec
+executors:
+  exec-docling-chunk:
+    container:
+      env:
+      - name: HF_HOME
+        value: /.cache
+      image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
 ```
 
-**Why This Patch**:
-- Required for OpenShift compatibility (restricted pod security contexts)
-- Minimal change (3 lines)
-- Uses DSPA-provided `dot-cache-scratch` emptyDir volume
-- Deviation from upstream necessary for OpenShift security model
+**Why**: RHOAI's KFP v2 implementation doesn't support env in `platforms.kubernetes.deploymentSpec.executors`. Environment variables must be in the executor's container spec.
 
-**Status**: ✅ Fixed in production, pipeline tested and working
+**Error without fix**: `failed to unmarshal kubernetes config: proto: (line 1:2): unknown field "env"`
+
+**Part 2: Correct Cache Path** (commit `d254ba6`):
+```yaml
+env:
+- name: HF_HOME
+  value: /.cache  # CORRECT: Actual DSPA mount point
+```
+
+**Why**: DSPA mounts `dot-cache-scratch` volume at `/.cache` in the container, not `/mainctrfs/.cache`.
+
+**Error without fix**: `PermissionError: [Errno 13] Permission denied: '/mainctrfs'`
+
+**Verification**:
+```bash
+# Check volume mount in pipeline pod
+oc get pod <pod> -o jsonpath='{.spec.containers[?(@.name=="main")].volumeMounts}' | jq '.[] | select(.name=="dot-cache-scratch")'
+# Output: {"mountPath": "/.cache", "name": "dot-cache-scratch"}
+```
+
+**Status**: ✅ Fixed and tested successfully (2026-04-10)
+- Pipeline run: chunk-data-6ckcz
+- Duration: 5 minutes 24 seconds
+- All 8 test PDFs converted and chunked successfully
 

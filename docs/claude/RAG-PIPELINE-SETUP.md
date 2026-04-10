@@ -69,23 +69,57 @@ Two-stage RAG pipeline for document processing and semantic search:
 
 **Root Cause**: Red Hat Docling image sets `HF_HOME=/tmp/`, but OpenShift restricts `/tmp/` write access for non-root pods.
 
-**Fix**: Added `HF_HOME=/mainctrfs/.cache` environment variable to use DSPA-provided writable cache volume.
+**Fix Applied** (2 parts):
 
-**Status**: ✅ Fixed in commit `62cb253` - Pipeline tested and working
+1. **Container spec location** (commit `04cde66`):
+   - RHOAI KFP v2 requires env variables in executor container spec, not platform spec
+   - Moved `HF_HOME` from `platforms.kubernetes.deploymentSpec.executors` to `executors.exec-docling-chunk.container`
+   - Error without fix: `failed to unmarshal kubernetes config: proto: unknown field "env"`
+
+2. **Correct cache path** (commit `d254ba6`):
+   - Changed `HF_HOME` from `/mainctrfs/.cache` to `/.cache`
+   - DSPA mounts `dot-cache-scratch` volume at `/.cache` (not `/mainctrfs/.cache`)
+   - Error without fix: `PermissionError: [Errno 13] Permission denied: '/mainctrfs'`
+
+**Status**: ✅ Fixed and tested successfully (2026-04-10)
+- Pipeline run: chunk-data-6ckcz
+- Duration: 5 minutes 24 seconds
+- All 8 test PDFs converted and chunked successfully
 
 ## Testing
 
+### Infrastructure Tests
 Infrastructure test script: `/tmp/test-complete-rag-infrastructure.py`
-- Test 1: Embedding service validation
-- Test 2: PostgreSQL + pgvector validation
-- Test 3: End-to-end RAG workflow
+- Test 1: Embedding service validation ✅
+- Test 2: PostgreSQL + pgvector validation ✅
+- Test 3: End-to-end RAG workflow ✅
 
 All tests passed with semantic search achieving 0.86+ similarity scores.
+
+### Pipeline Execution Tests
+**chunk-data Pipeline** (Stage 1: PDF to chunks):
+- Run ID: chunk-data-6ckcz
+- Status: ✅ Succeeded
+- Duration: 5 minutes 24 seconds
+- Processed: 8 test PDFs
+- Output: 8 JSONL files with semantic chunks
+- Test Date: 2026-04-10
+
+**Key Validation**:
+- ✅ PDF download from GitHub
+- ✅ Docling model downloads (CodeFormulaV2, etc.)
+- ✅ PDF to JSON conversion with OCR (3 parallel tasks)
+- ✅ Semantic chunking with HuggingFace tokenizer (3 parallel tasks)
+- ✅ HF_HOME cache fix working correctly
+- ✅ Output stored in ODF (s3://ai-generation-llm-rag-pipelines)
 
 ## Documentation Updates
 
 **2026-04-10**:
-- Fixed chunk-data pipeline HuggingFace cache permissions
+- Fixed chunk-data pipeline HuggingFace cache permissions (2 critical fixes)
+- RHOAI KFP v2 compatibility: env in container spec (not platform spec)
+- Correct DSPA cache path: HF_HOME=/.cache (not /mainctrfs/.cache)
+- Successfully tested complete pipeline execution (5m24s)
 - Updated to RHOAI 3 navigation (Develop & train → Pipelines)
 - Documented ODF OBC storage (vs embedded Minio)
 - Configured shared AI Embedding Service in LlamaStack
@@ -93,7 +127,9 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 
 ## Commits
 
-- `62cb253` - Fix chunk-data pipeline HuggingFace cache permissions
+- `d254ba6` - Fix HF_HOME path to use actual DSPA cache mount location (/.cache)
+- `04cde66` - Fix chunk-data pipeline HF_HOME env for RHOAI KFP v2 compatibility
+- `62cb253` - Fix chunk-data pipeline HuggingFace cache permissions (initial attempt)
 - `5e3bc6c` - Document ODF OBC storage for RAG pipelines
 - `c38a634` - Use shared AI Embedding Service in LlamaStack
 - `23d4d3a` - Fix pipeline upload script for multi-document YAML
