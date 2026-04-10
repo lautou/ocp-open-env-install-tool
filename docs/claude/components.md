@@ -2398,6 +2398,270 @@ oc exec deployment/dspa-mariadb -n external-rhoai-db -- \
   -e "SHOW STATUS LIKE 'Ssl_cipher';"
 ```
 
+#### GitOps Automation for KFP Pipeline Definitions
+
+**Pattern**: PostSync Job with init container for cross-namespace ConfigMap access, ServiceAccount token authentication
+
+**Purpose**: Automate upload of Kubeflow Pipelines (KFP) v2 pipeline definitions to DSPA API using GitOps.
+
+**Component**: `uc-ai-generation-llm-rag` (user workload separated from RHOAI platform)
+
+**Key Concepts:**
+
+**KFP v2 pipelines are API-managed resources, not Kubernetes CRs:**
+- Pipelines exist as database records in DSPA's MariaDB backend
+- Managed via REST API, not kubectl/GitOps directly
+- Require programmatic upload using KFP Python SDK
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ ai-generation-llm-rag namespace                         │
+│  - ConfigMap: pipeline-docling-standard (pipeline YAML) │
+│  - DataSciencePipelinesApplication (DSPA)               │
+│  - MariaDB database credentials                         │
+└─────────────────────────────────────────────────────────┘
+                      ▲
+                      │ (1) Init container fetches ConfigMap
+                      │     using oc CLI (ose-cli image)
+┌─────────────────────────────────────────────────────────┐
+│ openshift-gitops namespace                              │
+│  - Job: upload-pipeline-docling-standard (PostSync)     │
+│    ├─ Init: fetch-pipeline (ose-cli)                    │
+│    │   └─ oc get configmap → /pipeline/pipeline.yaml   │
+│    └─ Main: upload-pipeline (python-311)                │
+│        └─ KFP SDK upload via REST API                   │
+│  - ConfigMap: pipeline-upload-script (Python)           │
+│  - ServiceAccount: pipeline-uploader                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+**1. Pipeline Definition as ConfigMap:**
+```yaml
+# components/uc-ai-generation-llm-rag/base/ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-docling-standard
+  namespace: ai-generation-llm-rag
+data:
+  pipeline.yaml: |
+    # KFP v2 pipeline definition (1000+ lines)
+    # Generated from Python using kfp.compiler.Compiler().compile()
+```
+
+**2. Init Container Pattern for Cross-Namespace Access:**
+
+Problem: Kubernetes doesn't support mounting ConfigMaps from other namespaces.
+
+Solution: Init container with oc CLI fetches ConfigMap content, shares via emptyDir volume:
+
+```yaml
+# Job spec (simplified)
+initContainers:
+- name: fetch-pipeline
+  image: registry.redhat.io/openshift4/ose-cli:latest
+  command:
+  - /bin/bash
+  - -c
+  - |
+    set -e
+    oc get configmap pipeline-docling-standard -n ai-generation-llm-rag \
+      -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
+  volumeMounts:
+  - name: pipeline-data
+    mountPath: /pipeline
+
+containers:
+- name: upload-pipeline
+  image: registry.access.redhat.com/ubi9/python-311:latest
+  env:
+  - name: PIPELINE_FILE
+    value: /pipeline/pipeline.yaml
+  volumeMounts:
+  - name: pipeline-data
+    mountPath: /pipeline
+    readOnly: true
+
+volumes:
+- name: pipeline-data
+  emptyDir: {}
+```
+
+**3. ServiceAccount Authentication for KFP Client:**
+
+DSPA API requires authentication even for internal service-to-service calls:
+
+```python
+# Python upload script
+token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+with open(token_path, 'r') as f:
+    token = f.read().strip()
+
+client = kfp.Client(
+    host='https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443',
+    verify_ssl=False,
+    existing_token=token
+)
+```
+
+**4. Hash-Based Versioning for Idempotency:**
+
+Prevents duplicate uploads on every sync:
+
+```python
+import hashlib
+
+def calculate_pipeline_hash(filepath):
+    with open(filepath, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()[:12]
+
+pipeline_hash = calculate_pipeline_hash(PIPELINE_FILE)
+version_name = f"v-{pipeline_hash}"  # e.g., v-e1e153422907
+
+# Check if version already exists
+if version_name in existing_versions:
+    print(f"Version '{version_name}' already exists - skipping (idempotent)")
+    sys.exit(0)
+```
+
+**Behavior:**
+- Pipeline definition unchanged → Job skips upload (idempotent)
+- Pipeline definition changes → New version uploaded with new hash
+
+**5. RBAC Configuration:**
+
+ServiceAccount requires permissions for:
+- Reading ConfigMap in ai-generation-llm-rag namespace
+- Managing DSPA pipelines via API
+
+```yaml
+# RoleBinding in ai-generation-llm-rag namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-manager
+  namespace: ai-generation-llm-rag
+subjects:
+- kind: ServiceAccount
+  name: pipeline-uploader
+  namespace: openshift-gitops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  # Operator-provided ClusterRole includes /api subresource permissions
+  name: data-science-pipelines-operator-aggregate-dspa-admin-edit
+```
+
+**CRITICAL RBAC Detail:**
+
+The DSPA API endpoint requires permissions on the `datasciencepipelinesapplications/api` subresource:
+
+```yaml
+# Operator-provided ClusterRole (do not recreate manually)
+rules:
+- apiGroups: [datasciencepipelinesapplications.opendatahub.io]
+  resources:
+  - datasciencepipelinesapplications
+  - datasciencepipelinesapplications/api  # Required for KFP client access
+  verbs: [get, list, watch, create, update, patch, delete]
+```
+
+Without `/api` subresource permission:
+```
+403 Forbidden (user=system:serviceaccount:openshift-gitops:pipeline-uploader,
+  verb=get, resource=datasciencepipelinesapplications, subresource=api)
+```
+
+**6. PostSync Hook Configuration:**
+
+```yaml
+# Job metadata
+annotations:
+  argocd.argoproj.io/hook: PostSync
+  argocd.argoproj.io/hook-delete-policy: HookSucceeded
+```
+
+**Execution flow:**
+1. ArgoCD syncs DSPA and ConfigMap resources
+2. PostSync hook triggers after successful sync
+3. Job fetches pipeline definition via init container
+4. Job uploads pipeline to DSPA using KFP SDK
+5. Job completes, ArgoCD deletes Job (HookSucceeded policy)
+
+**Error Handling:**
+
+Common issues and fixes:
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| 401 Unauthorized | Missing ServiceAccount token | Add `existing_token=token` to kfp.Client() |
+| 403 Forbidden (api subresource) | Missing RBAC for /api | Use operator-provided ClusterRole |
+| Pipeline ID is None | Pipeline doesn't exist | Raise ValueError to trigger creation flow |
+| Cross-namespace mount | ConfigMap in different namespace | Use init container with oc CLI |
+
+**Files:**
+
+```
+components/uc-ai-generation-llm-rag/base/
+├── ai-generation-llm-rag-cm-pipeline-docling-standard.yaml    # Pipeline definition
+├── ai-generation-llm-rag-dspa-pipelines.yaml                  # DSPA CR
+├── ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml    # ConfigMap RBAC
+├── ai-generation-llm-rag-rb-pipeline-manager.yaml             # DSPA API RBAC
+├── ai-generation-llm-rag-role-pipeline-configmap-reader.yaml  # ConfigMap Role
+├── openshift-gitops-cm-pipeline-upload-script.yaml            # Python script
+├── openshift-gitops-job-upload-pipeline-docling-standard.yaml # PostSync Job
+└── openshift-gitops-sa-pipeline-uploader.yaml                 # ServiceAccount
+```
+
+**Verification:**
+
+```bash
+# Check Job completed successfully
+oc get job upload-pipeline-docling-standard -n openshift-gitops
+
+# List pipelines in DSPA
+oc run -it --rm kfp-test --image=registry.access.redhat.com/ubi9/python-311:latest \
+  --restart=Never -n openshift-gitops -- bash -c "
+pip install --quiet kfp==2.14.6
+python3 -c '
+import kfp
+token = open(\"/var/run/secrets/kubernetes.io/serviceaccount/token\").read().strip()
+client = kfp.Client(host=\"https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443\",
+                    verify_ssl=False, existing_token=token)
+pipelines = client.list_pipelines()
+for p in pipelines.pipelines:
+    print(f\"Name: {p.display_name}, ID: {p.pipeline_id}\")
+'"
+
+# Expected output:
+# Name: docling-standard-convert, ID: eddb696e-6f59-4bb0-9411-a0ba390004a9
+```
+
+**Component Separation:**
+
+**uc-ai-generation-llm-rag** (user workload) vs **rhoai** (platform):
+
+- `rhoai` component: RHOAI operator, DataScienceCluster, platform configuration
+- `uc-ai-generation-llm-rag` component: User workload (DSPA instance, pipelines, MariaDB)
+- Separation enables independent lifecycle management and clear ownership
+
+**Key Patterns:**
+
+✅ **Init container** for cross-namespace resource access
+✅ **ServiceAccount token** authentication for internal APIs
+✅ **Hash-based versioning** for idempotent uploads
+✅ **Operator-provided ClusterRole** for RBAC (includes /api subresource)
+✅ **PostSync hook** for automated pipeline upload after DSPA deployment
+✅ **emptyDir volume** for sharing data between init and main containers
+
+❌ **DO NOT** create custom ClusterRole for DSPA (operator provides complete RBAC)
+❌ **DO NOT** mount ConfigMaps across namespaces (Kubernetes restriction)
+❌ **DO NOT** use unauthenticated KFP client (DSPA requires token)
+
 #### KServe InferenceService with vLLM
 
 **Pattern**: KServe InferenceService with OCI modelcar image and custom chat template
