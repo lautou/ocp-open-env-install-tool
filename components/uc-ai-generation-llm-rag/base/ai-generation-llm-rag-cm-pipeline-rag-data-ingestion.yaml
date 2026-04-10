@@ -96,16 +96,16 @@ data:
               \ ===\")\n\n        # Download\n        pdf_path = f'/tmp/{pdf_name}'\n\
               \        response = requests.get(pdf_url)\n        response.raise_for_status()\n\
               \        Path(pdf_path).write_bytes(response.content)\n        print(f\"\
-              \u2713 Downloaded\")\n\n        # Convert\n        json_path = f'/tmp/{pdf_name}.json'\n\
+              OK Downloaded\")\n\n        # Convert\n        json_path = f'/tmp/{pdf_name}.json'\n\
               \        subprocess.run(['docling', pdf_path, '--output', json_path, '--ocr'],\
-              \ check=True)\n        print(f\"\u2713 Converted\")\n\n        # Chunk\n\
-              \        chunks_path = f'/tmp/{pdf_name}_chunks.jsonl'\n        subprocess.run(['docling-chunk',\
+              \ check=True)\n        print(f\"OK Converted\")\n\n        # Chunk\n   \
+              \     chunks_path = f'/tmp/{pdf_name}_chunks.jsonl'\n        subprocess.run(['docling-chunk',\
               \ json_path, '--output', chunks_path,\n                       '--tokenizer',\
               \ tokenizer, '--max-tokens', str(max_tokens)], check=True)\n\n        for\
               \ line in Path(chunks_path).read_text().strip().split('\\n'):\n        \
               \    if line.strip():\n                all_chunks.append(json.loads(line))\n\
-              \        print(f\"\u2713 Chunked: {len(all_chunks)} total chunks so far\"\
-              )\n\n    print(f\"\\n=== Generating embeddings for {len(all_chunks)} chunks\
+              \        print(f\"OK Chunked: {len(all_chunks)} total chunks so far\")\n\
+              \n    print(f\"\\n=== Generating embeddings for {len(all_chunks)} chunks\
               \ ===\")\n\n    # Generate embeddings in batches\n    for i in range(0,\
               \ len(all_chunks), embedding_batch_size):\n        batch = all_chunks[i:i\
               \ + embedding_batch_size]\n        texts = [chunk['text'] for chunk in batch]\n\
@@ -114,7 +114,7 @@ data:
               \ json={'input': texts},\n            verify=False\n        )\n        response.raise_for_status()\n\
               \n        embeddings = response.json()['data']\n        for chunk, embed_data\
               \ in zip(batch, embeddings):\n            chunk['embedding'] = embed_data['embedding']\n\
-              \n        print(f\"\u2713 Batch {i//embedding_batch_size + 1}/{(len(all_chunks)-1)//embedding_batch_size\
+              \n        print(f\"OK Batch {i//embedding_batch_size + 1}/{(len(all_chunks)-1)//embedding_batch_size\
               \ + 1}\")\n\n    print(f\"\\n=== Storing {len(all_chunks)} chunks in PostgreSQL\
               \ ===\")\n\n    # Connect to PostgreSQL\n    conn = psycopg2.connect(\n\
               \        host=postgres_host,\n        port=postgres_port,\n        database=postgres_database,\n\
@@ -131,7 +131,7 @@ data:
               \                CREATE INDEX {table_name}_embedding_idx \n            \
               \    ON {table_name} USING hnsw (embedding vector_cosine_ops);\n       \
               \     END IF;\n        END $$;\n    \"\"\")\n    conn.commit()\n    print(f\"\
-              \u2713 Table ready\")\n\n    # Insert chunks\n    for chunk in all_chunks:\n\
+              OK Table ready\")\n\n    # Insert chunks\n    for chunk in all_chunks:\n\
               \        embedding_str = str(chunk['embedding'])\n        metadata = {k:\
               \ v for k, v in chunk.items() if k not in ['text', 'embedding']}\n\n   \
               \     cursor.execute(f\"\"\"\n            INSERT INTO {table_name} (text,\
@@ -140,9 +140,8 @@ data:
               \   embedding_str,\n            metadata.get('source', 'unknown'),\n   \
               \         metadata.get('chunk_index'),\n            json.dumps(metadata)\n\
               \        ))\n\n    conn.commit()\n    cursor.close()\n    conn.close()\n\
-              \n    print(f\"\u2713 Inserted {len(all_chunks)} rows\")\n\n    outputs\
-              \ = NamedTuple('Outputs', [('num_rows_inserted', int)])\n    return outputs(len(all_chunks))\n\
-              \n"
+              \n    print(f\"OK Inserted {len(all_chunks)} rows\")\n\n    outputs = NamedTuple('Outputs',\
+              \ [('num_rows_inserted', int)])\n    return outputs(len(all_chunks))\n\n"
             env:
             - name: HF_HOME
               value: /.cache
