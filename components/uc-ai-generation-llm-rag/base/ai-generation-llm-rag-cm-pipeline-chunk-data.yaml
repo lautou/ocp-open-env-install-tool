@@ -504,6 +504,9 @@ data:
               \            f\"docling-chunk: skipped {len(skipped_files)} invalid files:\"\
               ,\n            flush=True,\n        )\n        for filename, reason in skipped_files:\n\
               \            print(f\"  - {filename}: {reason}\", flush=True)\n\n"
+            env:
+            - name: HF_HOME
+              value: /mainctrfs/.cache
             image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
             resources:
               cpuLimit: 2.0
@@ -1026,9 +1029,6 @@ data:
         deploymentSpec:
           executors:
             exec-docling-chunk:
-              env:
-              - name: HF_HOME
-                value: /mainctrfs/.cache
               tolerations:
               - key: nvidia.com/gpu
                 operator: Exists
