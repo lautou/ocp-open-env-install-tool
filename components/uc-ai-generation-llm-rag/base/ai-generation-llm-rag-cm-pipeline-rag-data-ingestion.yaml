@@ -66,9 +66,9 @@ data:
             - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
               \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
               \ python3 -m pip install --quiet --no-warn-script-location 'requests==2.32.3'\
-              \ 'urllib3==2.2.1'  &&  python3 -m pip install --quiet --no-warn-script-location\
-              \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
-              3.9\"' && \"$0\" \"$@\"\n"
+              \ 'psycopg2-binary==2.9.9' 'urllib3==2.2.1'  &&  python3 -m pip install\
+              \ --quiet --no-warn-script-location 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5;\
+              \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
             - sh
             - -ec
             - 'program_path=$(mktemp -d)
@@ -87,8 +87,7 @@ data:
               \ str\n) -> NamedTuple('Outputs', [('num_rows_inserted', int)]):\n    \"\
               \"\"Process PDFs end-to-end: download, chunk, embed, store\"\"\"\n    import\
               \ requests\n    import subprocess\n    import json\n    import urllib3\n\
-              \    import psycopg2\n    from pathlib import Path\n    import tempfile\n\
-              \n    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\
+              \    import psycopg2\n    from pathlib import Path\n\n    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\
               \n    # Read ServiceAccount token\n    with open('/var/run/secrets/kubernetes.io/serviceaccount/token',\
               \ 'r') as f:\n        token = f.read().strip()\n\n    all_chunks = []\n\n\
               \    # Process each PDF\n    for pdf_url in pdf_urls:\n        pdf_name\
@@ -145,7 +144,7 @@ data:
             env:
             - name: HF_HOME
               value: /.cache
-            image: registry.access.redhat.com/ubi9/python-311:latest
+            image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
             resources:
               cpuLimit: 2.0
               memoryLimit: 4.294967296
