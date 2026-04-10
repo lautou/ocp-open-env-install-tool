@@ -506,7 +506,7 @@ data:
               \            print(f\"  - {filename}: {reason}\", flush=True)\n\n"
             env:
             - name: HF_HOME
-              value: /mainctrfs/.cache
+              value: /.cache
             image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
             resources:
               cpuLimit: 2.0
