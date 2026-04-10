@@ -2,10 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- openshift-gitops-job-delete-rhoai-resources.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-namespace-external-rhoai-db.yaml
 - cluster-namespace-llamastack.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
@@ -24,6 +24,7 @@ resources:
 - llamastack-secret-pgvector-connection.yaml
 - llamastack-servingruntime-granite-embedding.yaml
 - llamastack-servingruntime-llamastack-model.yaml
+- openshift-gitops-job-delete-rhoai-resources.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - redhat-ods-applications-cm-llamastack-embedding-provider.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
