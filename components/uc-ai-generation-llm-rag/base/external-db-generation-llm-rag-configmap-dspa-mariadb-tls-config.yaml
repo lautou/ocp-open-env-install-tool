@@ -8,4 +8,4 @@ data:
 kind: ConfigMap
 metadata:
   name: dspa-mariadb-tls-config
-  namespace: external-uc-generation-llm-rag
+  namespace: external-db-generation-llm-rag

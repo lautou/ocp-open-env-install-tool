@@ -8,7 +8,7 @@ metadata:
 spec:
   database:
     externalDB:
-      host: dspa-mariadb.external-uc-generation-llm-rag.svc.cluster.local
+      host: dspa-mariadb.external-db-generation-llm-rag.svc.cluster.local
       port: "3306"
       username: mlpipeline
       pipelineDBName: mlpipeline

@@ -5,7 +5,7 @@ metadata:
     # OpenShift Service CA will automatically create a TLS certificate
     service.beta.openshift.io/serving-cert-secret-name: dspa-mariadb-tls
   name: dspa-mariadb
-  namespace: external-uc-generation-llm-rag
+  namespace: external-db-generation-llm-rag
 spec:
   ports:
   - port: 3306

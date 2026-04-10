@@ -2,12 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- cluster-namespace-external-uc-llamastack.yaml
+- cluster-namespace-external-db-llamastack.yaml
 - cluster-namespace-llamastack.yaml
-- external-uc-llamastack-deployment-llamastack-postgresql.yaml
-- external-uc-llamastack-pvc-llamastack-postgresql.yaml
-- external-uc-llamastack-secret-llamastack-postgresql-credentials.yaml
-- external-uc-llamastack-service-llamastack-postgresql.yaml
+- external-db-llamastack-deployment-llamastack-postgresql.yaml
+- external-db-llamastack-pvc-llamastack-postgresql.yaml
+- external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
+- external-db-llamastack-service-llamastack-postgresql.yaml
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-granite-embedding.yaml
 - llamastack-inferenceservice-llamastack-model.yaml

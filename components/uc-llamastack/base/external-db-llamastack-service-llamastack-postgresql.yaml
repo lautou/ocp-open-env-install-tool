@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: llamastack-postgresql
-  namespace: external-uc-llamastack
+  namespace: external-db-llamastack
 spec:
   ports:
   - port: 5432
