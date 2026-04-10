@@ -188,7 +188,7 @@ data:
               Downloaded {len(response.content)} bytes\")\n\n        # Convert to JSON\n\
               \        json_path = f'/tmp/{pdf_name}.json'\n        print(f\"[2/3] Converting\
               \ to JSON...\")\n        result = subprocess.run(\n            ['docling',\
-              \ pdf_path, '--output', json_path, '--ocr'],\n            capture_output=True,\
+              \ pdf_path, '--output', json_path],\n            capture_output=True,\
               \ text=True\n        )\n        if result.returncode != 0:\n           \
               \ raise RuntimeError(f\"Docling conversion failed: {result.stderr}\")\n\
               \        print(f\"Converted to JSON\")\n\n        # Chunk document\n   \
