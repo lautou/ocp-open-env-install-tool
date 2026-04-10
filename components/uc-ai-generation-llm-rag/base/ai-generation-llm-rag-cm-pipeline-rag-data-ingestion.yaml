@@ -7,7 +7,7 @@ data:
   pipeline.yaml: |
     # PIPELINE DEFINITION
     # Name: rag-data-ingestion
-    # Description: End-to-end RAG: PDF URLs → PostgreSQL embeddings (no manual steps)
+    # Description: End-to-end RAG: PDF URLs -> PostgreSQL embeddings (no manual steps)
     # Inputs:
     #    embedding_batch_size: int [Default: 32.0]
     #    embedding_endpoint: str [Default: 'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443']
@@ -152,7 +152,7 @@ data:
               resourceCpuLimit: '2'
               resourceMemoryLimit: 4Gi
     pipelineInfo:
-      description: "End-to-end RAG: PDF URLs \u2192 PostgreSQL embeddings (no manual steps)"
+      description: 'End-to-end RAG: PDF URLs -> PostgreSQL embeddings (no manual steps)'
       name: rag-data-ingestion
     root:
       dag:
