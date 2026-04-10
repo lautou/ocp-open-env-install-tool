@@ -1,8 +1,4 @@
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: pipeline-upload-script
-  namespace: openshift-gitops
 data:
   upload-pipeline.py: |
     #!/usr/bin/env python3
@@ -13,15 +9,23 @@ data:
     import hashlib
     import sys
     import os
+    import yaml
     from pathlib import Path
 
     DSPA_HOST = "https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443"
-    PIPELINE_NAME = "docling-standard-convert"
     PIPELINE_FILE = os.getenv("PIPELINE_FILE", "/tmp/pipelines/pipeline.yaml")
 
     def calculate_pipeline_hash(filepath):
         with open(filepath, 'rb') as f:
             return hashlib.sha256(f.read()).hexdigest()[:12]
+
+    def extract_pipeline_name(filepath):
+        """Extract pipeline name from KFP v2 YAML file."""
+        with open(filepath, 'r') as f:
+            pipeline_yaml = yaml.safe_load(f)
+            if 'pipelineInfo' in pipeline_yaml and 'name' in pipeline_yaml['pipelineInfo']:
+                return pipeline_yaml['pipelineInfo']['name']
+        return None
 
     def main():
         pipeline_path = Path(PIPELINE_FILE)
@@ -29,10 +33,16 @@ data:
             print(f"ERROR: Pipeline file not found: {PIPELINE_FILE}")
             sys.exit(1)
 
+        # Extract pipeline name from YAML
+        pipeline_name = extract_pipeline_name(PIPELINE_FILE)
+        if not pipeline_name:
+            print(f"ERROR: Could not extract pipeline name from {PIPELINE_FILE}")
+            sys.exit(1)
+
         pipeline_hash = calculate_pipeline_hash(PIPELINE_FILE)
         version_name = f"v-{pipeline_hash}"
 
-        print(f"Pipeline: {PIPELINE_NAME}")
+        print(f"Pipeline: {pipeline_name}")
         print(f"Version: {version_name}")
         print(f"DSPA: {DSPA_HOST}")
 
@@ -44,16 +54,22 @@ data:
         client = kfp.Client(host=DSPA_HOST, verify_ssl=False, existing_token=token)
 
         try:
-            pipeline_id = client.get_pipeline_id(PIPELINE_NAME)
+            pipeline_id = client.get_pipeline_id(pipeline_name)
             if not pipeline_id:
                 raise ValueError("Pipeline ID is None")
-            print(f"Pipeline '{PIPELINE_NAME}' exists (ID: {pipeline_id})")
+            print(f"Pipeline '{pipeline_name}' exists (ID: {pipeline_id})")
 
             try:
-                versions = client.list_pipeline_versions(pipeline_id, page_size=100)
+                versions_response = client.list_pipeline_versions(pipeline_id, page_size=100)
 
-                if versions and versions.versions:
-                    existing_versions = [v.name for v in versions.versions]
+                # Handle both API response formats (versions vs pipeline_versions)
+                existing_versions = []
+                if hasattr(versions_response, 'versions') and versions_response.versions:
+                    existing_versions = [v.name for v in versions_response.versions]
+                elif hasattr(versions_response, 'pipeline_versions') and versions_response.pipeline_versions:
+                    existing_versions = [v.display_name for v in versions_response.pipeline_versions]
+
+                if existing_versions:
                     print(f"Found {len(existing_versions)} existing version(s)")
 
                     if version_name in existing_versions:
@@ -74,14 +90,14 @@ data:
                 sys.exit(1)
 
         except Exception:
-            print(f"Pipeline '{PIPELINE_NAME}' not found - creating new")
+            print(f"Pipeline '{pipeline_name}' not found - creating new")
             try:
                 uploaded_pipeline = client.upload_pipeline(
                     pipeline_package_path=PIPELINE_FILE,
-                    pipeline_name=PIPELINE_NAME,
-                    description="Docling pipeline with RH images and GPU"
+                    pipeline_name=pipeline_name,
+                    description=f"Pipeline: {pipeline_name}"
                 )
-                print(f"Pipeline '{PIPELINE_NAME}' created (ID: {uploaded_pipeline.pipeline_id})")
+                print(f"Pipeline '{pipeline_name}' created (ID: {uploaded_pipeline.pipeline_id})")
 
             except Exception as e:
                 print(f"ERROR creating pipeline: {e}")
@@ -91,3 +107,7 @@ data:
 
     if __name__ == "__main__":
         main()
+kind: ConfigMap
+metadata:
+  name: pipeline-upload-script
+  namespace: openshift-gitops
