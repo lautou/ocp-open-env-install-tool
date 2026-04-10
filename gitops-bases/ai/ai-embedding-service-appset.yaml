@@ -34,7 +34,7 @@ spec:
         - /metadata/annotations
         kind: ConfigMap
         name: cluster-versions
-      project: cluster-ai
+      project: default
       source:
         path: components/ai-embedding-service/overlays/default
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
