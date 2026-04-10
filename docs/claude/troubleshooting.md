@@ -1118,6 +1118,74 @@ curl -k https://maas-api.apps.<cluster-domain>/<namespace>/<model-name>/v1/model
 
 ---
 
+### Data Science Pipelines - Misleading DAG Graph Visualization
+
+**Symptom**: Pipeline graph shows visual arrows/connections suggesting a task depends on multiple upstream tasks, but execution timing proves it only waits for a subset.
+
+**Example**:
+```
+Graph visualization suggests:
+  task_a ──┐
+           ├──→ task_c  (appears to wait for both)
+  task_b ──┘
+
+Actual execution timing:
+  task_a: starts 0s,    finishes 10s
+  task_b: starts 0s,    finishes 180s
+  task_c: starts 11s,   finishes 16s  ← Started while task_b still running!
+  
+Result: task_c does NOT depend on task_b, contrary to graph visualization
+```
+
+**Root Cause**:
+- Upstream Kubeflow Pipelines UI issue (KFP #4924, #3790)
+- Graph mixes **execution dependencies** (what blocks execution) with **artifact flow** (data lineage)
+- RHOAI inherits this from KFP v2 - not specific to Red Hat implementation
+
+**Debug - Verify Actual Dependencies**:
+
+```bash
+# Get most recent workflow
+WORKFLOW=$(oc get workflow -n ai-generation-llm-rag \
+  --sort-by=.metadata.creationTimestamp | tail -1 | awk '{print $1}')
+
+# Check actual task execution timing
+oc get workflow ${WORKFLOW} -n ai-generation-llm-rag \
+  -o jsonpath='{.status.nodes}' | \
+  jq -r '[.[] | select(.type == "Pod")] | sort_by(.startedAt) | 
+  map({
+    task: .displayName, 
+    started: .startedAt, 
+    finished: .finishedAt,
+    duration_sec: ((.finishedAt | fromdateiso8601) - (.startedAt | fromdateiso8601))
+  })'
+```
+
+**Analysis Rule**:
+- If Task C starts BEFORE Task B finishes → Task C does NOT depend on Task B
+- Graph may show visual connection, but timing is source of truth
+
+**Workaround**:
+1. Always verify dependencies using workflow timing (command above)
+2. Do not rely solely on graph for understanding critical path
+3. Document actual dependencies in pipeline documentation
+
+**Impact**:
+- **Severity**: Medium - Does not affect execution correctness
+- **Scope**: All KFP v2 pipelines with parallel tasks and artifact passing
+- **Business Impact**: Confusion during debugging, performance analysis, optimization
+- **Workaround Quality**: Good - timing verification is reliable
+
+**Status**:
+- **JIRA**: [RHOAIENG-57573](https://redhat.atlassian.net/browse/RHOAIENG-57573) - Pipeline DAG graph shows misleading dependency arrows
+- **Upstream**: [KFP #4924](https://github.com/kubeflow/pipelines/issues/4924), [KFP #3790](https://github.com/kubeflow/pipelines/issues/3790)
+- **Fix ETA**: Pending upstream Kubeflow Pipelines resolution
+- **Recommendation**: Document pipeline dependencies separately, use timing verification
+
+**Reference**: Reproduction materials available in `/tmp/dag-visualization-issue-pipeline.*`
+
+---
+
 ### Known False-Positive Alerts
 
 See [`known-bugs.md`](known-bugs.md) for comprehensive list of silenced alerts and root causes.

@@ -2842,6 +2842,52 @@ oc get pod <docling-pod> -n ai-generation-llm-rag -o jsonpath='{.spec.toleration
 4. PostSync hook re-uploads pipeline (hash-based versioning detects changes)
 5. New pipeline version available in DSPA UI
 
+**Known Issue: DAG Graph Visualization Shows Misleading Dependencies**
+
+**Problem:** The Data Science Pipelines UI graph displays misleading visual connections that mix execution dependencies (what blocks execution) with artifact flow (data lineage).
+
+**Symptom:**
+- Graph shows visual arrows/boxes suggesting a task waits for multiple upstream tasks
+- Actual execution timing proves task only depends on subset of visually connected tasks
+- Cannot determine critical path or actual execution order from graph alone
+
+**Example:**
+```
+Graph shows:  task_a ──┐
+                       ├──→ task_c  (appears to wait for both)
+              task_b ──┘
+
+Timing shows: task_a completes at t=10s
+              task_c STARTS at t=11s (only waits for task_a)
+              task_b completes at t=180s (task_c didn't wait for this!)
+```
+
+**Root Cause:**
+- Upstream Kubeflow Pipelines issue (KFP #4924, #3790)
+- UI mixes artifact consumption (data flow) with execution blocking (task dependencies)
+- RHOAI inherits this from KFP v2
+
+**Workaround - Verify Actual Dependencies:**
+
+```bash
+# Get workflow execution timing
+WORKFLOW=$(oc get workflow -n ai-generation-llm-rag --sort-by=.metadata.creationTimestamp | tail -1 | awk '{print $1}')
+
+# Check actual task start/finish times
+oc get workflow ${WORKFLOW} -n ai-generation-llm-rag -o jsonpath='{.status.nodes}' | \
+  jq -r '[.[] | select(.type == "Pod")] | sort_by(.startedAt) | 
+  map({task: .displayName, started: .startedAt, finished: .finishedAt})'
+
+# Rule: If Task B starts BEFORE Task A finishes, Task B does NOT depend on Task A
+```
+
+**Tracking:**
+- **JIRA:** [RHOAIENG-57573](https://redhat.atlassian.net/browse/RHOAIENG-57573) - Pipeline DAG graph shows misleading dependency arrows
+- **Upstream:** [KFP #4924](https://github.com/kubeflow/pipelines/issues/4924), [KFP #3790](https://github.com/kubeflow/pipelines/issues/3790)
+- **Status:** Documented - workaround available, pending upstream fix
+
+**Impact:** Medium - Does not affect execution, but creates confusion for debugging and optimization.
+
 #### KServe InferenceService with vLLM
 
 **Pattern**: KServe InferenceService with OCI modelcar image and custom chat template
