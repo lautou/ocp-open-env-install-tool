@@ -2662,6 +2662,102 @@ for p in pipelines.pipelines:
 ❌ **DO NOT** mount ConfigMaps across namespaces (Kubernetes restriction)
 ❌ **DO NOT** use unauthenticated KFP client (DSPA requires token)
 
+**GPU Scheduling for KFP Pipeline Tasks:**
+
+**CRITICAL**: HardwareProfile does NOT apply to KFP pipeline pods - GPU tolerations must be explicit.
+
+**Problem**: GPU nodes have taint `nvidia.com/gpu=present:NoSchedule` to prevent non-GPU workloads from consuming expensive resources.
+
+**HardwareProfile limitation:**
+- HardwareProfile webhooks only mutate: Notebooks, InferenceServices, LLMInferenceServices
+- KFP pipeline pods are NOT mutated by HardwareProfile
+- GPU resource requests alone are insufficient (pods stay Pending without tolerations)
+
+**Solution**: Add tolerations per executor in `platforms.kubernetes.deploymentSpec` section:
+
+```yaml
+# Pipeline ConfigMap - platforms section
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        # GPU executors (docling-cuda-rhel9 image)
+        exec-docling-chunk:
+          tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        exec-docling-convert-standard:
+          tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        exec-download-docling-models:
+          tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+        
+        # CPU-only executors (no tolerations needed)
+        exec-import-pdfs:
+          secretAsVolume: [...]
+        exec-create-pdf-splits:
+          # No tolerations - uses ubi9/python-311
+```
+
+**Executor configuration:**
+
+| Executor | Image | GPU | Tolerations |
+|----------|-------|-----|-------------|
+| `exec-docling-chunk` | `docling-cuda-rhel9:3.2.1` | ✅ `nvidia.com/gpu: 1` | ✅ Required |
+| `exec-docling-convert-standard` | `docling-cuda-rhel9:3.2.1` | ✅ `nvidia.com/gpu: 1` | ✅ Required |
+| `exec-download-docling-models` | `docling-cuda-rhel9:3.2.1` | ❌ No GPU request | ✅ Required (downloads GPU models) |
+| `exec-import-pdfs` | `ubi9/python-311:9.7` | ❌ CPU only | ❌ Not needed |
+| `exec-create-pdf-splits` | `ubi9/python-311:9.7` | ❌ CPU only | ❌ Not needed |
+
+**Image versions (latest supported):**
+- **docling-cuda-rhel9**: `3.2.1` (CUDA-enabled for GPU acceleration)
+- **ubi9/python-311**: `9.7-1775725322` (CPU tasks)
+
+**GPU resource requests in executors section:**
+```yaml
+executors:
+  exec-docling-convert-standard:
+    container:
+      image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
+      resources:
+        accelerator:
+          count: '1'
+          type: nvidia.com/gpu
+```
+
+**Why both resources AND tolerations are required:**
+1. **Resources** (`nvidia.com/gpu: 1`): Requests GPU allocation from kubelet
+2. **Tolerations**: Allows pod to schedule on tainted GPU nodes
+3. **Without tolerations**: Pod stays Pending even with GPU request (cannot tolerate taint)
+
+**Verification:**
+
+```bash
+# Run pipeline and check pod scheduling
+oc get pods -n ai-generation-llm-rag -l pipeline/runid
+
+# Check GPU task pods scheduled on GPU nodes
+oc get pod <docling-pod> -n ai-generation-llm-rag -o jsonpath='{.spec.nodeName}'
+# Expected: ip-10-0-27-42.eu-central-1.compute.internal (GPU node)
+
+# Verify tolerations applied
+oc get pod <docling-pod> -n ai-generation-llm-rag -o jsonpath='{.spec.tolerations}'
+# Expected: [{"effect":"NoSchedule","key":"nvidia.com/gpu","operator":"Exists"}]
+```
+
+**Pipeline update workflow:**
+1. Edit pipeline ConfigMap in `components/uc-ai-generation-llm-rag/base/`
+2. Commit and push changes
+3. ArgoCD syncs ConfigMap
+4. PostSync hook re-uploads pipeline (hash-based versioning detects changes)
+5. New pipeline version available in DSPA UI
+
 #### KServe InferenceService with vLLM
 
 **Pattern**: KServe InferenceService with OCI modelcar image and custom chat template
