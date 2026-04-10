@@ -3312,3 +3312,584 @@ Operator channel managed via `cluster-versions` ConfigMap:
 **Installation**: Part of the `ai` gitops-base, deployed in profiles: `ocp-ai`, `ocp-reference`
 
 **Configuration Status**: Re-enabled as of 2026-04-07 (previously disabled for testing). Deployed with known API limitation for controller-manager pod placement (see above).
+
+## AI Embedding Service
+
+**Purpose**: Shared infrastructure for generating text embeddings using the granite-embedding-english-r2 model. Provides 768-dimensional vector representations for semantic search and RAG applications.
+
+**Pattern**: Shared service architecture - One GPU serving multiple consumers across namespaces.
+
+**Namespace**: `ai-embedding-service`
+
+**Key Components:**
+
+### Shared Service Architecture
+
+**Design Decision**: Deployed as a shared service rather than per-application deployment.
+
+**Benefits**:
+- **Resource Efficiency**: One GPU serves multiple workloads (pipelines, applications)
+- **Separation of Concerns**: Infrastructure isolated from applications
+- **Independent Lifecycle**: Model updates don't require application redeployment
+- **Cost Optimization**: Reduced GPU allocation for demo/lab environments
+
+**Consumers**:
+- `uc-ai-generation-llm-rag` - RAG pipeline embedding generation
+- `uc-llamastack` - Future embedding integration
+- Custom applications via RBAC grants
+
+### InferenceService: granite-embedding
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: granite-embedding
+  namespace: ai-embedding-service
+  annotations:
+    opendatahub.io/model-type: embedding
+    security.opendatahub.io/enable-auth: "true"
+spec:
+  predictor:
+    model:
+      args:
+      - --dtype=half
+      - --max-model-len=8192
+      - --gpu-memory-utilization=0.70
+      modelFormat:
+        name: vLLM
+      runtime: granite-embedding
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-embedding-english-r2
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+          memory: 12Gi
+```
+
+**Model Specifications**:
+- **Model**: granite-embedding-english-r2
+- **Parameters**: 149M
+- **Embedding Dimension**: 768
+- **Max Context Length**: 8192 tokens
+- **Runtime**: vLLM (optimized for batch inference)
+- **Hardware**: NVIDIA Tesla T4 GPU (typical)
+
+### ServiceAccount and Token Authentication
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: granite-embedding-sa
+  namespace: ai-embedding-service
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: granite-embedding-sa-token
+  namespace: ai-embedding-service
+  annotations:
+    kubernetes.io/service-account.name: granite-embedding-sa
+type: kubernetes.io/service-account-token
+```
+
+**Why ServiceAccount Token Secret**:
+- KServe InferenceServices require bearer token authentication
+- ServiceAccount tokens provide secure, namespace-scoped access
+- Secret type `kubernetes.io/service-account-token` auto-generates long-lived token
+- Required annotation links Secret to ServiceAccount
+
+**Note**: Long-lived tokens are acceptable for service-to-service communication in trusted cluster environments.
+
+### Cross-Namespace RBAC
+
+**Pattern**: Grant access to consumer namespaces via Role + RoleBinding.
+
+```yaml
+# Role in ai-embedding-service namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inferenceservice-user
+  namespace: ai-embedding-service
+rules:
+- apiGroups: [serving.kserve.io]
+  resources: [inferenceservices]
+  verbs: [get, list]
+---
+# RoleBinding grants access to consumer ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: allow-pipeline-access
+  namespace: ai-embedding-service
+roleRef:
+  kind: Role
+  name: inferenceservice-user
+subjects:
+- kind: ServiceAccount
+  name: default  # Consumer's ServiceAccount
+  namespace: ai-generation-llm-rag  # Consumer's namespace
+```
+
+**When to Grant Access**:
+- Create separate RoleBinding for each consumer namespace
+- Use minimal permissions (get, list only - no create/update/delete)
+- Consumer ServiceAccount uses its own token (automatic Kubernetes injection)
+
+### Internal Service Endpoint
+
+**URL**: `https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443`
+
+**Why Internal Service**:
+- No external Route needed (cluster-internal traffic only)
+- Automatic mTLS via KServe service mesh
+- ServiceAccount token authentication
+- Lower latency (no ingress/egress overhead)
+
+**API Endpoint**: `/v1/embeddings` (OpenAI-compatible)
+
+**Example Request**:
+```python
+import requests
+
+# Read ServiceAccount token (auto-mounted in pods)
+with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r') as f:
+    token = f.read().strip()
+
+response = requests.post(
+    "https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443/v1/embeddings",
+    headers={"Authorization": f"Bearer {token}"},
+    json={
+        "input": ["Text to embed", "Another text"],
+        "model": "granite-embedding"
+    },
+    verify=False  # Self-signed cert for internal service
+)
+
+embeddings = [item['embedding'] for item in response.json()['data']]
+# Each embedding is a list of 768 floats
+```
+
+### ServingRuntime Configuration
+
+```yaml
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: granite-embedding
+  namespace: ai-embedding-service
+spec:
+  supportedModelFormats:
+  - name: vllm
+    version: "1"
+  containers:
+  - name: kserve-container
+    image: quay.io/modh/vllm@sha256:...
+    args:
+    - --model=/mnt/models
+    - --port=8080
+    - --task=embed
+    # Additional vLLM args passed from InferenceService
+```
+
+**Key Configuration**:
+- **Task**: `embed` (embedding generation, not text generation)
+- **Port**: 8080 (KServe standard)
+- **Image**: Red Hat-supported vLLM container
+- **GPU**: Required for production performance
+
+### Verification
+
+```bash
+# Check InferenceService status
+oc get inferenceservice granite-embedding -n ai-embedding-service
+
+# Check pods
+oc get pods -n ai-embedding-service
+
+# Test embedding generation (from a pod in consumer namespace)
+oc exec -n ai-generation-llm-rag <pod-name> -- python3 -c "
+import requests
+token = open('/var/run/secrets/kubernetes.io/serviceaccount/token').read()
+r = requests.post(
+    'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443/v1/embeddings',
+    headers={'Authorization': f'Bearer {token}'},
+    json={'input': ['test'], 'model': 'granite-embedding'},
+    verify=False
+)
+print(f'Embedding dimension: {len(r.json()[\"data\"][0][\"embedding\"])}')
+"
+```
+
+**Expected Output**: `Embedding dimension: 768`
+
+### Performance Characteristics
+
+**Throughput**:
+- Single request: ~10ms per embedding (GPU)
+- Batch request (32 texts): ~100ms total (~3ms per embedding)
+- **Recommendation**: Batch 16-64 texts per request for optimal GPU utilization
+
+**Resource Usage**:
+- GPU Memory: ~4GB (model weights) + variable (inference)
+- System Memory: ~12GB total
+- vCPU: 500m request, 2 core limit
+
+**Scaling**:
+- Current: Single replica (sufficient for demo/lab)
+- Production: HPA based on GPU utilization or request latency
+- Multi-replica: Load balanced via KServe service mesh
+
+### Installation
+
+**GitOps Base**: `ai` (in `gitops-bases/ai/ai-embedding-service-appset.yaml`)
+
+**Profiles**: `ocp-ai`, `ocp-standard`, `ocp-reference`
+
+**Dependencies**:
+- Red Hat OpenShift AI Operator (for KServe/ServingRuntime)
+- GPU operator (for NVIDIA GPU support)
+- Service Mesh (for mTLS)
+
+**Version Management**: InferenceService uses OCI image tag from Red Hat AI Services model catalog.
+
+---
+
+## UC AI Generation LLM RAG
+
+**Purpose**: Complete RAG (Retrieval-Augmented Generation) pipeline infrastructure for document processing, embedding generation, and vector storage.
+
+**Pattern**: Two-stage pipeline architecture with shared external resources.
+
+**Namespaces**:
+- `ai-generation-llm-rag` - DSPA and pipeline execution
+- `external-db-generation-llm-rag` - External databases (MariaDB, PostgreSQL)
+
+**Key Components:**
+
+### Two-Stage RAG Pipeline Architecture
+
+**Design Decision**: Separate document processing from embedding generation/storage.
+
+**Stage 1: chunk-data Pipeline**
+- **Purpose**: Convert PDFs to semantic chunks using Docling
+- **Input**: PDF files (URL or S3)
+- **Output**: `*_chunks.jsonl` files in Minio storage
+- **Steps**:
+  1. Import PDFs (download from URL or S3)
+  2. Download Docling models (layout analysis, OCR)
+  3. Split PDFs for parallel processing
+  4. Convert PDFs to JSON/Markdown (Docling)
+  5. Chunk documents into semantic units
+
+**Stage 2: convert-store-embeddings Pipeline**
+- **Purpose**: Generate embeddings and store in pgvector
+- **Input**: Chunks directory from Stage 1
+- **Output**: Embeddings stored in PostgreSQL `document_chunks` table
+- **Steps**:
+  1. Collect all `*_chunks.jsonl` files
+  2. Generate 768-dim embeddings (granite-embedding service)
+  3. Store in PostgreSQL with HNSW indexing
+
+**Why Two Stages**:
+- ✅ Stage 1 is from upstream opendatahub-io/data-processing (don't modify 1050-line compiled YAML)
+- ✅ Stage 2 is modular and reusable (works with any chunk JSONL input)
+- ✅ Independent testing and deployment
+- ✅ Can chain manually or automate with workflow orchestration
+
+### Pipeline: chunk-data
+
+**Full Name**: `chunk-data` (formerly `data-processing-docling-standard-pipeline`)
+
+**Source**: Based on [opendatahub-io/data-processing](https://github.com/opendatahub-io/data-processing/tree/main/kubeflow-pipelines/docling-standard)
+
+**ConfigMap**: `pipeline-chunk-data` (1050-line KFP v2 YAML)
+
+**Parameters**:
+```yaml
+num_splits: 3  # Number of parallel processing splits
+pdf_filenames: "doc1.pdf,doc2.pdf,doc3.pdf"
+pdf_base_url: "https://example.com/pdfs"
+pdf_from_s3: false
+
+# Docling conversion parameters
+docling_pdf_backend: "dlparse_v4"
+docling_table_mode: "accurate"
+docling_ocr: true
+docling_num_threads: 4
+
+# Chunking parameters (REQUIRED for RAG)
+docling_chunk_enabled: true
+docling_chunk_max_tokens: 512
+docling_chunk_merge_peers: true
+```
+
+**Critical Parameter**: `docling_chunk_enabled: true` - MUST be enabled for RAG workflow.
+
+**Output Artifact**: Chunks stored in Minio at `minio://mlpipeline/v2/artifacts/{run_id}/for-loop-1/output_path`
+
+### Pipeline: convert-store-embeddings
+
+**Full Name**: `convert-store-embeddings` (formerly `rag-embedding-storage-pipeline`)
+
+**Source**: Custom pipeline created for this project (see `/tmp/rag_embedding_storage_pipeline.py`)
+
+**ConfigMap**: `pipeline-convert-store-embeddings` (495-line KFP v2 YAML)
+
+**Parameters**:
+```yaml
+# Input from Stage 1
+chunks_directory: ""  # Path to chunk output from chunk-data pipeline
+
+# Embedding service configuration
+embedding_endpoint: "https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443"
+embedding_batch_size: 32  # Chunks per API call (optimize for GPU)
+
+# PostgreSQL + pgvector configuration
+postgres_host: "rag-postgresql.external-db-generation-llm-rag.svc.cluster.local"
+postgres_port: 5432
+postgres_database: "ragdb"
+postgres_user: "raguser"
+postgres_password: ""  # From Secret
+postgres_table_name: "document_chunks"
+```
+
+**Components**:
+1. **collect-chunks**: Merge all `*_chunks.jsonl` files into single dataset
+2. **generate-embeddings**: Batch generate 768-dim vectors via granite-embedding
+3. **store-in-pgvector**: Insert into PostgreSQL with HNSW index
+
+**Output**: Embeddings stored in `document_chunks` table with cosine similarity indexing.
+
+### PostgreSQL + pgvector Database
+
+**Deployment**: `rag-postgresql` in `external-db-generation-llm-rag` namespace
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-postgresql
+  namespace: external-db-generation-llm-rag
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgresql
+        image: pgvector/pgvector:pg16
+        env:
+        - name: POSTGRES_DB
+          value: ragdb
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: rag-postgresql-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-postgresql-credentials
+              key: POSTGRES_PASSWORD
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                until pg_isready -U raguser -d ragdb; do sleep 1; done
+                psql -U raguser -d ragdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+**Key Features**:
+- **Image**: `pgvector/pgvector:pg16` (PostgreSQL 16 with pgvector pre-installed)
+- **Extension**: pgvector 0.8.2 (auto-initialized via lifecycle hook)
+- **Storage**: 10Gi PVC (gp3-csi on AWS)
+- **Credentials**: Secret replicated to both namespaces
+
+**Why External Namespace**:
+- Databases outlive pipeline runs (persistent storage)
+- Shared across multiple pipeline instances
+- Clear separation of data tier from compute tier
+
+### Document Chunks Table Schema
+
+```sql
+CREATE TABLE document_chunks (
+    id SERIAL PRIMARY KEY,
+    text TEXT NOT NULL,
+    embedding vector(768) NOT NULL,
+    source VARCHAR(1024),
+    chunk_index INTEGER,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- HNSW index for fast cosine similarity search
+CREATE INDEX document_chunks_embedding_idx
+ON document_chunks USING hnsw (embedding vector_cosine_ops);
+```
+
+**Index Type**: HNSW (Hierarchical Navigable Small World)
+- **Performance**: Sub-second search on 100K+ vectors
+- **Distance Metric**: Cosine similarity (best for embeddings)
+- **Build Time**: Minimal (optimized for inserts)
+
+### Pipeline Upload Jobs
+
+**Pattern**: PostSync ArgoCD hooks that upload pipelines to DSPA.
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-pipeline-chunk-data
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: fetch-pipeline
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          oc get configmap pipeline-chunk-data -n ai-generation-llm-rag \
+            -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
+      containers:
+      - name: upload-pipeline
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command:
+        - python3
+        - /scripts/upload-pipeline.py
+```
+
+**Upload Script Features**:
+- Extracts pipeline name from YAML `pipelineInfo.name` field
+- Calculates SHA256 hash of pipeline YAML
+- Creates versioned uploads: `v-{hash}` (e.g., `v-678e27c67458`)
+- Idempotent: Skips upload if version already exists
+- Handles both KFP API response formats (`versions` and `pipeline_versions`)
+
+**Upload Flow**:
+1. ArgoCD syncs → PostSync hook triggers Job
+2. Init container fetches pipeline YAML from ConfigMap
+3. Main container uploads to DSPA API with ServiceAccount token
+4. Pipeline appears in RHOAI Data Science Pipelines UI
+
+### Cross-Namespace Resource Access
+
+**Pattern**: Secret replication for database credentials.
+
+```yaml
+# Original Secret in external-db-generation-llm-rag
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-postgresql-credentials
+  namespace: external-db-generation-llm-rag
+stringData:
+  POSTGRES_DB: ragdb
+  POSTGRES_USER: raguser
+  POSTGRES_PASSWORD: changeme-demo-only
+
+---
+# Replicated Secret in ai-generation-llm-rag
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-postgresql-credentials
+  namespace: ai-generation-llm-rag
+stringData:
+  POSTGRES_DB: ragdb
+  POSTGRES_USER: raguser
+  POSTGRES_PASSWORD: changeme-demo-only
+```
+
+**Why Replication**:
+- Pipeline tasks run in `ai-generation-llm-rag` namespace
+- Cannot reference Secrets across namespaces in pod specs
+- GitOps manages both copies (single source of truth in Git)
+
+**Security Note**: Demo credentials only. Production should use AWS Secrets Manager or Vault.
+
+### RBAC: Pipeline ConfigMap Access
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipeline-configmap-reader
+  namespace: ai-generation-llm-rag
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames:
+  - pipeline-chunk-data
+  - pipeline-convert-store-embeddings
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-configmap-reader
+  namespace: ai-generation-llm-rag
+subjects:
+- kind: ServiceAccount
+  name: pipeline-uploader
+  namespace: openshift-gitops
+```
+
+**Purpose**: Upload Jobs read pipeline YAML from ConfigMaps before uploading to DSPA.
+
+### Verification
+
+```bash
+# Check DSPA status
+oc get dspa pipelines -n ai-generation-llm-rag
+
+# Check PostgreSQL
+oc exec -n external-db-generation-llm-rag deployment/rag-postgresql -- \
+  psql -U raguser -d ragdb -c "\dx vector"
+
+# Check pipelines uploaded
+oc exec -n ai-generation-llm-rag deployment/ds-pipeline-pipelines -c ds-pipeline-api-server -- \
+  bash -c "TOKEN=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) && \
+  curl -sk -H 'Authorization: Bearer \$TOKEN' \
+  https://localhost:8443/apis/v2beta1/pipelines | python3 -m json.tool"
+
+# Check upload Jobs
+oc get job -n openshift-gitops | grep upload-pipeline
+
+# Query stored embeddings (after pipeline runs)
+oc exec -n external-db-generation-llm-rag deployment/rag-postgresql -- \
+  psql -U raguser -d ragdb -c "SELECT COUNT(*), AVG(ARRAY_LENGTH(embedding::real[], 1)) AS avg_dim FROM document_chunks;"
+```
+
+### Installation
+
+**GitOps Base**: `ai` (in `gitops-bases/ai/uc-ai-generation-llm-rag-appset.yaml`)
+
+**Profiles**: `ocp-ai`, `ocp-standard`, `ocp-reference`
+
+**Dependencies**:
+- Red Hat OpenShift AI Operator (for DSPA)
+- AI Embedding Service (for embedding generation)
+- OpenShift GitOps (for pipeline upload Jobs)
+
+**External Dependencies**:
+- MariaDB: DSPA metadata storage (in `external-db-generation-llm-rag` namespace)
+- PostgreSQL + pgvector: Vector storage (in `external-db-generation-llm-rag` namespace)
+
+### Related Documentation
+
+See `docs/claude/rag-retrieval-guide.md` for:
+- Complete RAG retrieval flow
+- Semantic search examples
+- Integration with LLM applications
+- Production optimization guidelines
