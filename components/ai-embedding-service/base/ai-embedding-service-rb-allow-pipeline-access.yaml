@@ -11,3 +11,6 @@ subjects:
 - kind: ServiceAccount
   name: default
   namespace: ai-generation-llm-rag
+- kind: ServiceAccount
+  name: pipeline-runner-pipelines
+  namespace: ai-generation-llm-rag
