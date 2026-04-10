@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: llamastack-postgresql
-  namespace: external-rhoai-db
+  namespace: external-uc-llamastack
 spec:
   replicas: 1
   selector:

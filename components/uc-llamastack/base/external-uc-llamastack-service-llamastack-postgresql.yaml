@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: llamastack-postgresql
-  namespace: external-rhoai-db
+  namespace: external-uc-llamastack
 spec:
   ports:
   - port: 5432

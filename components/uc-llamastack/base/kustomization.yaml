@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../common
+- cluster-namespace-external-uc-llamastack.yaml
+- cluster-namespace-llamastack.yaml
+- external-uc-llamastack-deployment-llamastack-postgresql.yaml
+- external-uc-llamastack-pvc-llamastack-postgresql.yaml
+- external-uc-llamastack-secret-llamastack-postgresql-credentials.yaml
+- external-uc-llamastack-service-llamastack-postgresql.yaml
+- llamastack-configmap-llama32-chat-template.yaml
+- llamastack-inferenceservice-granite-embedding.yaml
+- llamastack-inferenceservice-llamastack-model.yaml
+- llamastack-llamastackdistribution-lsd-llama-pgvector-remote.yaml
+- llamastack-sa-granite-embedding-sa.yaml
+- llamastack-sa-llamastack-model-sa.yaml
+- llamastack-secret-granite-embedding-sa-token.yaml
+- llamastack-secret-llama-stack-secret.yaml
+- llamastack-secret-pgvector-connection.yaml
+- llamastack-servingruntime-granite-embedding.yaml
+- llamastack-servingruntime-llamastack-model.yaml
+- redhat-ods-applications-cm-llamastack-embedding-provider.yaml
+- redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+- redhat-ods-applications-rb-llamastack-use-scc.yaml
+- redhat-ods-applications-secret-llamastack-db-credentials.yaml
