@@ -1,7 +1,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: argocd-manage-ai-embedding-workload
+  name: argocd-manage-workload
+  namespace: ai-embedding-service
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
