@@ -4,6 +4,7 @@ resources:
 - ../../common
 - ai-generation-llm-rag-cm-pipeline-chunk-data.yaml
 - ai-generation-llm-rag-cm-pipeline-convert-store-embeddings.yaml
+- ai-generation-llm-rag-cm-pipeline-rag-data-ingestion.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
 - ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
@@ -26,4 +27,5 @@ resources:
 - openshift-gitops-cm-pipeline-upload-script.yaml
 - openshift-gitops-job-upload-pipeline-chunk-data.yaml
 - openshift-gitops-job-upload-pipeline-convert-store-embeddings.yaml
+- openshift-gitops-job-upload-pipeline-rag-data-ingestion.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml

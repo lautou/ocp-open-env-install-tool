@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-rag-data-ingestion
+  namespace: ai-generation-llm-rag
+data:
+  pipeline.yaml: |
+    # PIPELINE DEFINITION
+    # Name: rag-data-ingestion
+    # Description: End-to-end RAG: PDF URLs → PostgreSQL embeddings (no manual steps)
+    # Inputs:
+    #    embedding_batch_size: int [Default: 32.0]
+    #    embedding_endpoint: str [Default: 'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443']
+    #    max_tokens: int [Default: 512.0]
+    #    pdf_urls: list [Default: ['https://github.com/DS4SD/docling/raw/refs/heads/main/tests/data/2206.01062.pdf']]
+    #    postgres_database: str [Default: 'ragdb']
+    #    postgres_host: str [Default: 'rag-postgresql.external-db-generation-llm-rag.svc.cluster.local']
+    #    postgres_password: str [Default: '']
+    #    postgres_port: int [Default: 5432.0]
+    #    postgres_table_name: str [Default: 'document_chunks']
+    #    postgres_user: str [Default: 'raguser']
+    #    tokenizer_model: str [Default: 'sentence-transformers/all-MiniLM-L6-v2']
+    components:
+      comp-generate-and-store:
+        executorLabel: exec-generate-and-store
+        inputDefinitions:
+          parameters:
+            embedding_batch_size:
+              parameterType: NUMBER_INTEGER
+            embedding_endpoint:
+              parameterType: STRING
+            max_tokens:
+              parameterType: NUMBER_INTEGER
+            pdf_urls:
+              parameterType: LIST
+            postgres_database:
+              parameterType: STRING
+            postgres_host:
+              parameterType: STRING
+            postgres_password:
+              parameterType: STRING
+            postgres_port:
+              parameterType: NUMBER_INTEGER
+            postgres_user:
+              parameterType: STRING
+            table_name:
+              parameterType: STRING
+            tokenizer:
+              parameterType: STRING
+        outputDefinitions:
+          parameters:
+            num_rows_inserted:
+              parameterType: NUMBER_INTEGER
+    deploymentSpec:
+      executors:
+        exec-generate-and-store:
+          container:
+            args:
+            - --executor_input
+            - '{{$}}'
+            - --function_to_execute
+            - generate_and_store
+            command:
+            - sh
+            - -c
+            - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+              \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+              \ python3 -m pip install --quiet --no-warn-script-location 'requests==2.32.3'\
+              \ 'urllib3==2.2.1'  &&  python3 -m pip install --quiet --no-warn-script-location\
+              \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+              3.9\"' && \"$0\" \"$@\"\n"
+            - sh
+            - -ec
+            - 'program_path=$(mktemp -d)
+    
+    
+              printf "%s" "$0" > "$program_path/ephemeral_component.py"
+    
+              _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+    
+              '
+            - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+              \ *\n\ndef generate_and_store(\n    pdf_urls: List[str],\n    max_tokens:\
+              \ int,\n    tokenizer: str,\n    embedding_endpoint: str,\n    embedding_batch_size:\
+              \ int,\n    postgres_host: str,\n    postgres_port: int,\n    postgres_database:\
+              \ str,\n    postgres_user: str,\n    postgres_password: str,\n    table_name:\
+              \ str\n) -> NamedTuple('Outputs', [('num_rows_inserted', int)]):\n    \"\
+              \"\"Process PDFs end-to-end: download, chunk, embed, store\"\"\"\n    import\
+              \ requests\n    import subprocess\n    import json\n    import urllib3\n\
+              \    import psycopg2\n    from pathlib import Path\n    import tempfile\n\
+              \n    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\
+              \n    # Read ServiceAccount token\n    with open('/var/run/secrets/kubernetes.io/serviceaccount/token',\
+              \ 'r') as f:\n        token = f.read().strip()\n\n    all_chunks = []\n\n\
+              \    # Process each PDF\n    for pdf_url in pdf_urls:\n        pdf_name\
+              \ = pdf_url.split('/')[-1]\n        print(f\"\\n=== Processing {pdf_name}\
+              \ ===\")\n\n        # Download\n        pdf_path = f'/tmp/{pdf_name}'\n\
+              \        response = requests.get(pdf_url)\n        response.raise_for_status()\n\
+              \        Path(pdf_path).write_bytes(response.content)\n        print(f\"\
+              \u2713 Downloaded\")\n\n        # Convert\n        json_path = f'/tmp/{pdf_name}.json'\n\
+              \        subprocess.run(['docling', pdf_path, '--output', json_path, '--ocr'],\
+              \ check=True)\n        print(f\"\u2713 Converted\")\n\n        # Chunk\n\
+              \        chunks_path = f'/tmp/{pdf_name}_chunks.jsonl'\n        subprocess.run(['docling-chunk',\
+              \ json_path, '--output', chunks_path,\n                       '--tokenizer',\
+              \ tokenizer, '--max-tokens', str(max_tokens)], check=True)\n\n        for\
+              \ line in Path(chunks_path).read_text().strip().split('\\n'):\n        \
+              \    if line.strip():\n                all_chunks.append(json.loads(line))\n\
+              \        print(f\"\u2713 Chunked: {len(all_chunks)} total chunks so far\"\
+              )\n\n    print(f\"\\n=== Generating embeddings for {len(all_chunks)} chunks\
+              \ ===\")\n\n    # Generate embeddings in batches\n    for i in range(0,\
+              \ len(all_chunks), embedding_batch_size):\n        batch = all_chunks[i:i\
+              \ + embedding_batch_size]\n        texts = [chunk['text'] for chunk in batch]\n\
+              \n        response = requests.post(\n            f'{embedding_endpoint}/v1/embeddings',\n\
+              \            headers={'Authorization': f'Bearer {token}'},\n           \
+              \ json={'input': texts},\n            verify=False\n        )\n        response.raise_for_status()\n\
+              \n        embeddings = response.json()['data']\n        for chunk, embed_data\
+              \ in zip(batch, embeddings):\n            chunk['embedding'] = embed_data['embedding']\n\
+              \n        print(f\"\u2713 Batch {i//embedding_batch_size + 1}/{(len(all_chunks)-1)//embedding_batch_size\
+              \ + 1}\")\n\n    print(f\"\\n=== Storing {len(all_chunks)} chunks in PostgreSQL\
+              \ ===\")\n\n    # Connect to PostgreSQL\n    conn = psycopg2.connect(\n\
+              \        host=postgres_host,\n        port=postgres_port,\n        database=postgres_database,\n\
+              \        user=postgres_user,\n        password=postgres_password\n    )\n\
+              \    cursor = conn.cursor()\n\n    # Setup table\n    cursor.execute(\"\
+              CREATE EXTENSION IF NOT EXISTS vector;\")\n    cursor.execute(f\"\"\"\n\
+              \        CREATE TABLE IF NOT EXISTS {table_name} (\n            id SERIAL\
+              \ PRIMARY KEY,\n            text TEXT NOT NULL,\n            embedding vector(768)\
+              \ NOT NULL,\n            source VARCHAR(1024),\n            chunk_index\
+              \ INTEGER,\n            metadata JSONB,\n            created_at TIMESTAMP\
+              \ DEFAULT CURRENT_TIMESTAMP\n        );\n    \"\"\")\n    cursor.execute(f\"\
+              \"\"\n        DO $$\n        BEGIN\n            IF NOT EXISTS (SELECT 1\
+              \ FROM pg_indexes WHERE indexname = '{table_name}_embedding_idx') THEN\n\
+              \                CREATE INDEX {table_name}_embedding_idx \n            \
+              \    ON {table_name} USING hnsw (embedding vector_cosine_ops);\n       \
+              \     END IF;\n        END $$;\n    \"\"\")\n    conn.commit()\n    print(f\"\
+              \u2713 Table ready\")\n\n    # Insert chunks\n    for chunk in all_chunks:\n\
+              \        embedding_str = str(chunk['embedding'])\n        metadata = {k:\
+              \ v for k, v in chunk.items() if k not in ['text', 'embedding']}\n\n   \
+              \     cursor.execute(f\"\"\"\n            INSERT INTO {table_name} (text,\
+              \ embedding, source, chunk_index, metadata)\n            VALUES (%s, %s::vector,\
+              \ %s, %s, %s)\n        \"\"\", (\n            chunk['text'],\n         \
+              \   embedding_str,\n            metadata.get('source', 'unknown'),\n   \
+              \         metadata.get('chunk_index'),\n            json.dumps(metadata)\n\
+              \        ))\n\n    conn.commit()\n    cursor.close()\n    conn.close()\n\
+              \n    print(f\"\u2713 Inserted {len(all_chunks)} rows\")\n\n    outputs\
+              \ = NamedTuple('Outputs', [('num_rows_inserted', int)])\n    return outputs(len(all_chunks))\n\
+              \n"
+            env:
+            - name: HF_HOME
+              value: /.cache
+            image: registry.access.redhat.com/ubi9/python-311:latest
+            resources:
+              cpuLimit: 2.0
+              memoryLimit: 4.294967296
+              resourceCpuLimit: '2'
+              resourceMemoryLimit: 4Gi
+    pipelineInfo:
+      description: "End-to-end RAG: PDF URLs \u2192 PostgreSQL embeddings (no manual steps)"
+      name: rag-data-ingestion
+    root:
+      dag:
+        tasks:
+          generate-and-store:
+            cachingOptions:
+              enableCache: true
+            componentRef:
+              name: comp-generate-and-store
+            inputs:
+              parameters:
+                embedding_batch_size:
+                  componentInputParameter: embedding_batch_size
+                embedding_endpoint:
+                  componentInputParameter: embedding_endpoint
+                max_tokens:
+                  componentInputParameter: max_tokens
+                pdf_urls:
+                  componentInputParameter: pdf_urls
+                postgres_database:
+                  componentInputParameter: postgres_database
+                postgres_host:
+                  componentInputParameter: postgres_host
+                postgres_password:
+                  componentInputParameter: postgres_password
+                postgres_port:
+                  componentInputParameter: postgres_port
+                postgres_user:
+                  componentInputParameter: postgres_user
+                table_name:
+                  componentInputParameter: postgres_table_name
+                tokenizer:
+                  componentInputParameter: tokenizer_model
+            taskInfo:
+              name: RAG Data Ingestion
+      inputDefinitions:
+        parameters:
+          embedding_batch_size:
+            defaultValue: 32.0
+            isOptional: true
+            parameterType: NUMBER_INTEGER
+          embedding_endpoint:
+            defaultValue: https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443
+            isOptional: true
+            parameterType: STRING
+          max_tokens:
+            defaultValue: 512.0
+            isOptional: true
+            parameterType: NUMBER_INTEGER
+          pdf_urls:
+            defaultValue:
+            - https://github.com/DS4SD/docling/raw/refs/heads/main/tests/data/2206.01062.pdf
+            isOptional: true
+            parameterType: LIST
+          postgres_database:
+            defaultValue: ragdb
+            isOptional: true
+            parameterType: STRING
+          postgres_host:
+            defaultValue: rag-postgresql.external-db-generation-llm-rag.svc.cluster.local
+            isOptional: true
+            parameterType: STRING
+          postgres_password:
+            defaultValue: ''
+            isOptional: true
+            parameterType: STRING
+          postgres_port:
+            defaultValue: 5432.0
+            isOptional: true
+            parameterType: NUMBER_INTEGER
+          postgres_table_name:
+            defaultValue: document_chunks
+            isOptional: true
+            parameterType: STRING
+          postgres_user:
+            defaultValue: raguser
+            isOptional: true
+            parameterType: STRING
+          tokenizer_model:
+            defaultValue: sentence-transformers/all-MiniLM-L6-v2
+            isOptional: true
+            parameterType: STRING
+    schemaVersion: 2.1.0
+    sdkVersion: kfp-2.16.0
