@@ -1026,6 +1026,9 @@ data:
         deploymentSpec:
           executors:
             exec-docling-chunk:
+              env:
+              - name: HF_HOME
+                value: /mainctrfs/.cache
               tolerations:
               - key: nvidia.com/gpu
                 operator: Exists
