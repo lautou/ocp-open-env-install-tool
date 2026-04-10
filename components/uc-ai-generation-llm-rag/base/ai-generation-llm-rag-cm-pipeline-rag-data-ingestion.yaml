@@ -7,7 +7,7 @@ data:
   pipeline.yaml: |
     # PIPELINE DEFINITION
     # Name: rag-data-ingestion
-    # Description: End-to-end RAG: PDF URLs -> PostgreSQL embeddings (no manual steps)
+    # Description: End-to-end RAG: PDF URLs -> PostgreSQL embeddings (3-step pipeline)
     # Inputs:
     #    embedding_batch_size: int [Default: 32.0]
     #    embedding_endpoint: str [Default: 'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443']
@@ -21,18 +21,58 @@ data:
     #    postgres_user: str [Default: 'raguser']
     #    tokenizer_model: str [Default: 'sentence-transformers/all-MiniLM-L6-v2']
     components:
-      comp-generate-and-store:
-        executorLabel: exec-generate-and-store
+      comp-generate-embeddings:
+        executorLabel: exec-generate-embeddings
         inputDefinitions:
+          artifacts:
+            chunks_path:
+              artifactType:
+                schemaTitle: system.Dataset
+                schemaVersion: 0.0.1
           parameters:
-            embedding_batch_size:
+            batch_size:
+              defaultValue: 32.0
+              isOptional: true
               parameterType: NUMBER_INTEGER
             embedding_endpoint:
               parameterType: STRING
+        outputDefinitions:
+          artifacts:
+            output_path:
+              artifactType:
+                schemaTitle: system.Dataset
+                schemaVersion: 0.0.1
+          parameters:
+            Output:
+              parameterType: NUMBER_INTEGER
+      comp-process-pdfs-to-chunks:
+        executorLabel: exec-process-pdfs-to-chunks
+        inputDefinitions:
+          parameters:
             max_tokens:
               parameterType: NUMBER_INTEGER
             pdf_urls:
               parameterType: LIST
+            tokenizer:
+              parameterType: STRING
+        outputDefinitions:
+          artifacts:
+            output_chunks:
+              artifactType:
+                schemaTitle: system.Dataset
+                schemaVersion: 0.0.1
+          parameters:
+            Output:
+              parameterType: NUMBER_INTEGER
+      comp-store-in-pgvector:
+        executorLabel: exec-store-in-pgvector
+        inputDefinitions:
+          artifacts:
+            chunks_with_embeddings_path:
+              artifactType:
+                schemaTitle: system.Dataset
+                schemaVersion: 0.0.1
+          parameters:
             postgres_database:
               parameterType: STRING
             postgres_host:
@@ -44,31 +84,33 @@ data:
             postgres_user:
               parameterType: STRING
             table_name:
-              parameterType: STRING
-            tokenizer:
+              defaultValue: document_chunks
+              isOptional: true
               parameterType: STRING
         outputDefinitions:
           parameters:
             num_rows_inserted:
               parameterType: NUMBER_INTEGER
+            table_name:
+              parameterType: STRING
     deploymentSpec:
       executors:
-        exec-generate-and-store:
+        exec-generate-embeddings:
           container:
             args:
             - --executor_input
             - '{{$}}'
             - --function_to_execute
-            - generate_and_store
+            - generate_embeddings
             command:
             - sh
             - -c
             - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
               \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
               \ python3 -m pip install --quiet --no-warn-script-location 'requests==2.32.3'\
-              \ 'psycopg2-binary==2.9.9' 'urllib3==2.2.1'  &&  python3 -m pip install\
-              \ --quiet --no-warn-script-location 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5;\
-              \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+              \ 'urllib3==2.2.1'  &&  python3 -m pip install --quiet --no-warn-script-location\
+              \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+              3.9\"' && \"$0\" \"$@\"\n"
             - sh
             - -ec
             - 'program_path=$(mktemp -d)
@@ -80,67 +122,88 @@ data:
     
               '
             - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-              \ *\n\ndef generate_and_store(\n    pdf_urls: List[str],\n    max_tokens:\
-              \ int,\n    tokenizer: str,\n    embedding_endpoint: str,\n    embedding_batch_size:\
-              \ int,\n    postgres_host: str,\n    postgres_port: int,\n    postgres_database:\
-              \ str,\n    postgres_user: str,\n    postgres_password: str,\n    table_name:\
-              \ str\n) -> NamedTuple('Outputs', [('num_rows_inserted', int)]):\n    \"\
-              \"\"Process PDFs end-to-end: download, chunk, embed, store\"\"\"\n    import\
-              \ requests\n    import subprocess\n    import json\n    import urllib3\n\
-              \    import psycopg2\n    from pathlib import Path\n\n    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\
-              \n    # Read ServiceAccount token\n    with open('/var/run/secrets/kubernetes.io/serviceaccount/token',\
-              \ 'r') as f:\n        token = f.read().strip()\n\n    all_chunks = []\n\n\
-              \    # Process each PDF\n    for pdf_url in pdf_urls:\n        pdf_name\
-              \ = pdf_url.split('/')[-1]\n        print(f\"\\n=== Processing {pdf_name}\
-              \ ===\")\n\n        # Download\n        pdf_path = f'/tmp/{pdf_name}'\n\
-              \        response = requests.get(pdf_url)\n        response.raise_for_status()\n\
-              \        Path(pdf_path).write_bytes(response.content)\n        print(f\"\
-              OK Downloaded\")\n\n        # Convert\n        json_path = f'/tmp/{pdf_name}.json'\n\
-              \        subprocess.run(['docling', pdf_path, '--output', json_path, '--ocr'],\
-              \ check=True)\n        print(f\"OK Converted\")\n\n        # Chunk\n   \
-              \     chunks_path = f'/tmp/{pdf_name}_chunks.jsonl'\n        subprocess.run(['docling-chunk',\
-              \ json_path, '--output', chunks_path,\n                       '--tokenizer',\
-              \ tokenizer, '--max-tokens', str(max_tokens)], check=True)\n\n        for\
-              \ line in Path(chunks_path).read_text().strip().split('\\n'):\n        \
-              \    if line.strip():\n                all_chunks.append(json.loads(line))\n\
-              \        print(f\"OK Chunked: {len(all_chunks)} total chunks so far\")\n\
-              \n    print(f\"\\n=== Generating embeddings for {len(all_chunks)} chunks\
-              \ ===\")\n\n    # Generate embeddings in batches\n    for i in range(0,\
-              \ len(all_chunks), embedding_batch_size):\n        batch = all_chunks[i:i\
-              \ + embedding_batch_size]\n        texts = [chunk['text'] for chunk in batch]\n\
-              \n        response = requests.post(\n            f'{embedding_endpoint}/v1/embeddings',\n\
+              \ *\n\ndef generate_embeddings(\n    chunks_path: dsl.Input[dsl.Dataset],\n\
+              \    output_path: dsl.Output[dsl.Dataset],\n    embedding_endpoint: str,\n\
+              \    batch_size: int = 32\n) -> int:\n    \"\"\"Generate embeddings for\
+              \ chunks using granite-embedding service\"\"\"\n    import requests\n  \
+              \  import json\n    import urllib3\n    from pathlib import Path\n\n   \
+              \ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)\n\n\
+              \    with open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r')\
+              \ as f:\n        token = f.read().strip()\n\n    chunks = []\n    for line\
+              \ in Path(chunks_path.path).read_text().strip().split('\\n'):\n        if\
+              \ line.strip():\n            chunks.append(json.loads(line))\n\n    print(f\"\
+              Generating embeddings for {len(chunks)} chunks...\")\n\n    chunks_with_embeddings\
+              \ = []\n    for i in range(0, len(chunks), batch_size):\n        batch =\
+              \ chunks[i:i + batch_size]\n        texts = [chunk['text'] for chunk in\
+              \ batch]\n\n        response = requests.post(\n            f'{embedding_endpoint}/v1/embeddings',\n\
               \            headers={'Authorization': f'Bearer {token}'},\n           \
               \ json={'input': texts},\n            verify=False\n        )\n        response.raise_for_status()\n\
-              \n        embeddings = response.json()['data']\n        for chunk, embed_data\
+              \n        embeddings = response.json()['data']\n\n        for chunk, embed_data\
               \ in zip(batch, embeddings):\n            chunk['embedding'] = embed_data['embedding']\n\
-              \n        print(f\"OK Batch {i//embedding_batch_size + 1}/{(len(all_chunks)-1)//embedding_batch_size\
-              \ + 1}\")\n\n    print(f\"\\n=== Storing {len(all_chunks)} chunks in PostgreSQL\
-              \ ===\")\n\n    # Connect to PostgreSQL\n    conn = psycopg2.connect(\n\
-              \        host=postgres_host,\n        port=postgres_port,\n        database=postgres_database,\n\
-              \        user=postgres_user,\n        password=postgres_password\n    )\n\
-              \    cursor = conn.cursor()\n\n    # Setup table\n    cursor.execute(\"\
-              CREATE EXTENSION IF NOT EXISTS vector;\")\n    cursor.execute(f\"\"\"\n\
-              \        CREATE TABLE IF NOT EXISTS {table_name} (\n            id SERIAL\
-              \ PRIMARY KEY,\n            text TEXT NOT NULL,\n            embedding vector(768)\
-              \ NOT NULL,\n            source VARCHAR(1024),\n            chunk_index\
-              \ INTEGER,\n            metadata JSONB,\n            created_at TIMESTAMP\
-              \ DEFAULT CURRENT_TIMESTAMP\n        );\n    \"\"\")\n    cursor.execute(f\"\
-              \"\"\n        DO $$\n        BEGIN\n            IF NOT EXISTS (SELECT 1\
-              \ FROM pg_indexes WHERE indexname = '{table_name}_embedding_idx') THEN\n\
-              \                CREATE INDEX {table_name}_embedding_idx \n            \
-              \    ON {table_name} USING hnsw (embedding vector_cosine_ops);\n       \
-              \     END IF;\n        END $$;\n    \"\"\")\n    conn.commit()\n    print(f\"\
-              OK Table ready\")\n\n    # Insert chunks\n    for chunk in all_chunks:\n\
-              \        embedding_str = str(chunk['embedding'])\n        metadata = {k:\
-              \ v for k, v in chunk.items() if k not in ['text', 'embedding']}\n\n   \
-              \     cursor.execute(f\"\"\"\n            INSERT INTO {table_name} (text,\
-              \ embedding, source, chunk_index, metadata)\n            VALUES (%s, %s::vector,\
-              \ %s, %s, %s)\n        \"\"\", (\n            chunk['text'],\n         \
-              \   embedding_str,\n            metadata.get('source', 'unknown'),\n   \
-              \         metadata.get('chunk_index'),\n            json.dumps(metadata)\n\
-              \        ))\n\n    conn.commit()\n    cursor.close()\n    conn.close()\n\
-              \n    print(f\"OK Inserted {len(all_chunks)} rows\")\n\n    outputs = NamedTuple('Outputs',\
-              \ [('num_rows_inserted', int)])\n    return outputs(len(all_chunks))\n\n"
+              \            chunks_with_embeddings.append(chunk)\n\n        batch_num =\
+              \ i//batch_size + 1\n        total_batches = (len(chunks)-1)//batch_size\
+              \ + 1\n        print(f\"Batch {batch_num}/{total_batches} complete\")\n\n\
+              \    output_lines = [json.dumps(chunk) for chunk in chunks_with_embeddings]\n\
+              \    Path(output_path.path).write_text('\\n'.join(output_lines))\n\n   \
+              \ print(f\"Generated {len(chunks_with_embeddings)} embeddings (768-dim)\"\
+              )\n\n    return len(chunks_with_embeddings)\n\n"
+            image: registry.access.redhat.com/ubi9/python-311:latest
+        exec-process-pdfs-to-chunks:
+          container:
+            args:
+            - --executor_input
+            - '{{$}}'
+            - --function_to_execute
+            - process_pdfs_to_chunks
+            command:
+            - sh
+            - -c
+            - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+              \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+              \ python3 -m pip install --quiet --no-warn-script-location 'requests==2.32.3'\
+              \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+              \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+              $0\" \"$@\"\n"
+            - sh
+            - -ec
+            - 'program_path=$(mktemp -d)
+    
+    
+              printf "%s" "$0" > "$program_path/ephemeral_component.py"
+    
+              _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+    
+              '
+            - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+              \ *\n\ndef process_pdfs_to_chunks(\n    pdf_urls: List[str],\n    max_tokens:\
+              \ int,\n    tokenizer: str,\n    output_chunks: dsl.Output[dsl.Dataset]\n\
+              ) -> int:\n    \"\"\"Download PDFs, convert to JSON, and chunk into semantic\
+              \ chunks\"\"\"\n    import requests\n    import subprocess\n    import json\n\
+              \    from pathlib import Path\n\n    all_chunks = []\n\n    for pdf_url\
+              \ in pdf_urls:\n        pdf_name = pdf_url.split('/')[-1]\n        print(f\"\
+              \\n=== Processing {pdf_name} ===\")\n\n        # Download PDF\n        pdf_path\
+              \ = f'/tmp/{pdf_name}'\n        print(f\"[1/3] Downloading...\")\n     \
+              \   response = requests.get(pdf_url)\n        response.raise_for_status()\n\
+              \        Path(pdf_path).write_bytes(response.content)\n        print(f\"\
+              Downloaded {len(response.content)} bytes\")\n\n        # Convert to JSON\n\
+              \        json_path = f'/tmp/{pdf_name}.json'\n        print(f\"[2/3] Converting\
+              \ to JSON...\")\n        result = subprocess.run(\n            ['docling',\
+              \ pdf_path, '--output', json_path, '--ocr'],\n            capture_output=True,\
+              \ text=True\n        )\n        if result.returncode != 0:\n           \
+              \ raise RuntimeError(f\"Docling conversion failed: {result.stderr}\")\n\
+              \        print(f\"Converted to JSON\")\n\n        # Chunk document\n   \
+              \     chunks_path = f'/tmp/{pdf_name}_chunks.jsonl'\n        print(f\"[3/3]\
+              \ Chunking...\")\n        result = subprocess.run(\n            ['docling-chunk',\
+              \ json_path, '--output', chunks_path,\n             '--tokenizer', tokenizer,\
+              \ '--max-tokens', str(max_tokens)],\n            capture_output=True, text=True\n\
+              \        )\n        if result.returncode != 0:\n            raise RuntimeError(f\"\
+              Chunking failed: {result.stderr}\")\n\n        # Collect chunks from this\
+              \ PDF\n        for line in Path(chunks_path).read_text().strip().split('\\\
+              n'):\n            if line.strip():\n                all_chunks.append(line)\n\
+              \n        print(f\"Processed {pdf_name}: {len(all_chunks)} total chunks\
+              \ so far\")\n\n    # Write all chunks to output\n    Path(output_chunks.path).write_text('\\\
+              n'.join(all_chunks))\n    print(f\"\\n=== Total: {len(all_chunks)} chunks\
+              \ from {len(pdf_urls)} PDFs ===\")\n\n    return len(all_chunks)\n\n"
             env:
             - name: HF_HOME
               value: /.cache
@@ -150,27 +213,126 @@ data:
               memoryLimit: 4.294967296
               resourceCpuLimit: '2'
               resourceMemoryLimit: 4Gi
+        exec-store-in-pgvector:
+          container:
+            args:
+            - --executor_input
+            - '{{$}}'
+            - --function_to_execute
+            - store_in_pgvector
+            command:
+            - sh
+            - -c
+            - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+              \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+              \ python3 -m pip install --quiet --no-warn-script-location 'psycopg2-binary==2.9.9'\
+              \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+              \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+              $0\" \"$@\"\n"
+            - sh
+            - -ec
+            - 'program_path=$(mktemp -d)
+    
+    
+              printf "%s" "$0" > "$program_path/ephemeral_component.py"
+    
+              _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+    
+              '
+            - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+              \ *\n\ndef store_in_pgvector(\n    chunks_with_embeddings_path: dsl.Input[dsl.Dataset],\n\
+              \    postgres_host: str,\n    postgres_port: int,\n    postgres_database:\
+              \ str,\n    postgres_user: str,\n    postgres_password: str,\n    table_name:\
+              \ str = 'document_chunks'\n) -> NamedTuple('Outputs', [('num_rows_inserted',\
+              \ int), ('table_name', str)]):\n    \"\"\"Store chunks with embeddings in\
+              \ PostgreSQL + pgvector\"\"\"\n    import psycopg2\n    import json\n  \
+              \  from pathlib import Path\n\n    print(f\"Connecting to {postgres_host}:{postgres_port}/{postgres_database}\"\
+              )\n\n    conn = psycopg2.connect(\n        host=postgres_host,\n       \
+              \ port=postgres_port,\n        database=postgres_database,\n        user=postgres_user,\n\
+              \        password=postgres_password\n    )\n\n    cursor = conn.cursor()\n\
+              \n    cursor.execute(\"CREATE EXTENSION IF NOT EXISTS vector;\")\n\n   \
+              \ cursor.execute(f\"\"\"\n        CREATE TABLE IF NOT EXISTS {table_name}\
+              \ (\n            id SERIAL PRIMARY KEY,\n            text TEXT NOT NULL,\n\
+              \            embedding vector(768) NOT NULL,\n            source VARCHAR(1024),\n\
+              \            chunk_index INTEGER,\n            metadata JSONB,\n       \
+              \     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n        );\n    \"\
+              \"\")\n\n    cursor.execute(f\"\"\"\n        DO $$\n        BEGIN\n    \
+              \        IF NOT EXISTS (\n                SELECT 1 FROM pg_indexes \n  \
+              \              WHERE indexname = '{table_name}_embedding_idx'\n        \
+              \    ) THEN\n                CREATE INDEX {table_name}_embedding_idx \n\
+              \                ON {table_name} USING hnsw (embedding vector_cosine_ops);\n\
+              \            END IF;\n        END $$;\n    \"\"\")\n\n    conn.commit()\n\
+              \    print(f\"Table '{table_name}' ready with HNSW index\")\n\n    chunks\
+              \ = []\n    for line in Path(chunks_with_embeddings_path.path).read_text().strip().split('\\\
+              n'):\n        if line.strip():\n            chunks.append(json.loads(line))\n\
+              \n    print(f\"Inserting {len(chunks)} chunks...\")\n\n    for chunk in\
+              \ chunks:\n        embedding_str = str(chunk['embedding'])\n        metadata\
+              \ = {k: v for k, v in chunk.items() if k not in ['text', 'embedding']}\n\
+              \n        cursor.execute(f\"\"\"\n            INSERT INTO {table_name} (text,\
+              \ embedding, source, chunk_index, metadata)\n            VALUES (%s, %s::vector,\
+              \ %s, %s, %s)\n        \"\"\", (\n            chunk['text'],\n         \
+              \   embedding_str,\n            metadata.get('source', 'unknown'),\n   \
+              \         metadata.get('chunk_index'),\n            json.dumps(metadata)\n\
+              \        ))\n\n    conn.commit()\n    cursor.close()\n    conn.close()\n\
+              \n    print(f\"Completed insertion of {len(chunks)} rows into '{table_name}'\"\
+              )\n\n    outputs = NamedTuple('Outputs', [('num_rows_inserted', int), ('table_name',\
+              \ str)])\n    return outputs(len(chunks), table_name)\n\n"
+            image: registry.access.redhat.com/ubi9/python-311:latest
     pipelineInfo:
-      description: 'End-to-end RAG: PDF URLs -> PostgreSQL embeddings (no manual steps)'
+      description: 'End-to-end RAG: PDF URLs -> PostgreSQL embeddings (3-step pipeline)'
       name: rag-data-ingestion
     root:
       dag:
         tasks:
-          generate-and-store:
+          generate-embeddings:
             cachingOptions:
               enableCache: true
             componentRef:
-              name: comp-generate-and-store
+              name: comp-generate-embeddings
+            dependentTasks:
+            - process-pdfs-to-chunks
             inputs:
+              artifacts:
+                chunks_path:
+                  taskOutputArtifact:
+                    outputArtifactKey: output_chunks
+                    producerTask: process-pdfs-to-chunks
               parameters:
-                embedding_batch_size:
+                batch_size:
                   componentInputParameter: embedding_batch_size
                 embedding_endpoint:
                   componentInputParameter: embedding_endpoint
+            taskInfo:
+              name: 2. Generate Embeddings
+          process-pdfs-to-chunks:
+            cachingOptions:
+              enableCache: true
+            componentRef:
+              name: comp-process-pdfs-to-chunks
+            inputs:
+              parameters:
                 max_tokens:
                   componentInputParameter: max_tokens
                 pdf_urls:
                   componentInputParameter: pdf_urls
+                tokenizer:
+                  componentInputParameter: tokenizer_model
+            taskInfo:
+              name: 1. Process PDFs to Chunks
+          store-in-pgvector:
+            cachingOptions:
+              enableCache: true
+            componentRef:
+              name: comp-store-in-pgvector
+            dependentTasks:
+            - generate-embeddings
+            inputs:
+              artifacts:
+                chunks_with_embeddings_path:
+                  taskOutputArtifact:
+                    outputArtifactKey: output_path
+                    producerTask: generate-embeddings
+              parameters:
                 postgres_database:
                   componentInputParameter: postgres_database
                 postgres_host:
@@ -183,10 +345,8 @@ data:
                   componentInputParameter: postgres_user
                 table_name:
                   componentInputParameter: postgres_table_name
-                tokenizer:
-                  componentInputParameter: tokenizer_model
             taskInfo:
-              name: RAG Data Ingestion
+              name: 3. Store in PostgreSQL
       inputDefinitions:
         parameters:
           embedding_batch_size:
