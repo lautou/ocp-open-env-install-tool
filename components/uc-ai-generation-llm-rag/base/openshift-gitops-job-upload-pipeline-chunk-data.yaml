@@ -1,11 +1,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: upload-pipeline-docling-standard
-  namespace: openshift-gitops
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
+  name: upload-pipeline-chunk-data
+  namespace: openshift-gitops
 spec:
   template:
     spec:
@@ -20,7 +20,7 @@ spec:
         - |
           set -e
           echo "Fetching pipeline definition from ConfigMap..."
-          oc get configmap pipeline-docling-standard -n ai-generation-llm-rag \
+          oc get configmap pipeline-chunk-data -n ai-generation-llm-rag \
             -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
 
           if [ ! -s /pipeline/pipeline.yaml ]; then

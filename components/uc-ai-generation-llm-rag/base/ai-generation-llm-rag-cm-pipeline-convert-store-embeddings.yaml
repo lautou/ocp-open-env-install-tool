@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pipeline-rag-embedding-storage
+  name: pipeline-convert-store-embeddings
   namespace: ai-generation-llm-rag
 data:
   pipeline.yaml: |
     # PIPELINE DEFINITION
-    # Name: rag-embedding-storage-pipeline
-    # Description: RAG Stage 2: Generate embeddings and store in pgvector
+    # Name: convert-store-embeddings
+    # Description: Convert chunks to embeddings and store in pgvector
     # Inputs:
     #    chunks_directory: str [Default: '']
     #    embedding_batch_size: int [Default: 32.0]
@@ -375,8 +375,8 @@ data:
               resourceMemoryLimit: 2G
               resourceMemoryRequest: 512M
     pipelineInfo:
-      description: 'RAG Stage 2: Generate embeddings and store in pgvector'
-      name: rag-embedding-storage-pipeline
+      description: Convert chunks to embeddings and store in pgvector
+      name: convert-store-embeddings
     root:
       dag:
         tasks:

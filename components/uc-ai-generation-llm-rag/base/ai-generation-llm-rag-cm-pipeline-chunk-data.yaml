@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pipeline-docling-standard
+  name: pipeline-chunk-data
   namespace: ai-generation-llm-rag
 data:
   pipeline.yaml: |
     # PIPELINE DEFINITION
-    # Name: data-processing-docling-standard-pipeline
-    # Description: Docling standard convert pipeline by the Data Processing Team
+    # Name: chunk-data
+    # Description: Convert PDFs to chunks using Docling
     # Inputs:
     #    docling_allow_external_plugins: bool [Default: False]
     #    docling_chunk_enabled: bool [Default: False]
@@ -822,8 +822,8 @@ data:
               \ done\", flush=True)\n\n"
             image: registry.access.redhat.com/ubi9/python-311:9.7-1775725322
     pipelineInfo:
-      description: Docling standard convert pipeline by the Data Processing Team
-      name: data-processing-docling-standard-pipeline
+      description: Convert PDFs to chunks using Docling
+      name: chunk-data
     root:
       dag:
         tasks:

@@ -7,6 +7,6 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   resourceNames:
-  - pipeline-docling-standard
-  - pipeline-rag-embedding-storage
+  - pipeline-chunk-data
+  - pipeline-convert-store-embeddings
   verbs: ["get"]
