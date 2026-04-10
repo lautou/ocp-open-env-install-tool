@@ -27,6 +27,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 **Rationale**: AI can discover simple info dynamically. Document knowledge that CANNOT be easily discovered.
 
 **Externalized docs**: Complex topics moved to `docs/claude/`:
+- **[argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)** - ⚠️ **CRITICAL**: Required patterns for Applications/CRs (ignoreDifferences, managed-by labels, SkipDryRunOnMissingResource)
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns (CMP plugin, network policies, cert-manager, ODF, RHCL, ACK, etc.)
 - **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (14 Jobs)
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
@@ -42,6 +43,37 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
   - **Outstanding issues**: 0 - All technical debt eliminated
 
 **Before working on specific topics, read the relevant external doc.**
+
+## ⚠️ CRITICAL: Required ArgoCD Patterns
+
+**MUST READ BEFORE CREATING COMPONENTS**: [argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)
+
+**3 patterns that MUST ALWAYS be included** (see checklist for full details):
+
+1. **ignoreDifferences for cluster-versions ConfigMap**
+   - ✅ Required in ALL Application/ApplicationSet definitions
+   - Pattern: Ignore `/metadata/annotations` on `cluster-versions` ConfigMap
+   - Why: Shared resource used by all components for version tracking
+
+2. **argocd.argoproj.io/managed-by label in Namespaces**
+   - ✅ Required in ALL cluster-scoped Namespace resources
+   - Pattern: `argocd.argoproj.io/managed-by: openshift-gitops`
+   - Why: ArgoCD namespace management and permissions
+
+3. **SkipDryRunOnMissingResource for Operator CRs**
+   - ✅ Required in ALL operator Custom Resources
+   - Pattern: `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true`
+   - Why: CRD validation fails before operator is deployed → deadlock
+
+**Pre-commit checklist**:
+- [ ] Application/ApplicationSet has ignoreDifferences for cluster-versions?
+- [ ] Namespace has argocd.argoproj.io/managed-by label?
+- [ ] Operator CRs have SkipDryRunOnMissingResource annotation?
+
+**Failure symptoms if forgotten**:
+- Missing ignoreDifferences → Application OutOfSync (but Healthy)
+- Missing managed-by → ArgoCD permission errors
+- Missing SkipDryRunOnMissingResource → Application stuck OutOfSync/Missing forever
 
 ## YAML Formatting Standards
 
