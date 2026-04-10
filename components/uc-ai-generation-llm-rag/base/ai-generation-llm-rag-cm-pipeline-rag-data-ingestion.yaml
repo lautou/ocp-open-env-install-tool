@@ -37,6 +37,17 @@ data:
               parameterType: NUMBER_INTEGER
             pipelinechannel--docling_chunk_merge_peers:
               parameterType: BOOLEAN
+      comp-collect-chunks:
+        executorLabel: exec-collect-chunks
+        outputDefinitions:
+          artifacts:
+            output_path:
+              artifactType:
+                schemaTitle: system.Artifact
+                schemaVersion: 0.0.1
+          parameters:
+            Output:
+              parameterType: NUMBER_INTEGER
       comp-create-pdf-splits:
         executorLabel: exec-create-pdf-splits
         inputDefinitions:
@@ -406,6 +417,29 @@ data:
               '
             - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef create_pdf_splits(\n    input_path: dsl.Input[dsl.Artifact],\n    num_splits: int,\n) -> List[List[str]]:\n    \"\"\"\n    Create a list of PDF splits.\n\n    Args:\n        input_path: Path to the input directory containing PDF files.\n        num_splits: Number of splits to create.\n    \"\"\"\n    from pathlib import Path  # pylint: disable=import-outside-toplevel\n\n    input_path_p = Path(input_path.path)\n\n    all_pdfs = [path.name for path in input_path_p.glob(\"*.pdf\")]\n    all_splits = [all_pdfs[i::num_splits] for i in range(num_splits)]\n    filled_splits = list(filter(None, all_splits))\n    return filled_splits\n\n"
             image: registry.access.redhat.com/ubi9/python-311:9.6-1755074620
+        exec-collect-chunks:
+          container:
+            args:
+            - --executor_input
+            - '{{$}}'
+            - --function_to_execute
+            - collect_chunks
+            command:
+            - sh
+            - -c
+            - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'boto3'  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+            - sh
+            - -ec
+            - 'program_path=$(mktemp -d)
+
+
+              printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+              _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+              '
+            - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef collect_chunks(\n    output_path: dsl.Output[dsl.Artifact],\n) -> int:\n    \"\"\"\n    Collect all chunked JSONL files from parallel for-loop iterations.\n    \n    Reads chunk files produced by docling-chunk tasks in parallel iterations,\n    merges them into a single JSONL file for downstream processing.\n    \n    Args:\n        output_path: Output artifact containing merged chunks\n    \n    Returns:\n        Total number of chunks collected\n    \"\"\"\n    import os\n    import json\n    import boto3\n    from pathlib import Path\n    \n    # Get KFP context\n    run_id = os.environ.get('KFP_RUN_ID')\n    if not run_id:\n        raise RuntimeError(\"KFP_RUN_ID not found in environment\")\n    \n    # S3 configuration from pipeline-artifacts secret\n    s3_endpoint = os.environ.get('AWS_S3_ENDPOINT', 'https://s3.openshift-storage.svc:443')\n    s3_bucket = os.environ.get('AWS_S3_BUCKET', 'ai-generation-llm-rag-pipelines')\n    aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')\n    aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')\n    \n    if not aws_access_key or not aws_secret_key:\n        raise RuntimeError(\"AWS credentials not found in environment\")\n    \n    print(f\"Collecting chunks for run: {run_id}\")\n    print(f\"S3 endpoint: {s3_endpoint}\")\n    print(f\"S3 bucket: {s3_bucket}\\n\")\n    \n    # Connect to S3\n    s3_client = boto3.client(\n        's3',\n        endpoint_url=s3_endpoint,\n        aws_access_key_id=aws_access_key,\n        aws_secret_access_key=aws_secret_key,\n        verify=False\n    )\n    \n    # List all objects under the run path\n    prefix = f\"rag-data-ingestion/{run_id}/\"\n    print(f\"Searching for chunk files in: s3://{s3_bucket}/{prefix}\")\n    \n    response = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=prefix)\n    \n    # Find all docling-chunk output_path files\n    chunk_files = []\n    for obj in response.get('Contents', []):\n        key = obj['Key']\n        # Match pattern: .../docling-chunk/<execution-id>/output_path\n        if '/docling-chunk/' in key and key.endswith('/output_path'):\n            chunk_files.append(key)\n    \n    print(f\"Found {len(chunk_files)} chunk file(s):\")\n    for f in chunk_files:\n        print(f\"  - s3://{s3_bucket}/{f}\")\n    \n    if not chunk_files:\n        raise RuntimeError(f\"No chunk files found under {prefix}\")\n    \n    # Download and merge all chunks\n    all_chunks = []\n    for chunk_file in chunk_files:\n        print(f\"\\nDownloading: {chunk_file}\")\n        \n        # Download to temp file\n        temp_file = Path(\"/tmp\") / chunk_file.replace('/', '_')\n        s3_client.download_file(s3_bucket, chunk_file, str(temp_file))\n        \n        # Read JSONL content\n        content = temp_file.read_text()\n        for line in content.strip().split('\\n'):\n            if line.strip():\n                all_chunks.append(line)\n        \n        temp_file.unlink()\n        print(f\"  Loaded {len(content.strip().split(chr(10)))} chunk(s)\")\n    \n    # Write merged chunks to output artifact\n    output_path_p = Path(output_path.path)\n    output_path_p.write_text('\\n'.join(all_chunks))\n    \n    print(f\"\\nOK Collected {len(all_chunks)} total chunks\")\n    print(f\"Output: {output_path.path}\")\n    \n    return len(all_chunks)\n\n"
+            image: registry.access.redhat.com/ubi9/python-311:latest
         exec-docling-chunk:
           container:
             args:
@@ -700,19 +734,28 @@ data:
                     constant: /mnt/secrets
             taskInfo:
               name: import-pdfs
+          collect-chunks:
+            cachingOptions:
+              enableCache: true
+            componentRef:
+              name: comp-collect-chunks
+            dependentTasks:
+            - for-loop-1
+            taskInfo:
+              name: collect-chunks
           generate-embeddings:
             cachingOptions:
               enableCache: true
             componentRef:
               name: comp-generate-embeddings
             dependentTasks:
-            - for-loop-1
+            - collect-chunks
             inputs:
               artifacts:
                 chunks_path:
                   taskOutputArtifact:
                     outputArtifactKey: output_path
-                    producerTask: for-loop-1
+                    producerTask: collect-chunks
               parameters:
                 batch_size:
                   componentInputParameter: embedding_batch_size
