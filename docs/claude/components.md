@@ -2420,7 +2420,7 @@ oc exec deployment/dspa-mariadb -n external-db-llamastack -- \
 │ ai-generation-llm-rag namespace                         │
 │  - ConfigMap: pipeline-docling-standard (pipeline YAML) │
 │  - DataSciencePipelinesApplication (DSPA)               │
-│  - MariaDB database credentials                         │
+│  - Secret: dspa-mariadb-password (credentials ref)      │
 └─────────────────────────────────────────────────────────┘
                       ▲
                       │ (1) Init container fetches ConfigMap
@@ -2434,6 +2434,16 @@ oc exec deployment/dspa-mariadb -n external-db-llamastack -- \
 │        └─ KFP SDK upload via REST API                   │
 │  - ConfigMap: pipeline-upload-script (Python)           │
 │  - ServiceAccount: pipeline-uploader                    │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ external-db-generation-llm-rag namespace                │
+│  - Deployment: dspa-mariadb (KFP metadata)              │
+│    └─ Service: dspa-mariadb:3306                        │
+│  - Deployment: rag-postgresql (pgvector for RAG)        │
+│    └─ Service: rag-postgresql:5432                      │
+│  - PVCs: 10Gi each (gp3-csi)                            │
+│  - Secrets: Credentials for both databases              │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -2607,14 +2617,88 @@ Common issues and fixes:
 
 ```
 components/uc-ai-generation-llm-rag/base/
-├── ai-generation-llm-rag-cm-pipeline-docling-standard.yaml    # Pipeline definition
-├── ai-generation-llm-rag-dspa-pipelines.yaml                  # DSPA CR
-├── ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml    # ConfigMap RBAC
-├── ai-generation-llm-rag-rb-pipeline-manager.yaml             # DSPA API RBAC
-├── ai-generation-llm-rag-role-pipeline-configmap-reader.yaml  # ConfigMap Role
-├── openshift-gitops-cm-pipeline-upload-script.yaml            # Python script
-├── openshift-gitops-job-upload-pipeline-docling-standard.yaml # PostSync Job
-└── openshift-gitops-sa-pipeline-uploader.yaml                 # ServiceAccount
+├── ai-generation-llm-rag-cm-pipeline-docling-standard.yaml               # Pipeline definition
+├── ai-generation-llm-rag-dspa-pipelines.yaml                             # DSPA CR
+├── ai-generation-llm-rag-obc-pipeline-artifacts.yaml                     # S3 bucket for pipeline artifacts
+├── ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml               # ConfigMap RBAC
+├── ai-generation-llm-rag-rb-pipeline-manager.yaml                        # DSPA API RBAC
+├── ai-generation-llm-rag-role-pipeline-configmap-reader.yaml             # ConfigMap Role
+├── ai-generation-llm-rag-secret-dspa-mariadb-password.yaml               # DSPA MariaDB password reference
+├── cluster-crb-argocd-manage-uc-workload.yaml                            # ArgoCD RBAC
+├── cluster-namespace-ai-generation-llm-rag.yaml                          # User workload namespace
+├── cluster-namespace-external-db-generation-llm-rag.yaml                 # External database namespace
+├── external-db-generation-llm-rag-configmap-dspa-mariadb-tls-config.yaml # MariaDB TLS CA bundle
+├── external-db-generation-llm-rag-deployment-dspa-mariadb.yaml           # MariaDB deployment
+├── external-db-generation-llm-rag-deployment-rag-postgresql.yaml         # PostgreSQL 16 + pgvector
+├── external-db-generation-llm-rag-pvc-dspa-mariadb.yaml                  # MariaDB storage (10Gi)
+├── external-db-generation-llm-rag-pvc-rag-postgresql.yaml                # PostgreSQL storage (10Gi)
+├── external-db-generation-llm-rag-secret-dspa-mariadb-credentials.yaml   # MariaDB credentials
+├── external-db-generation-llm-rag-secret-rag-postgresql-credentials.yaml # PostgreSQL credentials
+├── external-db-generation-llm-rag-service-dspa-mariadb.yaml              # MariaDB service (port 3306)
+├── external-db-generation-llm-rag-service-rag-postgresql.yaml            # PostgreSQL service (port 5432)
+├── openshift-gitops-cm-pipeline-upload-script.yaml                       # Python upload script
+├── openshift-gitops-job-upload-pipeline-docling-standard.yaml            # PostSync Job
+└── openshift-gitops-sa-pipeline-uploader.yaml                            # ServiceAccount
+```
+
+**External Databases:**
+
+**Namespace**: `external-db-generation-llm-rag`
+
+The component deploys two separate databases in a dedicated namespace for isolation:
+
+1. **dspa-mariadb** - DSPA metadata backend (KFP pipelines, runs, experiments)
+   - Image: `registry.redhat.io/rhel9/mariadb-1011:1-78.1731539089`
+   - Storage: 10Gi PVC (gp3-csi)
+   - Service: `dspa-mariadb.external-db-generation-llm-rag.svc.cluster.local:3306`
+   - Credentials: Secret `dspa-mariadb-credentials` (database=mlpipeline, username=mlpipeline)
+   - TLS: Service annotation auto-generates certificate via OpenShift service-ca
+
+2. **rag-postgresql** - Vector embeddings database for RAG applications
+   - Image: `pgvector/pgvector:pg16`
+   - Storage: 10Gi PVC (gp3-csi)
+   - Service: `rag-postgresql.external-db-generation-llm-rag.svc.cluster.local:5432`
+   - Credentials: Secret `rag-postgresql-credentials` (database=ragdb, username=raguser)
+   - Extensions: pgvector automatically initialized via lifecycle.postStart hook
+
+**PostgreSQL pgvector Auto-Initialization:**
+
+```yaml
+# Pattern from external-db-generation-llm-rag-deployment-rag-postgresql.yaml
+lifecycle:
+  postStart:
+    exec:
+      command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo "Waiting for PostgreSQL to be ready before enabling pgvector..."
+        until PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; do
+          sleep 2
+        done
+        PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+**Why separate databases:**
+- DSPA requires MariaDB for metadata storage (KFP standard)
+- RAG applications require PostgreSQL with pgvector for semantic search
+- Namespace isolation separates data plane from workload plane
+- Independent scaling and lifecycle management
+
+**Verification:**
+
+```bash
+# Check MariaDB deployment
+oc get deployment dspa-mariadb -n external-db-generation-llm-rag
+oc exec deployment/dspa-mariadb -n external-db-generation-llm-rag -- mysql -u mlpipeline -pchangeme-demo-only -e "SHOW DATABASES;"
+
+# Check PostgreSQL deployment with pgvector
+oc get deployment rag-postgresql -n external-db-generation-llm-rag
+oc exec deployment/rag-postgresql -n external-db-generation-llm-rag -- \
+  psql -U raguser -d ragdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
+
+# Expected output: vector | 0.8.0 (or later)
 ```
 
 **Verification:**
@@ -2646,7 +2730,7 @@ for p in pipelines.pipelines:
 **uc-ai-generation-llm-rag** (user workload) vs **rhoai** (platform):
 
 - `rhoai` component: RHOAI operator, DataScienceCluster, platform configuration
-- `uc-ai-generation-llm-rag` component: User workload (DSPA instance, pipelines, MariaDB)
+- `uc-ai-generation-llm-rag` component: User workload (DSPA instance, pipelines, MariaDB, PostgreSQL+pgvector)
 - Separation enables independent lifecycle management and clear ownership
 
 **Key Patterns:**
