@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  name: ai-embedding-service
+  namespace: openshift-gitops
+spec:
+  generators:
+  - list:
+      elements:
+      - cluster: local
+        url: https://kubernetes.default.svc
+  goTemplate: true
+  goTemplateOptions:
+  - missingkey=error
+  syncPolicy:
+    applicationsSync: create-update
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background
+      labels:
+        app.kubernetes.io/name: '{{.cluster}}-ai-embedding-service'
+        velero.io/exclude-from-backup: "true"
+      name: ai-embedding-service
+    spec:
+      destination:
+        namespace: ai-embedding-service
+        server: '{{.url}}'
+      ignoreDifferences:
+      - group: ''
+        jsonPointers:
+        - /metadata/annotations
+        kind: ConfigMap
+        name: cluster-versions
+      project: cluster-ai
+      source:
+        path: components/ai-embedding-service/overlays/default
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: master
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 10m
+          limit: 10
+        syncOptions:
+        - CreateNamespace=false
+        - PrunePropagationPolicy=foreground
