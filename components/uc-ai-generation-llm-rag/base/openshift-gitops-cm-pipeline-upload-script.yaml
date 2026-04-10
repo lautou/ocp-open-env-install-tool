@@ -20,11 +20,13 @@ data:
             return hashlib.sha256(f.read()).hexdigest()[:12]
 
     def extract_pipeline_name(filepath):
-        """Extract pipeline name from KFP v2 YAML file."""
+        """Extract pipeline name from KFP v2 YAML file (supports multi-document YAML)."""
         with open(filepath, 'r') as f:
-            pipeline_yaml = yaml.safe_load(f)
-            if 'pipelineInfo' in pipeline_yaml and 'name' in pipeline_yaml['pipelineInfo']:
-                return pipeline_yaml['pipelineInfo']['name']
+            # Load first document only (pipelineInfo is in first doc)
+            # Multi-document YAML files have platform configs in subsequent docs
+            for doc in yaml.safe_load_all(f):
+                if doc and 'pipelineInfo' in doc and 'name' in doc['pipelineInfo']:
+                    return doc['pipelineInfo']['name']
         return None
 
     def main():
