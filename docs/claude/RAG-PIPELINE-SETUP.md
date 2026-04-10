@@ -97,12 +97,13 @@ Infrastructure test script: `/tmp/test-complete-rag-infrastructure.py`
 All tests passed with semantic search achieving 0.86+ similarity scores.
 
 ### Pipeline Execution Tests
+
 **chunk-data Pipeline** (Stage 1: PDF to chunks):
 - Run ID: chunk-data-6ckcz
 - Status: ✅ Succeeded
 - Duration: 5 minutes 24 seconds
 - Processed: 8 test PDFs
-- Output: 8 JSONL files with semantic chunks
+- Output: 8 JSONL files with 161 semantic chunks
 - Test Date: 2026-04-10
 
 **Key Validation**:
@@ -113,13 +114,47 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 - ✅ HF_HOME cache fix working correctly
 - ✅ Output stored in ODF (s3://ai-generation-llm-rag-pipelines)
 
+**convert-store-embeddings Pipeline** (Stage 2: Embeddings to vector database):
+- Run ID: convert-store-embeddings-8fg6z
+- Status: ✅ Succeeded
+- Duration: 4 minutes 16 seconds
+- Input: 161 chunks from chunk-data-6ckcz
+- Output: 161 rows with 768-dim embeddings in PostgreSQL
+- Test Date: 2026-04-10
+
+**Key Validation**:
+- ✅ Stage 1 (collect-chunks): Merged 161 chunks from 8 JSONL files
+- ✅ Stage 2 (generate-embeddings): Generated 768-dim embeddings via granite-embedding-english-r2
+- ✅ RBAC fix working: pipeline-runner-pipelines SA has access to ai-embedding-service
+- ✅ Stage 3 (store-in-pgvector): Inserted 161 rows into document_chunks table
+- ✅ PostgreSQL + pgvector: Table with HNSW index, 768-dim vectors
+- ✅ End-to-end semantic search: 0.89-0.90 similarity scores for relevant queries
+
+**Database Verification**:
+```sql
+-- Total chunks: 161
+-- Embedding dimensions: 768
+-- Table size: 1608 kB
+-- HNSW index: document_chunks_embedding_idx (cosine similarity)
+```
+
+**Semantic Search Test**:
+- Query: "What is table detection?"
+- Top result similarity: 0.9007 (chunk about table structure recognition)
+- Results span 2 source documents (2203.01017v2.json, 2305.03393v1.json)
+- All results semantically relevant to table detection/recognition
+
 ## Documentation Updates
 
 **2026-04-10**:
 - Fixed chunk-data pipeline HuggingFace cache permissions (2 critical fixes)
 - RHOAI KFP v2 compatibility: env in container spec (not platform spec)
 - Correct DSPA cache path: HF_HOME=/.cache (not /mainctrfs/.cache)
-- Successfully tested complete pipeline execution (5m24s)
+- Fixed RBAC for ai-embedding-service: Added pipeline-runner-pipelines ServiceAccount
+- Successfully tested complete end-to-end RAG pipeline (both stages)
+- chunk-data pipeline: 5m24s, 161 chunks generated
+- convert-store-embeddings pipeline: 4m16s, 161 embeddings stored in PostgreSQL
+- Verified semantic search with 0.90 similarity scores
 - Updated to RHOAI 3 navigation (Develop & train → Pipelines)
 - Documented ODF OBC storage (vs embedded Minio)
 - Configured shared AI Embedding Service in LlamaStack
@@ -127,6 +162,7 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 
 ## Commits
 
+- `eae505d` - Fix RBAC: Add pipeline-runner-pipelines SA to ai-embedding-service access
 - `d254ba6` - Fix HF_HOME path to use actual DSPA cache mount location (/.cache)
 - `04cde66` - Fix chunk-data pipeline HF_HOME env for RHOAI KFP v2 compatibility
 - `62cb253` - Fix chunk-data pipeline HuggingFace cache permissions (initial attempt)
