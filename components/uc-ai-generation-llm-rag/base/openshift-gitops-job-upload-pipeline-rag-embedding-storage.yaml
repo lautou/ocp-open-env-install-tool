@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+  name: upload-pipeline-rag-embedding-storage
+  namespace: openshift-gitops
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Waiting for DSPA API to be available..."
+          timeout=180
+          while [ $timeout -gt 0 ]; do
+            if curl -s -k -o /dev/null -w "%{http_code}" https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/pipelines | grep -q "200\|401\|403"; then
+              echo "DSPA API is responding"
+              break
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 5
+            timeout=$((timeout - 5))
+          done
+
+          if [ $timeout -le 0 ]; then
+            echo "ERROR: Timeout waiting for DSPA API"
+            exit 1
+          fi
+
+          echo "Using pipeline definition from init container..."
+          if [ ! -s /pipeline/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition not found in shared volume"
+            exit 1
+          fi
+
+          echo "Pipeline definition available ($(wc -l < /pipeline/pipeline.yaml) lines)"
+
+          echo "Installing KFP SDK..."
+          pip install --quiet kfp==2.14.6
+
+          python3 /scripts/upload-pipeline.py
+        env:
+        - name: PIPELINE_FILE
+          value: /pipeline/pipeline.yaml
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        name: upload-pipeline
+        volumeMounts:
+        - mountPath: /pipeline
+          name: pipeline-data
+          readOnly: true
+        - mountPath: /scripts
+          name: upload-script
+          readOnly: true
+      initContainers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Fetching pipeline definition from ConfigMap..."
+          oc get configmap pipeline-rag-embedding-storage -n ai-generation-llm-rag \
+            -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
+
+          if [ ! -s /pipeline/pipeline.yaml ]; then
+            echo "ERROR: Pipeline definition is empty or not found"
+            exit 1
+          fi
+
+          echo "Pipeline definition fetched ($(wc -l < /pipeline/pipeline.yaml) lines)"
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: fetch-pipeline
+        volumeMounts:
+        - mountPath: /pipeline
+          name: pipeline-data
+      restartPolicy: Never
+      serviceAccountName: pipeline-uploader
+      volumes:
+      - emptyDir: {}
+        name: pipeline-data
+      - configMap:
+          defaultMode: 493
+          name: pipeline-upload-script
+        name: upload-script

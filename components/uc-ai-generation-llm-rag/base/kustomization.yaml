@@ -3,12 +3,14 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-generation-llm-rag-cm-pipeline-docling-standard.yaml
+- ai-generation-llm-rag-cm-pipeline-rag-embedding-storage.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
 - ai-generation-llm-rag-rb-pipeline-configmap-reader.yaml
 - ai-generation-llm-rag-rb-pipeline-manager.yaml
 - ai-generation-llm-rag-role-pipeline-configmap-reader.yaml
 - ai-generation-llm-rag-secret-dspa-mariadb-password.yaml
+- ai-generation-llm-rag-secret-rag-postgresql-credentials.yaml
 - cluster-crb-argocd-manage-uc-workload.yaml
 - cluster-namespace-ai-generation-llm-rag.yaml
 - cluster-namespace-external-db-generation-llm-rag.yaml
@@ -23,4 +25,5 @@ resources:
 - external-db-generation-llm-rag-service-rag-postgresql.yaml
 - openshift-gitops-cm-pipeline-upload-script.yaml
 - openshift-gitops-job-upload-pipeline-docling-standard.yaml
+- openshift-gitops-job-upload-pipeline-rag-embedding-storage.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml

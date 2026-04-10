@@ -6,5 +6,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
-  resourceNames: ["pipeline-docling-standard"]
+  resourceNames:
+  - pipeline-docling-standard
+  - pipeline-rag-embedding-storage
   verbs: ["get"]
