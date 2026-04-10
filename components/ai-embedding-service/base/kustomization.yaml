@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
 - ../../common
 - ai-embedding-service-inferenceservice-granite-embedding.yaml
-- ai-embedding-service-rb-argocd-manage-workload.yaml
 - ai-embedding-service-sa-granite-embedding-sa.yaml
 - ai-embedding-service-secret-granite-embedding-sa-token.yaml
 - ai-embedding-service-servingruntime-granite-embedding.yaml
