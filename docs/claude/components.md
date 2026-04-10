@@ -3951,3 +3951,35 @@ See `docs/claude/rag-retrieval-guide.md` for:
 - Semantic search examples
 - Integration with LLM applications
 - Production optimization guidelines
+
+### Known Issues and Fixes
+
+#### chunk-data Pipeline: HuggingFace Cache Permission Error (FIXED)
+
+**Issue**: Pipeline fails with `PermissionError` when downloading tokenizer models.
+
+**Root Cause**:
+- Red Hat Docling image sets `HF_HOME=/tmp/`
+- OpenShift pods run as non-root with restricted `/tmp/` write access
+- Pipeline tries to download `sentence-transformers/all-MiniLM-L6-v2` → Permission denied
+
+**Fix Applied** (commit `62cb253`):
+```yaml
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-docling-chunk:
+          env:
+          - name: HF_HOME
+            value: /mainctrfs/.cache  # Uses DSPA-provided writable cache
+```
+
+**Why This Patch**:
+- Required for OpenShift compatibility (restricted pod security contexts)
+- Minimal change (3 lines)
+- Uses DSPA-provided `dot-cache-scratch` emptyDir volume
+- Deviation from upstream necessary for OpenShift security model
+
+**Status**: ✅ Fixed in production, pipeline tested and working
+
