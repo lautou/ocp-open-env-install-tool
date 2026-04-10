@@ -9,4 +9,5 @@ rules:
   resourceNames:
   - pipeline-chunk-data
   - pipeline-convert-store-embeddings
+  - pipeline-rag-data-ingestion
   verbs: ["get"]
