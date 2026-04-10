@@ -3627,7 +3627,7 @@ docling_chunk_merge_peers: true
 
 **Critical Parameter**: `docling_chunk_enabled: true` - MUST be enabled for RAG workflow.
 
-**Output Artifact**: Chunks stored in Minio at `minio://mlpipeline/v2/artifacts/{run_id}/for-loop-1/output_path`
+**Output Artifact**: Chunks stored in ODF NooBaa S3 at `minio://mlpipeline/v2/artifacts/{run_id}/for-loop-1/output_path` (KFP v2 URI scheme - actual backend is ObjectBucketClaim `pipeline-artifacts`)
 
 ### Pipeline: convert-store-embeddings
 
@@ -3817,6 +3817,64 @@ stringData:
 - GitOps manages both copies (single source of truth in Git)
 
 **Security Note**: Demo credentials only. Production should use AWS Secrets Manager or Vault.
+
+### ODF Object Storage (ObjectBucketClaim)
+
+**Pattern**: Use ODF NooBaa for pipeline artifact storage instead of embedded Minio.
+
+```yaml
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: pipeline-artifacts
+  namespace: ai-generation-llm-rag
+spec:
+  bucketName: ai-generation-llm-rag-pipelines
+  storageClassName: openshift-storage.noobaa.io
+```
+
+**Auto-Generated Resources**:
+- **Secret**: `pipeline-artifacts` - Contains `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- **ConfigMap**: `pipeline-artifacts` - Contains `BUCKET_HOST`, `BUCKET_NAME`, `BUCKET_PORT`
+- **ObjectBucket**: `obc-ai-generation-llm-rag-pipeline-artifacts` - Backing NooBaa bucket
+
+**DSPA Configuration**:
+```yaml
+spec:
+  objectStorage:
+    externalStorage:
+      host: s3.openshift-storage.svc
+      port: "443"
+      bucket: "ai-generation-llm-rag-pipelines"
+      scheme: https
+      s3CredentialsSecret:
+        accessKey: AWS_ACCESS_KEY_ID
+        secretKey: AWS_SECRET_ACCESS_KEY
+        secretName: pipeline-artifacts
+```
+
+**Why ODF OBC vs Embedded Minio**:
+- ✅ Production-ready storage (ODF-backed)
+- ✅ Auto-scaling with NooBaa
+- ✅ S3-compatible API (no vendor lock-in)
+- ✅ Separate lifecycle from DSPA (data persists across DSPA redeploys)
+- ✅ Credentials auto-managed by OBC operator
+
+**Important**: KFP v2 artifact URIs use `minio://mlpipeline/` prefix (protocol scheme) regardless of actual backend. This is **not** embedded Minio - the backend is ODF NooBaa S3-compatible storage.
+
+**Verification**:
+```bash
+# Check OBC status
+oc get obc pipeline-artifacts -n ai-generation-llm-rag
+
+# Check auto-generated Secret
+oc get secret pipeline-artifacts -n ai-generation-llm-rag -o jsonpath='{.data}' | jq 'keys'
+
+# Verify DSPA is using ODF endpoint
+oc get pod -n ai-generation-llm-rag -l app=ds-pipeline-pipelines -o name | head -1 | \
+  xargs oc exec -n ai-generation-llm-rag -- env | grep OBJECTSTORECONFIG_HOST
+# Expected: OBJECTSTORECONFIG_HOST=s3.openshift-storage.svc
+```
 
 ### RBAC: Pipeline ConfigMap Access
 
