@@ -12,8 +12,8 @@ spec:
   driver:
     enabled: true
     repository: nvcr.io/nvidia
-    image: driver
-    version: "550.163.01-rhcos4.18"
+    image: driver@sha256:8b89435d54a2e6a33c480dd0659e9a4a73f872a6187f9f9eadd934ecb45ac273
+    version: "550.163.01"
   gfd: {}
   nodeStatusExporter:
     enabled: true
