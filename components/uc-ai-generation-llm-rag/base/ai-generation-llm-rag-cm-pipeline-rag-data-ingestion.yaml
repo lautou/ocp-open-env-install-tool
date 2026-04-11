@@ -920,4 +920,14 @@ data:
               - mountPath: /mnt/secrets
                 optional: false
                 secretName: pipeline-artifacts
+            exec-docling-chunk:
+              tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule
+            exec-docling-convert-standard:
+              tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule
 
