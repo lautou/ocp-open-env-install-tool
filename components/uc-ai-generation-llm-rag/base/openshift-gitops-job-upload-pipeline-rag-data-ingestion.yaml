@@ -4,6 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
+    argocd.argoproj.io/sync-options: Force=true
   name: upload-pipeline-rag-data-ingestion
   namespace: openshift-gitops
 spec:

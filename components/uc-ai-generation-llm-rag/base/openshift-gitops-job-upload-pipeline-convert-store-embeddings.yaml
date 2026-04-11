@@ -4,6 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
+    argocd.argoproj.io/sync-options: Force=true
   name: upload-pipeline-convert-store-embeddings
   namespace: openshift-gitops
 spec:
