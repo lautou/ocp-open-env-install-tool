@@ -50,7 +50,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **MUST READ BEFORE CREATING COMPONENTS**: [argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)
 
-**3 patterns that MUST ALWAYS be included** (see checklist for full details):
+**4 patterns that MUST ALWAYS be included** (see checklist for full details):
 
 1. **ignoreDifferences for cluster-versions ConfigMap**
    - ✅ Required in ALL Application/ApplicationSet definitions
@@ -67,15 +67,22 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
    - Pattern: `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true`
    - Why: CRD validation fails before operator is deployed → deadlock
 
+4. **Force=true for ArgoCD Hook Jobs**
+   - ✅ Required in ALL ArgoCD hook Jobs (PostSync, PreDelete, etc.)
+   - Pattern: `argocd.argoproj.io/sync-options: Force=true`
+   - Why: Job spec.template is immutable → ArgoCD patch fails → deadlock requiring manual intervention
+
 **Pre-commit checklist**:
 - [ ] Application/ApplicationSet has ignoreDifferences for cluster-versions?
 - [ ] Namespace has argocd.argoproj.io/managed-by label?
 - [ ] Operator CRs have SkipDryRunOnMissingResource annotation?
+- [ ] ArgoCD hook Jobs have Force=true sync option?
 
 **Failure symptoms if forgotten**:
 - Missing ignoreDifferences → Application OutOfSync (but Healthy)
 - Missing managed-by → ArgoCD permission errors
 - Missing SkipDryRunOnMissingResource → Application stuck OutOfSync/Missing forever
+- Missing Force=true on Jobs → "field is immutable" error → Application stuck in retry loop → manual Job deletion required
 
 ## YAML Formatting Standards
 
