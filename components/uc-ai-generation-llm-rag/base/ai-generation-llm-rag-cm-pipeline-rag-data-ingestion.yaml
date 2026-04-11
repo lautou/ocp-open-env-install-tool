@@ -445,11 +445,6 @@ data:
             - name: AWS_S3_BUCKET
               value: ai-generation-llm-rag-pipelines
             image: registry.access.redhat.com/ubi9/python-311:latest
-          kubernetes:
-            secretAsVolume:
-            - mountPath: /mnt/secrets
-              optional: false
-              secretName: pipeline-artifacts
         exec-docling-chunk:
           container:
             args:
@@ -751,6 +746,14 @@ data:
               name: comp-collect-chunks
             dependentTasks:
             - for-loop-1
+            platforms:
+              kubernetes:
+                deploymentSpec:
+                  executors:
+                    exec-collect-chunks:
+                      secretAsVolume:
+                      - mountPath: /mnt/secrets
+                        secretName: pipeline-artifacts
             taskInfo:
               name: collect-chunks
           generate-embeddings:
