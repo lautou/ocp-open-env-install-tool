@@ -3,10 +3,12 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
   name: upload-pipeline-rag-data-ingestion
   namespace: openshift-gitops
 spec:
+  activeDeadlineSeconds: 300
+  backoffLimit: 1
   template:
     spec:
       containers:
@@ -40,6 +42,33 @@ spec:
           fi
 
           echo "Pipeline definition available ($(wc -l < /pipeline/pipeline.yaml) lines)"
+
+          echo "Validating pipeline YAML structure..."
+          python3 -c "
+          import sys, yaml
+          try:
+              with open('/pipeline/pipeline.yaml') as f:
+                  data = yaml.safe_load(f)
+
+              # Check required top-level keys
+              required_keys = ['components', 'deploymentSpec', 'root', 'schemaVersion']
+              missing = [k for k in required_keys if k not in data]
+              if missing:
+                  print(f'ERROR: Missing required keys: {missing}')
+                  sys.exit(1)
+
+              # Check schema version
+              if data.get('schemaVersion') != '2.1.0':
+                  print(f'WARNING: Unexpected schemaVersion: {data.get(\"schemaVersion\")}')
+
+              print('✓ Pipeline YAML structure valid')
+          except yaml.YAMLError as e:
+              print(f'ERROR: Invalid YAML: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'ERROR: Validation failed: {e}')
+              sys.exit(1)
+          "
 
           echo "Installing KFP SDK..."
           pip install --quiet kfp==2.14.6
