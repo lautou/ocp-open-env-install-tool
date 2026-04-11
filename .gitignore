@@ -2,3 +2,5 @@ config/*.config
 output
 pull-secret.txt
 .claude/settings.local.json
+# Temporary pipeline test files
+rag_data_ingestion*.yaml
