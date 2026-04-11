@@ -170,6 +170,55 @@ except yaml.YAMLError as e:
 | `BeforeHookCreation` | ✅ | ✅ | Always use latest (loses history) |
 | **`HookSucceeded,HookFailed`** | **✅** | **✅** | **Most robust (RECOMMENDED)** |
 
+## PreDelete and PostDelete Hook Execution
+
+### When These Hooks Execute
+
+**PreDelete Hook:**
+- **Executes:** BEFORE ArgoCD deletes Application resources
+- **Trigger:** Explicit Application deletion: `oc delete application <name>`
+- **Use case:** Cleanup that must run BEFORE resources disappear
+- **Example:** Delete operator CRDs in correct order to prevent orphaned resources
+
+**PostDelete Hook:**
+- **Executes:** AFTER ArgoCD deletes Application resources
+- **Trigger:** Explicit Application deletion: `oc delete application <name>`
+- **Use case:** Cleanup after resources are gone
+- **Example:** Disable console plugins after operator is removed
+
+### Critical: ApplicationSet with applicationsSync: create-update
+
+**Our ApplicationSets use:**
+```yaml
+spec:
+  syncPolicy:
+    applicationsSync: create-update  # Prevents auto-deletion
+```
+
+**Workflow to trigger delete hooks:**
+1. Remove component from generator list → Application **orphaned** (still exists, not managed)
+2. **Explicitly delete:** `oc delete application <name>` → Hooks execute
+3. PreDelete hook runs → Resources deleted → PostDelete hook runs
+
+**Without explicit deletion:** Application remains orphaned forever, hooks never execute!
+
+### Why Delete Policies Are Critical for PreDelete/PostDelete
+
+**Problem:**
+- PreDelete/PostDelete hooks run **ONCE** on Application deletion
+- If hook fails with `HookSucceeded` policy → Job stays forever → **blocks re-deletion**
+- Must manually delete Job before re-trying Application deletion
+
+**Solution:**
+- Always use `HookSucceeded,HookFailed` for auto-cleanup even on failure
+- Ensures hooks don't block deletion workflow
+
+**Our Jobs (all now using HookSucceeded,HookFailed):**
+- `delete-openshift-builds-resources` (PreDelete)
+- `delete-rhoai-resources` (PreDelete)
+- `disable-pipelines-console-plugin` (PostDelete)
+- `disable-odf-console-plugins` (PostDelete)
+
 ## When Jobs Still Fail
 
 ### Stuck in Terminating State
