@@ -912,14 +912,14 @@ data:
             parameterType: STRING
     schemaVersion: 2.1.0
     sdkVersion: kfp-2.14.6
----
-platforms:
-  kubernetes:
-    deploymentSpec:
-      executors:
-        exec-collect-chunks:
-          secretAsVolume:
-          - mountPath: /mnt/secrets
-            optional: false
-            secretName: pipeline-artifacts
+    ---
+    platforms:
+      kubernetes:
+        deploymentSpec:
+          executors:
+            exec-collect-chunks:
+              secretAsVolume:
+              - mountPath: /mnt/secrets
+                optional: false
+                secretName: pipeline-artifacts
 
