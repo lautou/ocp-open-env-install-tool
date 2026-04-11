@@ -43,6 +43,9 @@ spec:
 
           echo "Pipeline definition available ($(wc -l < /pipeline/pipeline.yaml) lines)"
 
+          echo "Installing KFP SDK (includes PyYAML for validation)..."
+          pip install --quiet kfp==2.14.6
+
           echo "Validating pipeline YAML structure..."
           python3 -c "
           import sys, yaml
@@ -69,9 +72,6 @@ spec:
               print(f'ERROR: Validation failed: {e}')
               sys.exit(1)
           "
-
-          echo "Installing KFP SDK..."
-          pip install --quiet kfp==2.14.6
 
           python3 /scripts/upload-pipeline.py
         env:
