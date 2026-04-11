@@ -51,9 +51,10 @@ spec:
           import sys, yaml
           try:
               with open('/pipeline/pipeline.yaml') as f:
-                  data = yaml.safe_load(f)
+                  documents = list(yaml.safe_load_all(f))
 
-              # Check required top-level keys
+              # Validate first document (main pipeline spec)
+              data = documents[0]
               required_keys = ['components', 'deploymentSpec', 'root', 'schemaVersion']
               missing = [k for k in required_keys if k not in data]
               if missing:
@@ -64,7 +65,7 @@ spec:
               if data.get('schemaVersion') != '2.1.0':
                   print(f'WARNING: Unexpected schemaVersion: {data.get(\"schemaVersion\")}')
 
-              print('✓ Pipeline YAML structure valid')
+              print(f'✓ Pipeline YAML structure valid ({len(documents)} document(s))')
           except yaml.YAMLError as e:
               print(f'ERROR: Invalid YAML: {e}')
               sys.exit(1)
