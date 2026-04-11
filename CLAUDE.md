@@ -28,6 +28,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **Externalized docs**: Complex topics moved to `docs/claude/`:
 - **[argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)** - ⚠️ **CRITICAL**: Required patterns for Applications/CRs (ignoreDifferences, managed-by labels, SkipDryRunOnMissingResource)
+- **[argocd-hook-robustness.md](docs/claude/argocd-hook-robustness.md)** - ⚠️ **CRITICAL**: PostSync hook robustness (delete policies, timeouts, deadlock prevention)
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns (CMP plugin, network policies, cert-manager, ODF, RHCL, ACK, etc.)
 - **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (14 Jobs)
 - **[kfp-secret-patterns.md](docs/claude/kfp-secret-patterns.md)** - ⚠️ **CRITICAL**: KFP v2 secret injection patterns (platformSpec, task-level vs executor-level config, troubleshooting)
