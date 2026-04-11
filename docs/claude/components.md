@@ -2742,6 +2742,97 @@ for p in pipelines.pipelines:
 ✅ **PostSync hook** for automated pipeline upload after DSPA deployment
 ✅ **emptyDir volume** for sharing data between init and main containers
 
+#### RAG Pipeline Container Images - Docling GPU Acceleration
+
+**Critical Issue Resolved**: Red Hat AI container image compatibility with NVIDIA GPU drivers
+
+**Problem (2026-04-11)**:
+
+Red Hat's `rhai/docling-cuda-rhel9:3.2.1` image ships PyTorch 2.9.0 compiled with CUDA 12.9, but PyTorch 2.9.0 does not officially support CUDA 12.9. This causes CUDA Error 803 preventing GPU acceleration:
+
+```
+Error 803: system has unsupported display driver / cuda driver combination
+(Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+```
+
+**Root Cause**:
+- Red Hat rebuilt PyTorch 2.9.0 from source using their `fromager` build system
+- Compiled against CUDA 12.9 (cuda-compat-12-9-575.57.08-1.el9.x86_64)
+- PyTorch 2.9.0 officially supports: CUDA 12.6, 12.8, 13.0 (experimental) - NOT 12.9
+- CUDA 12.9 support was present in PyTorch 2.8 but dropped for 2.9
+
+**Solution**:
+
+Switch to community docling image with compatible PyTorch/CUDA versions:
+
+```yaml
+# Updated in:
+# - components/uc-ai-generation-llm-rag/base/ai-generation-llm-rag-cm-pipeline-chunk-data.yaml
+# - components/uc-ai-generation-llm-rag/base/ai-generation-llm-rag-cm-pipeline-rag-data-ingestion.yaml
+
+# OLD (broken):
+image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
+# PyTorch 2.9.0 + CUDA 12.9 → CUDA Error 803
+
+# NEW (working):
+image: quay.io/docling-project/docling-serve-cu126:latest
+# PyTorch 2.10.0+cu126 + CUDA 12.6 → GPU acceleration confirmed
+```
+
+**Verified GPU Tasks**:
+
+Four pipeline tasks successfully executed with GPU acceleration (Tesla T4):
+
+| Task | Document | GPU | Processing Time | Output |
+|------|----------|-----|-----------------|--------|
+| docling-convert-standard | 2203.01017v2.pdf | cuda:0 | 23.20 sec | JSON + Markdown |
+| docling-convert-standard | 2206.01062.pdf | cuda:0 | 10.60 sec | JSON + Markdown |
+| docling-chunk | 2203.01017v2.pdf | cuda:0 | N/A | 39 semantic chunks |
+| docling-chunk | 2206.01062.pdf | cuda:0 | N/A | 42 semantic chunks |
+
+**GPU Models Loaded**:
+- Layout analysis: `docling_layout_default`
+- Table structure recognition: `docling_tableformer`
+- Both use GPU-accelerated computer vision models
+
+**Alternative Images Tested**:
+
+Community docling images from `quay.io/docling-project/`:
+- `docling-serve-cu126:latest` - PyTorch 2.10.0+cu126 (CUDA 12.6) ✅ **SELECTED**
+- `docling-serve-cu128:latest` - PyTorch 2.10.0+cu128 (CUDA 12.8) ✅ **TESTED OK**
+
+**JIRA Issue Filed**:
+
+Reported to Red Hat AI team (RHAIENG project) - ticket template: `/tmp/rhaieng-jira-ticket.md`
+
+Requested fix options:
+1. Rebuild PyTorch 2.9.0 with CUDA 12.6 or 12.8 (recommended)
+2. Downgrade to PyTorch 2.8.x (supports CUDA 12.9)
+3. Upgrade to PyTorch 2.10+ when CUDA 12.9 support is re-added
+
+**Verification**:
+
+```bash
+# Check pipeline ConfigMap uses community image
+oc get configmap pipeline-rag-data-ingestion -n ai-generation-llm-rag -o yaml | \
+  grep "quay.io/docling-project/docling-serve-cu126"
+
+# Run pipeline and verify GPU acceleration in logs
+oc logs <docling-pod> -n ai-generation-llm-rag -c main | grep "Accelerator device"
+# Expected: [KFP Executor] Accelerator device: 'cuda:0'
+
+# Verify NO CUDA Error 803
+oc logs <docling-pod> -n ai-generation-llm-rag -c main | grep -i "error 803"
+# Expected: (no output)
+```
+
+**GPU Driver Compatibility**:
+
+Works with NVIDIA GPU Operator driver 580.126.20 (CUDA 13.0 support):
+- Tesla T4 GPUs (Turing architecture)
+- Driver installed via GPU Operator v26.3
+- Compatible with both CUDA 12.6 (docling) and CUDA 13.0 (driver)
+
 ❌ **DO NOT** create custom ClusterRole for DSPA (operator provides complete RBAC)
 ❌ **DO NOT** mount ConfigMaps across namespaces (Kubernetes restriction)
 ❌ **DO NOT** use unauthenticated KFP client (DSPA requires token)
