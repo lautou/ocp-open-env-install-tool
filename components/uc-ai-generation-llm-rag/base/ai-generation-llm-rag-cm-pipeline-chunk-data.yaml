@@ -507,7 +507,7 @@ data:
             env:
             - name: HF_HOME
               value: /.cache
-            image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
+            image: quay.io/docling-project/docling-serve-cu126:latest
             resources:
               cpuLimit: 2.0
               cpuRequest: 0.25
@@ -648,7 +648,7 @@ data:
               \ flush=True)\n        result.document.save_as_markdown(\n            output_md_path,\
               \ image_mode=ImageRefMode(image_export_mode)\n        )\n\n    print(\"\
               docling-standard-convert: done\", flush=True)\n\n"
-            image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
+            image: quay.io/docling-project/docling-serve-cu126:latest
             resources:
               cpuLimit: 4.0
               cpuRequest: 0.5
@@ -729,7 +729,7 @@ data:
               \        )\n    else:\n        raise ValueError(\n            f\"Invalid\
               \ pipeline_type: {pipeline_type}. Must be 'standard' or 'vlm'\"\n      \
               \  )\n\n"
-            image: registry.redhat.io/rhai/docling-cuda-rhel9:3.2.1
+            image: quay.io/docling-project/docling-serve-cu126:latest
         exec-import-pdfs:
           container:
             args:
