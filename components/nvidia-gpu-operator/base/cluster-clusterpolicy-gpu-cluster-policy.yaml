@@ -13,11 +13,11 @@ spec:
     enabled: true
     repository: nvcr.io/nvidia
     image: driver
-    version: "550.163.01"
+    version: "550.163.01-rhcos4.18"
   gfd: {}
   nodeStatusExporter:
     enabled: true
   operator:
     defaultRuntime: crio
-    use_ocp_driver_toolkit: true
+    use_ocp_driver_toolkit: false
   toolkit: {}
