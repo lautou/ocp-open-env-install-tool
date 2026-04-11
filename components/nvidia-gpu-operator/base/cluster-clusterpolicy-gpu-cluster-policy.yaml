@@ -9,8 +9,7 @@ spec:
   dcgm: {}
   dcgmExporter: {}
   devicePlugin: {}
-  driver:
-    version: "550.90.07"
+  driver: {}
   gfd: {}
   nodeStatusExporter:
     enabled: true
