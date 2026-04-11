@@ -10,11 +10,13 @@ spec:
   dcgmExporter: {}
   devicePlugin: {}
   driver:
+    repository: nvcr.io/nvidia
+    image: driver
     version: "550.127.08"
   gfd: {}
   nodeStatusExporter:
     enabled: true
   operator:
     defaultRuntime: crio
-    use_ocp_driver_toolkit: true
+    use_ocp_driver_toolkit: false
   toolkit: {}
