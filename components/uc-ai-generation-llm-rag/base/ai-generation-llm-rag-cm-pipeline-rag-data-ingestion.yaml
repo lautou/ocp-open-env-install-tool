@@ -478,6 +478,8 @@ data:
               memoryRequest: 0.512
               resourceCpuLimit: '2'
               resourceCpuRequest: 250m
+              resourceGpuLimit: '1'
+              resourceGpuRequest: '1'
               resourceMemoryLimit: 2G
               resourceMemoryRequest: 512M
         exec-docling-convert-standard:
@@ -510,6 +512,8 @@ data:
               memoryRequest: 1.0
               resourceCpuLimit: '4'
               resourceCpuRequest: 500m
+              resourceGpuLimit: '1'
+              resourceGpuRequest: '1'
               resourceMemoryLimit: 6G
               resourceMemoryRequest: 1G
         exec-download-docling-models:
@@ -665,6 +669,7 @@ data:
           for-loop-1:
             componentRef:
               name: comp-for-loop-1
+            parallelismLimit: 2
             dependentTasks:
             - create-pdf-splits
             - download-docling-models
