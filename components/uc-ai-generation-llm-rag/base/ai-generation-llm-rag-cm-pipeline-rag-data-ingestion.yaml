@@ -669,7 +669,6 @@ data:
           for-loop-1:
             componentRef:
               name: comp-for-loop-1
-            parallelismLimit: 2
             dependentTasks:
             - create-pdf-splits
             - download-docling-models
