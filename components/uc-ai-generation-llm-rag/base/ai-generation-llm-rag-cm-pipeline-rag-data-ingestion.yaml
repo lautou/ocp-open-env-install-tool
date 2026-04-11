@@ -867,7 +867,7 @@ data:
             isOptional: true
             parameterType: NUMBER_INTEGER
           num_splits:
-            defaultValue: 3.0
+            defaultValue: 2.0
             isOptional: true
             parameterType: NUMBER_INTEGER
           pdf_base_url:
@@ -875,7 +875,7 @@ data:
             isOptional: true
             parameterType: STRING
           pdf_filenames:
-            defaultValue: 2206.01062.pdf,2203.01017v2.pdf,2305.03393v1.pdf
+            defaultValue: 2206.01062.pdf,2203.01017v2.pdf
             isOptional: true
             parameterType: STRING
           pdf_from_s3:
