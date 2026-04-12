@@ -2,14 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed
     argocd.argoproj.io/sync-options: Force=true
   name: upload-pipeline-convert-store-embeddings
   namespace: openshift-gitops
 spec:
-  activeDeadlineSeconds: 300
-  backoffLimit: 1
   template:
     spec:
       containers:
@@ -20,21 +16,11 @@ spec:
           set -e
 
           echo "Waiting for DSPA API to be available..."
-          timeout=180
-          while [ $timeout -gt 0 ]; do
-            if curl -s -k -o /dev/null -w "%{http_code}" https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/pipelines | grep -q "200\|401\|403"; then
-              echo "DSPA API is responding"
-              break
-            fi
-            echo "Waiting... ($timeout seconds remaining)"
+          while ! curl -s -k -o /dev/null -w "%{http_code}" https://ds-pipeline-pipelines.ai-generation-llm-rag.svc:8443/apis/v2beta1/pipelines | grep -q "200\|401\|403"; do
+            echo "Waiting for DSPA API..."
             sleep 5
-            timeout=$((timeout - 5))
           done
-
-          if [ $timeout -le 0 ]; then
-            echo "ERROR: Timeout waiting for DSPA API"
-            exit 1
-          fi
+          echo "✅ DSPA API is responding"
 
           echo "Using pipeline definition from init container..."
           if [ ! -s /pipeline/pipeline.yaml ]; then
@@ -66,6 +52,13 @@ spec:
         - -c
         - |
           set -e
+          echo "Waiting for ConfigMap pipeline-convert-store-embeddings..."
+          while ! oc get configmap pipeline-convert-store-embeddings -n ai-generation-llm-rag >/dev/null 2>&1; do
+            echo "Waiting for ConfigMap pipeline-convert-store-embeddings..."
+            sleep 5
+          done
+          echo "✅ ConfigMap found"
+
           echo "Fetching pipeline definition from ConfigMap..."
           oc get configmap pipeline-convert-store-embeddings -n ai-generation-llm-rag \
             -o jsonpath='{.data.pipeline\.yaml}' > /pipeline/pipeline.yaml
@@ -75,7 +68,7 @@ spec:
             exit 1
           fi
 
-          echo "Pipeline definition fetched ($(wc -l < /pipeline/pipeline.yaml) lines)"
+          echo "✅ Pipeline definition fetched ($(wc -l < /pipeline/pipeline.yaml) lines)"
         image: registry.redhat.io/openshift4/ose-cli:latest
         name: fetch-pipeline
         volumeMounts:
