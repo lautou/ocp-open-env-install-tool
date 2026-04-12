@@ -185,7 +185,7 @@ echo "Load balancer deletion and waiting process complete."
 
 prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId)
 if [[ ! -z "$prev_vpc_ids" ]]; then
-  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | sed "s/ /,/g")
+  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | tr -s '[:space:]' ',' | sed 's/,$//')
 
   echo "Check and delete previous NAT Gateways for vpc ids ... $prev_vpc_ids"
   for i in $(aws_ec2_get nat-gateway NatGateways[].NatGatewayId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-nat-gateway --nat-gateway-id "$i" > /dev/null; done
@@ -244,7 +244,7 @@ for i in $(aws_ec2_get addresse Addresses[].AllocationId); do aws ec2 release-ad
 
 prev_vpc_ids=$(aws_ec2_get vpc Vpcs[].VpcId)
 if [[ ! -z "$prev_vpc_ids" ]]; then
-  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | sed "s/ /,/g")
+  prev_vpc_ids_cs=$(echo "$prev_vpc_ids" | tr -s '[:space:]' ',' | sed 's/,$//')
 
   echo "Check and delete previous Network interfaces for vpc ids ... $prev_vpc_ids"
   for i in $(aws_ec2_get network-interface NetworkInterfaces[].NetworkInterfaceId vpc-id "$prev_vpc_ids_cs"); do aws ec2 delete-network-interface --network-interface-id "$i" > /dev/null; done
