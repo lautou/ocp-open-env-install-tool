@@ -67,22 +67,28 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
    - Pattern: `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true`
    - Why: CRD validation fails before operator is deployed → deadlock
 
-4. **Force=true for ArgoCD Hook Jobs**
-   - ✅ Required in ALL ArgoCD hook Jobs (PostSync, PreDelete, etc.)
-   - Pattern: `argocd.argoproj.io/sync-options: Force=true`
-   - Why: Job spec.template is immutable → ArgoCD patch fails → deadlock requiring manual intervention
+4. **Force=true for Jobs (NO hook annotations)**
+   - ✅ Required in ALL Jobs
+   - Pattern: `argocd.argoproj.io/sync-options: Force=true` (ONLY this annotation)
+   - ❌ DO NOT use: `argocd.argoproj.io/hook: PostSync` (causes sync deadlock)
+   - ❌ DO NOT use: `argocd.argoproj.io/hook-delete-policy` (only for hooks)
+   - ❌ DO NOT use: `argocd.argoproj.io/sync-wave` (only for hooks)
+   - Why: Job spec.template is immutable → Force=true enables updates (delete+recreate)
+   - Why NO hooks: PostSync hooks block ArgoCD sync until Job completes → infinite wait = deadlock
+   - **Regular Jobs**: Sync completes immediately, Job runs independently, Application shows "Synced + Progressing" until Job finishes
 
 **Pre-commit checklist**:
 - [ ] Application/ApplicationSet has ignoreDifferences for cluster-versions?
 - [ ] Namespace has argocd.argoproj.io/managed-by label?
 - [ ] Operator CRs have SkipDryRunOnMissingResource annotation?
-- [ ] ArgoCD hook Jobs have Force=true sync option?
+- [ ] Jobs have ONLY Force=true (no hook annotations)?
 
 **Failure symptoms if forgotten**:
 - Missing ignoreDifferences → Application OutOfSync (but Healthy)
 - Missing managed-by → ArgoCD permission errors
 - Missing SkipDryRunOnMissingResource → Application stuck OutOfSync/Missing forever
 - Missing Force=true on Jobs → "field is immutable" error → Application stuck in retry loop → manual Job deletion required
+- Using PostSync hook → Sync deadlock if Job waits forever for dependencies → requires manual Job deletion
 
 ## YAML Formatting Standards
 
@@ -302,6 +308,95 @@ ArgoCD validates ALL resources before applying ANY resources:
 ❌ **DO NOT USE** for built-in Kubernetes/OpenShift resources
 
 **Critical**: Without this annotation, operator-based components WILL FAIL on fresh cluster deployments.
+
+### ✅ Jobs Pattern: Regular Jobs (NOT Hooks)
+
+**CRITICAL**: Use regular Jobs (no hook annotations) to avoid ArgoCD sync deadlocks.
+
+**Pattern**: Jobs for runtime configuration/patching (e.g., secret transformation, resource patching).
+
+**Required configuration**:
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true  # ONLY this annotation
+    # ❌ DO NOT add: argocd.argoproj.io/hook: PostSync
+    # ❌ DO NOT add: argocd.argoproj.io/hook-delete-policy
+    # ❌ DO NOT add: argocd.argoproj.io/sync-wave
+  name: my-job
+  namespace: openshift-gitops
+spec:
+  # ❌ NO activeDeadlineSeconds - let Job wait as long as needed
+  # ❌ NO backoffLimit override - use default (6)
+  template:
+    spec:
+      restartPolicy: Never  # ✅ Required
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          # ✅ Infinite wait loop OK - no timeout needed
+          while ! oc get secret my-dependency -n target-namespace; do
+            echo "Waiting for dependency..."
+            sleep 5
+          done
+          
+          # Perform job task...
+```
+
+**Why NO hook annotations**:
+
+| Aspect | PostSync Hook | Regular Job (This Pattern) |
+|--------|--------------|---------------------------|
+| **Sync completes?** | ❌ Waits for Job completion | ✅ Immediately |
+| **Deadlock risk?** | 🔴 YES (if Job waits forever) | ✅ NO |
+| **Application status?** | Stuck "Syncing" | "Synced + Progressing" → "Synced + Healthy" |
+| **Job runs when?** | AFTER sync + health checks | DURING sync (parallel) |
+| **Dependency ordering?** | ✅ Guaranteed (resources exist first) | ⚠️ Race condition (but infinite loop handles it) |
+| **Blocks ArgoCD?** | 🔴 YES (can't sync other changes) | ✅ NO |
+
+**How it works**:
+
+```
+T+0:   ArgoCD sync starts
+T+1:   Apply resources (Job, OBC, ConfigMaps, etc.) in parallel
+T+2:   ✅ SYNC COMPLETES (Git state applied)
+       Status: Synced
+       Health: Progressing (Job is Running)
+
+T+3:   Job starts, begins waiting for dependency (e.g., OBC secret)
+       Application: Synced + Progressing ⚠️
+
+T+300: Dependency appears (e.g., ODF creates secret)
+T+301: Job completes successfully
+       Application: Synced + Healthy ✅
+```
+
+**Benefits**:
+- ✅ **No sync deadlock** - Sync completes immediately
+- ✅ **Self-healing** - Job waits patiently, eventually succeeds
+- ✅ **Infinite wait OK** - No timeout needed, waits until dependency appears
+- ✅ **Job stays visible** - Remains in cluster for debugging (delete on next sync)
+- ✅ **ArgoCD not blocked** - Can sync other changes while Job runs
+- ✅ **Updatable** - Force=true handles Job immutability (delete+recreate)
+
+**Trade-off**: Race condition (Job may start before dependencies exist), but infinite wait loop handles this gracefully.
+
+**When dependency never appears**: Application shows "Synced + Progressing" forever, but ArgoCD is NOT deadlocked. User can:
+- Investigate why dependency failed (e.g., ODF deployment issue)
+- Delete stuck Job manually if needed
+- ArgoCD can still sync other changes
+
+**Examples in codebase**:
+- `create-secret-netobserv-loki-s3` - Waits for ODF/NooBaa to create OBC secret
+- `create-secret-logging-loki-s3` - Same pattern for logging
+- `update-odf-subscriptions-node-selector` - Waits for OLM to create child Subscriptions
+- `ack-config-injector` - Waits for AWS credentials secret
+
+**See**: [jobs.md](docs/claude/jobs.md) for complete Job architecture and development guide.
 
 ### ApplicationSet Configuration for PreDelete Hooks
 
