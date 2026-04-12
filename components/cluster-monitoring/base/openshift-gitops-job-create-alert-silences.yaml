@@ -42,7 +42,8 @@ spec:
           # Wait for Alertmanager pods to be fully ready
           echo "Waiting for Alertmanager pods to be Running and Ready..."
           while true; do
-            READY_PODS=$(oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager --field-selector=status.phase=Running -o json | grep -c '"ready":true' || echo 0)
+            # Count pods where all containers are ready (READY column shows X/X with same numbers)
+            READY_PODS=$(oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager --field-selector=status.phase=Running --no-headers 2>/dev/null | awk '$2 ~ /^([0-9]+)\/\1$/ {count++} END {print count+0}')
             if [ "$READY_PODS" -ge "$DESIRED_REPLICAS" ]; then
               echo "✅ Alertmanager pods ready ($READY_PODS/$DESIRED_REPLICAS)"
               break
@@ -264,7 +265,7 @@ spec:
           PF_PID=$!
           sleep 3
 
-          SILENCE_COUNT=$(curl -s http://localhost:9093/api/v2/silences 2>/dev/null | grep -o '"status":{"state":"active"' | wc -l || echo 0)
+          SILENCE_COUNT=$(curl -s http://localhost:9093/api/v2/silences 2>/dev/null | grep -o '"status":{"state":"active"' | wc -l)
 
           kill $PF_PID 2>/dev/null || true
 
