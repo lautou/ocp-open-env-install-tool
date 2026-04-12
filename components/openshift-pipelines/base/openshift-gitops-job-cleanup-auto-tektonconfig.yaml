@@ -57,4 +57,3 @@ spec:
       serviceAccount: openshift-gitops-argocd-application-controller
       serviceAccountName: openshift-gitops-argocd-application-controller
       terminationGracePeriodSeconds: 30
-  ttlSecondsAfterFinished: 300
