@@ -1,5 +1,30 @@
 # RAG Pipeline Run Instructions
 
+> **⚠️ DEPRECATED - 2026-04-12**
+>
+> This document describes the **old two-stage pipeline** (`chunk-data` → `convert-store-embeddings`) which has been **replaced by a unified single-stage pipeline** (`rag-data-ingestion`).
+>
+> **Pipelines removed:**
+> - `chunk-data` - Deleted 2026-04-12
+> - `convert-store-embeddings` - Deleted 2026-04-12
+>
+> **Current pipeline:**
+> - `rag-data-ingestion` - Single unified pipeline (all stages in one run)
+>
+> **Key improvements:**
+> - ✅ Single pipeline run (no manual artifact path copying)
+> - ✅ Auto-injected PostgreSQL password (no manual password entry)
+> - ✅ Simplified workflow
+>
+> **For updated documentation, see:**
+> - RAG pipeline setup: `docs/claude/RAG-PIPELINE-SETUP.md`
+> - KFP secret patterns: `docs/claude/kfp-secret-patterns.md` (see "store-in-pgvector" example)
+> - Component docs: `docs/claude/components.md` (UC AI Generation LLM RAG section)
+
+---
+
+# ⚠️ ARCHIVED CONTENT BELOW (Historical Reference Only)
+
 **Quick Reference**: How to run the two-stage RAG pipeline (chunk-data → convert-store-embeddings).
 
 ---

@@ -1,6 +1,6 @@
 # KFP v2 Secret Injection Patterns
 
-**Last Updated:** 2026-04-11  
+**Last Updated:** 2026-04-12  
 **KFP Version:** 2.14.6  
 **RHOAI Version:** 2.18  
 **Platform:** OpenShift Data Science Pipelines (DSPA)
@@ -291,6 +291,158 @@ deploymentSpec:
         - name: AWS_S3_BUCKET
           value: ai-generation-llm-rag-pipelines
 ```
+
+## Real-World Example: store-in-pgvector Component
+
+### Problem
+
+The `store-in-pgvector` component needs to:
+1. Read document chunks with embeddings from previous task
+2. Connect to PostgreSQL database with password authentication
+3. Insert data into pgvector-enabled table
+
+**Challenge:** Password should NOT be a pipeline parameter (manual copy/paste required). Instead, read from Kubernetes Secret automatically.
+
+### Solution (Verified Working - 2026-04-12)
+
+**1. Remove password parameter, add secret mount path parameter:**
+```yaml
+comp-store-in-pgvector:
+  executorLabel: exec-store-in-pgvector
+  inputDefinitions:
+    parameters:
+      postgres_host:
+        parameterType: STRING
+      postgres_port:
+        parameterType: NUMBER_INTEGER
+      postgres_database:
+        parameterType: STRING
+      postgres_user:
+        parameterType: STRING
+      postgres_secret_mount_path:  # NEW
+        parameterType: STRING
+        defaultValue: /mnt/secrets
+        description: Path to the secret mount path for PostgreSQL credentials
+        isOptional: true
+      # ❌ REMOVED: postgres_password parameter
+```
+
+**2. Add platformSpec to mount secret:**
+```yaml
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-store-in-pgvector:
+          secretAsVolume:
+          - secretName: rag-postgresql-credentials
+            mountPath: /mnt/secrets
+            optional: false
+```
+
+**3. Task passes mount path (not password):**
+```yaml
+root:
+  dag:
+    tasks:
+      store-in-pgvector:
+        componentRef:
+          name: comp-store-in-pgvector
+        inputs:
+          parameters:
+            postgres_host:
+              componentInputParameter: postgres_host
+            postgres_port:
+              componentInputParameter: postgres_port
+            postgres_database:
+              componentInputParameter: postgres_database
+            postgres_user:
+              componentInputParameter: postgres_user
+            postgres_secret_mount_path:
+              runtimeValue:
+                constant: /mnt/secrets
+            # ❌ REMOVED: postgres_password input
+```
+
+**4. Component reads password from mounted secret:**
+```python
+def store_in_pgvector(
+    chunks_with_embeddings_path: dsl.Input[dsl.Artifact],
+    postgres_host: str,
+    postgres_port: int,
+    postgres_database: str,
+    postgres_user: str,
+    table_name: str = 'document_chunks',
+    postgres_secret_mount_path: str = '/mnt/secrets'
+) -> NamedTuple('Outputs', [('num_rows_inserted', int), ('table_name', str)]):
+    import os
+    import psycopg2
+    
+    # Read PostgreSQL password from mounted secret
+    password_file = os.path.join(postgres_secret_mount_path, 'POSTGRES_PASSWORD')
+    if not os.path.isfile(password_file):
+        raise RuntimeError(f"POSTGRES_PASSWORD not found in {postgres_secret_mount_path}")
+    
+    with open(password_file) as f:
+        postgres_password = f.read().strip()
+    
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(
+        host=postgres_host,
+        port=postgres_port,
+        database=postgres_database,
+        user=postgres_user,
+        password=postgres_password  # From mounted secret
+    )
+    
+    # ... rest of implementation
+```
+
+**5. Secret structure:**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-postgresql-credentials
+  namespace: ai-generation-llm-rag
+stringData:
+  POSTGRES_DB: ragdb
+  POSTGRES_PASSWORD: changeme-demo-only
+  POSTGRES_USER: raguser
+type: Opaque
+```
+
+### Benefits
+
+✅ **No manual password entry** - Users don't paste passwords when creating runs  
+✅ **Secure** - Password never appears in pipeline parameters or UI  
+✅ **Flexible** - Secret can be updated independently of pipeline  
+✅ **Consistent** - Same pattern as AWS credentials (collect-chunks)  
+
+### User Workflow
+
+**Before:**
+1. Create pipeline run
+2. Copy password from secret ❌
+3. Paste into `postgres_password` parameter ❌
+4. Submit run
+
+**After:**
+1. Create pipeline run
+2. Submit run ✅ (password auto-injected)
+
+### Verification
+
+Successful pipeline run logs show:
+```
+Connecting to PostgreSQL at rag-postgresql.external-db-generation-llm-rag.svc.cluster.local:5432/ragdb...
+OK Connected to PostgreSQL!
+OK pgvector extension enabled
+OK Table 'document_chunks' ready
+OK Inserted 81 chunks
+```
+
+**No password parameter in pipeline definition** - verified in RHOAI UI.
 
 ## DSPA Configuration
 
