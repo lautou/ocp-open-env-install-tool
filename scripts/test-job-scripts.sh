@@ -251,6 +251,68 @@ test_secret_extraction() {
 }
 
 # ============================================
+# Test 7: oc_retry doesn't break infinite loops
+# ============================================
+test_oc_retry_infinite_loop() {
+  info "Test 7: oc_retry with infinite loop pattern (NotFound)"
+
+  # Source the retry wrapper
+  if [ ! -f "scripts/oc-retry-wrapper.sh" ]; then
+    fail "oc-retry-wrapper.sh not found (skip test)"
+    echo ""
+    return
+  fi
+
+  source scripts/oc-retry-wrapper.sh
+
+  # Mock oc command that simulates NotFound error
+  oc() {
+    echo "Error from server (NotFound): secrets \"my-secret\" not found"
+    return 1
+  }
+  export -f oc
+
+  # Test that oc_retry returns immediately on NotFound (doesn't retry)
+  START_TIME=$(date +%s)
+  oc_retry get secret my-secret -n test-namespace >/dev/null 2>&1 || true
+  END_TIME=$(date +%s)
+  DURATION=$((END_TIME - START_TIME))
+
+  # Should return immediately (< 2 seconds), not retry for 62 seconds
+  if [ $DURATION -lt 2 ]; then
+    pass "oc_retry NotFound: returns immediately ($DURATION seconds, no retry)"
+  else
+    fail "oc_retry NotFound: took $DURATION seconds (should be <2, indicates retry loop)"
+  fi
+
+  # Test Forbidden error (also should NOT retry)
+  oc() {
+    echo "Error from server (Forbidden): secrets \"my-secret\" is forbidden"
+    return 1
+  }
+  export -f oc
+
+  START_TIME=$(date +%s)
+  oc_retry get secret my-secret -n test-namespace >/dev/null 2>&1 || true
+  END_TIME=$(date +%s)
+  DURATION=$((END_TIME - START_TIME))
+
+  if [ $DURATION -lt 2 ]; then
+    pass "oc_retry Forbidden: returns immediately ($DURATION seconds, no retry)"
+  else
+    fail "oc_retry Forbidden: took $DURATION seconds (should be <2)"
+  fi
+
+  # Restore oc command
+  unset -f oc
+
+  # Note: We don't test cert rotation retry in unit tests (takes 60+ seconds)
+  # That behavior is tested manually or in integration tests
+
+  echo ""
+}
+
+# ============================================
 # Run all tests
 # ============================================
 test_pod_counting
@@ -259,6 +321,7 @@ test_integer_comparison
 test_olm_api_groups
 test_wc_l_success
 test_secret_extraction
+test_oc_retry_infinite_loop
 
 # ============================================
 # Summary
