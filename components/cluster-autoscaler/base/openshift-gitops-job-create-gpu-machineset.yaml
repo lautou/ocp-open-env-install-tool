@@ -2,10 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
-    argocd.argoproj.io/sync-wave: "3"
   name: create-gpu-machineset
   namespace: openshift-gitops
 spec:
@@ -82,11 +79,13 @@ spec:
               # 3. Create the MachineAutoscaler
               echo "Creating/Updating MachineAutoscaler..."
 
-              # Wait for ConfigMap just in case
-              if ! oc get cm machineautoscaler -n openshift-gitops &> /dev/null; then
-                 echo "ERROR: ConfigMap 'machineautoscaler' not found in openshift-gitops."
-                 exit 1
-              fi
+              # Wait for ConfigMap to be available
+              echo "Waiting for ConfigMap machineautoscaler in openshift-gitops..."
+              while ! oc get cm machineautoscaler -n openshift-gitops >/dev/null 2>&1; do
+                echo "Waiting for ConfigMap machineautoscaler..."
+                sleep 5
+              done
+              echo "✅ ConfigMap machineautoscaler found"
 
               # Extract template
               MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)

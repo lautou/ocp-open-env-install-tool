@@ -2,20 +2,16 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
-    argocd.argoproj.io/sync-wave: '10'
   name: create-alert-silences
   namespace: openshift-gitops
 spec:
-  backoffLimit: 3
   template:
     metadata:
       name: create-alert-silences
     spec:
       serviceAccountName: create-alert-silences
-      restartPolicy: OnFailure
+      restartPolicy: Never
       containers:
       - command:
         - /bin/bash
@@ -33,25 +29,25 @@ spec:
           DESIRED_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.spec.replicas}')
           echo "Alertmanager desired replicas: $DESIRED_REPLICAS"
 
-          for i in {1..60}; do
+          while true; do
             READY_REPLICAS=$(oc get statefulset alertmanager-main -n openshift-monitoring -o jsonpath='{.status.readyReplicas}')
             if [ "$READY_REPLICAS" = "$DESIRED_REPLICAS" ] && [ "$READY_REPLICAS" != "" ]; then
               echo "✅ Alertmanager StatefulSet ready ($READY_REPLICAS/$DESIRED_REPLICAS)"
               break
             fi
-            echo "Waiting... ($i/60) - Ready: $READY_REPLICAS/$DESIRED_REPLICAS"
+            echo "Waiting for StatefulSet... Ready: $READY_REPLICAS/$DESIRED_REPLICAS"
             sleep 5
           done
 
           # Wait for Alertmanager pods to be fully ready
           echo "Waiting for Alertmanager pods to be Running and Ready..."
-          for i in {1..30}; do
+          while true; do
             READY_PODS=$(oc get pods -n openshift-monitoring -l app.kubernetes.io/name=alertmanager --field-selector=status.phase=Running -o json | grep -c '"ready":true' || echo 0)
             if [ "$READY_PODS" -ge "$DESIRED_REPLICAS" ]; then
               echo "✅ Alertmanager pods ready ($READY_PODS/$DESIRED_REPLICAS)"
               break
             fi
-            echo "Waiting for pods... ($i/30) - Ready: $READY_PODS/$DESIRED_REPLICAS"
+            echo "Waiting for pods... Ready: $READY_PODS/$DESIRED_REPLICAS"
             sleep 5
           done
 

@@ -28,5 +28,5 @@ spec:
           fi
         image: quay.io/devfile/universal-developer-image:ubi9-latest
         name: disable-console-plugin
-      restartPolicy: OnFailure
+      restartPolicy: Never
       serviceAccountName: console-plugin-manager

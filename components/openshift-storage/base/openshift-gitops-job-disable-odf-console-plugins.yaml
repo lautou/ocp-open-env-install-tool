@@ -38,7 +38,7 @@ spec:
         name: disable-console-plugins
       nodeSelector:
         node-role.kubernetes.io/infra: ''
-      restartPolicy: OnFailure
+      restartPolicy: Never
       serviceAccountName: console-plugin-manager
       tolerations:
       - key: node-role.kubernetes.io/infra

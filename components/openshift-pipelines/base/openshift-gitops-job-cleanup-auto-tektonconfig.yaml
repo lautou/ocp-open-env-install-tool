@@ -2,14 +2,10 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/hook: Sync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-options: Force=true
-    argocd.argoproj.io/sync-wave: "1"
   name: cleanup-auto-tektonconfig
   namespace: openshift-gitops
 spec:
-  backoffLimit: 3
   template:
     metadata:
       name: cleanup-auto-tektonconfig
@@ -40,18 +36,11 @@ spec:
               oc delete tektonconfig config --wait=false || true
 
               # Wait for deletion
-              for i in {1..30}; do
-                if ! oc get tektonconfig config &>/dev/null; then
-                  echo "TektonConfig deleted successfully"
-                  exit 0
-                fi
-                echo "Waiting for TektonConfig deletion... ($i/30)"
+              while oc get tektonconfig config &>/dev/null; do
+                echo "Waiting for TektonConfig deletion..."
                 sleep 2
               done
-
-              echo "WARNING: TektonConfig still exists after 60s, forcing finalizer removal"
-              oc patch tektonconfig config --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || true
-              sleep 5
+              echo "TektonConfig deleted successfully"
             else
               echo "TektonConfig already has correct targetNamespace, skipping"
             fi
@@ -64,7 +53,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: cleanup
       dnsPolicy: ClusterFirst
-      restartPolicy: OnFailure
+      restartPolicy: Never
       serviceAccount: openshift-gitops-argocd-application-controller
       serviceAccountName: openshift-gitops-argocd-application-controller
       terminationGracePeriodSeconds: 30
