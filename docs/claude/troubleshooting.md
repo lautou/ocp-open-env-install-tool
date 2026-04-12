@@ -526,24 +526,43 @@ oc wait subscription.operators.coreos.com my-operator -n my-namespace --for=...
 
 **Root Causes**:
 
-**1. Job with TTL but no ArgoCD hook annotation**
+**1. Job with TTL and Force=true (Regular Job Pattern)**
 
-When a Job has `ttlSecondsAfterFinished` but is NOT marked as an ArgoCD hook:
-- Job completes → TTL controller deletes Job after timeout
-- ArgoCD detects deletion → re-syncs to recreate Job
+When a Job has `ttlSecondsAfterFinished` and is tracked as a regular resource (not a hook):
+- Job completes → TTL controller deletes Job after timeout (e.g., 300s = 5 minutes)
+- ArgoCD detects deletion → auto-heal recreates Job (Force=true enables delete+recreate)
 - Result: Continuous sync cycle every TTL period
 
-**Solution**: Mark Job as ArgoCD hook to exclude from drift detection
+**Solution**: Remove `ttlSecondsAfterFinished` from regular Jobs
 
 ```yaml
-metadata:
-  annotations:
-    argocd.argoproj.io/hook: Sync  # or PreSync/PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "1"
+# ❌ WRONG - Causes 5-minute sync cycles
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+
+# ✅ CORRECT - Job persists after completion
+spec:
+  template:
+    spec:
+      restartPolicy: Never
 ```
 
-**Example**: OpenShift Pipelines cleanup-auto-tektonconfig Job (fixed in 0813d6e)
+**Why TTL is problematic with regular Jobs:**
+- Regular Jobs are tracked as manifest resources by ArgoCD
+- TTL deletion triggers drift detection
+- `Force=true` (required for Job immutability) enables recreation
+- Result: Infinite sync loop
+
+**When TTL is acceptable:**
+- Hook Jobs (excluded from drift tracking) - but see CLAUDE.md for hook deadlock risks
+- Jobs that should auto-cleanup and never rerun
+
+**Example**: OpenShift Pipelines cleanup-auto-tektonconfig Job
+- Original issue: TTL + regular Job = 5-minute sync cycles (fixed in d337add)
+- History: Temporarily used Sync hook (0813d6e), converted back to regular Job (1aad8f7), removed TTL (d337add)
 
 **2. API version mismatch (operator converts resources)**
 

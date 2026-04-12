@@ -945,9 +945,16 @@ spec:
 
 **Job idempotency:**
 - Job checks current targetNamespace before deleting
-- If already correct (`openshift-pipelines`), skips deletion
+- If already correct (`openshift-pipelines`), skips deletion (no-op)
 - Prevents unnecessary churn on subsequent syncs
-- **Sync hook**: Marked as `argocd.argoproj.io/hook: Sync` for proper ArgoCD lifecycle management
+- **Regular Job pattern**: Uses `Force=true` annotation (not a hook) to enable Job recreation on sync
+- **No TTL**: `ttlSecondsAfterFinished` removed to prevent 5-minute partial sync cycles (fixed in d337add)
+
+**Why regular Job (not hook):**
+- Avoids PostSync deadlock risk if Job waits indefinitely
+- ArgoCD sync completes immediately, Job runs independently
+- Application shows "Synced + Progressing" until Job completes
+- See `docs/claude/troubleshooting.md` "Partial Sync Cycles" for TTL anti-pattern details
 
 ## OpenShift Builds (Shipwright)
 

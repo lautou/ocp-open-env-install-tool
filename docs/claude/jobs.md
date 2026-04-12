@@ -629,16 +629,22 @@ spec:
 - `--dry-run=client -o yaml | oc apply` for idempotent create/update
 - Wave `3` to run after operator deployment
 
-### 6. Cleanup Operations (2 Jobs)
+### 6. Cleanup Operations (3 Jobs)
 
-**Pattern**: Remove failed/unwanted resources
+**Pattern**: Remove failed/unwanted resources or resolve operator configuration conflicts
 
 **Why Jobs?**
 - Automated cleanup of error states
 - Remove resources incompatible with configuration
+- Resolve operator auto-creation vs GitOps race conditions
 
 **Jobs:**
 - `openshift-gitops-job-cleanup-installer-pods.yaml` → Delete failed installer pods
+- `openshift-gitops-job-cleanup-auto-tektonconfig.yaml` → Resolve TektonConfig targetNamespace race condition (OpenShift Pipelines)
+  - Deletes operator's auto-created TektonConfig if wrong targetNamespace
+  - Uses sync-wave orchestration to run between operator install and ArgoCD TektonConfig creation
+  - Idempotent: checks targetNamespace before deleting (no-op if already correct)
+  - See `docs/claude/components.md` "OpenShift Pipelines → TektonConfig Race Condition" for full details
 - `openshift-gitops-job-delete-openshift-builds-resources.yaml` → Remove OpenShift Builds operator (superseded by Pipelines)
   - Uses proper operator cleanup sequence (Subscription → CSV → CR finalizer removal → Namespace)
   - See "Pattern: Operator Cleanup with Finalizer Handling" below
