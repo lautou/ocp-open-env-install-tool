@@ -28,6 +28,97 @@
 ./scripts/approve_cluster_csrs.sh ec2-x-x-x-x.compute.amazonaws.com output/bastion_mycluster.pem
 ```
 
+### Certificate Rotation During Deployment
+
+**Symptom**: Intermittent `x509: certificate signed by unknown authority` errors during Day 2 operations
+
+**When this happens**:
+- During cluster initialization (~30-50 minutes after cluster start)
+- API server certificate rotation in progress
+- Jobs or `oc` commands fail sporadically with TLS errors
+
+**Example error**:
+```
+Unable to connect to the server: tls: failed to verify certificate: x509: certificate signed by unknown authority
+```
+
+**Root cause**: OpenShift rotates certificates automatically during cluster bootstrap. API server briefly presents new certificates before kubeconfig is updated.
+
+**Impact**:
+- ✅ **Not a bug** - Normal cluster operation
+- ⚠️ Transient errors during 5-10 minute window
+- Jobs using `oc` commands may fail temporarily
+
+**Solutions**:
+
+**Option 1: Retry wrapper for Jobs** (recommended for write operations)
+```bash
+# Source retry wrapper in Job script
+source /scripts/oc-retry-wrapper.sh
+
+# Use oc_retry instead of oc for transient errors
+oc_retry get pods -n openshift-monitoring
+# Retries up to 5 times with exponential backoff (2s, 4s, 8s, 16s, 32s)
+```
+
+**Option 2: Skip TLS verification for read-only operations** (safe for reads)
+```bash
+# For read-only oc get/describe commands during cert rotation
+source /scripts/oc-retry-wrapper.sh
+
+oc_retry_read get application -n openshift-gitops
+# Tries normal TLS first, falls back to --insecure-skip-tls-verify on cert errors
+```
+
+**Option 3: Manual workaround during debugging**
+```bash
+# Temporary workaround for oc commands during investigation
+oc get nodes --insecure-skip-tls-verify
+```
+
+**Prevention**:
+- Use retry wrapper in all Jobs (see `scripts/oc-retry-wrapper.sh`)
+- Add retry logic for critical oc commands
+- Jobs should expect transient API errors
+
+**Example Job integration**:
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: my-job
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          # Source retry wrapper
+          source /scripts/oc-retry-wrapper.sh
+
+          # Use oc_retry for all oc commands
+          oc_retry get pods -n openshift-monitoring
+          oc_retry wait pod/my-pod --for=condition=Ready --timeout=300s
+
+          # For read-only operations, use oc_retry_read (safer)
+          CLUSTER_VERSION=$(oc_retry_read get clusterversion version -o jsonpath='{.status.desired.version}')
+        volumeMounts:
+        - mountPath: /scripts
+          name: scripts
+      volumes:
+      - configMap:
+          name: oc-retry-wrapper
+          defaultMode: 0755
+        name: scripts
+```
+
+**Duration**: Certificate rotation window is typically 5-10 minutes. If errors persist beyond 15 minutes, investigate other causes.
+
+**Related**: See "Job Stuck in Infinite Loop" in jobs.md for Job robustness patterns
+
 ### AWS Resource Cleanup
 
 **Symptom**: Old cluster resources not cleaned up

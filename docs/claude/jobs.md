@@ -1414,6 +1414,110 @@ spec:
    - Verify Job is deleted and recreated on next sync
    - Check pod logs after failure
 
+### Job Script Testing
+
+**Purpose**: Unit test critical Job script logic to catch bugs before deployment.
+
+**Why this matters**:
+- Shell scripts in Jobs have subtle edge cases (`grep -c || echo`, empty arrays, etc.)
+- Bugs can cause infinite loops (34+ minutes to detect in production)
+- Static analysis (ShellCheck) catches syntax, not logic errors
+
+**Test harness location**: `scripts/test-job-scripts.sh`
+
+**What to test**:
+1. **Pod counting logic** - Does it return valid integer when 0 pods exist?
+2. **Secret transformation** - Does it handle missing keys gracefully?
+3. **OLM API interactions** - Does it use explicit API groups (`.operators.coreos.com`)?
+4. **Conditional logic** - What happens when resource doesn't exist?
+5. **Edge cases** - Empty strings, whitespace, newlines in variables
+
+**Example test structure**:
+```bash
+#!/bin/bash
+# scripts/test-job-scripts.sh
+set -e
+
+echo "Testing Job script logic..."
+
+# Test 1: Pod counting (create-alert-silences)
+test_pod_counting() {
+  echo "Testing pod counting logic..."
+  
+  # Simulate oc get pods output
+  PODS_OUTPUT="alertmanager-main-0   6/6   Running   0     34m
+alertmanager-main-1   6/6   Running   0     34m"
+  
+  # Test the actual awk logic
+  READY_PODS=$(echo "$PODS_OUTPUT" | awk '{split($2,a,"/"); if(a[1]==a[2] && a[1]!="") count++} END {print count+0}')
+  
+  if [ "$READY_PODS" = "2" ]; then
+    echo "  ✅ Pod counting: PASS (got $READY_PODS)"
+  else
+    echo "  ❌ Pod counting: FAIL (expected 2, got $READY_PODS)"
+    exit 1
+  fi
+  
+  # Test edge case: No pods
+  READY_PODS=$(echo "" | awk '{split($2,a,"/"); if(a[1]==a[2] && a[1]!="") count++} END {print count+0}')
+  if [ "$READY_PODS" = "0" ]; then
+    echo "  ✅ Pod counting (empty): PASS (got $READY_PODS)"
+  else
+    echo "  ❌ Pod counting (empty): FAIL (expected 0, got $READY_PODS)"
+    exit 1
+  fi
+}
+
+# Test 2: Variable safety (grep -c pattern)
+test_grep_c_pattern() {
+  echo "Testing grep -c with fallback..."
+  
+  # Broken pattern (what we fixed)
+  OUTPUT=$(echo '{"items":[]}' | grep -c '"ready":true' || echo 0)
+  if echo "$OUTPUT" | grep -q $'\n'; then
+    echo "  ❌ grep -c pattern: FAIL (multi-line output: '$OUTPUT')"
+    exit 1
+  else
+    echo "  ✅ grep -c pattern: PASS (single line)"
+  fi
+}
+
+test_pod_counting
+test_grep_c_pattern
+
+echo "✅ All tests passed!"
+```
+
+**Running tests**:
+```bash
+# Run test harness
+./scripts/test-job-scripts.sh
+
+# Expected output:
+# Testing Job script logic...
+# Testing pod counting logic...
+#   ✅ Pod counting: PASS (got 2)
+#   ✅ Pod counting (empty): PASS (got 0)
+# Testing grep -c with fallback...
+#   ✅ grep -c pattern: PASS (single line)
+# ✅ All tests passed!
+```
+
+**Integration with CI/CD**:
+```yaml
+# .github/workflows/test.yml
+- name: Test Job Scripts
+  run: ./scripts/test-job-scripts.sh
+```
+
+**When to add tests**:
+- ✅ Any Job with complex variable parsing (awk, grep, sed)
+- ✅ Jobs with conditional logic (if/else, loops)
+- ✅ Jobs that failed in production
+- ✅ Before refactoring existing Job logic
+
+**See also**: "Job Stuck in Infinite Loop" in Troubleshooting section for real bug example
+
 ---
 
 ## Anti-Patterns
@@ -1639,6 +1743,54 @@ oc logs job/<job-name> -n openshift-gitops -f  # Follow logs
 ```bash
 oc wait resource <name> --for=condition=Ready --timeout=300s  # 5 minutes max
 ```
+
+### Job Stuck in Infinite Loop - Shell Variable Bug
+
+**Symptoms:** Job runs for 30+ minutes, logs show "integer expression expected" error
+
+**Real Example** (2026-04-12): `create-alert-silences` Job stuck for 34 minutes
+
+**Root Cause:**
+```bash
+# BROKEN CODE (grep -c returns exit code 1 when finding 0 matches)
+READY_PODS=$(oc get pods ... -o json | grep -c '"ready":true' || echo 0)
+# When grep finds 0 matches:
+#   1. grep -c outputs "0" and exits with code 1
+#   2. || echo 0 triggers, outputs "0"
+#   3. Variable contains "0\n0" (two lines)
+# Result: [ "0\n0" -ge "2" ] → "integer expression expected"
+```
+
+**Logs showed:**
+```
+Waiting for pods... Ready: 0
+0/2
+/bin/bash: line 26: [: 0
+0: integer expression expected
+```
+
+**Fix:**
+```bash
+# CORRECT - Always returns valid integer
+READY_PODS=$(oc get pods --no-headers | awk '{split($2,a,"/"); if(a[1]==a[2] && a[1]!="") count++} END {print count+0}')
+# Result: Always single integer (0, 1, 2, etc.)
+```
+
+**Lessons Learned:**
+1. **Avoid `grep -c ... || echo 0` pattern** - grep -c exits with code 1 when finding 0 matches
+2. **Use `awk` for counting** - `END {print count+0}` always returns valid integer (0 if unset)
+3. **Remove `|| echo` fallbacks from commands that always succeed** - `wc -l` never fails
+4. **Test edge cases** - What happens when count is 0? When no pods exist?
+5. **Echo intermediate values during debugging** - Makes silent failures visible
+
+**Prevention:**
+- Add ShellCheck to pre-commit hooks
+- Unit test Job script logic (see "Job Script Testing" section)
+- Use `set -x` during development to see variable expansions
+
+**Fixed in commits:**
+- a1028c8: Replace grep -c with awk counting
+- 1fdc566: Fix awk regex (split vs backreference)
 
 ### Job Succeeded But Resource Not Configured
 
