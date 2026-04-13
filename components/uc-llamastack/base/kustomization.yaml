@@ -9,6 +9,7 @@ resources:
 - external-db-llamastack-pvc-llamastack-postgresql.yaml
 - external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
 - external-db-llamastack-service-llamastack-postgresql.yaml
+- llamastack-configmap-granite-chat-template.yaml
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-llamastack-model.yaml
 - llamastack-llamastackdistribution-lsd-llama-pgvector-remote.yaml

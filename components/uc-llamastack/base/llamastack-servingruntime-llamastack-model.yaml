@@ -9,7 +9,7 @@ metadata:
     opendatahub.io/serving-runtime-scope: global
     opendatahub.io/template-display-name: vLLM NVIDIA GPU ServingRuntime for KServe
     opendatahub.io/template-name: vllm-cuda-runtime-template
-    openshift.io/display-name: vLLM NVIDIA GPU ServingRuntime for KServe (Llama 3.2)
+    openshift.io/display-name: vLLM NVIDIA GPU ServingRuntime for KServe (Granite 3.3)
   name: llamastack-model
   namespace: llamastack
 spec:
@@ -52,5 +52,5 @@ spec:
     name: vLLM
   volumes:
   - configMap:
-      name: llama32-chat-template
+      name: granite-chat-template
     name: chat-template
