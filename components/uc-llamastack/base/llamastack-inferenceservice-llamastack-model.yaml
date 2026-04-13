@@ -6,7 +6,7 @@ metadata:
     opendatahub.io/hardware-profile-name: gpus
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
-    openshift.io/description: IBM Granite 3.3 8B Instruct model with tool calling support
+    openshift.io/description: IBM Granite 3.1 8B Instruct (AWQ 4-bit quantized) with tool calling support
     openshift.io/display-name: llamastack-model
     security.opendatahub.io/enable-auth: "true"
     serving.kserve.io/deploymentMode: RawDeployment
@@ -22,7 +22,7 @@ spec:
     serviceAccountName: llamastack-model-sa
     model:
       args:
-      - --dtype=half
+      - --quantization=awq
       - --max-model-len=20000
       - --gpu-memory-utilization=0.80
       - --enable-auto-tool-choice
@@ -35,14 +35,14 @@ spec:
       resources:
         limits:
           cpu: "2"
-          memory: 16Gi
+          memory: 12Gi
           nvidia.com/gpu: "1"
         requests:
           cpu: "2"
-          memory: 14Gi
+          memory: 10Gi
           nvidia.com/gpu: "1"
       runtime: llamastack-model
-      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.3-8b-instruct
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct-quantized.w4a16
     tolerations:
     - key: nvidia.com/gpu
       operator: Exists
