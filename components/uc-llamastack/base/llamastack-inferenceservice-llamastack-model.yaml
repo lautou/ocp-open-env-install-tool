@@ -22,7 +22,6 @@ spec:
     serviceAccountName: llamastack-model-sa
     model:
       args:
-      - --quantization=awq
       - --max-model-len=20000
       - --gpu-memory-utilization=0.80
       - --enable-auto-tool-choice
