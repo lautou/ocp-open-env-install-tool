@@ -32,7 +32,7 @@ spec:
               name: llamastack-postgresql-credentials
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
-        image: postgres:16
+        image: registry.redhat.io/rhel9/postgresql-16:9.7
         name: postgresql
         ports:
         - containerPort: 5432
