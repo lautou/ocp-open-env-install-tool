@@ -25,7 +25,7 @@ spec:
 
 **Examples**:
 - ✅ `gitops-profiles/ocp-ai/uc-ai-generation-llm-rag.yaml` (lines 22-27)
-- ✅ `gitops-bases/ai/ai-embedding-service-appset.yaml` (lines 31-36)
+- ✅ `gitops-bases/ai/ai-models-service-appset.yaml` (lines 31-36)
 - ✅ `gitops-bases/ai/applicationset.yaml` (lines 39-46)
 
 **Rule**: ALWAYS add this to Application/ApplicationSet `spec.ignoreDifferences` or `spec.template.spec.ignoreDifferences`
@@ -51,7 +51,7 @@ metadata:
 **Why**: ArgoCD uses this label to track which GitOps instance manages the namespace. Without it, ArgoCD may have permission issues or fail to manage resources in the namespace.
 
 **Examples**:
-- ✅ `components/ai-embedding-service/base/cluster-namespace-ai-embedding-service.yaml`
+- ✅ `components/ai-models-service/base/cluster-namespace-ai-models-service.yaml`
 - ✅ `components/uc-ai-generation-llm-rag/base/cluster-namespace-ai-generation-llm-rag.yaml`
 - ✅ `components/uc-llamastack/base/cluster-namespace-llamastack.yaml`
 
@@ -96,7 +96,7 @@ spec:
 - ❌ Resources where CRD is pre-installed by OpenShift
 
 **Examples**:
-- ✅ `components/ai-embedding-service/base/ai-embedding-service-inferenceservice-granite-embedding.yaml`
+- ✅ `components/ai-models-service/base/ai-models-service-inferenceservice-granite-embedding.yaml`
 - ✅ `components/cert-manager/base/cert-manager-clusterissuer-cluster.yaml`
 - ✅ `components/nvidia-gpu-operator/base/cluster-clusterpolicy-gpu-cluster-policy.yaml`
 - ✅ `components/rhoai/base/rhoai-datasciencecluster-default-dsc.yaml`
@@ -118,7 +118,7 @@ metadata:
 
 **When**: InferenceService resources that should persist even if removed from Git (e.g., shared services).
 
-**Example**: `ai-embedding-service-inferenceservice-granite-embedding.yaml`
+**Example**: `ai-models-service-inferenceservice-granite-embedding.yaml`
 
 ### Optional: Delete=false for cluster-critical resources
 
@@ -246,7 +246,7 @@ metadata:
 
 ### ✅ CORRECT: InferenceService with SkipDryRunOnMissingResource
 
-**File**: `components/ai-embedding-service/base/ai-embedding-service-inferenceservice-granite-embedding.yaml`
+**File**: `components/ai-models-service/base/ai-models-service-inferenceservice-granite-embedding.yaml`
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -257,7 +257,7 @@ metadata:
     opendatahub.io/model-type: embedding
     security.opendatahub.io/enable-auth: "true"
   name: granite-embedding
-  namespace: ai-embedding-service
+  namespace: ai-models-service
 spec:
   predictor:
     ...

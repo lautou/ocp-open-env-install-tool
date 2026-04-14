@@ -35,7 +35,7 @@ Before running the pipelines, verify all infrastructure is ready:
 
 ```bash
 # 1. Check AI Embedding Service
-oc get inferenceservice granite-embedding -n ai-embedding-service
+oc get inferenceservice granite-embedding -n ai-models-service
 # Expected: READY=True, URL shows predictor endpoint
 
 # 2. Check PostgreSQL + pgvector
@@ -57,7 +57,7 @@ oc get job -n openshift-gitops | grep upload-pipeline
 
 # 5. Check applications synced
 oc get application.argoproj.io -n openshift-gitops | grep -E "ai-embedding|ai-generation"
-# Expected: ai-embedding-service (Synced/Healthy)
+# Expected: ai-models-service (Synced/Healthy)
 #           uc-ai-generation-llm-rag (Synced/Healthy)
 ```
 
@@ -222,7 +222,7 @@ Generate embeddings using granite-embedding and store in PostgreSQL + pgvector.
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `chunks_directory` | `minio://mlpipeline/v2/artifacts/{run_id}/for-loop-1/` | **FROM STAGE 1 OUTPUT** |
-| `embedding_endpoint` | `https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443` | Default (don't change) |
+| `embedding_endpoint` | `https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443` | Default (don't change) |
 | `postgres_host` | `rag-postgresql.external-db-generation-llm-rag.svc.cluster.local` | Default (don't change) |
 | `postgres_port` | `5432` | Default (don't change) |
 | `postgres_database` | `ragdb` | Default (don't change) |
@@ -232,7 +232,7 @@ Generate embeddings using granite-embedding and store in PostgreSQL + pgvector.
 **Example Values:**
 ```yaml
 chunks_directory: "minio://mlpipeline/v2/artifacts/12345678-abcd-1234-abcd-123456789abc/for-loop-1/"
-embedding_endpoint: "https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443"
+embedding_endpoint: "https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443"
 embedding_batch_size: 32
 postgres_host: "rag-postgresql.external-db-generation-llm-rag.svc.cluster.local"
 postgres_port: 5432
@@ -394,7 +394,7 @@ stage2_run = client.run_pipeline(
     pipeline_id=client.get_pipeline_id("convert-store-embeddings"),
     params={
         'chunks_directory': chunks_directory,
-        'embedding_endpoint': 'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443',
+        'embedding_endpoint': 'https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443',
         'embedding_batch_size': 32,
         'postgres_host': 'rag-postgresql.external-db-generation-llm-rag.svc.cluster.local',
         'postgres_port': 5432,
@@ -463,9 +463,9 @@ print(f"\nNext: Test semantic search (see docs/claude/rag-retrieval-guide.md)")
 - Verify S3 endpoint: `oc get configmap pipeline-artifacts -n ai-generation-llm-rag -o jsonpath='{.data.BUCKET_HOST}'` (should be s3.openshift-storage.svc)
 
 **Error: "Embedding service timeout"**
-- Check embedding service: `oc get inferenceservice granite-embedding -n ai-embedding-service`
+- Check embedding service: `oc get inferenceservice granite-embedding -n ai-models-service`
 - Reduce `embedding_batch_size` to 16
-- Check service logs: `oc logs -n ai-embedding-service <predictor-pod>`
+- Check service logs: `oc logs -n ai-models-service <predictor-pod>`
 
 **Error: "PostgreSQL connection failed"**
 - Check PostgreSQL: `oc get deployment rag-postgresql -n external-db-generation-llm-rag`

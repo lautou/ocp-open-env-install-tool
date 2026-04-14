@@ -51,7 +51,7 @@
 **Verification**:
 ```bash
 # Check embedding service
-oc get inferenceservice granite-embedding -n ai-embedding-service
+oc get inferenceservice granite-embedding -n ai-models-service
 
 # Check PostgreSQL
 oc get deployment rag-postgresql -n external-db-generation-llm-rag
@@ -176,7 +176,7 @@ mc ls minio/mlpipeline/v2/artifacts/{run_id}/
 chunks_directory: "minio://mlpipeline/v2/artifacts/{stage1_run_id}/for-loop-1/"
 
 # Embedding Configuration
-embedding_endpoint: "https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443"
+embedding_endpoint: "https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443"
 embedding_batch_size: 32  # Optimize for GPU (16-64 recommended)
 
 # PostgreSQL Configuration (from Secret)
@@ -202,7 +202,7 @@ run2 = client.run_pipeline(
     pipeline_id=client.get_pipeline_id("convert-store-embeddings"),
     params={
         'chunks_directory': chunks_directory,  # From Stage 1
-        'embedding_endpoint': 'https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443',
+        'embedding_endpoint': 'https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443',
         'embedding_batch_size': 32,
         'postgres_host': 'rag-postgresql.external-db-generation-llm-rag.svc.cluster.local',
         'postgres_port': 5432,
@@ -246,7 +246,7 @@ import psycopg2
 from pgvector.psycopg2 import register_vector
 
 # Configuration
-EMBEDDING_ENDPOINT = "https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443"
+EMBEDDING_ENDPOINT = "https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443"
 POSTGRES_HOST = "rag-postgresql.external-db-generation-llm-rag.svc.cluster.local"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "ragdb"

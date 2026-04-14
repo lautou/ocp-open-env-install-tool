@@ -20,7 +20,7 @@ Two-stage RAG pipeline for document processing and semantic search:
 ### AI Embedding Service
 - **Model**: granite-embedding-english-r2 (768 dimensions)
 - **Hardware**: 1 Tesla T4 GPU (shared service)
-- **Endpoint**: `https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443`
+- **Endpoint**: `https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443`
 - **Pattern**: Shared service architecture (one GPU serves multiple consumers)
 
 ### UC AI Generation LLM RAG
@@ -125,7 +125,7 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 **Key Validation**:
 - ✅ Stage 1 (collect-chunks): Merged 161 chunks from 8 JSONL files
 - ✅ Stage 2 (generate-embeddings): Generated 768-dim embeddings via granite-embedding-english-r2
-- ✅ RBAC fix working: pipeline-runner-pipelines SA has access to ai-embedding-service
+- ✅ RBAC fix working: pipeline-runner-pipelines SA has access to ai-models-service
 - ✅ Stage 3 (store-in-pgvector): Inserted 161 rows into document_chunks table
 - ✅ PostgreSQL + pgvector: Table with HNSW index, 768-dim vectors
 - ✅ End-to-end semantic search: 0.89-0.90 similarity scores for relevant queries
@@ -150,7 +150,7 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 - Fixed chunk-data pipeline HuggingFace cache permissions (2 critical fixes)
 - RHOAI KFP v2 compatibility: env in container spec (not platform spec)
 - Correct DSPA cache path: HF_HOME=/.cache (not /mainctrfs/.cache)
-- Fixed RBAC for ai-embedding-service: Added pipeline-runner-pipelines ServiceAccount
+- Fixed RBAC for ai-models-service: Added pipeline-runner-pipelines ServiceAccount
 - Successfully tested complete end-to-end RAG pipeline (both stages)
 - chunk-data pipeline: 5m24s, 161 chunks generated
 - convert-store-embeddings pipeline: 4m16s, 161 embeddings stored in PostgreSQL
@@ -162,7 +162,7 @@ All tests passed with semantic search achieving 0.86+ similarity scores.
 
 ## Commits
 
-- `eae505d` - Fix RBAC: Add pipeline-runner-pipelines SA to ai-embedding-service access
+- `eae505d` - Fix RBAC: Add pipeline-runner-pipelines SA to ai-models-service access
 - `d254ba6` - Fix HF_HOME path to use actual DSPA cache mount location (/.cache)
 - `04cde66` - Fix chunk-data pipeline HF_HOME env for RHOAI KFP v2 compatibility
 - `62cb253` - Fix chunk-data pipeline HuggingFace cache permissions (initial attempt)
