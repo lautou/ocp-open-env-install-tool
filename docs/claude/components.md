@@ -2076,11 +2076,28 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 
 **Namespace**: `external-db-llamastack`
 
+**⚠️ IMPORTANT: Red Hat PostgreSQL Support Status**
+
+**pgvector availability in Red Hat containers:**
+- ❌ **NOT available** in Red Hat UBI PostgreSQL containers (`registry.redhat.io/rhel9/postgresql-16`)
+- ✅ **Available** in Full RHEL 9.5+ AppStream repositories (module stream `postgresql:16`)
+- 🔍 **Limitation**: UBI containers have limited package set vs Full RHEL AppStream
+- 📝 **RHEL 9.5 Release Notes**: Confirm pgvector included in `postgresql:16` module (Jira-RHEL-34669)
+
+**Testing Results** (2026-04-14):
+- UBI container test: `yum search pgvector` → No matches found
+- OpenShift cluster test: pgvector packages NOT available in UBI repos
+- Root cause: UBI subset excludes pgvector despite Full RHEL inclusion
+
+**Current Solution:**
+- Use community `pgvector/pgvector:pg16` image (widely used, well-maintained)
+- Alternative: EDB PostgreSQL (commercial support available, not Red Hat supported)
+
 **Components:**
 
 ```yaml
 # Deployment with PostgreSQL 16 + pgvector
-image: pgvector/pgvector:pg16  # Official pgvector image (not Red Hat)
+image: pgvector/pgvector:pg16  # Community image - pgvector NOT in Red Hat UBI containers
 env:
 - name: PGDATA
   value: /var/lib/postgresql/data/pgdata  # Subdirectory required for fresh PVC mounts
@@ -2992,7 +3009,7 @@ oc get workflow ${WORKFLOW} -n ai-generation-llm-rag -o jsonpath='{.status.nodes
 
 **Namespace**: `llamastack`
 
-**Purpose**: Serves Llama 3.2 3B Instruct model with tool calling capabilities using vLLM on Tesla T4 GPUs.
+**Purpose**: Serves IBM Granite 3.1 8B Instruct model (4-bit quantized) with tool calling capabilities using vLLM on Tesla T4 GPUs.
 
 **Components:**
 
@@ -3009,19 +3026,19 @@ spec:
       modelFormat:
         name: vLLM
       runtime: llamastack-model
-      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct-quantized.w4a16
       args:
-      - --dtype=half
+      # ❌ DO NOT add --quantization=awq (auto-detected from model config)
+      # ❌ DO NOT add --dtype=half (quantized models use compressed-tensors)
       - --max-model-len=20000
       - --gpu-memory-utilization=0.80
-      - --enable-chunked-prefill
       - --enable-auto-tool-choice
-      - --tool-call-parser=llama3_json
-      - --chat-template=/app/data/template/tool_chat_template_llama3.2_json.jinja
+      - --tool-call-parser=granite
+      - --chat-template=/app/data/template/tool_chat_template_granite.jinja
       - --max-num-seqs=128
       resources:
         requests: { cpu: 2, memory: 10Gi, nvidia.com/gpu: 1 }
-        limits: { cpu: 2, memory: 14Gi, nvidia.com/gpu: 1 }
+        limits: { cpu: 2, memory: 12Gi, nvidia.com/gpu: 1 }
     tolerations:
     - key: nvidia.com/gpu
       operator: Exists
@@ -3051,25 +3068,57 @@ spec:
   volumes:
   - name: chat-template
     configMap:
-      name: llama32-chat-template
+      name: granite-chat-template
 ```
 
-**3. Chat Template ConfigMap:**
+**3. Chat Template ConfigMaps:**
 
-File: `llamastack-configmap-llama32-chat-template.yaml`
+Files:
+- `llamastack-configmap-granite-chat-template.yaml` - Granite 3.x tool calling template (current)
+- `llamastack-configmap-llama32-chat-template.yaml` - Llama 3.2 template (legacy)
 
-Contains Jinja2 template for Llama 3.2 tool calling with JSON format parser.
+Contains Jinja2 template for Granite tool calling with JSON format parser.
 
-**CRITICAL Configuration for Tesla T4 GPUs:**
+**⚠️ CRITICAL: Quantized Model Configuration**
 
-**GPU Memory Management:**
+**Quantization Auto-Detection:**
+- ✅ **DO**: Let vLLM auto-detect quantization format from model config
+- ❌ **DO NOT**: Add `--quantization=awq` argument explicitly
+- **Why**: Granite 3.1 quantized uses `compressed-tensors` format, not AWQ
+- **Error if wrong**: `Quantization method specified in model config (compressed-tensors) does not match the quantization method specified in 'quantization' argument (awq)`
+
+**Model Variants:**
+- `granite-3.1-8b-instruct-quantized.w4a16` - **Current** (4-bit weights, FP16 activations)
+- `granite-3.3-8b-instruct` - Full precision FP16 (OOMs on single T4, requires 2 GPUs or quantization)
+- `llama-3.2-3b-instruct` - Legacy (smaller model, fits easily)
+
+**Quantization Format:**
+- Format: `compressed-tensors` (w4a16 = 4-bit weights, 16-bit activations)
+- Kernel: `ExllamaLinearKernel for CompressedTensorsWNA16`
+- Memory footprint: ~4 GB model + ~7 GB KV cache = **11 GB total** (vs 16+ GB full precision)
+- Quality trade-off: ~5-10% degradation vs FP16 (minimal impact for RAG use cases)
+
+**Git History:**
+- Commit `31dc700`: Switch from Llama 3.2 3B to Granite 3.1 8B quantized
+- Commit `d5d53f3`: Fix quantization auto-detection (remove explicit --quantization arg)
+- Reason: T4 GPU (14.56 GiB VRAM) insufficient for Granite 8B full precision
+
+**GPU Memory Management (Quantized Model):**
 - `--gpu-memory-utilization=0.80` (reduced from default 0.95)
 - `--max-num-seqs=128` (reduced from default 256)
 - **Why:** Tesla T4 has 14.56 GiB total memory
-  - Model requires ~6 GiB for weights
-  - Additional ~8 GiB for KV cache + CUDA graphs
-  - 95% utilization causes OOM during warmup
-  - 80% provides headroom for sampler operations
+  - Quantized model requires ~4 GiB for weights (75% reduction vs FP16)
+  - Additional ~7 GiB for KV cache + CUDA graphs
+  - 80% utilization provides stable operation
+  - Full precision Granite 8B OOMs (requires ~16 GB for weights alone)
+
+**Memory Comparison:**
+
+| Model | Precision | Model Weights | KV Cache | Total | Fits T4? |
+|-------|-----------|---------------|----------|-------|----------|
+| Granite 3.3 8B | FP16 | ~16 GB | N/A | 16+ GB | ❌ OOM |
+| Granite 3.1 8B | 4-bit (w4a16) | ~4 GB | ~7 GB | ~11 GB | ✅ Success |
+| Llama 3.2 3B | FP16 | ~6 GB | ~8 GB | ~14 GB | ✅ Success |
 
 **Attention Backend:**
 - **Auto-selected:** FLASHINFER (vLLM detects T4 compute capability 7.5)
@@ -3085,9 +3134,10 @@ Contains Jinja2 template for Llama 3.2 tool calling with JSON format parser.
 
 **Tool Calling Configuration:**
 - `--enable-auto-tool-choice`: Enables automatic tool selection
-- `--tool-call-parser=llama3_json`: Llama 3.2 JSON format
-- `--chat-template=/app/data/template/...`: Custom Jinja2 template
+- `--tool-call-parser=granite`: Granite-specific JSON format
+- `--chat-template=/app/data/template/tool_chat_template_granite.jinja`: Custom Jinja2 template
 - Template mounted from ConfigMap at `/app/data/template/`
+- Granite uses different tokenization format vs Llama (`<|start_of_role|>`, `<|end_of_role|>`, `<|end_of_text|>`)
 
 **Service Endpoint:**
 ```
@@ -3107,25 +3157,45 @@ http://llamastack-model-predictor.llamastack.svc.cluster.local
 
 **Common Issues:**
 
-1. **CUDA Out of Memory during warmup:**
+1. **Quantization format mismatch (compressed-tensors vs AWQ):**
+   ```
+   pydantic_core._pydantic_core.ValidationError: 1 validation error for ModelConfig
+   Value error, Quantization method specified in the model config (compressed-tensors) 
+   does not match the quantization method specified in the `quantization` argument (awq).
+   ```
+   **Solution:** Remove `--quantization=awq` argument, let vLLM auto-detect from model config
+   **Root cause:** Granite 3.1 quantized uses compressed-tensors format, not AWQ
+   **Fix commit:** d5d53f3
+
+2. **CUDA Out of Memory during model loading (full precision):**
+   ```
+   torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 200.00 MiB. 
+   GPU 0 has a total capacity of 14.56 GiB of which 178.81 MiB is free.
+   ```
+   **Solution:** Use quantized model instead of full precision
+   - Switch from `granite-3.3-8b-instruct` to `granite-3.1-8b-instruct-quantized.w4a16`
+   - **OR** Use tensor parallelism with 2 GPUs (`--tensor-parallel-size=2`)
+   **Root cause:** Granite 8B FP16 requires ~16 GB VRAM, T4 has only 14.56 GiB
+
+3. **CUDA Out of Memory during warmup (sampler):**
    ```
    RuntimeError: CUDA out of memory occurred when warming up sampler with 256 dummy requests.
    ```
    **Solution:** Reduce `--gpu-memory-utilization` to 0.80 and add `--max-num-seqs=128`
 
-2. **FlashAttention 2 incompatibility:**
+4. **FlashAttention 2 incompatibility:**
    ```
    ERROR: Cannot use FA version 2 is not supported due to FA2 is only supported on devices with compute capability >= 8
    ```
    **Solution:** Remove any `--attention-backend` flags, let vLLM auto-select FLASHINFER
 
-3. **Chat template not found:**
+5. **Chat template not found:**
    ```
    ValueError: The supplied chat template string (/app/data/template/...) appears path-like, but doesn't exist!
    ```
    **Solution:** Ensure ConfigMap mounted to ServingRuntime at `/app/data/template/`
 
-4. **Pod CrashLoopBackOff before ready:**
+6. **Pod CrashLoopBackOff before ready:**
    **Solution:** Add `readinessProbe.initialDelaySeconds: 180` to ServingRuntime
 
 #### PostgreSQL Connection Secret
