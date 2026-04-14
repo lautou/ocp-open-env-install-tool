@@ -103,35 +103,6 @@ spec:
               name: llama-stack-secret
               key: VLLM_EMBEDDING_MAX_TOKENS
 
-        # Enable and configure pgvector provider
-        - name: ENABLE_PGVECTOR
-          value: "true"
-        - name: PGVECTOR_HOST
-          valueFrom:
-            secretKeyRef:
-              name: pgvector-connection
-              key: PGVECTOR_HOST
-        - name: PGVECTOR_PORT
-          valueFrom:
-            secretKeyRef:
-              name: pgvector-connection
-              key: PGVECTOR_PORT
-        - name: PGVECTOR_DB
-          valueFrom:
-            secretKeyRef:
-              name: pgvector-connection
-              key: PGVECTOR_DB
-        - name: PGVECTOR_USER
-          valueFrom:
-            secretKeyRef:
-              name: pgvector-connection
-              key: PGVECTOR_USER
-        - name: PGVECTOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: pgvector-connection
-              key: PGVECTOR_PASSWORD
-
         - name: FMS_ORCHESTRATOR_URL
           value: "http://localhost"
       name: llama-stack

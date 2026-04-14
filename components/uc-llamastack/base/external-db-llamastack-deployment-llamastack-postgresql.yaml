@@ -32,7 +32,7 @@ spec:
               name: llamastack-postgresql-credentials
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
-        image: pgvector/pgvector:pg16
+        image: postgres:16
         name: postgresql
         ports:
         - containerPort: 5432
@@ -58,19 +58,6 @@ spec:
           periodSeconds: 20
           timeoutSeconds: 5
           failureThreshold: 6
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - |
-                set -e
-                echo "Waiting for PostgreSQL to be ready before enabling pgvector..."
-                until PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; do
-                  sleep 2
-                done
-                PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
         resources:
           limits:
             cpu: "1"
