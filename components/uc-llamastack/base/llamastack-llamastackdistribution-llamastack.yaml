@@ -10,10 +10,6 @@ spec:
   server:
     containerSpec:
       env:
-      - name: EMBEDDING_MODEL
-        value: granite-embedding-english-r2
-      - name: EMBEDDING_PROVIDER_MODEL_ID
-        value: ibm-granite/granite-embedding-english-r2
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
       - name: POSTGRES_DB
@@ -29,14 +25,6 @@ spec:
         value: "5432"
       - name: POSTGRES_USER
         value: llamastack
-      - name: VLLM_EMBEDDING_API_TOKEN
-        value: ""
-      - name: VLLM_EMBEDDING_MAX_TOKENS
-        value: "512"
-      - name: VLLM_EMBEDDING_TLS_VERIFY
-        value: "false"
-      - name: VLLM_EMBEDDING_URL
-        value: https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443/v1
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_URL
@@ -51,3 +39,5 @@ spec:
           memory: 2Gi
     distribution:
       name: rh-dev
+    storage:
+      size: 20Gi
