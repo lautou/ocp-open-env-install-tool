@@ -2059,63 +2059,91 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 
 ### LlamaStack RAG Deployment
 
-**Pattern**: Multi-component RAG system with PostgreSQL, vLLM inference, and LlamaStack distribution
+**Pattern**: Multi-component RAG system with PostgreSQL metadata storage, vLLM inference, and LlamaStack distribution
 
 **Purpose**: Complete RAG (Retrieval-Augmented Generation) stack for AI applications using IBM Granite models.
 
 **Namespaces**:
 - `ai-models-service` - Granite model inference servers (embedding + LLM)
-- `external-db-llamastack` - External database namespace (PostgreSQL with pgvector)
-- `redhat-ods-applications` - LlamaStack distribution
+- `external-db-llamastack` - External database namespace (PostgreSQL for metadata)
+- `llamastack` - LlamaStack distribution and model serving
 
-#### PostgreSQL 16 with pgvector
+**Component**: `uc-llamastack` (ArgoCD Application)
 
-**Pattern**: Deployment with persistent storage and lifecycle hook for extension initialization
+#### PostgreSQL 16 for Metadata Storage
 
-**Purpose**: Provides PostgreSQL 16 database with pgvector extension for vector embeddings storage.
+**Pattern**: Red Hat supported PostgreSQL deployment with persistent storage
+
+**Purpose**: Provides PostgreSQL 16 database for LlamaStack metadata storage (NOT vector embeddings).
 
 **Namespace**: `external-db-llamastack`
 
-**⚠️ IMPORTANT: Red Hat PostgreSQL Support Status**
+**✅ Red Hat Supported Configuration (Current)**
 
-**pgvector availability in Red Hat containers:**
-- ❌ **NOT available** in Red Hat UBI PostgreSQL containers (`registry.redhat.io/rhel9/postgresql-16`)
-- ✅ **Available** in Full RHEL 9.5+ AppStream repositories (module stream `postgresql:16`)
-- 🔍 **Limitation**: UBI containers have limited package set vs Full RHEL AppStream
-- 📝 **RHEL 9.5 Release Notes**: Confirm pgvector included in `postgresql:16` module (Jira-RHEL-34669)
+**Image**: `registry.redhat.io/rhel9/postgresql-16:9.7`
 
-**Testing Results** (2026-04-14):
-- UBI container test: `yum search pgvector` → No matches found
-- OpenShift cluster test: pgvector packages NOT available in UBI repos
-- Root cause: UBI subset excludes pgvector despite Full RHEL inclusion
+**Use Case**: LlamaStack metadata storage (conversation history, agent state, etc.)
 
-**Current Solution:**
-- Use community `pgvector/pgvector:pg16` image (widely used, well-maintained)
-- Alternative: EDB PostgreSQL (commercial support available, not Red Hat supported)
+**NOT Used For**: Vector embeddings storage (no pgvector extension)
+
+**Why No pgvector:**
+- pgvector NOT available in Red Hat UBI PostgreSQL containers
+- LlamaStack uses this database for metadata only
+- Vector embeddings handled separately by dedicated vector database in RAG pipeline
 
 **Components:**
 
 ```yaml
-# Deployment with PostgreSQL 16 + pgvector
-image: pgvector/pgvector:pg16  # Community image - pgvector NOT in Red Hat UBI containers
+# Deployment with Red Hat PostgreSQL 16
+image: registry.redhat.io/rhel9/postgresql-16:9.7
 env:
-- name: PGDATA
-  value: /var/lib/postgresql/data/pgdata  # Subdirectory required for fresh PVC mounts
+- name: POSTGRESQL_DATABASE
+  valueFrom:
+    secretKeyRef:
+      key: POSTGRES_DB
+      name: llamastack-postgresql-credentials
+- name: POSTGRESQL_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      key: POSTGRES_PASSWORD
+      name: llamastack-postgresql-credentials
+- name: POSTGRESQL_USER
+  valueFrom:
+    secretKeyRef:
+      key: POSTGRES_USER
+      name: llamastack-postgresql-credentials
 
-# Lifecycle hook for pgvector extension
-lifecycle:
-  postStart:
-    exec:
-      command:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        echo "Waiting for PostgreSQL to be ready before enabling pgvector..."
-        until PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; do
-          sleep 2
-        done
-        PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# Readiness and Liveness Probes
+readinessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+livenessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# Resources
+resources:
+  limits:
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
 
 # PersistentVolumeClaim
 storageClassName: gp3-csi
@@ -2133,56 +2161,47 @@ port: 5432
 ```
 
 **Database Configuration:**
-- Version: PostgreSQL 16 (Debian-based pgvector image)
+- Version: PostgreSQL 16 (Red Hat RHEL 9 based)
+- Image: `registry.redhat.io/rhel9/postgresql-16:9.7`
 - Database: `llamastackdb`
 - User: `llamastack`
-- Extension: pgvector 0.8.2 (initialized via lifecycle hook)
+- Extension: None (metadata storage only)
 - Encoding: UTF8
-- Data directory: `/var/lib/postgresql/data/pgdata` (subdirectory pattern)
+- Data directory: `/var/lib/postgresql/data` (Red Hat default)
 
-**CRITICAL: PGDATA Subdirectory Requirement**
+**⚠️ CRITICAL: Red Hat PostgreSQL Environment Variables**
 
-When using fresh PVC mounts, PostgreSQL initialization fails with:
-```
-initdb: error: directory "/var/lib/postgresql/data" exists but is not empty
-initdb: detail: It contains a lost+found directory, perhaps due to it being a mount point.
-```
+Red Hat PostgreSQL containers use **POSTGRESQL_*** naming convention (not POSTGRES_*):
 
-**Solution**: Set `PGDATA` environment variable to subdirectory:
 ```yaml
-env:
-- name: PGDATA
-  value: /var/lib/postgresql/data/pgdata
+# ✅ CORRECT - Red Hat PostgreSQL
+- name: POSTGRESQL_USER
+- name: POSTGRESQL_PASSWORD  
+- name: POSTGRESQL_DATABASE
+
+# ❌ WRONG - Community PostgreSQL naming
+- name: POSTGRES_USER
+- name: POSTGRES_PASSWORD
+- name: POSTGRES_DB
 ```
 
-**Why this is required:**
-- Fresh AWS EBS volumes contain `lost+found` directory at mount point root
-- PostgreSQL initdb requires empty directory
-- PGDATA subdirectory avoids conflict with filesystem metadata
-- Standard PostgreSQL pattern for containerized deployments
+**Impact of incorrect naming**: Pod CrashLoopBackOff with error message:
+```
+you must either specify POSTGRESQL_USER POSTGRESQL_PASSWORD POSTGRESQL_DATABASE
+```
 
-**pgvector Extension Initialization:**
-
-The lifecycle.postStart hook ensures pgvector extension is created during pod startup:
-1. Wait for PostgreSQL to accept connections (polls with `SELECT 1`)
-2. Create pgvector extension if not exists
-3. Extension available immediately for LlamaStack RAG operations
+**Note**: Secret keys still use `POSTGRES_*` naming (unchanged), but deployment env vars map them to `POSTGRESQL_*`.
 
 **Verification:**
 ```bash
-# Check extension installed
+# Check database connection
 oc exec deployment/llamastack-postgresql -n external-db-llamastack -- \
-  psql -U llamastack -d llamastackdb -c "\dx"
-# Expected output: vector | 0.8.2
+  psql -U llamastack -d llamastackdb -c "SELECT version();"
 ```
 
 **Node Placement:**
 - Scheduled on worker nodes (application workload)
 - No infra node constraints
-
-**Health Checks:**
-- Liveness: `pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
-- Readiness: `pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
 
 **Connection:**
 ```
@@ -2195,11 +2214,16 @@ llamastack-postgresql.external-db-llamastack.svc.cluster.local:5432
 
 **Files:**
 ```
-components/rhoai/base/
+components/uc-llamastack/base/
+├── cluster-namespace-external-db-llamastack.yaml
+├── cluster-namespace-llamastack.yaml
 ├── external-db-llamastack-deployment-llamastack-postgresql.yaml
 ├── external-db-llamastack-pvc-llamastack-postgresql.yaml
 ├── external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
-└── external-db-llamastack-service-llamastack-postgresql.yaml
+├── external-db-llamastack-service-llamastack-postgresql.yaml
+├── llamastack-llamastackdistribution-llamastack.yaml
+├── llamastack-secret-postgres-secret.yaml
+└── ... (additional LlamaStack resources)
 ```
 
 #### MariaDB with TLS for DSPA
@@ -3269,99 +3293,146 @@ oc get secret pgvector-connection -n llamastack
 
 #### LlamaStackDistribution
 
-**Pattern**: Custom resource with userConfig for provider configuration
+**Pattern**: rh-dev distribution with environment-based provider configuration and persistent storage
 
-**Namespace**: `redhat-ods-applications`
+**Namespace**: `llamastack`
 
-**Status**: DISABLED FOR TESTING (currently commented out in kustomization.yaml)
+**Status**: ✅ ACTIVE (deployed and operational)
 
 ```yaml
-# redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
+# llamastack-llamastackdistribution-llamastack.yaml
 apiVersion: llamastack.io/v1alpha1
 kind: LlamaStackDistribution
 metadata:
-  name: llamastack-pgvector
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: llamastack
+  namespace: llamastack
 spec:
-  distribution:
-    name: rh-dev
-  userConfig:
-    configMapName: llamastack-embedding-provider
-    configMapNamespace: redhat-ods-applications
+  replicas: 1
   server:
-    port: 8321
     containerSpec:
       env:
+      - name: EMBEDDING_MODEL
+        value: granite-embedding-english-r2
+      - name: EMBEDDING_PROVIDER_MODEL_ID
+        value: ibm-granite/granite-embedding-english-r2
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
-      - name: VLLM_URL
-        value: http://granite-llm-predictor.ai-models-service.svc.cluster.local
-      - name: EMBEDDING_MODEL
-        value: granite-embedding-125m-english
-      - name: EMBEDDING_URL
-        value: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
+      - name: POSTGRES_DB
+        value: llamastackdb
       - name: POSTGRES_HOST
         value: llamastack-postgresql.external-db-llamastack.svc.cluster.local
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: postgres-secret
+      - name: POSTGRES_PORT
+        value: "5432"
+      - name: POSTGRES_USER
+        value: llamastack
+      - name: VLLM_EMBEDDING_API_TOKEN
+        value: ""
+      - name: VLLM_EMBEDDING_MAX_TOKENS
+        value: "512"
+      - name: VLLM_EMBEDDING_TLS_VERIFY
+        value: "false"
+      - name: VLLM_EMBEDDING_URL
+        value: https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443/v1
+      - name: VLLM_TLS_VERIFY
+        value: "false"
+      - name: VLLM_URL
+        value: https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443/v1
+      port: 8321
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 2Gi
+    distribution:
+      name: rh-dev
+    storage:
+      size: 20Gi
 ```
 
-**Note:** VLLM_URL updated to point to KServe InferenceService endpoint instead of standalone deployment.
+**⚠️ CRITICAL: Embedding Configuration is REQUIRED**
 
-**userConfig Pattern:**
+The `rh-dev` distribution includes pre-registered models that require the `vllm-embedding` provider. **Omitting embedding configuration causes pod crash:**
 
-The `rh-dev` distribution requires a `vllm-embedding` provider that's not included by default. Configure via userConfig:
+```
+ValueError: Provider `vllm-embedding` not found
+```
 
+**All embedding-related environment variables are MANDATORY:**
+- `EMBEDDING_MODEL` - Model identifier (granite-embedding-english-r2)
+- `EMBEDDING_PROVIDER_MODEL_ID` - Full model path (ibm-granite/granite-embedding-english-r2)
+- `VLLM_EMBEDDING_URL` - Embedding service endpoint
+- `VLLM_EMBEDDING_API_TOKEN` - Authentication token (empty string if no auth)
+- `VLLM_EMBEDDING_MAX_TOKENS` - Maximum token limit (512)
+- `VLLM_EMBEDDING_TLS_VERIFY` - TLS verification setting (false for self-signed certs)
+
+**Configuration Pattern: Environment Variables (Not userConfig)**
+
+Unlike earlier versions, the current deployment uses **environment variables** for provider configuration instead of userConfig ConfigMap. This simplifies deployment and aligns with OpenShift patterns.
+
+**Storage Configuration:**
+
+LlamaStack includes persistent storage for caching and runtime data:
 ```yaml
-# redhat-ods-applications-cm-llamastack-embedding-provider.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: llamastack-embedding-provider
-data:
-  config.yaml: |
-    image_name: rh  # Required by StackConfig validation
-    providers:
-      inference:
-      - provider_id: vllm-embedding
-        provider_type: remote::vllm
-        config:
-          base_url: http://vllm-granite-embedding.llamastack.svc.cluster.local:8001/v1
-          api_token: ""
-          max_tokens: 4096
-          tls_verify: false
+storage:
+  size: 20Gi
+```
+
+Creates PVC `llamastack-pvc` (gp3-csi) mounted at `/app/.llama/` in the pod.
+
+**Model Endpoints:**
+
+```bash
+# Inference (Granite 3.3 2B)
+https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443/v1
+
+# Embeddings (Granite Embedding English R2)
+https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443/v1
 ```
 
 **Status Check:**
 ```bash
-oc get llamastackdistribution llamastack-pgvector -n redhat-ods-applications
-# Phase: Ready
+oc get llamastackdistribution llamastack -n llamastack
+# Conditions: DeploymentReady=True, ServiceReady=True, HealthCheck=True
+
+oc get pod -n llamastack
+# llamastack-xxxxx  1/1  Running
 ```
 
 **Provided APIs:**
 - agents, batches, datasetio, eval, inference
 - safety, scoring, tool_runtime, vector_io, files
 
+**Known Issue: Unauthorized Warnings**
+
+LlamaStack logs show periodic "Unauthorized" warnings when refreshing model lists:
+```
+WARNING  Model refresh failed for provider vllm-inference: Unauthorized
+WARNING  Model refresh failed for provider vllm-embedding: Unauthorized
+```
+
+**Impact**: None - warnings are cosmetic. LlamaStack remains functional and healthy. Auth tokens are empty because KServe InferenceServices use service account tokens, not API keys.
+
+**Documentation Issue:**
+
+Red Hat documentation (RHOAI 3.3) does NOT clearly state that embedding configuration is required for rh-dev distribution. See JIRA bug report for details.
+
 **Files:**
 ```
-components/rhoai/base/
-├── cluster-namespace-external-db-llamastack.yaml
-├── cluster-namespace-llamastack.yaml
-├── external-db-llamastack-deployment-llamastack-postgresql.yaml
-├── external-db-llamastack-pvc-llamastack-postgresql.yaml
-├── external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
-├── external-db-llamastack-service-llamastack-postgresql.yaml
-├── llamastack-configmap-llama32-chat-template.yaml  # NEW: Chat template for KServe
-├── llamastack-secret-pgvector-connection.yaml       # NEW: PostgreSQL connection
-├── redhat-ods-applications-cm-llamastack-embedding-provider.yaml
-├── redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml  # DISABLED
-├── redhat-ods-applications-rb-llamastack-use-scc.yaml
-└── redhat-ods-applications-secret-llamastack-db-credentials.yaml
+components/uc-llamastack/base/
+├── llamastack-llamastackdistribution-llamastack.yaml  # Main distribution CR
+├── llamastack-secret-postgres-secret.yaml             # PostgreSQL password
+├── llamastack-configmap-granite-chat-template.yaml    # Granite tool calling template
+└── (additional supporting resources)
 ```
-
-**Removed Files** (replaced by KServe InferenceService):
-- `llamastack-deployment-vllm-llama32-3b.yaml` (standalone vLLM deployment)
-- `llamastack-service-vllm-llama32-3b.yaml` (standalone vLLM service)
-- `llamastack-secret-huggingface-token.yaml` (not needed for OCI modelcar image)
-
-**Note:** vLLM embedding server files still present but commented out in kustomization.yaml for testing.
 
 **Version Management:**
 
