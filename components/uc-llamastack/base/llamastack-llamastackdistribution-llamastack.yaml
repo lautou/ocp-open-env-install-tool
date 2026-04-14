@@ -1,0 +1,41 @@
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: llamastack
+  namespace: llamastack
+spec:
+  replicas: 1
+  server:
+    containerSpec:
+      env:
+      - name: INFERENCE_MODEL
+        value: granite-3.3-2b-instruct
+      - name: POSTGRES_DB
+        value: llamastackdb
+      - name: POSTGRES_HOST
+        value: llamastack-postgresql.external-db-llamastack.svc.cluster.local
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: postgres-secret
+      - name: POSTGRES_PORT
+        value: "5432"
+      - name: POSTGRES_USER
+        value: llamastack
+      - name: VLLM_TLS_VERIFY
+        value: "false"
+      - name: VLLM_URL
+        value: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
+      port: 8321
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 2Gi
+    distribution:
+      name: rh-dev

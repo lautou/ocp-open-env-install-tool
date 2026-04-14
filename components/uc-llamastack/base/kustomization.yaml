@@ -12,12 +12,11 @@ resources:
 - llamastack-configmap-granite-chat-template.yaml
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-llamastack-model.yaml
+- llamastack-llamastackdistribution-llamastack.yaml
 - llamastack-llamastackdistribution-lsd-llama-pgvector-remote.yaml
 - llamastack-sa-llamastack-model-sa.yaml
 - llamastack-secret-llama-stack-secret.yaml
 - llamastack-secret-pgvector-connection.yaml
+- llamastack-secret-postgres-secret.yaml
 - llamastack-servingruntime-llamastack-model.yaml
-- redhat-ods-applications-cm-llamastack-embedding-provider.yaml
-- redhat-ods-applications-llamastackdistribution-llamastack-pgvector.yaml
 - redhat-ods-applications-rb-llamastack-use-scc.yaml
-- redhat-ods-applications-secret-llamastack-db-credentials.yaml
