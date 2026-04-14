@@ -13,7 +13,6 @@ resources:
 - llamastack-configmap-llama32-chat-template.yaml
 - llamastack-inferenceservice-llamastack-model.yaml
 - llamastack-llamastackdistribution-llamastack.yaml
-- llamastack-llamastackdistribution-lsd-llama-pgvector-remote.yaml
 - llamastack-sa-llamastack-model-sa.yaml
 - llamastack-secret-llama-stack-secret.yaml
 - llamastack-secret-pgvector-connection.yaml
