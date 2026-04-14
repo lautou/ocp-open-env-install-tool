@@ -15,23 +15,21 @@ spec:
     spec:
       containers:
       - env:
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_USER
-              name: llamastack-postgresql-credentials
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_PASSWORD
-              name: llamastack-postgresql-credentials
-        - name: POSTGRES_DB
+        - name: POSTGRESQL_DATABASE
           valueFrom:
             secretKeyRef:
               key: POSTGRES_DB
               name: llamastack-postgresql-credentials
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: llamastack-postgresql-credentials
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_USER
+              name: llamastack-postgresql-credentials
         image: registry.redhat.io/rhel9/postgresql-16:9.7
         name: postgresql
         ports:
@@ -43,7 +41,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -53,7 +51,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
           initialDelaySeconds: 30
           periodSeconds: 20
           timeoutSeconds: 5
