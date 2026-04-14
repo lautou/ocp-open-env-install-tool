@@ -2064,8 +2064,8 @@ Enables RHOAI users to select GPU-enabled resource profiles when creating:
 **Purpose**: Complete RAG (Retrieval-Augmented Generation) stack for AI applications using IBM Granite models.
 
 **Namespaces**:
-- `external-db-llamastack` - External database namespace (PostgreSQL with pgvector for LlamaStack)
-- `llamastack` - vLLM inference servers
+- `ai-models-service` - Granite model inference servers (embedding + LLM)
+- `external-db-llamastack` - External database namespace (PostgreSQL with pgvector)
 - `redhat-ods-applications` - LlamaStack distribution
 
 #### PostgreSQL 16 with pgvector
@@ -3003,29 +3003,38 @@ oc get workflow ${WORKFLOW} -n ai-generation-llm-rag -o jsonpath='{.status.nodes
 
 **Impact:** Medium - Does not affect execution, but creates confusion for debugging and optimization.
 
-#### KServe InferenceService with vLLM
+#### Granite Model Inference Services
 
-**Pattern**: KServe InferenceService with OCI modelcar image and custom chat template
+**Pattern**: KServe InferenceServices with OCI modelcar images in consolidated namespace
 
-**Namespace**: `llamastack`
+**Namespace**: `ai-models-service`
 
-**Purpose**: Serves IBM Granite 3.1 8B Instruct model (4-bit quantized) with tool calling capabilities using vLLM on Tesla T4 GPUs.
+**Purpose**: Serves IBM Granite models (embedding + LLM) for RAG applications using vLLM on Tesla T4 GPUs.
+
+**Architecture** (2026-04-14 refactoring):
+- Both Granite models consolidated in single namespace `ai-models-service`
+- Former `ai-embedding-service` namespace renamed
+- Former `llamastack-model` InferenceService moved and renamed to `granite-llm`
+
+**InferenceServices:**
+1. **granite-embedding** - Granite embedding model (768-dim vectors)
+2. **granite-llm** - Granite 3.1 8B Instruct (4-bit quantized, tool calling)
 
 **Components:**
 
-**1. InferenceService:**
+**1. Granite LLM InferenceService:**
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: llamastack-model
-  namespace: llamastack
+  name: granite-llm
+  namespace: ai-models-service
 spec:
   predictor:
     model:
       modelFormat:
         name: vLLM
-      runtime: llamastack-model
+      runtime: granite-llm
       storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct-quantized.w4a16
       args:
       # ❌ DO NOT add --quantization=awq (auto-detected from model config)
@@ -3049,7 +3058,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
 metadata:
-  name: llamastack-model
+  name: granite-llm
+  namespace: ai-models-service
 spec:
   containers:
   - name: kserve-container
@@ -3139,10 +3149,20 @@ Contains Jinja2 template for Granite tool calling with JSON format parser.
 - Template mounted from ConfigMap at `/app/data/template/`
 - Granite uses different tokenization format vs Llama (`<|start_of_role|>`, `<|end_of_role|>`, `<|end_of_text|>`)
 
-**Service Endpoint:**
+**Service Endpoints:**
 ```
-http://llamastack-model-predictor.llamastack.svc.cluster.local
+# Granite LLM (8B quantized, tool calling)
+https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443
+
+# Granite Embedding (768-dim vectors)
+https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443
 ```
+
+**ArgoCD Management:**
+- **ApplicationSet**: `ai-models-service` (in `cluster-ai` base)
+- **Application**: `ai-models-service` (auto-generated)
+- **Source path**: `components/ai-models-service/overlays/default`
+- **Replaces**: Former `ai-embedding-service` and `uc-llamastack` Applications
 
 **GPU Requirements:**
 - Tesla T4 GPUs (compute capability 7.5)
@@ -3274,7 +3294,7 @@ spec:
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
       - name: VLLM_URL
-        value: http://llamastack-model-predictor.llamastack.svc.cluster.local
+        value: http://granite-llm-predictor.ai-models-service.svc.cluster.local
       - name: EMBEDDING_MODEL
         value: granite-embedding-125m-english
       - name: EMBEDDING_URL
