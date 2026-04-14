@@ -28,7 +28,7 @@ spec:
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_URL
-        value: http://vllm-llama32-3b.llamastack.svc.cluster.local:8000/v1
+        value: https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443/v1
       port: 8321
       resources:
         limits:
