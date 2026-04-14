@@ -881,7 +881,7 @@ data:
             isOptional: true
             parameterType: BOOLEAN
           embedding_endpoint:
-            defaultValue: https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443
+            defaultValue: https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443
             isOptional: true
             parameterType: STRING
           embedding_batch_size:

@@ -9,10 +9,9 @@ metadata:
     opendatahub.io/serving-runtime-scope: global
     opendatahub.io/template-display-name: vLLM NVIDIA GPU ServingRuntime for KServe
     opendatahub.io/template-name: vllm-cuda-runtime-template
-    openshift.io/description: Shared vLLM runtime for granite-embedding-english-r2 model
-    openshift.io/display-name: vLLM NVIDIA GPU ServingRuntime for KServe (Granite Embedding)
-  name: granite-embedding
-  namespace: ai-embedding-service
+    openshift.io/display-name: vLLM NVIDIA GPU ServingRuntime for KServe (Granite 3.1 Quantized)
+  name: granite-llm
+  namespace: ai-models-service
 spec:
   annotations:
     opendatahub.io/kserve-runtime: vllm
@@ -37,13 +36,21 @@ spec:
       protocol: TCP
     readinessProbe:
       failureThreshold: 3
-      initialDelaySeconds: 120
       periodSeconds: 10
       successThreshold: 1
       tcpSocket:
         port: 8080
       timeoutSeconds: 1
+      initialDelaySeconds: 180
+    volumeMounts:
+    - mountPath: /app/data/template
+      name: chat-template
+      readOnly: true
   multiModel: false
   supportedModelFormats:
   - autoSelect: true
     name: vLLM
+  volumes:
+  - configMap:
+      name: granite-chat-template
+    name: chat-template

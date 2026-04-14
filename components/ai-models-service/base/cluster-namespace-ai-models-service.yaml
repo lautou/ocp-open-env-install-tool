@@ -3,9 +3,9 @@ kind: Namespace
 metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
-    kubernetes.io/metadata.name: ai-embedding-service
+    kubernetes.io/metadata.name: ai-models-service
     opendatahub.io/dashboard: "true"
     pod-security.kubernetes.io/audit: baseline
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: baseline
-  name: ai-embedding-service
+  name: ai-models-service

@@ -2,4 +2,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: granite-embedding-sa
-  namespace: ai-embedding-service
+  namespace: ai-models-service

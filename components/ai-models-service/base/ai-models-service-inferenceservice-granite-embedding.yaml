@@ -11,7 +11,7 @@ metadata:
     security.opendatahub.io/enable-auth: "true"
     serving.kserve.io/deploymentMode: RawDeployment
   name: granite-embedding
-  namespace: ai-embedding-service
+  namespace: ai-models-service
 spec:
   predictor:
     automountServiceAccountToken: true

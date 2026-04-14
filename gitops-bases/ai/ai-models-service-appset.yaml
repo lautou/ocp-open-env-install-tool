@@ -3,7 +3,7 @@ kind: ApplicationSet
 metadata:
   finalizers:
   - resources-finalizer.argocd.argoproj.io
-  name: ai-embedding-service
+  name: ai-models-service
   namespace: openshift-gitops
 spec:
   generators:
@@ -21,12 +21,12 @@ spec:
       finalizers:
       - resources-finalizer.argocd.argoproj.io/background
       labels:
-        app.kubernetes.io/name: '{{.cluster}}-ai-embedding-service'
+        app.kubernetes.io/name: '{{.cluster}}-ai-models-service'
         velero.io/exclude-from-backup: "true"
-      name: ai-embedding-service
+      name: ai-models-service
     spec:
       destination:
-        namespace: ai-embedding-service
+        namespace: ai-models-service
         server: '{{.url}}'
       ignoreDifferences:
       - group: ''
@@ -36,7 +36,7 @@ spec:
         name: cluster-versions
       project: default
       source:
-        path: components/ai-embedding-service/overlays/default
+        path: components/ai-models-service/overlays/default
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
         targetRevision: master
       syncPolicy:

@@ -10,7 +10,7 @@ data:
       inference:
       - config:
           api_token: ""
-          base_url: https://granite-embedding-predictor.ai-embedding-service.svc.cluster.local:8443/v1
+          base_url: https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443/v1
           max_tokens: 8192
           tls_verify: false
         provider_id: vllm-embedding

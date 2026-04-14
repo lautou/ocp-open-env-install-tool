@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- ai-embedding-service-rb-allow-llamastack-access.yaml
+- ai-models-service-rb-allow-llamastack-access.yaml
 - cluster-namespace-external-db-llamastack.yaml
 - cluster-namespace-llamastack.yaml
 - external-db-llamastack-deployment-llamastack-postgresql.yaml
