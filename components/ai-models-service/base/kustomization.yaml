@@ -14,6 +14,7 @@ resources:
 - ai-models-service-secret-granite-embedding-sa-token.yaml
 - ai-models-service-secret-granite-llm-sa-token.yaml
 - ai-models-service-secret-quay-redhat-ai-services.yaml
+- ai-models-service-secret-registry-redhat-io.yaml
 - ai-models-service-servingruntime-granite-embedding.yaml
 - ai-models-service-servingruntime-granite-llm.yaml
 - cluster-namespace-ai-models-service.yaml

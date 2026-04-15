@@ -38,7 +38,7 @@ spec:
           memory: 8Gi
           nvidia.com/gpu: "1"
       runtime: granite-embedding
-      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-embedding-english-r2
+      storageUri: oci://registry.redhat.io/rhai/modelcar-granite-embedding-english-r2
     tolerations:
     - key: nvidia.com/gpu
       operator: Exists
