@@ -14,8 +14,35 @@ spec:
         value: granite-embedding-english-r2
       - name: EMBEDDING_PROVIDER_MODEL_ID
         value: ibm-granite/granite-embedding-english-r2
+      - name: ENABLE_PGVECTOR
+        value: "true"
       - name: INFERENCE_MODEL
         value: granite-3.3-2b-instruct
+      - name: PGVECTOR_DB
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_DB
+            name: pgvector-connection
+      - name: PGVECTOR_HOST
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_HOST
+            name: pgvector-connection
+      - name: PGVECTOR_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_PASSWORD
+            name: pgvector-connection
+      - name: PGVECTOR_PORT
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_PORT
+            name: pgvector-connection
+      - name: PGVECTOR_USER
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_USER
+            name: pgvector-connection
       - name: POSTGRES_DB
         value: llamastackdb
       - name: POSTGRES_HOST
