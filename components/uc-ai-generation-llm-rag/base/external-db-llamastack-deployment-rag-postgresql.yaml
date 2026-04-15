@@ -30,6 +30,8 @@ spec:
             secretKeyRef:
               key: POSTGRES_DB
               name: rag-postgresql-credentials
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         image: pgvector/pgvector:pg16
         name: postgresql
         ports:
