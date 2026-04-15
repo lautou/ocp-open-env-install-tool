@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rag-postgresql
-  namespace: external-db-generation-llm-rag
+  namespace: external-db-llamastack
 spec:
   replicas: 1
   selector:
