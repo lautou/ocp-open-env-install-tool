@@ -30,8 +30,6 @@ spec:
             secretKeyRef:
               key: POSTGRES_DB
               name: rag-postgresql-credentials
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
         image: pgvector/pgvector:pg16
         name: postgresql
         ports:
@@ -71,13 +69,6 @@ spec:
                   sleep 2
                 done
                 PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
-        resources:
-          limits:
-            cpu: "1"
-            memory: 2Gi
-          requests:
-            cpu: 250m
-            memory: 512Mi
         volumeMounts:
         - mountPath: /var/lib/postgresql/data
           name: data

@@ -17,7 +17,6 @@ resources:
 - external-db-generation-llm-rag-deployment-dspa-mariadb.yaml
 - external-db-llamastack-deployment-rag-postgresql.yaml
 - external-db-generation-llm-rag-pvc-dspa-mariadb.yaml
-- external-db-llamastack-pvc-rag-postgresql.yaml
 - external-db-generation-llm-rag-secret-dspa-mariadb-credentials.yaml
 - external-db-llamastack-secret-rag-postgresql-credentials.yaml
 - external-db-generation-llm-rag-service-dspa-mariadb.yaml
