@@ -29,13 +29,13 @@ spec:
             sleep 5
           done
 
-          # Extract tokens
-          EMBEDDING_TOKEN=$(oc get secret granite-embedding-sa-token -n ai-models-service -o jsonpath='{.data.token}' | base64 -d)
-          LLM_TOKEN=$(oc get secret granite-llm-sa-token -n ai-models-service -o jsonpath='{.data.token}' | base64 -d)
+          # Extract tokens (base64 encoded)
+          EMBEDDING_TOKEN=$(oc get secret granite-embedding-sa-token -n ai-models-service -o jsonpath='{.data.token}')
+          LLM_TOKEN=$(oc get secret granite-llm-sa-token -n ai-models-service -o jsonpath='{.data.token}')
 
-          # Update secrets in llamastack namespace
-          oc patch secret granite-embedding-sa-token -n llamastack -p "{\"stringData\":{\"token\":\"$EMBEDDING_TOKEN\"}}"
-          oc patch secret granite-llm-sa-token -n llamastack -p "{\"stringData\":{\"token\":\"$LLM_TOKEN\"}}"
+          # Update secrets in llamastack namespace (data field expects base64)
+          oc patch secret granite-embedding-sa-token -n llamastack -p "{\"data\":{\"token\":\"$EMBEDDING_TOKEN\"}}"
+          oc patch secret granite-llm-sa-token -n llamastack -p "{\"data\":{\"token\":\"$LLM_TOKEN\"}}"
 
           echo "Tokens copied successfully!"
         image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
