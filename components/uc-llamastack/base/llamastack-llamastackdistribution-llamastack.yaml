@@ -61,13 +61,11 @@ spec:
           secretKeyRef:
             key: token
             name: granite-llm-sa-token
-            namespace: ai-models-service
       - name: VLLM_EMBEDDING_API_TOKEN
         valueFrom:
           secretKeyRef:
             key: token
             name: granite-embedding-sa-token
-            namespace: ai-models-service
       - name: VLLM_EMBEDDING_MAX_TOKENS
         value: "512"
       - name: VLLM_EMBEDDING_TLS_VERIFY

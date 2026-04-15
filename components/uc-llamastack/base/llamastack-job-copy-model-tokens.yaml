@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: copy-model-tokens
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: copy-model-tokens
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Copying granite model service account tokens to llamastack namespace..."
+
+          # Wait for source secrets to exist
+          while ! oc get secret granite-embedding-sa-token -n ai-models-service >/dev/null 2>&1; do
+            echo "Waiting for granite-embedding-sa-token in ai-models-service..."
+            sleep 5
+          done
+
+          while ! oc get secret granite-llm-sa-token -n ai-models-service >/dev/null 2>&1; do
+            echo "Waiting for granite-llm-sa-token in ai-models-service..."
+            sleep 5
+          done
+
+          # Extract tokens
+          EMBEDDING_TOKEN=$(oc get secret granite-embedding-sa-token -n ai-models-service -o jsonpath='{.data.token}' | base64 -d)
+          LLM_TOKEN=$(oc get secret granite-llm-sa-token -n ai-models-service -o jsonpath='{.data.token}' | base64 -d)
+
+          # Update secrets in llamastack namespace
+          oc patch secret granite-embedding-sa-token -n llamastack -p "{\"stringData\":{\"token\":\"$EMBEDDING_TOKEN\"}}"
+          oc patch secret granite-llm-sa-token -n llamastack -p "{\"stringData\":{\"token\":\"$LLM_TOKEN\"}}"
+
+          echo "Tokens copied successfully!"
+        image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+        name: copy-tokens
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller

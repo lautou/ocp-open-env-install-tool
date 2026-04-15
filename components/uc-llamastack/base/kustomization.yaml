@@ -6,10 +6,13 @@ resources:
 - cluster-namespace-external-db-llamastack.yaml
 - cluster-namespace-llamastack.yaml
 - external-db-llamastack-deployment-llamastack-postgresql.yaml
+- llamastack-job-copy-model-tokens.yaml
 - external-db-llamastack-pvc-llamastack-postgresql.yaml
 - external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
 - external-db-llamastack-service-llamastack-postgresql.yaml
 - llamastack-llamastackdistribution-llamastack.yaml
+- llamastack-secret-granite-embedding-sa-token.yaml
+- llamastack-secret-granite-llm-sa-token.yaml
 - llamastack-secret-pgvector-connection.yaml
 - llamastack-secret-postgres-secret.yaml
 - redhat-ods-applications-rb-llamastack-use-scc.yaml
