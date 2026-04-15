@@ -2112,6 +2112,8 @@ env:
     secretKeyRef:
       key: POSTGRES_USER
       name: llamastack-postgresql-credentials
+- name: PGDATA
+  value: /var/lib/postgresql/data/pgdata
 
 # Readiness and Liveness Probes
 readinessProbe:
@@ -2167,7 +2169,7 @@ port: 5432
 - User: `llamastack`
 - Extension: None (metadata storage only)
 - Encoding: UTF8
-- Data directory: `/var/lib/postgresql/data` (Red Hat default)
+- Data directory: `/var/lib/postgresql/data/pgdata` (PGDATA configured for cloud storage compatibility)
 
 **⚠️ CRITICAL: Red Hat PostgreSQL Environment Variables**
 
@@ -2191,6 +2193,29 @@ you must either specify POSTGRESQL_USER POSTGRESQL_PASSWORD POSTGRESQL_DATABASE
 ```
 
 **Note**: Secret keys still use `POSTGRES_*` naming (unchanged), but deployment env vars map them to `POSTGRESQL_*`.
+
+**⚠️ CRITICAL: PGDATA Configuration for Cloud Storage**
+
+When deploying PostgreSQL with fresh PVCs on cloud storage (AWS EBS, Azure Disk, GCP Persistent Disk), you **MUST** set the `PGDATA` environment variable to a subdirectory:
+
+```yaml
+- name: PGDATA
+  value: /var/lib/postgresql/data/pgdata
+```
+
+**Why Required:**
+- Cloud block storage creates a `lost+found` directory at mount point root (`/var/lib/postgresql/data`)
+- PostgreSQL's `initdb` requires an **empty directory** and refuses to initialize when `lost+found` exists
+- Using a subdirectory (`/var/lib/postgresql/data/pgdata`) avoids this conflict
+- This is the **standard PostgreSQL best practice** for containerized deployments
+
+**Without PGDATA**: Pod crashes with error:
+```
+initdb: error: directory "/var/lib/postgresql/data" exists but is not empty
+initdb: detail: It contains a lost+found directory, perhaps due to it being a mount point.
+initdb: hint: Using a mount point directly as the data directory is not recommended.
+Create a subdirectory under the mount point.
+```
 
 **Verification:**
 ```bash
@@ -3868,7 +3893,8 @@ print(f'Embedding dimension: {len(r.json()[\"data\"][0][\"embedding\"])}')
 
 **Namespaces**:
 - `ai-generation-llm-rag` - DSPA and pipeline execution
-- `external-db-generation-llm-rag` - External databases (MariaDB, PostgreSQL)
+- `external-db-generation-llm-rag` - MariaDB for DSPA metadata
+- `external-db-llamastack` - PostgreSQL databases (llamastack-postgresql, rag-postgresql)
 
 **Key Components:**
 
@@ -3968,14 +3994,14 @@ postgres_table_name: "document_chunks"
 
 ### PostgreSQL + pgvector Database
 
-**Deployment**: `rag-postgresql` in `external-db-generation-llm-rag` namespace
+**Deployment**: `rag-postgresql` in `external-db-llamastack` namespace
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rag-postgresql
-  namespace: external-db-generation-llm-rag
+  namespace: external-db-llamastack
 spec:
   template:
     spec:
@@ -4216,7 +4242,7 @@ subjects:
 oc get dspa pipelines -n ai-generation-llm-rag
 
 # Check PostgreSQL
-oc exec -n external-db-generation-llm-rag deployment/rag-postgresql -- \
+oc exec -n external-db-llamastack deployment/rag-postgresql -- \
   psql -U raguser -d ragdb -c "\dx vector"
 
 # Check pipelines uploaded
@@ -4229,7 +4255,7 @@ oc exec -n ai-generation-llm-rag deployment/ds-pipeline-pipelines -c ds-pipeline
 oc get job -n openshift-gitops | grep upload-pipeline
 
 # Query stored embeddings (after pipeline runs)
-oc exec -n external-db-generation-llm-rag deployment/rag-postgresql -- \
+oc exec -n external-db-llamastack deployment/rag-postgresql -- \
   psql -U raguser -d ragdb -c "SELECT COUNT(*), AVG(ARRAY_LENGTH(embedding::real[], 1)) AS avg_dim FROM document_chunks;"
 ```
 
@@ -4246,7 +4272,7 @@ oc exec -n external-db-generation-llm-rag deployment/rag-postgresql -- \
 
 **External Dependencies**:
 - MariaDB: DSPA metadata storage (in `external-db-generation-llm-rag` namespace)
-- PostgreSQL + pgvector: Vector storage (in `external-db-generation-llm-rag` namespace)
+- PostgreSQL + pgvector: Vector storage (in `external-db-llamastack` namespace)
 
 ### Related Documentation
 
