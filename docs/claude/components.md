@@ -3111,13 +3111,15 @@ kind: InferenceService
 metadata:
   name: granite-llm
   namespace: ai-models-service
+  labels:
+    networking.kserve.io/visibility: exposed  # Creates external Route
 spec:
   predictor:
     model:
       modelFormat:
         name: vLLM
       runtime: granite-llm
-      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct-quantized.w4a16
+      storageUri: oci://registry.redhat.io/rhelai1/modelcar-granite-3-1-8b-instruct-quantized-w4a16:1.5
       args:
       # ❌ DO NOT add --quantization=awq (auto-detected from model config)
       # ❌ DO NOT add --dtype=half (quantized models use compressed-tensors)
@@ -3191,6 +3193,15 @@ Contains Jinja2 template for Granite tool calling with JSON format parser.
 - Quality trade-off: ~5-10% degradation vs FP16 (minimal impact for RAG use cases)
 
 **Git History:**
+- Commit `b9620f1` (2026-04-15): Switch to Red Hat supported registry images
+  - granite-llm: `registry.redhat.io/rhelai1/modelcar-granite-3-1-8b-instruct-quantized-w4a16:1.5`
+  - granite-embedding: `registry.redhat.io/rhai/modelcar-granite-embedding-english-r2`
+  - Added data connections for registry.redhat.io and quay.io
+- Commit `502452a` (2026-04-15): Remove Routes from GitOps, let KServe manage them
+  - Eliminates ownerReferences conflict between GitOps and KServe
+  - KServe auto-creates Routes based on `networking.kserve.io/visibility` label
+- Commit `279f21f` (2026-04-15): Remove Prune=false from granite-embedding
+  - Enable standard GitOps prune behavior (consistency with granite-llm)
 - Commit `31dc700`: Switch from Llama 3.2 3B to Granite 3.1 8B quantized
 - Commit `d5d53f3`: Fix quantization auto-detection (remove explicit --quantization arg)
 - Reason: T4 GPU (14.56 GiB VRAM) insufficient for Granite 8B full precision
@@ -3233,12 +3244,54 @@ Contains Jinja2 template for Granite tool calling with JSON format parser.
 
 **Service Endpoints:**
 ```
-# Granite LLM (8B quantized, tool calling)
+# Granite LLM (8B quantized, tool calling) - EXTERNAL ACCESS
+https://granite-llm-ai-models-service.apps.<cluster-domain>
+
+# Granite LLM - Internal cluster URL
 https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443
 
-# Granite Embedding (768-dim vectors)
+# Granite Embedding (768-dim vectors) - INTERNAL-ONLY
 https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443
 ```
+
+**Model Container Images** (Red Hat Supported Registry):
+```
+# Granite LLM
+oci://registry.redhat.io/rhelai1/modelcar-granite-3-1-8b-instruct-quantized-w4a16:1.5
+
+# Granite Embedding
+oci://registry.redhat.io/rhai/modelcar-granite-embedding-english-r2
+```
+
+**Data Connections** (for RHOAI UI model deployment):
+- `registry-redhat-io`: Red Hat Registry (registry.redhat.io) - Official supported images
+- `quay-redhat-ai-services`: Quay.io Red Hat AI Services (quay.io) - Community images
+
+**External Access via Routes:**
+
+KServe automatically creates OpenShift Routes based on the `networking.kserve.io/visibility` label:
+
+| Model | Visibility Label | Route Created | Access Type |
+|-------|-----------------|---------------|-------------|
+| **granite-llm** | `exposed` | ✅ Yes (KServe-managed) | External HTTPS |
+| **granite-embedding** | *(not set)* | ❌ No | Internal-only |
+
+**Route Management:**
+- ✅ **Routes managed by KServe** - NOT in GitOps manifests
+- ✅ KServe creates/owns Routes with `ownerReferences` to InferenceService
+- ✅ Routes auto-deleted when InferenceService deleted
+- ✅ TLS: reencrypt termination (HAProxy → Service mTLS)
+- ❌ **DO NOT** add Route YAMLs to GitOps (causes ownerReferences conflict)
+
+**Why granite-llm has external Route:**
+- Created via RHOAI UI with data connection → UI sets `visibility: exposed` label
+- KServe detected label → auto-created external Route
+- Used for external model serving endpoints
+
+**Why granite-embedding is internal-only:**
+- Deployed for cluster-internal use (RAG pipelines, LlamaStack)
+- No visibility label → KServe doesn't create external Route
+- Lower latency, no ingress overhead
 
 **ArgoCD Management:**
 - **ApplicationSet**: `ai-models-service` (in `cluster-ai` base)
@@ -3869,7 +3922,7 @@ spec:
       modelFormat:
         name: vLLM
       runtime: granite-embedding
-      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-embedding-english-r2
+      storageUri: oci://registry.redhat.io/rhai/modelcar-granite-embedding-english-r2
       resources:
         limits:
           nvidia.com/gpu: "1"
