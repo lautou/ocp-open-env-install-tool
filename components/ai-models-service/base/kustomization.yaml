@@ -7,8 +7,6 @@ resources:
 - ai-models-service-inferenceservice-granite-llm.yaml
 - ai-models-service-rb-allow-pipeline-access.yaml
 - ai-models-service-role-inferenceservice-user.yaml
-- ai-models-service-route-granite-embedding.yaml
-- ai-models-service-route-granite-llm.yaml
 - ai-models-service-sa-granite-embedding-sa.yaml
 - ai-models-service-sa-granite-llm-sa.yaml
 - ai-models-service-secret-granite-embedding-sa-token.yaml
