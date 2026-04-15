@@ -2677,13 +2677,13 @@ components/uc-ai-generation-llm-rag/base/
 ├── cluster-namespace-external-db-generation-llm-rag.yaml                 # External database namespace
 ├── external-db-generation-llm-rag-configmap-dspa-mariadb-tls-config.yaml # MariaDB TLS CA bundle
 ├── external-db-generation-llm-rag-deployment-dspa-mariadb.yaml           # MariaDB deployment
-├── external-db-generation-llm-rag-deployment-rag-postgresql.yaml         # PostgreSQL 16 + pgvector
-├── external-db-generation-llm-rag-pvc-dspa-mariadb.yaml                  # MariaDB storage (10Gi)
-├── external-db-generation-llm-rag-pvc-rag-postgresql.yaml                # PostgreSQL storage (10Gi)
+├── external-db-llamastack-deployment-rag-postgresql.yaml         # PostgreSQL 16 + pgvector
+├── external-db-generation-llm-rag-pvc-dspa-mariadb.yaml          # MariaDB storage (10Gi)
+├── external-db-llamastack-pvc-rag-postgresql.yaml                # PostgreSQL storage (10Gi)
 ├── external-db-generation-llm-rag-secret-dspa-mariadb-credentials.yaml   # MariaDB credentials
-├── external-db-generation-llm-rag-secret-rag-postgresql-credentials.yaml # PostgreSQL credentials
-├── external-db-generation-llm-rag-service-dspa-mariadb.yaml              # MariaDB service (port 3306)
-├── external-db-generation-llm-rag-service-rag-postgresql.yaml            # PostgreSQL service (port 5432)
+├── external-db-llamastack-secret-rag-postgresql-credentials.yaml # PostgreSQL credentials
+├── external-db-generation-llm-rag-service-dspa-mariadb.yaml      # MariaDB service (port 3306)
+├── external-db-llamastack-service-rag-postgresql.yaml            # PostgreSQL service (port 5432)
 ├── openshift-gitops-cm-pipeline-upload-script.yaml                       # Python upload script
 ├── openshift-gitops-job-upload-pipeline-docling-standard.yaml            # PostSync Job
 └── openshift-gitops-sa-pipeline-uploader.yaml                            # ServiceAccount
@@ -2704,15 +2704,36 @@ The component deploys two separate databases in a dedicated namespace for isolat
 
 2. **rag-postgresql** - Vector embeddings database for RAG applications
    - Image: `pgvector/pgvector:pg16`
-   - Storage: 10Gi PVC (gp3-csi)
-   - Service: `rag-postgresql.external-db-generation-llm-rag.svc.cluster.local:5432`
+   - Storage: 10Gi PVC (no storageClassName - cluster default)
+   - **Namespace**: `external-db-llamastack` (consolidated with LlamaStack databases)
+   - Service: `rag-postgresql.external-db-llamastack.svc.cluster.local:5432`
    - Credentials: Secret `rag-postgresql-credentials` (database=ragdb, username=raguser)
-   - Extensions: pgvector automatically initialized via lifecycle.postStart hook
+   - Extensions: pgvector 0.8.2 automatically initialized via lifecycle.postStart hook
+   - **CRITICAL**: Requires `PGDATA=/var/lib/postgresql/data/pgdata` for fresh PVC deployments
 
-**PostgreSQL pgvector Auto-Initialization:**
+**PostgreSQL pgvector Configuration:**
 
 ```yaml
-# Pattern from external-db-generation-llm-rag-deployment-rag-postgresql.yaml
+# Pattern from external-db-llamastack-deployment-rag-postgresql.yaml
+env:
+- name: POSTGRES_USER
+  valueFrom:
+    secretKeyRef:
+      name: rag-postgresql-credentials
+      key: POSTGRES_USER
+- name: POSTGRES_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: rag-postgresql-credentials
+      key: POSTGRES_PASSWORD
+- name: POSTGRES_DB
+  valueFrom:
+    secretKeyRef:
+      name: rag-postgresql-credentials
+      key: POSTGRES_DB
+- name: PGDATA  # ⚠️ CRITICAL: Required for fresh PVC deployments
+  value: /var/lib/postgresql/data/pgdata
+
 lifecycle:
   postStart:
     exec:
@@ -2728,11 +2749,23 @@ lifecycle:
         PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
-**Why separate databases:**
-- DSPA requires MariaDB for metadata storage (KFP standard)
-- RAG applications require PostgreSQL with pgvector for semantic search
-- Namespace isolation separates data plane from workload plane
-- Independent scaling and lifecycle management
+**⚠️ CRITICAL: PGDATA Requirement**
+
+The `PGDATA=/var/lib/postgresql/data/pgdata` environment variable is **MANDATORY** for deployments with fresh PVCs on cloud storage (AWS EBS, Azure Disk, GCP PD).
+
+**Why:**
+- Fresh PVCs create `lost+found` directory at mount root
+- PostgreSQL `initdb` requires empty directory
+- PGDATA specifies subdirectory to avoid conflict
+- **Without PGDATA**: Pod crashes with `initdb: directory is not empty`
+
+**This is NOT in RHOAI 3.3 documentation** - see `JIRA-PGDATA-Missing-Documentation.md` for bug report.
+
+**Database Namespace Strategy:**
+- **MariaDB** (dspa-mariadb): Remains in `external-db-generation-llm-rag` - KFP metadata storage
+- **RAG PostgreSQL** (rag-postgresql): **Moved to `external-db-llamastack`** - consolidated with LlamaStack databases
+- Consolidation rationale: Both rag-postgresql and llamastack-postgresql support LlamaStack/RAG workloads
+- Independent scaling and lifecycle management per database
 
 **Verification:**
 
@@ -2742,11 +2775,11 @@ oc get deployment dspa-mariadb -n external-db-generation-llm-rag
 oc exec deployment/dspa-mariadb -n external-db-generation-llm-rag -- mysql -u mlpipeline -pchangeme-demo-only -e "SHOW DATABASES;"
 
 # Check PostgreSQL deployment with pgvector
-oc get deployment rag-postgresql -n external-db-generation-llm-rag
-oc exec deployment/rag-postgresql -n external-db-generation-llm-rag -- \
-  psql -U raguser -d ragdb -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
+oc get deployment rag-postgresql -n external-db-llamastack
+oc exec deployment/rag-postgresql -n external-db-llamastack -- \
+  psql -U raguser -d ragdb -c "\dx"
 
-# Expected output: vector | 0.8.0 (or later)
+# Expected output: vector | 0.8.2 (or later)
 ```
 
 **Verification:**
@@ -3261,17 +3294,23 @@ metadata:
   namespace: llamastack
 stringData:
   # gitleaks:allow - Demo/lab environment placeholder credentials
-  PGVECTOR_HOST: llamastack-postgresql.external-db-llamastack.svc.cluster.local
+  PGVECTOR_HOST: rag-postgresql.external-db-llamastack.svc.cluster.local
   PGVECTOR_PORT: "5432"
   # gitleaks:allow - Demo/lab environment placeholder credentials
-  PGVECTOR_DB: llamastackdb
+  PGVECTOR_DB: ragdb
   # gitleaks:allow - Demo/lab environment placeholder credentials
-  PGVECTOR_USER: llamastack
+  PGVECTOR_USER: raguser
   # gitleaks:allow - Demo/lab environment placeholder credentials
   PGVECTOR_PASSWORD: changeme-demo-only
 ```
 
 **Purpose:** Provides PostgreSQL connection details for LlamaStack RAG operations with pgvector extension.
+
+**⚠️ IMPORTANT:** Points to `rag-postgresql` (pgvector/pgvector:pg16 with pgvector extension), **NOT** `llamastack-postgresql` (Red Hat image without pgvector).
+
+**Database Architecture in external-db-llamastack namespace:**
+- `llamastack-postgresql`: Red Hat rhel9/postgresql-16:9.7 → metadata storage (NO pgvector)
+- `rag-postgresql`: Community pgvector/pgvector:pg16 → vector embeddings (WITH pgvector 0.8.2)
 
 **Required Environment Variables:**
 - `PGVECTOR_HOST` - PostgreSQL service hostname (cluster-internal)
@@ -3912,7 +3951,7 @@ embedding_endpoint: "https://granite-embedding-predictor.ai-embedding-service.sv
 embedding_batch_size: 32  # Chunks per API call (optimize for GPU)
 
 # PostgreSQL + pgvector configuration
-postgres_host: "rag-postgresql.external-db-generation-llm-rag.svc.cluster.local"
+postgres_host: "rag-postgresql.external-db-llamastack.svc.cluster.local"
 postgres_port: 5432
 postgres_database: "ragdb"
 postgres_user: "raguser"
