@@ -2,7 +2,7 @@ apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true,Prune=false
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     opendatahub.io/hardware-profile-name: gpus
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: embedding
