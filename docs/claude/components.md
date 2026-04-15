@@ -3396,8 +3396,43 @@ spec:
         value: "5432"
       - name: POSTGRES_USER
         value: llamastack
+      - name: ENABLE_PGVECTOR
+        value: "true"
+      - name: PGVECTOR_HOST
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_HOST
+            name: pgvector-connection
+      - name: PGVECTOR_PORT
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_PORT
+            name: pgvector-connection
+      - name: PGVECTOR_DB
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_DB
+            name: pgvector-connection
+      - name: PGVECTOR_USER
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_USER
+            name: pgvector-connection
+      - name: PGVECTOR_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_PASSWORD
+            name: pgvector-connection
+      - name: VLLM_API_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: token
+            name: granite-llm-sa-token
       - name: VLLM_EMBEDDING_API_TOKEN
-        value: ""
+        valueFrom:
+          secretKeyRef:
+            key: token
+            name: granite-embedding-sa-token
       - name: VLLM_EMBEDDING_MAX_TOKENS
         value: "512"
       - name: VLLM_EMBEDDING_TLS_VERIFY
@@ -3442,6 +3477,27 @@ ValueError: Provider `vllm-embedding` not found
 
 Unlike earlier versions, the current deployment uses **environment variables** for provider configuration instead of userConfig ConfigMap. This simplifies deployment and aligns with OpenShift patterns.
 
+**Dual Database Architecture:**
+
+LlamaStack uses **two PostgreSQL databases** for different purposes:
+
+1. **llamastack-postgresql** (Red Hat rhel9/postgresql-16:9.7):
+   - **Purpose**: Metadata storage (conversation history, agent state, KV store)
+   - **Location**: `llamastack-postgresql.external-db-llamastack.svc.cluster.local:5432`
+   - **Environment**: `POSTGRES_*` variables
+   - **Extensions**: None
+
+2. **rag-postgresql** (pgvector/pgvector:pg16):
+   - **Purpose**: Vector embeddings storage
+   - **Location**: `rag-postgresql.external-db-llamastack.svc.cluster.local:5432`
+   - **Environment**: `PGVECTOR_*` variables, `ENABLE_PGVECTOR=true`
+   - **Extensions**: pgvector 0.8.2
+
+**Why Two Databases:**
+- Red Hat PostgreSQL containers do not include pgvector extension
+- pgvector requires community PostgreSQL image
+- Separation of concerns: metadata vs vector storage
+
 **Storage Configuration:**
 
 LlamaStack includes persistent storage for caching and runtime data:
@@ -3475,15 +3531,72 @@ oc get pod -n llamastack
 - agents, batches, datasetio, eval, inference
 - safety, scoring, tool_runtime, vector_io, files
 
-**Known Issue: Unauthorized Warnings**
+**⚠️ CRITICAL: vLLM Authentication Token Configuration**
 
-LlamaStack logs show periodic "Unauthorized" warnings when refreshing model lists:
+LlamaStack authenticates to vLLM model services using **Kubernetes service account tokens**:
+
+**Pattern**: Cross-namespace token copy via Job
+
+1. **Service Account Tokens** (in `ai-models-service` namespace):
+   - `granite-llm-sa-token` - Token for granite-llm InferenceService
+   - `granite-embedding-sa-token` - Token for granite-embedding InferenceService
+   - Created automatically by Kubernetes when Secret with annotation `kubernetes.io/service-account.name` is applied
+
+2. **Token Copy Job** (`copy-model-tokens`):
+   ```yaml
+   # components/uc-llamastack/base/llamastack-job-copy-model-tokens.yaml
+   apiVersion: batch/v1
+   kind: Job
+   metadata:
+     annotations:
+       argocd.argoproj.io/sync-options: Force=true
+     name: copy-model-tokens
+     namespace: openshift-gitops
+   ```
+
+   **What it does:**
+   - Waits for source service account tokens in `ai-models-service` namespace
+   - Extracts tokens from source secrets
+   - Patches placeholder secrets in `llamastack` namespace with actual tokens
+
+3. **Placeholder Secrets** (in `llamastack` namespace):
+   - `granite-llm-sa-token` - Initially empty, filled by Job
+   - `granite-embedding-sa-token` - Initially empty, filled by Job
+   - Referenced by LlamaStackDistribution
+
+**Fresh Deployment Behavior:**
+
+⚠️ **Expected on initial deployment**: LlamaStack pod may start before the token copy Job completes, resulting in temporary Unauthorized errors:
+
 ```
-WARNING  Model refresh failed for provider vllm-inference: Unauthorized
-WARNING  Model refresh failed for provider vllm-embedding: Unauthorized
+ERROR VLLMInferenceAdapter.list_provider_model_ids() failed with: Unauthorized
+WARNING Model refresh failed for provider vllm-inference: Unauthorized
 ```
 
-**Impact**: None - warnings are cosmetic. LlamaStack remains functional and healthy. Auth tokens are empty because KServe InferenceServices use service account tokens, not API keys.
+**Resolution**: Self-healing - Job completes and updates tokens, subsequent model refresh succeeds. Pod does NOT need manual restart.
+
+**Why This Pattern:**
+
+- Kubernetes Secrets cannot reference secrets in other namespaces
+- Service account tokens must be in `ai-models-service` namespace (same as InferenceServices)
+- LlamaStack needs tokens in `llamastack` namespace
+- Job bridges the gap by copying tokens
+
+**Verification:**
+
+```bash
+# Check token secrets exist
+oc get secret granite-llm-sa-token granite-embedding-sa-token -n ai-models-service
+
+# Check tokens copied to llamastack namespace
+oc get secret granite-llm-sa-token granite-embedding-sa-token -n llamastack
+
+# Check Job status
+oc get job copy-model-tokens -n openshift-gitops
+
+# Verify no Unauthorized errors (after Job completes)
+oc logs -n llamastack -l app.kubernetes.io/name=llamastack --tail=50 | grep -i unauthorized
+```
 
 **Documentation Issue:**
 
@@ -3492,10 +3605,21 @@ Red Hat documentation (RHOAI 3.3) does NOT clearly state that embedding configur
 **Files:**
 ```
 components/uc-llamastack/base/
-├── llamastack-llamastackdistribution-llamastack.yaml  # Main distribution CR
-├── llamastack-secret-postgres-secret.yaml             # PostgreSQL password
-├── llamastack-configmap-granite-chat-template.yaml    # Granite tool calling template
+├── llamastack-llamastackdistribution-llamastack.yaml      # Main distribution CR
+├── llamastack-secret-postgres-secret.yaml                 # PostgreSQL metadata DB password
+├── llamastack-secret-pgvector-connection.yaml             # pgvector DB connection details
+├── llamastack-secret-granite-llm-sa-token.yaml            # Placeholder for LLM token
+├── llamastack-secret-granite-embedding-sa-token.yaml      # Placeholder for embedding token
+├── llamastack-job-copy-model-tokens.yaml                  # Job to copy tokens from ai-models-service
+├── external-db-llamastack-deployment-llamastack-postgresql.yaml  # Metadata PostgreSQL
+├── external-db-llamastack-pvc-llamastack-postgresql.yaml
+├── external-db-llamastack-service-llamastack-postgresql.yaml
 └── (additional supporting resources)
+
+components/ai-models-service/base/
+├── ai-models-service-secret-granite-llm-sa-token.yaml     # Service account token secret
+├── ai-models-service-secret-granite-embedding-sa-token.yaml
+└── (model InferenceServices and ServingRuntimes)
 ```
 
 **Version Management:**
@@ -3505,6 +3629,69 @@ Operator channel managed via `cluster-versions` ConfigMap:
 - Subscription fallback: `stable-3.x` (generic channel for future upgrades)
 
 **Installation**: Part of the `ai` gitops-base, deployed in profiles: `ocp-ai`, `ocp-standard`, etc.
+
+**Fresh Cluster Deployment - Expected Behavior:**
+
+On initial GitOps deployment to a fresh cluster:
+
+1. ✅ **ai-models-service Application syncs**:
+   - Creates ServiceAccounts: `granite-llm-sa`, `granite-embedding-sa`
+   - Creates service account token Secrets (auto-populated by Kubernetes)
+   - Deploys InferenceServices with authentication enabled
+
+2. ✅ **uc-llamastack Application syncs**:
+   - Creates placeholder token Secrets (initially empty)
+   - Creates PostgreSQL databases (metadata + pgvector)
+   - Starts `copy-model-tokens` Job
+   - Creates LlamaStackDistribution
+
+3. ⏳ **Token Copy Job executes**:
+   - Waits for source tokens in `ai-models-service`
+   - Copies tokens to `llamastack` namespace
+   - Completes successfully
+
+4. ⚠️ **Temporary Unauthorized Errors**:
+   - LlamaStack pod may start before Job completes
+   - Logs will show Unauthorized errors during startup/initial model refresh
+   - **Self-resolves** when Job completes and updates tokens
+   - No manual intervention required
+
+5. ✅ **Final State**:
+   - All Applications: Synced + Healthy
+   - LlamaStack: Running with valid authentication
+   - No ongoing Unauthorized errors
+   - pgvector operational (version 0.8.2)
+
+**Deployment Timeline (Typical):**
+- T+0: ArgoCD sync starts
+- T+30s: Kubernetes auto-generates service account tokens
+- T+45s: Token copy Job starts
+- T+60s: Job completes, tokens updated
+- T+90s: LlamaStack healthy with authentication working
+
+**Troubleshooting Fresh Deployment:**
+
+If Unauthorized errors persist beyond 5 minutes:
+
+```bash
+# 1. Check service account tokens exist in source namespace
+oc get secret granite-llm-sa-token granite-embedding-sa-token -n ai-models-service
+
+# 2. Check Job completed
+oc get job copy-model-tokens -n openshift-gitops
+oc logs job/copy-model-tokens -n openshift-gitops
+
+# 3. Check tokens copied to target namespace
+oc get secret granite-llm-sa-token granite-embedding-sa-token -n llamastack
+oc get secret granite-llm-sa-token -n llamastack -o jsonpath='{.data.token}' | base64 -d | head -c 50
+
+# 4. If tokens are empty, manually re-run Job
+oc delete job copy-model-tokens -n openshift-gitops
+# ArgoCD will recreate Job on next sync
+
+# 5. Check LlamaStack pod logs
+oc logs -n llamastack -l app.kubernetes.io/name=llamastack --tail=100 | grep -i "unauthorized\|started\|ready"
+```
 ## Leader Worker Set Operator
 
 **Purpose**: Provides an API for deploying a group of pods as a unit of replication, addressing AI/ML inference workloads deployment patterns, especially multi-host inference where LLMs are sharded across multiple devices.
