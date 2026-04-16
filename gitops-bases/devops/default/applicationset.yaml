@@ -8,6 +8,8 @@ spec:
   - list:
       elements:
       - branch: master
+        item: openshift-pipelines
+      - branch: master
         item: openshift-service-mesh
       - branch: master
         item: rhb-apicurio-registry-operator

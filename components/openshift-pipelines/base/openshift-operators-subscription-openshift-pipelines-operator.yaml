@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
   name: openshift-pipelines-operator
-  namespace: openshift-operators
+  namespace: openshift-pipelines-operator
 spec:
   channel: latest
   config:
