@@ -34,9 +34,3 @@ spec:
           selfHeal: true
         retry:
           limit: 10
-      ignoreDifferences:
-      - group: ''
-        jsonPointers:
-        - /metadata/annotations
-        kind: ConfigMap
-        name: cluster-versions
