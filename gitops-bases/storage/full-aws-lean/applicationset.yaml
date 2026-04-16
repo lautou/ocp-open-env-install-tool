@@ -29,10 +29,8 @@ spec:
         retry:
           limit: 10
       ignoreDifferences:
-      - group: 
+      - group: ''
         jsonPointers:
-        - /metadata/labels
         - /metadata/annotations
-        - /metadata/ownerReferences
         kind: ConfigMap
         name: cluster-versions
