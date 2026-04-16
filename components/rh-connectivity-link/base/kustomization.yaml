@@ -30,6 +30,8 @@ resources:
 - monitoring-grafanadashboard-istio-workload.yaml
 - monitoring-grafanadashboard-platform-engineer.yaml
 - monitoring-grafanadatasource-thanos-query-ds.yaml
+- monitoring-rb-grafana-datasource-configurator.yaml
+- monitoring-role-grafana-datasource-configurator.yaml
 - monitoring-secret-grafana-datasource-token.yaml
 - monitoring-secret-grafana-proxy.yaml
 - monitoring-service-kube-state-metrics-kuadrant.yaml
@@ -37,6 +39,7 @@ resources:
 - monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
 - monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
 - openshift-gitops-job-configure-grafana-datasource-token.yaml
+- openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
 - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
 - openshift-ingress-servicemonitor-istiod.yaml
 - openshift-ingress-telemetry-namespace-metrics.yaml

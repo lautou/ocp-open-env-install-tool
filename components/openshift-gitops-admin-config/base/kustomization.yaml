@@ -34,8 +34,6 @@ resources:
   - kube-system-rb-cert-manager-operator.yaml
   - kube-system-role-ack-config-operator.yaml
   - kube-system-role-cert-manager-operator.yaml
-  - monitoring-rb-grafana-datasource-configurator.yaml
-  - monitoring-role-grafana-datasource-configurator.yaml
   - netobserv-rb-loki-s3-secret-creator.yaml
   - netobserv-role-loki-s3-secret-creator.yaml
   - openshift-config-rb-cert-manager-operator.yaml
@@ -63,7 +61,6 @@ resources:
   - openshift-gitops-serviceaccount-cleanup-operator.yaml
   - openshift-gitops-serviceaccount-console-plugin-manager.yaml
   - openshift-gitops-serviceaccount-dependency-waiter.yaml
-  - openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
   - openshift-gitops-serviceaccount-gpu-machineset-operator.yaml
   - openshift-gitops-serviceaccount-loki-s3-secret-creator.yaml
   - openshift-gitops-serviceaccount-odf-subscription-configurator.yaml
