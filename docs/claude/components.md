@@ -38,9 +38,10 @@ See CLAUDE.md for complete ignoreDifferences patterns and testing workflow.
 
 **Components with console plugins:**
 - `openshift-gitops-admin-config` → `gitops-plugin`
-- `openshift-pipelines` → `pipelines-console-plugin`
 - `openshift-storage` → `odf-console`, `odf-client-console`
 - `rh-connectivity-link` → `kuadrant-console-plugin`
+
+**Note**: OpenShift Pipelines console plugin is managed by the operator (not via GitOps Jobs)
 
 **Implementation:**
 Each component includes:
@@ -844,24 +845,30 @@ When upgrading OCP (e.g., 4.20 → 4.21):
 
 ## OpenShift Pipelines (Tekton)
 
-**TektonConfig Profile Behavior:**
+**Purpose**: Cloud-native CI/CD with Kubernetes-native resources (Pipeline, PipelineRun, Task, TaskRun).
 
-The TektonConfig CR supports three profiles:
-- **`lite`**: Installs only Tekton Pipelines
-- **`basic`**: Installs Tekton Pipelines, Tekton Triggers, Tekton Chains, and Tekton Results
-- **`all`**: Installs all components including TektonAddon (ConsoleCLIDownload, ConsoleQuickStart, etc.)
+**Namespaces**: `openshift-pipelines-operator` (operator), `openshift-pipelines` (operator-created for Tekton resources)
 
-**Important**: While Red Hat documentation states "all" is the default profile, when managing TektonConfig via GitOps without explicitly specifying the `profile` field, the operator appears to default to `basic` instead. This means:
+**Management Philosophy**: Minimal ArgoCD management - only essential resources to enable operator and infra node scheduling.
 
-- ✅ With `profile: basic`: You get core Tekton components but **no** TektonAddon
-- ✅ With `profile: all`: You get TektonAddon which includes:
-  - ConsoleCLIDownload resources (tkn-cli-serve pod for web console CLI downloads)
-  - ConsoleQuickStart resources
-  - ConsoleYAMLSample resources
+### Managed Resources
 
-**TektonConfig Configuration:**
+ArgoCD manages:
+1. **Namespace**: `openshift-pipelines-operator` (operator installation namespace)
+2. **OperatorGroup**: Single-namespace mode
+3. **Subscription**: OpenShift Pipelines operator
+4. **TektonConfig**: ONLY `spec.config` section (infra node scheduling)
+5. **ClusterRoleBinding**: RBAC for ArgoCD to manage TektonConfig
+6. **PreDelete/PostDelete hooks**: Clean Tekton resource deletion
 
-The project explicitly configures both `profile` and `targetNamespace`:
+**What ArgoCD does NOT manage:**
+- ❌ Console plugin (operator-managed automatically)
+- ❌ Full TektonConfig (operator manages profile, pruner, addon, chain, pipeline, triggers, dashboard, results, etc.)
+- ❌ targetNamespace (operator default accepted)
+
+### TektonConfig - Infra Node Scheduling Only
+
+**Minimal management approach**: ArgoCD configures ONLY infrastructure node placement. Operator manages all other fields.
 
 ```yaml
 # components/openshift-pipelines/base/cluster-tektonconfig-config.yaml
@@ -870,91 +877,95 @@ kind: TektonConfig
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    argocd.argoproj.io/sync-wave: "2"  # Deploy AFTER cleanup Job
   name: config
 spec:
-  profile: all                        # Full Tekton components with console integration
-  targetNamespace: openshift-pipelines  # Deploy components to standard OpenShift namespace
+  config:
+    nodeSelector:
+      node-role.kubernetes.io/infra: ''
+    tolerations:
+    - key: node-role.kubernetes.io/infra
+      operator: Exists
 ```
 
-**Why explicit configuration:**
-- `profile: all` ensures TektonAddon is installed (console CLI downloads, quick starts, YAML samples)
-- `targetNamespace: openshift-pipelines` uses the standard OpenShift namespace (operator default is `tekton-pipelines`)
-- Both fields are managed by GitOps (no ignoreDifferences)
+**Why minimal management:**
+- Operator automatically populates other fields (profile, pruner, addon, chain, pipeline, triggers, dashboard, results)
+- No ignoreDifferences needed - ArgoCD strategic merge only manages declared fields
+- Reduces GitOps complexity and operator conflicts
+- Proven stable: 18/18 Tekton pods deployed to infra nodes successfully
 
-**Version Note**: In OpenShift Pipelines 1.20+, the `basic` profile was enhanced to include Tekton Results (previously only in `all` profile).
-
-### TektonConfig Race Condition and Sync-Wave Solution
-
-**Problem**: Tekton operator auto-creates TektonConfig immediately after Subscription installation with default `targetNamespace: tekton-pipelines`. When ArgoCD tries to apply our manifest with `targetNamespace: openshift-pipelines`, the admission webhook blocks the change with error: `"Doesn't allow to update targetNamespace, delete existing TektonConfig and create the updated TektonConfig"`.
-
-**Root Cause**: Race condition between operator auto-creation and ArgoCD sync. The webhook requires delete+recreate to change targetNamespace, but operator recreates faster than ArgoCD can sync.
-
-**Solution**: Sync-wave orchestration with cleanup Job
-
+**RBAC Required:**
 ```yaml
-# Wave 0: Subscription (operator installs)
-# components/openshift-pipelines/base/openshift-operators-subscription-openshift-pipelines-operator.yaml
+# components/openshift-pipelines/base/cluster-crb-pipelines-tektonconfig-edit.yaml
+kind: ClusterRoleBinding
 metadata:
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"
-
-# Wave 1: Cleanup Job (deletes auto-created TektonConfig if wrong targetNamespace)
-# components/openshift-pipelines/base/openshift-gitops-job-cleanup-auto-tektonconfig.yaml
-metadata:
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-spec:
-  template:
-    spec:
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - |
-          # Wait for operator to be ready
-          sleep 10
-          
-          if oc get tektonconfig config &>/dev/null; then
-            CURRENT_NS=$(oc get tektonconfig config -o jsonpath='{.spec.targetNamespace}')
-            
-            if [[ "$CURRENT_NS" != "openshift-pipelines" ]]; then
-              echo "TektonConfig has wrong targetNamespace, deleting..."
-              oc patch tektonconfig config --type json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
-              oc delete tektonconfig config --wait=false
-              
-              # Wait for deletion (max 60s)
-              for i in {1..30}; do
-                if ! oc get tektonconfig config &>/dev/null; then
-                  echo "TektonConfig deleted successfully"
-                  exit 0
-                fi
-                sleep 2
-              done
-            fi
-          fi
-
-# Wave 2: TektonConfig (ArgoCD creates with correct targetNamespace)
-# Sync-wave annotation shown above
+  name: cluster-crb-pipelines-tektonconfig-edit
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops
+roleRef:
+  kind: ClusterRole
+  name: tektonconfigs.operator.tekton.dev-v1alpha1-edit
 ```
 
-**How it works:**
-1. **Wave 0**: Subscription deploys, operator installs and auto-creates TektonConfig
-2. **Wave 1**: Cleanup Job runs, checks targetNamespace, deletes if wrong, removes finalizer to force deletion
-3. **Wave 2**: ArgoCD creates TektonConfig with correct `targetNamespace: openshift-pipelines`
+### PreDelete/PostDelete Hooks
 
-**Job idempotency:**
-- Job checks current targetNamespace before deleting
-- If already correct (`openshift-pipelines`), skips deletion (no-op)
-- Prevents unnecessary churn on subsequent syncs
-- **Regular Job pattern**: Uses `Force=true` annotation (not a hook) to enable Job recreation on sync
-- **No TTL**: `ttlSecondsAfterFinished` removed to prevent 5-minute partial sync cycles (fixed in d337add)
+**Purpose**: Clean Tekton resource removal following Red Hat's documented uninstall procedure.
 
-**Why regular Job (not hook):**
-- Avoids PostSync deadlock risk if Job waits indefinitely
-- ArgoCD sync completes immediately, Job runs independently
-- Application shows "Synced + Progressing" until Job completes
-- See `docs/claude/troubleshooting.md` "Partial Sync Cycles" for TTL anti-pattern details
+**PreDelete Hook** (`openshift-gitops-job-predelete-cleanup-tekton-resources.yaml`):
+- Runs BEFORE Application deletion
+- Deletes: TektonHub → TektonConfig → TektonResults (in order)
+- Waits for each resource type to complete deletion (300s timeout per type)
+- Ensures proper cleanup before operator Subscription is deleted
+
+**PostDelete Hook** (`openshift-gitops-job-postdelete-cleanup-tekton-crds.yaml`):
+- Runs AFTER Application deletion (after operator removal)
+- Deletes all `operator.tekton.dev` CRDs with finalizer removal
+- Ensures complete cleanup of Tekton resources from cluster
+
+**Hook annotations:**
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PreDelete  # or PostDelete
+    argocd.argoproj.io/sync-options: Force=true  # Job immutability
+```
+
+**Deletion workflow:**
+1. Remove openshift-pipelines from ApplicationSet generators → Application orphaned (NOT deleted)
+2. Explicitly delete: `oc delete application openshift-pipelines -n openshift-gitops`
+3. PreDelete hook executes → cleans up Tekton CRs
+4. Application resources deleted → Subscription removed → OLM removes operator
+5. PostDelete hook executes → removes Tekton CRDs
+6. Application deleted
+
+**ApplicationSet Configuration Required:**
+
+For PreDelete hooks to execute on explicit deletion:
+```yaml
+spec:
+  syncPolicy:
+    applicationsSync: create-update  # Prevents auto-deletion when removed from generators
+```
+
+This configuration is already set in both `gitops-bases/devops/default/applicationset.yaml` and `gitops-bases/devops/ai/applicationset.yaml`.
+
+### Console Plugin
+
+**Console plugin is operator-managed** - no GitOps Jobs needed. The operator automatically:
+- Installs the `pipelines-console-plugin` console plugin
+- Configures console integration
+- Manages plugin lifecycle
+
+This is different from other components (gitops, storage, kuadrant) which use Patch Jobs due to shared Console resource conflicts.
+
+### Deployment
+
+OpenShift Builds and OpenShift Pipelines are deployed together via their respective ApplicationSets:
+- `openshift-builds` → core ApplicationSet
+- `openshift-pipelines` → devops ApplicationSet
+
+Both operators can be installed simultaneously without ordering dependencies. The OpenShift Builds operator will wait for Tekton components to be ready during its reconciliation loop
 
 ## OpenShift Builds (Shipwright)
 
