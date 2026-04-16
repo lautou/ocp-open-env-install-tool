@@ -2,10 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- cluster-crb-pipelines-tektonconfig-edit.yaml
-# TEMPORARILY DISABLED to investigate OutOfSync issue
-#- cluster-tektonconfig-config.yaml
-- openshift-gitops-job-cleanup-auto-tektonconfig.yaml
+# TektonConfig is fully operator-managed (not declared in ArgoCD)
+# Removed: cluster-tektonconfig-config.yaml, cluster-crb-pipelines-tektonconfig-edit.yaml, job cleanup-auto-tektonconfig
 - openshift-gitops-job-disable-pipelines-console-plugin.yaml
 - openshift-gitops-job-enable-pipelines-console-plugin.yaml
 - openshift-operators-subscription-openshift-pipelines-operator.yaml
