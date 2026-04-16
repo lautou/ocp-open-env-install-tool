@@ -28,11 +28,32 @@
    - Configures htpasswd authentication
    - Deploys Day 2 GitOps if `ENABLE_DAY2_GITOPS_CONFIG=true`
 
-3. **GitOps Deployment**:
-   - Installs OpenShift GitOps operator
-   - Applies `day2_config/applications/bootstrap-application.yaml` pointing to selected profile
-   - ArgoCD syncs all ApplicationSets from the profile's bases
-   - Each ApplicationSet deploys its component applications
+3. **Day 2 GitOps Bootstrap Sequence**:
+   
+   **Critical ordering** (bootstrap dependency chain):
+   
+   1. **Install OpenShift GitOps operator** → wait for CSV Succeeded
+   2. **Create ArgoCD git credentials** (repo-creds and repository secrets)
+   3. **Pre-create cmp-plugin ConfigMap** (`openshift-gitops-configmap-cmp-plugin.yaml`)
+      - ⚠️ **MUST happen before step 4** to avoid chicken-and-egg problem
+      - ArgoCD CR references this ConfigMap in repo-server sidecar volumes
+      - Normally managed by `openshift-gitops-admin-config` Application (step 6)
+      - But that Application can't sync if repo-server can't start
+   4. **Apply custom ArgoCD CR** (`custom-argocd.yaml`)
+      - Configures memory limits, CMP sidecar, resource exclusions
+      - Triggers repo-server pod restart (mounts cmp-plugin ConfigMap)
+      - ConfigMap exists from step 3 → pod starts successfully ✅
+   5. **Apply cluster-profile Application** (`bootstrap-application.yaml`)
+      - Points to selected profile path (e.g., `gitops-profiles/ocp-ai`)
+      - repo-server running → can sync immediately
+   6. **ArgoCD syncs profile** → creates ApplicationSets for all bases
+   7. **ApplicationSets create Applications** → each component deploys
+   8. **openshift-gitops-admin-config syncs** → takes GitOps ownership of cmp-plugin ConfigMap
+   
+   **Why step 3 is critical**:
+   - Without it: repo-server fails Init:0/1 (missing ConfigMap volume mount)
+   - Result: cluster-profile can't sync → openshift-gitops-admin-config never created → ConfigMap never created → deadlock
+   - Solution: Pre-create ConfigMap, then ArgoCD takes ownership later (no conflict)
 
 ## Session Recovery
 

@@ -731,6 +731,11 @@ cp scripts/bastion_script.sh "$UPLOAD_TO_BASTION_DIR"
 cp scripts/aws_lib.sh "$UPLOAD_TO_BASTION_DIR"
 cp -r day1_config day2_config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 
+# Copy component files needed for Day 2 bootstrap
+mkdir -p "$UPLOAD_TO_BASTION_DIR/components/openshift-gitops-admin-config/base"
+cp components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml \
+   "$UPLOAD_TO_BASTION_DIR/components/openshift-gitops-admin-config/base/"
+
 mkdir -p "$UPLOAD_TO_BASTION_DIR/day2_config/gitops"
 cp components/openshift-gitops-admin-config/base/openshift-gitops-argocd-openshift-gitops.yaml \
    "$UPLOAD_TO_BASTION_DIR/day2_config/gitops/custom-argocd.yaml"

@@ -263,6 +263,17 @@ configure_day2_gitops() {
     oc label secret git-app-cluster argocd.argoproj.io/secret-type=repository -n openshift-gitops --overwrite
   fi
 
+  # Pre-create cmp-plugin ConfigMap to avoid chicken-and-egg problem
+  # ArgoCD CR references this ConfigMap, but it's normally created by openshift-gitops-admin-config Application
+  # which can't sync if repo-server can't start due to missing ConfigMap
+  CMP_PLUGIN_FILE="components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml"
+  if [ -f "$CMP_PLUGIN_FILE" ]; then
+    echo "Day2: Pre-creating cmp-plugin ConfigMap from $CMP_PLUGIN_FILE"
+    oc apply -f "$CMP_PLUGIN_FILE"
+  else
+    echo "WARN: Day2: cmp-plugin ConfigMap file not found at $CMP_PLUGIN_FILE"
+  fi
+
   ARGOCD_CR_FILE="day2_config/gitops/custom-argocd.yaml"
   echo "Day2: Pre-applying custom ArgoCD configuration (Memory Limits) from $ARGOCD_CR_FILE"
   oc apply -f "$ARGOCD_CR_FILE"
