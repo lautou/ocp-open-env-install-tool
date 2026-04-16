@@ -1,0 +1,82 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PreDelete
+    argocd.argoproj.io/sync-options: Force=true
+  name: predelete-cleanup-tekton-resources
+  namespace: openshift-gitops
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: predelete-cleanup-tekton-resources
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "=== PreDelete Hook: Cleaning up Tekton resources ==="
+
+          # Function to wait for resource deletion
+          wait_for_deletion() {
+            local resource_type=$1
+            local max_wait=300
+            local elapsed=0
+
+            echo "Waiting for $resource_type deletion (max ${max_wait}s)..."
+            while oc get $resource_type --all-namespaces 2>/dev/null | grep -v "No resources found"; do
+              if [ $elapsed -ge $max_wait ]; then
+                echo "WARNING: Timeout waiting for $resource_type deletion after ${max_wait}s"
+                return 1
+              fi
+              sleep 5
+              elapsed=$((elapsed + 5))
+              echo "  Still waiting... (${elapsed}s)"
+            done
+            echo "✓ All $resource_type deleted"
+          }
+
+          # Step 1: Delete TektonHub resources
+          echo ""
+          echo "Step 1: Deleting TektonHub resources..."
+          if oc get tektonhub --all-namespaces 2>/dev/null | grep -v "No resources found"; then
+            oc delete tektonhub --all --all-namespaces --ignore-not-found=true
+            wait_for_deletion "tektonhub"
+          else
+            echo "  No TektonHub resources found"
+          fi
+
+          # Step 2: Delete TektonConfig
+          echo ""
+          echo "Step 2: Deleting TektonConfig..."
+          if oc get tektonconfig 2>/dev/null | grep -v "No resources found"; then
+            oc delete tektonconfig --all --ignore-not-found=true
+            wait_for_deletion "tektonconfig"
+          else
+            echo "  No TektonConfig resources found"
+          fi
+
+          # Step 3: Delete TektonResults resources
+          echo ""
+          echo "Step 3: Deleting TektonResults resources..."
+          if oc get tektonresult --all-namespaces 2>/dev/null | grep -v "No resources found"; then
+            oc delete tektonresult --all --all-namespaces --ignore-not-found=true
+            wait_for_deletion "tektonresult"
+          else
+            echo "  No TektonResults resources found"
+          fi
+
+          echo ""
+          echo "=== PreDelete cleanup completed ==="
+        image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+        imagePullPolicy: IfNotPresent
+        name: predelete-cleanup-tekton-resources
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      serviceAccount: openshift-gitops-argocd-application-controller
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      terminationGracePeriodSeconds: 30

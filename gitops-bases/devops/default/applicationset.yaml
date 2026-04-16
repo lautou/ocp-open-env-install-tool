@@ -4,6 +4,8 @@ metadata:
   name: cluster-devops-components
   namespace: openshift-gitops
 spec:
+  syncPolicy:
+    applicationsSync: create-update
   generators:
   - list:
       elements:
