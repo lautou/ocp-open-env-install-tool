@@ -487,3 +487,20 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 - User workload monitoring: No separate Alertmanager (routes through cluster Alertmanager)
 
 **Before adding alert silences**: Verify bug, document in known-bugs.md, add routing + silence, run audit script.
+
+## Development Workflow
+
+### ArgoCD Configuration Changes
+
+**CRITICAL**: After pushing GitOps configuration changes, ALWAYS immediately trigger sync on affected Applications.
+
+**Workflow**:
+1. `git push origin master`
+2. Immediately patch Application(s) to trigger sync
+3. Wait 10-20 seconds for sync to complete
+4. Verify sync + health status
+5. Report results
+
+**Why**: ArgoCD auto-sync polling interval is 3+ minutes. Immediate sync validates the fix and catches issues right away.
+
+**Applies to**: Component files, kustomization.yaml, Application specs, any GitOps manifest changes.
