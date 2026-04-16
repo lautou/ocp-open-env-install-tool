@@ -1,7 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- ../../common
+- cluster-crb-pipelines-tektonconfig-edit.yaml
 - cluster-namespace-openshift-pipelines-operator.yaml
+- cluster-tektonconfig-config.yaml
 - openshift-gitops-job-postdelete-cleanup-tekton-crds.yaml
 - openshift-gitops-job-predelete-cleanup-tekton-resources.yaml
 - openshift-pipelines-operator-operatorgroup-openshift-pipelines-operator.yaml
