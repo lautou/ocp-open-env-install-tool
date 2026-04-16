@@ -1780,6 +1780,8 @@ The upstream `gateway-api-state-metrics` v0.7.0 expects Kuadrant v1 APIs, which 
 
 ## Red Hat OpenShift AI (RHOAI)
 
+**⚠️ CRITICAL - DELETION ORDER**: When uninstalling RHOAI, **user workload Applications MUST be deleted BEFORE the platform Application**. Deleting the platform first orphans user workloads (InferenceServices, Notebooks, Pipelines) causing stuck namespaces. See [rhoai-deletion-order.md](rhoai-deletion-order.md) for complete procedure.
+
 **Purpose**: Enterprise AI/ML platform providing model development, training, serving, and monitoring capabilities.
 
 **Installation**: Deployed in `redhat-ods-operator` and `redhat-ods-applications` namespaces. Included in AI-focused profiles.

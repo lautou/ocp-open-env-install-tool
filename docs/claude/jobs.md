@@ -250,6 +250,54 @@ spec:
 - Application deleted after hook completion
 - Job self-deleted (HookSucceeded policy)
 
+#### Example: RHOAI PreDelete Hook with Deletion Order
+
+**File**: `components/rhoai/base/openshift-gitops-job-delete-rhoai-resources.yaml`
+
+**⚠️ CRITICAL DELETION ORDER**: RHOAI requires user workload Applications to be deleted BEFORE the platform Application.
+
+**Why**: Per [Red Hat documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.3/html/installing_and_uninstalling_openshift_ai_self-managed/uninstalling-openshift-ai-self-managed_uninstalling-openshift-ai-self-managed), user workloads (InferenceServices, Notebooks, Pipelines) become non-functional after the platform is removed. They cannot clean up gracefully without the CRDs, operators, and webhooks.
+
+**Correct deletion sequence**:
+```bash
+# 1. Delete user workload Applications FIRST
+oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+oc delete application uc-llamastack -n openshift-gitops
+oc delete application ai-models-service -n openshift-gitops
+
+# 2. Wait for user workloads to fully delete
+sleep 60
+
+# 3. THEN delete platform Application (triggers PreDelete hook)
+oc delete application rhoai -n openshift-gitops
+```
+
+**PreDelete hook procedure** (Step 0-10):
+- **Step 0**: Clean user workload namespaces (safety net if not deleted first)
+  - Force-deletes resources in ai-generation-llm-rag, llamastack, ai-models-service
+  - Removes finalizers to prevent stuck namespaces
+  - Warns if user workloads found (indicates wrong deletion order)
+- **Step 1**: Delete DataScienceCluster CR
+- **Step 2**: Wait 60s for operator cleanup
+- **Step 3**: Delete RHOAI operator Subscription
+- **Step 4**: Delete ClusterServiceVersion
+- **Step 5**: Wait for operator pods to terminate
+- **Step 6**: Delete OperatorGroup
+- **Step 7**: Delete webhooks (prevents namespace deadlock)
+- **Step 8**: Delete RHOAI namespaces (redhat-ods-*, ai-generation-llm-rag, etc.)
+- **Step 9**: Delete RHOAI CRDs (opendatahub.io, kubeflow.org)
+- **Step 10**: Verify cleanup
+
+**Failure if wrong order** (verified 2026-04-16):
+- Deleting platform before user workloads → 10 namespaces stuck in Terminating for 75+ minutes
+- InferenceServices can't undeploy (CRDs deleted)
+- Notebooks can't stop (operator removed)
+- Manual force-cleanup required
+
+**Safety net**: Step 0 attempts cleanup if user workloads remain, but proper deletion order is still recommended for graceful cleanup.
+
+**Complete guide**: See [rhoai-deletion-order.md](../rhoai-deletion-order.md)
+
 #### When to Use PreDelete vs PostDelete
 
 | Scenario | Hook Type | Reason |

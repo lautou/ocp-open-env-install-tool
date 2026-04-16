@@ -462,6 +462,52 @@ Remove from generator → Application orphaned (still exists, not managed)
 
 **Details**: See [jobs.md](docs/claude/jobs.md) section "PreDelete Hooks and ApplicationSet Configuration"
 
+### Component Deletion Order - CRITICAL for RHOAI
+
+**⚠️ CRITICAL**: When deleting RHOAI components, **user workloads MUST be deleted BEFORE the platform**.
+
+**Why this matters**: Per [Red Hat RHOAI 3.3 Uninstall Documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.3/html/installing_and_uninstalling_openshift_ai_self-managed/uninstalling-openshift-ai-self-managed_uninstalling-openshift-ai-self-managed):
+
+> "Red Hat recommends that you review the projects and custom resources in your OpenShift cluster and delete anything no longer in use to prevent potential issues, such as pipelines that cannot run, notebooks that cannot be undeployed, or models that cannot be undeployed."
+
+**Key insight**: User workloads (InferenceServices, Notebooks, Pipelines) become **NON-FUNCTIONAL** after the RHOAI platform is removed. They cannot clean up gracefully without the CRDs, operators, and webhooks.
+
+**Correct deletion order**:
+1. **FIRST**: Delete user workload Applications
+   ```bash
+   oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+   oc delete application uc-llamastack -n openshift-gitops
+   oc delete application ai-models-service -n openshift-gitops
+   ```
+2. **Wait**: Allow user workloads to fully delete (60+ seconds)
+3. **THEN**: Delete RHOAI platform Application
+   ```bash
+   oc delete application rhoai -n openshift-gitops  # Triggers PreDelete hook
+   ```
+4. **Finally**: Delete AI ApplicationSet (cleanup)
+   ```bash
+   oc delete applicationset cluster-ai -n openshift-gitops
+   ```
+
+**What happens if order is wrong**:
+- ❌ Platform deleted first → DataScienceCluster, operator, CRDs removed
+- ❌ User workloads orphaned → InferenceServices can't undeploy (CRDs gone)
+- ❌ Namespaces stuck in Terminating state (75+ minutes observed)
+- ❌ Manual force-cleanup required (remove finalizers from all resources)
+
+**PreDelete hook safety net**: The RHOAI PreDelete hook includes Step 0 that force-cleans user workload namespaces if found. This is a defensive measure but **does NOT replace proper deletion order** - it force-deletes resources that can't clean up gracefully.
+
+**Profile switching**: When switching from `ocp-ai` to `ocp-standard`:
+1. Update cluster-profile Application to new profile path
+2. Delete user workload Applications (uc-*, ai-models-service)
+3. Wait for user workloads to delete
+4. Delete rhoai Application
+5. Delete cluster-ai ApplicationSet
+
+**Complete guide**: See [rhoai-deletion-order.md](docs/claude/rhoai-deletion-order.md) for comprehensive deletion procedures, troubleshooting, and Red Hat documentation references.
+
+**Lesson learned (2026-04-16)**: During ocp-old-ai profile switch, all Applications were deleted simultaneously, violating the correct order. Result: 10 namespaces stuck in Terminating for 75+ minutes. Always follow vendor uninstall documentation carefully.
+
 ### Job Template Refactoring
 
 **Question**: Extract duplicate Jobs into shared templates (DRY)?
