@@ -265,6 +265,90 @@ spec:
 
 ---
 
+## 4. ignoreDifferences Detailed Examples
+
+### Shared Resources (Multi-Application Management)
+
+**Scenario**: cluster-versions ConfigMap managed by ALL ApplicationSets simultaneously
+
+**Problem**:
+- ConfigMap referenced by all ApplicationSets via Kustomize replacements
+- Each Application that syncs updates `argocd.argoproj.io/tracking-id` to itself
+- Without ignoreDifferences → constant OutOfSync (false drift detection)
+
+**Solution**:
+```yaml
+ignoreDifferences:
+  - group: ''
+    kind: ConfigMap
+    name: cluster-versions
+    jsonPointers:
+      - /metadata/annotations  # ArgoCD tracking-id changes per sync
+```
+
+**Why this works**:
+- All Applications sync successfully
+- No conflicts over tracking metadata
+- No labels or ownerReferences on this ConfigMap (not needed in ignore list)
+
+**Key pattern**: Ignoring ArgoCD's own metadata that conflicts in multi-Application scenarios.
+
+---
+
+### Operator-Managed Fields
+
+**Scenario**: RHACM ClusterManagementAddons with operator-managed spec fields
+
+**Problem**:
+- ACM operator enriches ClusterManagementAddon resources with runtime configuration
+- Operator adds `defaultConfigs` entries specific to each addon (e.g., proxy configs)
+- Operator sets `installStrategy` based on addon type (Manual vs Placements)
+- Operator updates versions in `defaultConfigs` during ACM upgrades (e.g., 2.10 → 2.11)
+- Our manifests provide minimal baseline, operator owns these fields completely
+- Without ignoreDifferences → auto-heal cycles every 4-8 minutes
+
+**Solution**:
+```yaml
+ignoreDifferences:
+  - group: addon.open-cluster-management.io
+    kind: ClusterManagementAddOn
+    jsonPointers:
+    - /spec/defaultConfigs      # Operator adds addon-specific configs
+    - /spec/installStrategy     # Operator determines deployment strategy
+```
+
+**Why BOTH fields are required**:
+- Ignoring only `/spec/installStrategy` is insufficient (commit 80da465 attempted, failed)
+- Operator manages both fields independently and dynamically
+- Must ignore both to prevent auto-heal cycles
+
+**Result**: No auto-heal cycles, operator manages fields as designed (fixed in commit dd38d0e)
+
+**Key pattern**: Ignoring operator-managed fields that cannot be statically declared in manifests.
+
+---
+
+### Testing ignoreDifferences
+
+**Before adding ignoreDifferences**:
+1. Remove ignoreDifferences entry
+2. Push change
+3. Verify sync status: `oc get applicationset <name>`
+4. Check resource state: `oc get <resource> -o yaml`
+5. Only re-add if genuine conflict confirmed
+
+**Recent findings**:
+- ✅ APIServer: No ignoreDifferences needed (RBAC sufficient) - 2026-03-30
+- ✅ Network: No ignoreDifferences needed (RBAC sufficient) - 2026-03-30
+- ✅ cluster-versions ConfigMap: Only `/metadata/annotations` needed (not labels/ownerReferences) - 2026-03-30
+- ✅ HardwareProfile: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
+- ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
+- ✅ RHACM ClusterManagementAddons: Require `/spec/defaultConfigs` AND `/spec/installStrategy` (operator-managed) - 2026-04-08
+
+**Excessive ignores are technical debt** - Test carefully before adding.
+
+---
+
 ## Reference
 
 **See also**:
@@ -272,5 +356,5 @@ spec:
 - [components.md](components.md) - Component-specific patterns
 - [gitops-specialist-agent.md](gitops-specialist-agent.md) - File naming conventions
 
-**Last Updated**: 2026-04-10  
-**Reason**: Resolved uc-ai-generation-llm-rag OutOfSync issue (missing ignoreDifferences)
+**Last Updated**: 2026-04-16  
+**Reason**: Added detailed ignoreDifferences examples (consolidated from CLAUDE.md)

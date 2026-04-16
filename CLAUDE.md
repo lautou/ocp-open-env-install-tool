@@ -46,6 +46,49 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 
 **Before working on specific topics, read the relevant external doc.**
 
+### Documentation Maintenance Rules
+
+**⚠️ MANDATORY: Follow these rules when updating documentation**
+
+**1. Keep CLAUDE.md lean** (target: <500 lines)
+- ✅ Include: Critical patterns, warnings, summaries
+- ❌ Exclude: Detailed examples, full procedures, troubleshooting steps
+- **Before adding**: Check if content already exists in external docs
+
+**2. Consolidate before adding**
+- **ALWAYS check for redundancy** when user asks to update docs
+- If content exists in both CLAUDE.md AND external doc → keep SHORT summary in CLAUDE.md, link to external doc
+- If content only in external doc → add cross-reference in CLAUDE.md, DO NOT duplicate
+
+**3. Cross-reference pattern**
+```markdown
+**Pattern summary** (10-20 lines max)
+
+**Complete guide**: [external-doc.md](docs/claude/external-doc.md)
+```
+
+**4. Automatic consolidation trigger**
+- User says "update the doc" → **FIRST check for redundancy**, THEN update
+- User says "add to CLAUDE.md" → **FIRST check if external doc exists**, THEN decide where to add
+
+**5. Size limits**
+- CLAUDE.md: <500 lines (currently 446)
+- Individual sections: <100 lines
+- Subsections: <30 lines
+- **If exceeded**: Move detailed content to external doc, keep summary + cross-reference
+
+**Enforcement**: When user asks "update the doc", this triggers:
+1. Check: Does this content exist elsewhere?
+2. If YES: Consolidate (summary in CLAUDE.md, details in external doc)
+3. If NO: Add to appropriate location (CLAUDE.md if critical pattern, external doc if detailed)
+4. Update cross-references
+
+**Recent consolidation (2026-04-16)**: Reduced CLAUDE.md from 607 → 446 lines (26% reduction)
+- PreDelete hooks: 64 → 15 lines (cross-ref to jobs.md)
+- RHOAI deletion: 46 → 20 lines (cross-ref to rhoai-deletion-order.md)
+- Jobs pattern: 89 → 25 lines (cross-ref to jobs.md)
+- ignoreDifferences examples: 58 → 20 lines (cross-ref to argocd-patterns-checklist.md)
+
 ## ⚠️ CRITICAL: Required ArgoCD Patterns
 
 **MUST READ BEFORE CREATING COMPONENTS**: [argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)
@@ -230,59 +273,23 @@ ignoreDifferences:
 
 **Pattern**: Resources **managed by multiple ArgoCD Applications** simultaneously.
 
-**Use when**:
-- Multiple Applications reference the same resource (e.g., shared ConfigMap)
-- Each Application sync updates ArgoCD metadata annotations
-- Need to prevent sync conflicts between Applications
+**When to use**:
+- Multiple Applications reference same resource → each sync updates ArgoCD metadata → sync conflicts
+- Operator dynamically manages spec fields → cannot be statically declared in manifests
 
-**Example**: cluster-versions ConfigMap
-```yaml
-# Managed by ALL ApplicationSets (17+ Applications)
-# Each sync updates tracking-id annotation to current Application
-ignoreDifferences:
-  - group: ''
-    kind: ConfigMap
-    name: cluster-versions
-    jsonPointers:
-      - /metadata/annotations  # ArgoCD tracking-id changes per sync
-```
+**Two valid scenarios**:
 
-**Why this works**:
-- ConfigMap referenced by all ApplicationSets via Kustomize replacements
-- Each Application that syncs updates `argocd.argoproj.io/tracking-id` to itself
-- Ignoring annotations prevents false drift detection
-- No labels or ownerReferences on this ConfigMap (not needed in ignore list)
+1. **Shared resource** (e.g., cluster-versions ConfigMap)
+   - Ignore `/metadata/annotations` (ArgoCD tracking-id conflicts)
+   - Result: All Applications sync without conflicts
 
-**Result**: All Applications sync successfully, no conflicts over tracking metadata.
+2. **Operator-managed fields** (e.g., RHACM ClusterManagementAddons)
+   - Ignore `/spec/defaultConfigs` and `/spec/installStrategy` (operator-owned)
+   - Result: No auto-heal cycles, operator manages fields independently
 
-**Key pattern**: Ignoring ArgoCD's own metadata that conflicts in multi-Application scenarios.
+**Key insight**: Only ignore when field CANNOT be statically declared (multi-owner or operator-managed)
 
-**Example 2**: RHACM ClusterManagementAddons (operator-managed fields)
-```yaml
-# Operator dynamically manages spec fields we don't declare
-ignoreDifferences:
-  - group: addon.open-cluster-management.io
-    kind: ClusterManagementAddOn
-    jsonPointers:
-    - /spec/defaultConfigs      # Operator adds addon-specific configs
-    - /spec/installStrategy     # Operator determines deployment strategy
-```
-
-**Why this works**:
-- ACM operator enriches ClusterManagementAddon resources with runtime configuration
-- Operator adds `defaultConfigs` entries specific to each addon (e.g., proxy configs)
-- Operator sets `installStrategy` based on addon type (Manual vs Placements)
-- Operator updates versions in `defaultConfigs` during ACM upgrades (e.g., 2.10 → 2.11)
-- Our manifests provide minimal baseline, operator owns these fields completely
-
-**Why BOTH fields are required**:
-- Ignoring only `/spec/installStrategy` is insufficient (80da465 attempted, failed)
-- Operator manages both fields independently and dynamically
-- Must ignore both to prevent auto-heal cycles every 4-8 minutes
-
-**Result**: No auto-heal cycles, operator manages fields as designed (fixed in dd38d0e)
-
-**Key pattern**: Ignoring operator-managed fields that cannot be statically declared in manifests.
+**Examples and troubleshooting**: See [argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)
 
 ### ✅ SkipDryRunOnMissingResource for Operator CRs (CRITICAL)
 
@@ -311,202 +318,77 @@ ArgoCD validates ALL resources before applying ANY resources:
 
 ### ✅ Jobs Pattern: Regular Jobs (NOT Hooks)
 
-**CRITICAL**: Use regular Jobs (no hook annotations) to avoid ArgoCD sync deadlocks.
+**CRITICAL**: Use regular Jobs with `Force=true` annotation ONLY (NO hook annotations) to avoid sync deadlocks.
 
-**Pattern**: Jobs for runtime configuration/patching (e.g., secret transformation, resource patching).
-
-**Required configuration**:
+**Required annotations**:
 ```yaml
-apiVersion: batch/v1
-kind: Job
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: Force=true  # ONLY this annotation
+    argocd.argoproj.io/sync-options: Force=true  # ONLY this
     # ❌ DO NOT add: argocd.argoproj.io/hook: PostSync
-    # ❌ DO NOT add: argocd.argoproj.io/hook-delete-policy
-    # ❌ DO NOT add: argocd.argoproj.io/sync-wave
-  name: my-job
-  namespace: openshift-gitops
-spec:
-  # ❌ NO activeDeadlineSeconds - let Job wait as long as needed
-  # ❌ NO backoffLimit override - use default (6)
-  template:
-    spec:
-      restartPolicy: Never  # ✅ Required
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - |
-          # ✅ Infinite wait loop OK - no timeout needed
-          while ! oc get secret my-dependency -n target-namespace; do
-            echo "Waiting for dependency..."
-            sleep 5
-          done
-          
-          # Perform job task...
 ```
 
 **Why NO hook annotations**:
+- PostSync hook → ArgoCD waits for Job completion → deadlock if Job waits forever
+- Regular Job → Sync completes immediately → Application "Synced + Progressing" → no deadlock
 
-| Aspect | PostSync Hook | Regular Job (This Pattern) |
-|--------|--------------|---------------------------|
-| **Sync completes?** | ❌ Waits for Job completion | ✅ Immediately |
-| **Deadlock risk?** | 🔴 YES (if Job waits forever) | ✅ NO |
-| **Application status?** | Stuck "Syncing" | "Synced + Progressing" → "Synced + Healthy" |
-| **Job runs when?** | AFTER sync + health checks | DURING sync (parallel) |
-| **Dependency ordering?** | ✅ Guaranteed (resources exist first) | ⚠️ Race condition (but infinite loop handles it) |
-| **Blocks ArgoCD?** | 🔴 YES (can't sync other changes) | ✅ NO |
-
-**How it works**:
-
-```
-T+0:   ArgoCD sync starts
-T+1:   Apply resources (Job, OBC, ConfigMaps, etc.) in parallel
-T+2:   ✅ SYNC COMPLETES (Git state applied)
-       Status: Synced
-       Health: Progressing (Job is Running)
-
-T+3:   Job starts, begins waiting for dependency (e.g., OBC secret)
-       Application: Synced + Progressing ⚠️
-
-T+300: Dependency appears (e.g., ODF creates secret)
-T+301: Job completes successfully
-       Application: Synced + Healthy ✅
+**Pattern**: Jobs wait for dependencies via infinite loops (no timeout needed)
+```bash
+while ! oc get secret my-dependency -n target-namespace; do
+  sleep 5
+done
 ```
 
-**Benefits**:
-- ✅ **No sync deadlock** - Sync completes immediately
-- ✅ **Self-healing** - Job waits patiently, eventually succeeds
-- ✅ **Infinite wait OK** - No timeout needed, waits until dependency appears
-- ✅ **Job stays visible** - Remains in cluster for debugging (delete on next sync)
-- ✅ **ArgoCD not blocked** - Can sync other changes while Job runs
-- ✅ **Updatable** - Force=true handles Job immutability (delete+recreate)
+**Key benefits**:
+- ✅ No sync deadlock - ArgoCD not blocked
+- ✅ Self-healing - Job waits patiently for dependencies
+- ✅ Updatable - Force=true handles Job immutability
+- ⚠️ Trade-off: Race condition (Job may start before dependencies), handled by wait loop
 
-**Trade-off**: Race condition (Job may start before dependencies exist), but infinite wait loop handles this gracefully.
+**Examples**: `create-secret-netobserv-loki-s3`, `update-odf-subscriptions-node-selector`, `ack-config-injector`
 
-**When dependency never appears**: Application shows "Synced + Progressing" forever, but ArgoCD is NOT deadlocked. User can:
-- Investigate why dependency failed (e.g., ODF deployment issue)
-- Delete stuck Job manually if needed
-- ArgoCD can still sync other changes
-
-**Examples in codebase**:
-- `create-secret-netobserv-loki-s3` - Waits for ODF/NooBaa to create OBC secret
-- `create-secret-logging-loki-s3` - Same pattern for logging
-- `update-odf-subscriptions-node-selector` - Waits for OLM to create child Subscriptions
-- `ack-config-injector` - Waits for AWS credentials secret
-
-**See**: [jobs.md](docs/claude/jobs.md) for complete Job architecture and development guide.
+**Complete guide**: [jobs.md](docs/claude/jobs.md) - Job architecture, comparison tables, development patterns
 
 ### ApplicationSet Configuration for PreDelete Hooks
 
-**Pattern**: Configure ApplicationSets to prevent auto-deletion and enable PreDelete hook execution.
+**CRITICAL**: PreDelete hooks only execute during **explicit Application deletion** (`oc delete application`), NOT during ApplicationSet pruning.
 
-**CRITICAL**: PreDelete hooks only execute during **explicit Application deletion** (`oc delete application`), NOT during ApplicationSet pruning (removing from generator list).
+**Required ApplicationSet configuration**:
+- `spec.syncPolicy.applicationsSync: create-update` - Prevents auto-deletion
+- `metadata.finalizers: resources-finalizer.argocd.argoproj.io` - Protects from ApplicationSet deletion
+- `template.metadata.finalizers: resources-finalizer.argocd.argoproj.io/background` - Cascade cleanup
 
-**Required Configuration** (applied to all ApplicationSets as of 2026-04-01):
+**Component removal workflow**:
+1. Remove from profile → Application orphaned (not deleted)
+2. Explicitly delete: `oc delete application <name>` → PreDelete hook executes
+3. Hook completes → Application deleted
 
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
-spec:
-  syncPolicy:
-    applicationsSync: create-update
-  template:
-    metadata:
-      finalizers:
-      - resources-finalizer.argocd.argoproj.io/background
-```
+**Requirements**: ArgoCD 3.3+ (OpenShift GitOps 1.20+)
 
-**What each setting does**:
-
-| Setting | Purpose |
-|---------|---------|
-| `metadata.finalizers` | Protects Applications from deletion when ApplicationSet deleted (ownerReferences) |
-| `applicationsSync: create-update` | Prevents auto-deletion when Application removed from generator list |
-| `template.metadata.finalizers` | Cascade deletes Application's managed resources (background async) |
-
-**Deletion Behavior**:
-
-**WITHOUT create-update** (default `sync`):
-```
-Remove from generator → ApplicationSet auto-deletes Application
-  → PreDelete hook NEVER executes ❌
-```
-
-**WITH create-update**:
-```
-Remove from generator → Application orphaned (still exists, not managed)
-  → Explicit delete: oc delete application <name>
-  → PreDelete hook executes ✅
-  → Cleanup runs → Application deleted
-```
-
-**Workflow for Component Removal**:
-
-1. Remove component from profile/generator list → commit/push
-2. ApplicationSet orphans Application (not deleted)
-3. Verify: `oc get application <name>` (still exists)
-4. Delete explicitly: `oc delete application <name>`
-5. PreDelete hook runs → cleanup executes
-6. Application deleted after hook succeeds
-
-**Re-deployment**: Add back to generator list → ApplicationSet recreates Application → Component redeploys
-
-**Example Component**: `openshift-builds` PreDelete hook follows Red Hat official uninstall procedure (verified 2026-04-01)
-
-**ArgoCD Version**: PreDelete hooks require ArgoCD 3.3+ (OpenShift GitOps 1.20+)
-
-**Details**: See [jobs.md](docs/claude/jobs.md) section "PreDelete Hooks and ApplicationSet Configuration"
+**Complete guide**: See [jobs.md](docs/claude/jobs.md) section "PreDelete Hooks and ApplicationSet Configuration"
 
 ### Component Deletion Order - CRITICAL for RHOAI
 
-**⚠️ CRITICAL**: When deleting RHOAI components, **user workloads MUST be deleted BEFORE the platform**.
+**⚠️ CRITICAL**: When deleting RHOAI, **user workload Applications MUST be deleted BEFORE platform Application**.
 
-**Why this matters**: Per [Red Hat RHOAI 3.3 Uninstall Documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.3/html/installing_and_uninstalling_openshift_ai_self-managed/uninstalling-openshift-ai-self-managed_uninstalling-openshift-ai-self-managed):
-
-> "Red Hat recommends that you review the projects and custom resources in your OpenShift cluster and delete anything no longer in use to prevent potential issues, such as pipelines that cannot run, notebooks that cannot be undeployed, or models that cannot be undeployed."
-
-**Key insight**: User workloads (InferenceServices, Notebooks, Pipelines) become **NON-FUNCTIONAL** after the RHOAI platform is removed. They cannot clean up gracefully without the CRDs, operators, and webhooks.
+**Why**: User workloads (InferenceServices, Notebooks, Pipelines) become NON-FUNCTIONAL after platform removal. They cannot clean up gracefully without CRDs/operators/webhooks.
 
 **Correct deletion order**:
-1. **FIRST**: Delete user workload Applications
-   ```bash
-   oc delete application uc-ai-generation-llm-rag -n openshift-gitops
-   oc delete application uc-llamastack -n openshift-gitops
-   oc delete application ai-models-service -n openshift-gitops
-   ```
-2. **Wait**: Allow user workloads to fully delete (60+ seconds)
-3. **THEN**: Delete RHOAI platform Application
-   ```bash
-   oc delete application rhoai -n openshift-gitops  # Triggers PreDelete hook
-   ```
-4. **Finally**: Delete AI ApplicationSet (cleanup)
-   ```bash
-   oc delete applicationset cluster-ai -n openshift-gitops
-   ```
+```bash
+# 1. User workloads FIRST
+oc delete application uc-ai-generation-llm-rag uc-llamastack ai-models-service -n openshift-gitops
+sleep 60  # Wait for cleanup
 
-**What happens if order is wrong**:
-- ❌ Platform deleted first → DataScienceCluster, operator, CRDs removed
-- ❌ User workloads orphaned → InferenceServices can't undeploy (CRDs gone)
-- ❌ Namespaces stuck in Terminating state (75+ minutes observed)
-- ❌ Manual force-cleanup required (remove finalizers from all resources)
+# 2. Platform LAST
+oc delete application rhoai -n openshift-gitops  # Triggers PreDelete hook
+oc delete applicationset cluster-ai -n openshift-gitops
+```
 
-**PreDelete hook safety net**: The RHOAI PreDelete hook includes Step 0 that force-cleans user workload namespaces if found. This is a defensive measure but **does NOT replace proper deletion order** - it force-deletes resources that can't clean up gracefully.
+**Wrong order consequences**: Platform deleted first → 10 namespaces stuck Terminating for 75+ min (observed 2026-04-16)
 
-**Profile switching**: When switching from `ocp-ai` to `ocp-standard`:
-1. Update cluster-profile Application to new profile path
-2. Delete user workload Applications (uc-*, ai-models-service)
-3. Wait for user workloads to delete
-4. Delete rhoai Application
-5. Delete cluster-ai ApplicationSet
+**PreDelete hook**: Includes Step 0 safety net for orphaned workloads, but proper order is still required for graceful cleanup.
 
-**Complete guide**: See [rhoai-deletion-order.md](docs/claude/rhoai-deletion-order.md) for comprehensive deletion procedures, troubleshooting, and Red Hat documentation references.
-
-**Lesson learned (2026-04-16)**: During ocp-old-ai profile switch, all Applications were deleted simultaneously, violating the correct order. Result: 10 namespaces stuck in Terminating for 75+ minutes. Always follow vendor uninstall documentation carefully.
+**Complete guide**: [rhoai-deletion-order.md](docs/claude/rhoai-deletion-order.md) - Red Hat procedures, troubleshooting, profile switching
 
 ### Job Template Refactoring
 
