@@ -72,10 +72,17 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - User says "add to CLAUDE.md" → **FIRST check if external doc exists**, THEN decide where to add
 
 **5. Size limits**
-- CLAUDE.md: <500 lines (currently 446)
+- CLAUDE.md: <500 lines (currently ~506)
 - Individual sections: <100 lines
 - Subsections: <30 lines
 - **If exceeded**: Move detailed content to external doc, keep summary + cross-reference
+
+**6. Version-controlled rules (META-RULE)**
+- **CRITICAL**: All important rules, workflows, and patterns MUST be version-controlled
+- ✅ Add to CLAUDE.md or docs/claude/*.md (travels with repo)
+- ❌ Do NOT rely only on local memory (machine-specific, doesn't travel)
+- **Memory is ephemeral** - Use it for session context, not for permanent knowledge
+- **Documentation is permanent** - Use it for rules that must persist across machines/sessions
 
 **Enforcement**: When user asks "update the doc", this triggers:
 1. Check: Does this content exist elsewhere?
