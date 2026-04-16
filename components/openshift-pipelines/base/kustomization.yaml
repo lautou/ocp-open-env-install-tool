@@ -3,7 +3,8 @@ kind: Kustomization
 resources:
 - ../../common
 - cluster-crb-pipelines-tektonconfig-edit.yaml
-- cluster-tektonconfig-config.yaml
+# TEMPORARILY DISABLED to investigate OutOfSync issue
+#- cluster-tektonconfig-config.yaml
 - openshift-gitops-job-cleanup-auto-tektonconfig.yaml
 - openshift-gitops-job-disable-pipelines-console-plugin.yaml
 - openshift-gitops-job-enable-pipelines-console-plugin.yaml
