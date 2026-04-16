@@ -32,6 +32,48 @@ spec:
           echo "Using PreDelete hook to run BEFORE ArgoCD deletes resources."
           echo "This ensures proper deletion order per Red Hat docs."
           echo ""
+          echo "CRITICAL: User workload Applications (uc-*, ai-models-service) should be"
+          echo "deleted BEFORE the rhoai Application. If not, workloads will be orphaned."
+          echo "This hook will attempt cleanup, but proper ordering is recommended."
+          echo ""
+
+          # Step 0: Clean up user workload namespaces
+          # Per Red Hat docs: "Red Hat recommends that you review the projects and custom
+          # resources in your OpenShift cluster and delete anything no longer in use to
+          # prevent potential issues, such as pipelines that cannot run, notebooks that
+          # cannot be undeployed, or models that cannot be undeployed."
+          echo "Step 0: Cleaning up user workload namespaces (if any remain)..."
+
+          USER_WORKLOAD_NAMESPACES=(
+            "ai-generation-llm-rag"
+            "llamastack"
+            "external-db-generation-llm-rag"
+            "external-db-llamastack"
+            "ai-models-service"
+          )
+
+          for ns in "${USER_WORKLOAD_NAMESPACES[@]}"; do
+            if oc get namespace $ns &>/dev/null; then
+              echo "  ⚠️  Found user workload namespace: $ns (should have been deleted first)"
+              echo "    Force-cleaning resources..."
+
+              # Delete all resources
+              oc delete all --all -n $ns --force --grace-period=0 --ignore-not-found 2>&1 | grep -v "No resources found" || true
+              oc delete pvc --all -n $ns --force --grace-period=0 --ignore-not-found 2>&1 | grep -v "No resources found" || true
+
+              # Remove finalizers from namespace
+              oc patch namespace $ns --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+              oc patch namespace $ns --type=json -p='[{"op": "remove", "path": "/spec/finalizers"}]' 2>/dev/null || true
+
+              # Delete namespace
+              oc delete namespace $ns --force --grace-period=0 --ignore-not-found 2>&1 || true
+
+              echo "    ✅ Cleaned $ns"
+            fi
+          done
+
+          echo "  ✅ User workload cleanup completed"
+          echo ""
 
           # Step 1: Delete the DataScienceCluster CR
           # Per Red Hat docs: "Delete the DataScienceCluster instance in OpenShift AI"
