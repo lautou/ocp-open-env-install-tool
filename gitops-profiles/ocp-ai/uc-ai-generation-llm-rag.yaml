@@ -25,3 +25,8 @@ spec:
     - /metadata/annotations
     kind: ConfigMap
     name: cluster-versions
+  - group: kubeflow.org
+    jsonPointers:
+    - /spec/template/spec/containers/1/image
+    kind: Notebook
+    name: rag-ingestion
