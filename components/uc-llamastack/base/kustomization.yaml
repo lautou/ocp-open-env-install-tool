@@ -11,7 +11,6 @@ resources:
 - external-db-llamastack-secret-llamastack-postgresql-credentials.yaml
 - external-db-llamastack-service-llamastack-postgresql.yaml
 - llamastack-llamastackdistribution-llamastack.yaml
-- llamastack-networkpolicy-allow-from-ai-generation-llm-rag.yaml
 - llamastack-secret-granite-embedding-sa-token.yaml
 - llamastack-secret-granite-llm-sa-token.yaml
 - llamastack-secret-pgvector-connection.yaml

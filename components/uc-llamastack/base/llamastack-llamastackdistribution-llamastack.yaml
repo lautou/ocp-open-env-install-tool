@@ -88,3 +88,7 @@ spec:
       name: rh-dev
     storage:
       size: 20Gi
+  network:
+    allowedFrom:
+      namespaces:
+      - ai-generation-llm-rag
