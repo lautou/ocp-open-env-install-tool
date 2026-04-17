@@ -1674,12 +1674,26 @@ The RHCL component includes comprehensive observability for Gateway API and Kuad
      - Image: `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.9.2`
      - Resources: 10m/100m CPU, 190Mi/250Mi memory
      - Ports: 8081 (main metrics), 8082 (self metrics)
+     - **Critical arg**: `--resources=` (empty) — disables all standard Kubernetes resource collection
 
    - **RBAC**: ClusterRole with list/watch permissions for Gateway API and Kuadrant CRDs
 
    - **ServiceMonitor**: Scraped by user-workload Prometheus (30s interval)
      - Label drop: Removes pod/service/endpoint/namespace labels from metrics
      - Two endpoints: main metrics + self metrics
+
+   **⚠️ CRITICAL: `--resources=` flag is MANDATORY**
+
+   Without `--resources=`, kube-state-metrics collects ALL default Kubernetes resource types
+   (`kube_pod_*`, `kube_deployment_*`, `kube_configmap_*`, etc.) cluster-wide in addition
+   to the Kuadrant custom CRDs. Combined with the ServiceMonitor `honorLabels: true` +
+   `labeldrop(pod|service|endpoint|namespace)`, this strips the key differentiating labels
+   and causes Prometheus to receive identical label sets at the same timestamp from
+   different resources → **`PrometheusDuplicateTimestamps` alert fires on both
+   prometheus-user-workload pods (114–124 samples dropped every 30s)**.
+
+   `--resources=` restricts output to only `gatewayapi_*` custom CRD metrics from
+   `custom-resource-state.yaml`. Never remove this flag.
 
 3. **Istio Observability:**
 
