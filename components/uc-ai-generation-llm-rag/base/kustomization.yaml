@@ -22,6 +22,7 @@ resources:
 - external-db-llamastack-secret-rag-postgresql-credentials.yaml
 - external-db-generation-llm-rag-service-dspa-mariadb.yaml
 - external-db-llamastack-service-rag-postgresql.yaml
+- ai-generation-llm-rag-notebook-rag-ingestion.yaml
 - openshift-gitops-cm-pipeline-upload-script.yaml
 - openshift-gitops-job-upload-pipeline-rag-data-ingestion.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml
