@@ -4459,6 +4459,110 @@ oc get pod -n ai-generation-llm-rag -l app=ds-pipeline-pipelines -o name | head 
 # Expected: OBJECTSTORECONFIG_HOST=s3.openshift-storage.svc
 ```
 
+### Notebook Workbench: rag-ingestion
+
+**Purpose**: RHOAI workbench for RAG data ingestion, processing, and pipeline development.
+
+**Pattern**: Kubeflow Notebook CR with auto-managed supporting resources.
+
+**Manifest**: `components/uc-ai-generation-llm-rag/base/ai-generation-llm-rag-notebook-rag-ingestion.yaml`
+
+**Key Configuration**:
+
+```yaml
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    notebooks.opendatahub.io/inject-auth: "true"
+    notebooks.opendatahub.io/last-image-selection: s2i-minimal-notebook:2025.2
+    notebooks.opendatahub.io/last-image-version-git-commit-selection: d3137ca
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/image-display-name: Jupyter | Minimal | CPU | Python 3.12
+  name: rag-ingestion
+  namespace: ai-generation-llm-rag
+spec:
+  template:
+    spec:
+      containers:
+      - name: rag-ingestion
+        image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:2025.2
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "2"
+            memory: 4Gi
+        volumeMounts:
+        - mountPath: /opt/app-root/src/
+          name: rag-ingestion-storage
+      - name: kube-rbac-proxy
+        # OAuth authentication sidecar
+      serviceAccountName: rag-ingestion
+      volumes:
+      - name: rag-ingestion-storage
+        persistentVolumeClaim:
+          claimName: rag-ingestion-storage
+```
+
+**Critical Annotations**:
+
+1. **`notebooks.opendatahub.io/last-image-version-git-commit-selection: d3137ca`**
+   - Required to prevent "Deprecated" warning in RHOAI dashboard
+   - Without this, dashboard shows false-positive deprecation even when current = latest
+   - Git commit must match the actual image version
+
+2. **`opendatahub.io/hardware-profile-name: default-profile`**
+   - Specifies hardware profile displayed in dashboard
+   - Without this, dashboard shows "Custom" instead of profile name
+   - Must be paired with `opendatahub.io/hardware-profile-namespace: redhat-ods-applications`
+
+**Auto-Managed Resources** (created by Notebook controller):
+- **PersistentVolumeClaim**: `rag-ingestion-storage` (20Gi, gp3-csi)
+- **ServiceAccount**: `rag-ingestion`
+- **StatefulSet**: `rag-ingestion` (manages workbench pod)
+- **Services**: `rag-ingestion`, `rag-ingestion-kube-rbac-proxy` (OAuth)
+- **ConfigMap**: `rag-ingestion-kube-rbac-proxy-config` (OAuth proxy config)
+- **Secret**: `rag-ingestion-kube-rbac-proxy-tls` (TLS certificates)
+
+**Important**: Do NOT manage PVC/SA/Services in GitOps - Notebook controller owns these resources.
+
+**Authentication**: OAuth proxy (`kube-rbac-proxy`) sidecar provides OpenShift authentication.
+
+**Image**: Jupyter Minimal Python 3.12 (`s2i-minimal-notebook:2025.2`)
+- CPU-optimized (no GPU)
+- JupyterLab v4.4
+- Python v3.12
+- Pipeline runtime integration (`/opt/app-root/pipeline-runtimes/`)
+
+**Resources**: 2 CPU / 4Gi memory (default-profile)
+
+**Storage**: 20Gi persistent storage mounted at `/opt/app-root/src/`
+
+**Use Cases**:
+- Interactive pipeline development and testing
+- Data exploration and preprocessing
+- Notebook-based RAG workflows
+- Integration testing with DSPA, embedding service, PostgreSQL
+
+**Verification**:
+```bash
+# Check Notebook status
+oc get notebook rag-ingestion -n ai-generation-llm-rag
+
+# Check StatefulSet and Pod
+oc get statefulset,pod -n ai-generation-llm-rag -l app=rag-ingestion
+
+# Verify OAuth authentication
+oc get svc -n ai-generation-llm-rag | grep rag-ingestion
+
+# Check persistent storage
+oc get pvc rag-ingestion-storage -n ai-generation-llm-rag
+```
+
 ### RBAC: Pipeline ConfigMap Access
 
 ```yaml
