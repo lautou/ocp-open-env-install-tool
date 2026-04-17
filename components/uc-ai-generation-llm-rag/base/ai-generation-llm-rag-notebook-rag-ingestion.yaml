@@ -136,6 +136,7 @@ spec:
           fi
         image: registry.access.redhat.com/ubi9/ubi-minimal:latest
         name: inject-notebook
+        resources: {}
         volumeMounts:
         - mountPath: /notebooks
           name: notebook-ingestion
