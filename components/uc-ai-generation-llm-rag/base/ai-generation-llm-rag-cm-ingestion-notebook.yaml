@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingestion-notebook
+  namespace: ai-generation-llm-rag
+data:
+  ingestion.ipynb: |
+    {
+     "nbformat": 4,
+     "nbformat_minor": 5,
+     "metadata": {
+      "kernelspec": {
+       "display_name": "Python 3.12",
+       "language": "python",
+       "name": "python3"
+      }
+     },
+     "cells": [
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "dfeda0cc-5300-48f8-acdd-d89989ac7c94",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "%pip install llama-stack-client==0.4.2"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "8e3a5ca0-c04d-44d4-acea-6ea176896f70",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "from llama_stack_client import LlamaStackClient\n",
+        "\n",
+        "# Do not append /v1 when using llama_stack_client.\n",
+        "client = LlamaStackClient(base_url=\"http://llamastack-service.llamastack.svc.cluster.local:8321\")"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "ce7debd7-d4de-439a-a5b5-0c4d4b4d01be",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "models = client.models.list()\n",
+        "for m in models:\n",
+        "    print(m)"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "084b9e36-ae98-4545-a550-9acfad5ead2d",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "model_id = next(m.id for m in models if m.custom_metadata.get(\"model_type\") == \"llm\")\n",
+        "embedding_model = next(m for m in models if m.custom_metadata.get(\"model_type\") == \"embedding\")\n",
+        "\n",
+        "embedding_model_id = embedding_model.id\n",
+        "embedding_dimension = int(embedding_model.custom_metadata[\"embedding_dimension\"])"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "23d7e39d-6217-4391-94b6-bed4aaeaa878",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "# Create or reuse existing pgvector store\n",
+        "stores = client.vector_stores.list()\n",
+        "existing = next((s for s in stores.data if s.name == \"rag-knowledge-base\"), None)\n",
+        "if existing:\n",
+        "    vector_store_id = existing.id\n",
+        "else:\n",
+        "    vector_store = client.vector_stores.create(\n",
+        "        name=\"rag-knowledge-base\",\n",
+        "        extra_body={\n",
+        "            \"embedding_model\": embedding_model_id,\n",
+        "            \"embedding_dimension\": embedding_dimension,\n",
+        "            \"provider_id\": \"pgvector\",\n",
+        "        },\n",
+        "    )\n",
+        "    vector_store_id = vector_store.id\n",
+        "print(f\"Vector store id: {vector_store_id}\")"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "2727fe69-1177-4d01-be10-2d92c6f0ddd3",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "import requests\n",
+        "\n",
+        "pdf_url = \"https://www.federalreserve.gov/aboutthefed/files/quarterly-report-20250822.pdf\"\n",
+        "filename = \"quarterly-report-20250822.pdf\"\n",
+        "\n",
+        "response = requests.get(pdf_url)\n",
+        "response.raise_for_status()\n",
+        "\n",
+        "with open(filename, \"wb\") as f:\n",
+        "    f.write(response.content)\n",
+        "\n",
+        "with open(filename, \"rb\") as f:\n",
+        "    file_info = client.files.create(\n",
+        "        file=(filename, f),\n",
+        "        purpose=\"assistants\",\n",
+        "    )\n",
+        "\n",
+        "vector_store_file = client.vector_stores.files.create(\n",
+        "    vector_store_id=vector_store_id,\n",
+        "    file_id=file_info.id,\n",
+        "    chunking_strategy={\n",
+        "        \"type\": \"static\",\n",
+        "        \"static\": {\n",
+        "            \"max_chunk_size_tokens\": 800,\n",
+        "            \"chunk_overlap_tokens\": 400,\n",
+        "        },\n",
+        "    },\n",
+        ")\n",
+        "print(vector_store_file)"
+       ]
+      }
+     ]
+    }

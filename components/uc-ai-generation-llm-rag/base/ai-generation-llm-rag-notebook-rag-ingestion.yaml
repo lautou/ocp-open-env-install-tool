@@ -126,6 +126,21 @@ spec:
         - mountPath: /etc/tls/private
           name: kube-rbac-proxy-tls-certificates
       enableServiceLinks: false
+      initContainers:
+      - command:
+        - /bin/sh
+        - -c
+        - |
+          if [ ! -f /opt/app-root/src/ingestion.ipynb ]; then
+            cp /notebooks/ingestion.ipynb /opt/app-root/src/ingestion.ipynb
+          fi
+        image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+        name: inject-notebook
+        volumeMounts:
+        - mountPath: /notebooks
+          name: notebook-ingestion
+        - mountPath: /opt/app-root/src
+          name: rag-ingestion-storage
       serviceAccountName: rag-ingestion
       volumes:
       - name: rag-ingestion-storage
@@ -148,6 +163,9 @@ spec:
       - configMap:
           name: rag-ingestion-kube-rbac-proxy-config
         name: kube-rbac-proxy-config
+      - configMap:
+          name: ingestion-notebook
+        name: notebook-ingestion
       - name: kube-rbac-proxy-tls-certificates
         secret:
           secretName: rag-ingestion-kube-rbac-proxy-tls
