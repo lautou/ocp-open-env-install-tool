@@ -10,8 +10,6 @@ spec:
   - list:
       elements:
       - branch: master
-        item: openshift-pipelines
-      - branch: master
         item: webterminal
   template:
     metadata:
