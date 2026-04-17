@@ -6,6 +6,8 @@ metadata:
     notebooks.opendatahub.io/inject-auth: "true"
     notebooks.opendatahub.io/last-image-selection: s2i-minimal-notebook:2025.2
     notebooks.opendatahub.io/last-image-version-git-commit-selection: d3137ca
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/image-display-name: Jupyter | Minimal | CPU | Python 3.12
     openshift.io/description: RAG data ingestion and processing workbench
     openshift.io/display-name: rag-ingestion
