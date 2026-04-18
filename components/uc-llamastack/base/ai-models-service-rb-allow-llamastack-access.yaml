@@ -11,3 +11,9 @@ subjects:
 - kind: ServiceAccount
   name: default
   namespace: llamastack
+- kind: ServiceAccount
+  name: granite-embedding-sa
+  namespace: ai-models-service
+- kind: ServiceAccount
+  name: granite-llm-sa
+  namespace: ai-models-service
