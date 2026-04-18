@@ -11,13 +11,13 @@ spec:
     containerSpec:
       env:
       - name: EMBEDDING_MODEL
-        value: granite-embedding-english-r2
+        value: granite-embedding
       - name: EMBEDDING_PROVIDER_MODEL_ID
-        value: ibm-granite/granite-embedding-english-r2
+        value: granite-embedding
       - name: ENABLE_PGVECTOR
         value: "true"
       - name: INFERENCE_MODEL
-        value: granite-3.3-2b-instruct
+        value: granite-llm
       - name: PGVECTOR_DB
         valueFrom:
           secretKeyRef:
