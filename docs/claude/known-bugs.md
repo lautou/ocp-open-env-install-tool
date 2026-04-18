@@ -359,6 +359,57 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 ```
 
 
+---
+
+### 6. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
+
+**ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
+**Component:** Red Hat OpenShift AI (RHOAI) - KServe / ODH Model Controller
+**Namespace:** `ai-models-service`
+**Resources:** `InferenceService/granite-llm`, `InferenceService/granite-embedding`
+
+**Issue:**
+After a cluster restart or RHOAI upgrade that changes the `kube-rbac-proxy` image SHA in `inferenceservice-config`, the ODH Model Controller sets `LatestDeploymentReady: False` with reason `AuthProxyPreserved` on all running InferenceServices. This condition **never clears automatically**, even after the running pods are updated to the correct image.
+
+**Impact:**
+- ArgoCD `ai-models-service` shows `Progressing` instead of `Healthy` — cosmetic only
+- Models are fully operational: `Ready: True`, `PredictorReady: True`, `IngressReady: True`
+- No inference serving disruption
+
+**Root Cause:**
+The ODH Model Controller detects a mismatch between the `kube-rbac-proxy` image in the running Deployment and the desired image in `inferenceservice-config` ConfigMap. To avoid GPU pod restarts (which would unload the model), it preserves the existing auth proxy container and sets `AuthProxyPreserved`. However, the condition is sticky — it does not clear even after the Deployment image is updated to match. This appears to be a bug in the condition reconciliation logic.
+
+**Observed:** 2026-04-18 after cluster restart.
+
+**Workaround — after each cluster restart, if `AuthProxyPreserved` appears:**
+```bash
+# 1. Get the desired image from operator config
+NEW_SHA=$(oc get configmap inferenceservice-config -n redhat-ods-applications \
+  -o jsonpath='{.data.deploy}' | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('rawDeployment',{}).get('authProxy',{}).get('image',''))" 2>/dev/null || \
+  oc get configmap inferenceservice-config -n redhat-ods-applications -o yaml | grep "kube-auth-proxy" | grep -o 'sha256:[a-f0-9]*' | head -1)
+
+# 2. Patch both Deployments with the correct image
+oc set image deployment/granite-llm-predictor kube-rbac-proxy="registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:4027ce7319cb9c9fbed1e736b440c0fa6e8bfeb5a4433a4c753402642a1839af" -n ai-models-service
+oc set image deployment/granite-embedding-predictor kube-rbac-proxy="registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:4027ce7319cb9c9fbed1e736b440c0fa6e8bfeb5a4433a4c753402642a1839af" -n ai-models-service
+
+# 3. Wait for rollout (models will reload — ~5 min)
+oc rollout status deployment/granite-llm-predictor deployment/granite-embedding-predictor -n ai-models-service --timeout=10m
+```
+
+**Note:** Even after patching, `AuthProxyPreserved` condition may remain set (sticky bug). The models are operational regardless. Monitor with:
+```bash
+oc get inferenceservice -n ai-models-service -o json | python3 -c "
+import json,sys
+for i in json.load(sys.stdin)['items']:
+    conds = {c['type']: c['status'] for c in i.get('status',{}).get('conditions',[])}
+    print(i['metadata']['name'], conds)
+"
+```
+
+**Status:** Known RHOAI bug — no upstream JIRA found yet. Not silenced (no Prometheus alert, ArgoCD health only).
+
+---
+
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA. These can be disabled via the `support` Secret in `openshift-config` namespace.
