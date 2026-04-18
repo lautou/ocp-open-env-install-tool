@@ -17,8 +17,6 @@ spec:
         item: rh-connectivity-link
       - branch: master
         item: rhoai
-      - branch: master
-        item: uc-llamastack
   template:
     metadata:
       finalizers:
