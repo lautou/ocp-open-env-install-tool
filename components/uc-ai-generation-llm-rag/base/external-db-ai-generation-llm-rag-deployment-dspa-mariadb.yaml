@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dspa-mariadb
+  namespace: external-db-ai-generation-llm-rag
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dspa-mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: dspa-mariadb
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: dspa-mariadb-credentials
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: dspa-mariadb-credentials
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: database
+              name: dspa-mariadb-credentials
+        - name: MYSQL_ALLOW_EMPTY_PASSWORD
+          value: "true"
+        image: registry.redhat.io/rhel9/mariadb-105:1-1775695255
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin -u $MYSQL_USER --ssl-ca=/etc/mysql-certs/tls.crt ping
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: mariadb
+        ports:
+        - containerPort: 3306
+          name: mysql
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - MYSQL_PWD="$MYSQL_PASSWORD" mysqladmin -u $MYSQL_USER --ssl-ca=/etc/mysql-certs/tls.crt ping
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 300m
+            memory: 800Mi
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: data
+        - mountPath: /etc/mysql-certs
+          name: tls-certs
+          readOnly: true
+        - mountPath: /etc/my.cnf.d/tls.cnf
+          name: tls-config
+          readOnly: true
+          subPath: tls.cnf
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: dspa-mariadb
+      - name: tls-certs
+        secret:
+          defaultMode: 416
+          secretName: dspa-mariadb-tls
+      - name: tls-config
+        configMap:
+          name: dspa-mariadb-tls-config

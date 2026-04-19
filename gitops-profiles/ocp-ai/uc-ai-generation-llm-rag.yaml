@@ -20,8 +20,23 @@ spec:
     retry:
       limit: 10
   ignoreDifferences:
-  - group:
+  - group: ''
     jsonPointers:
     - /metadata/annotations
     kind: ConfigMap
     name: cluster-versions
+  - group: ''
+    jsonPointers:
+    - /data
+    kind: Secret
+    name: granite-embedding-sa-token
+  - group: ''
+    jsonPointers:
+    - /data
+    kind: Secret
+    name: granite-llm-sa-token
+  - group: kubeflow.org
+    jsonPointers:
+    - /spec/template/spec/containers/1/image
+    kind: Notebook
+    name: rag-ingestion

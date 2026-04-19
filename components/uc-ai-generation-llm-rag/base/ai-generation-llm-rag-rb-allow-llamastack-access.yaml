@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: allow-llamastack-access
+  namespace: ai-generation-llm-rag
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: inferenceservice-user
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ai-generation-llm-rag
+- kind: ServiceAccount
+  name: granite-embedding-sa
+  namespace: ai-generation-llm-rag
+- kind: ServiceAccount
+  name: granite-llm-sa
+  namespace: ai-generation-llm-rag

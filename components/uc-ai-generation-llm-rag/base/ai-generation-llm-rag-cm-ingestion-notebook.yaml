@@ -36,7 +36,7 @@ data:
         "from llama_stack_client import LlamaStackClient\n",
         "\n",
         "# Do not append /v1 when using llama_stack_client.\n",
-        "client = LlamaStackClient(base_url=\"http://llamastack-service.llamastack.svc.cluster.local:8321\")"
+        "client = LlamaStackClient(base_url=\"http://llamastack-service.ai-generation-llm-rag.svc.cluster.local:8321\")"
        ]
       },
       {

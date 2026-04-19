@@ -1,0 +1,44 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: embedding
+    openshift.io/description: Shared granite-embedding-english-r2 model for vector embeddings
+    openshift.io/display-name: granite-embedding
+    security.opendatahub.io/enable-auth: "true"
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: granite-embedding
+  namespace: ai-generation-llm-rag
+spec:
+  predictor:
+    automountServiceAccountToken: true
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 1
+    minReplicas: 1
+    serviceAccountName: granite-embedding-sa
+    model:
+      args:
+      - --dtype=half
+      - --max-model-len=8192
+      - --gpu-memory-utilization=0.70
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+        limits:
+          cpu: "2"
+          memory: 12Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+      runtime: granite-embedding
+      storageUri: oci://registry.redhat.io/rhai/modelcar-granite-embedding-english-r2
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
