@@ -383,7 +383,7 @@ done
 **Correct deletion order**:
 ```bash
 # 1. User workloads FIRST
-oc delete application uc-ai-generation-llm-rag uc-llamastack ai-models-service -n openshift-gitops
+oc delete application uc-ai-generation-llm-rag -n openshift-gitops
 sleep 60  # Wait for cleanup
 
 # 2. Platform LAST

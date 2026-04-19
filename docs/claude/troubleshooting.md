@@ -656,6 +656,43 @@ spec:
 
 **Prevention**: Always use latest stable API versions for operator CRDs, mark Jobs with TTL as ArgoCD hooks
 
+### ArgoCD Sync Stuck in Retry Loop on Old Revision
+
+**Symptom**: Application keeps retrying the same sync failure with an increasing attempt counter, even after you push fixes and trigger a hard refresh. The error references resources or namespaces that no longer exist in the current git state.
+
+**Root Cause**: ArgoCD's retry loop (from `spec.syncPolicy.retry.limit`) replays the **original operation's revision**, not HEAD. Pushing new commits and triggering a refresh changes the desired state ArgoCD computes, but the in-flight retry operation still points to the old SHA.
+
+**Diagnosis**:
+```bash
+# Compare what ArgoCD is actually syncing vs current HEAD
+oc get application.argoproj.io <app> -n openshift-gitops \
+  -o jsonpath='{.status.operationState.operation.sync.revision}{"\n"}'
+git rev-parse HEAD
+
+# If the SHA differs → retry loop is stuck on old revision
+```
+
+**Fix**: Terminate the stuck operation, then start a fresh sync against HEAD:
+```bash
+# 1. Kill the stuck operation
+oc -n openshift-gitops patch application.argoproj.io <app> \
+  --type merge -p '{"operation":null}'
+
+# 2. Start fresh sync with explicit latest SHA
+LATEST=$(git rev-parse HEAD)
+oc -n openshift-gitops patch application.argoproj.io <app> \
+  --type merge -p "{
+    \"operation\": {
+      \"initiatedBy\": {\"username\": \"admin\"},
+      \"sync\": {\"revision\": \"$LATEST\", \"prune\": true}
+    }
+  }"
+```
+
+**Why `patch operation: null` first**: Patching a new `operation` while the old one is Running may be ignored. Clearing `operation` first puts the Application in a clean state.
+
+**Prevention**: The retry loop is harmless after you push a fix, but can be confusing because the error message appears unchanged. Always compare `.status.operationState.operation.sync.revision` against `git rev-parse HEAD` when a sync keeps failing after a push.
+
 ### ApplicationSet Ownership Conflicts
 
 **Symptom**: "Object X is already owned by another ApplicationSet controller Y"

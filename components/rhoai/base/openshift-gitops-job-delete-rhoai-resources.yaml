@@ -46,10 +46,7 @@ spec:
 
           USER_WORKLOAD_NAMESPACES=(
             "ai-generation-llm-rag"
-            "llamastack"
-            "external-db-generation-llm-rag"
-            "external-db-llamastack"
-            "ai-models-service"
+            "external-db-ai-generation-llm-rag"
           )
 
           for ns in "${USER_WORKLOAD_NAMESPACES[@]}"; do
@@ -177,7 +174,7 @@ spec:
             "redhat-ods-operator"
             "redhat-ods-applications"
             "ai-generation-llm-rag"
-            "llamastack"
+            "external-db-ai-generation-llm-rag"
             "external-rhoai-db"
           )
 

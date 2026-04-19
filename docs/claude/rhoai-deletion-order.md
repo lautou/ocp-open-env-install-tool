@@ -17,19 +17,15 @@ From [Red Hat OpenShift AI 3.3 Documentation](https://docs.redhat.com/en/documen
 These Applications deploy workloads that depend on the RHOAI platform:
 
 ```bash
-# Delete AI use case Applications
+# Delete AI use case Application (manages InferenceServices, LlamaStack, Notebooks, Pipelines)
 oc delete application uc-ai-generation-llm-rag -n openshift-gitops
-oc delete application uc-llamastack -n openshift-gitops
-
-# Delete AI model serving
-oc delete application ai-models-service -n openshift-gitops
 ```
 
-**Why**: These Applications manage:
+**Why**: This Application manages:
 - InferenceServices (KServe)
+- LlamaStack distribution
 - Notebooks
 - Pipelines
-- Custom AI workloads
 
 All of these resources become orphaned and non-functional if the RHOAI platform is removed first.
 
@@ -71,10 +67,7 @@ The RHOAI PreDelete hook (as of 2026-04-16) includes a **Step 0** that attempts 
 # Step 0: Clean up user workload namespaces (if any remain)
 USER_WORKLOAD_NAMESPACES=(
   "ai-generation-llm-rag"
-  "llamastack"
-  "external-db-generation-llm-rag"
-  "external-db-llamastack"
-  "ai-models-service"
+  "external-db-ai-generation-llm-rag"
 )
 ```
 
@@ -91,8 +84,6 @@ When switching profiles or removing AI components:
 ```bash
 # 1. User workloads first
 oc delete application uc-ai-generation-llm-rag -n openshift-gitops
-oc delete application uc-llamastack -n openshift-gitops
-oc delete application ai-models-service -n openshift-gitops
 
 # Wait for user workload deletions to complete
 sleep 30
@@ -127,8 +118,6 @@ oc wait --for=condition=Synced application cluster-profile -n openshift-gitops -
 
 # 3. Delete user workload Applications FIRST
 oc delete application uc-ai-generation-llm-rag -n openshift-gitops
-oc delete application uc-llamastack -n openshift-gitops
-oc delete application ai-models-service -n openshift-gitops
 
 # 4. Wait for user workloads to fully delete
 sleep 60
@@ -146,7 +135,7 @@ After deletion:
 
 ```bash
 # Check for remaining user workload namespaces
-oc get namespaces | grep -E "ai-generation-llm-rag|llamastack|ai-models-service"
+oc get namespaces | grep -E "ai-generation-llm-rag|external-db-ai-generation-llm-rag"
 
 # Check for remaining RHOAI namespaces
 oc get namespaces | grep -E "ods|rhoai"
@@ -166,7 +155,7 @@ If namespaces are stuck in "Terminating" after incorrect deletion order:
 
 ```bash
 # Force-delete all resources in user workload namespaces
-for ns in ai-generation-llm-rag llamastack ai-models-service; do
+for ns in ai-generation-llm-rag external-db-ai-generation-llm-rag; do
   oc delete all --all -n $ns --force --grace-period=0
   oc delete pvc --all -n $ns --force --grace-period=0
   oc patch namespace $ns --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
