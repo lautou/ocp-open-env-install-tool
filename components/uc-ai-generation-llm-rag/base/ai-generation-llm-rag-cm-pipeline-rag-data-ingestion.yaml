@@ -889,7 +889,7 @@ data:
             isOptional: true
             parameterType: NUMBER_INTEGER
           postgres_host:
-            defaultValue: rag-postgresql.external-db-llamastack.svc.cluster.local
+            defaultValue: rag-postgresql.external-db-ai-generation-llm-rag.svc.cluster.local
             isOptional: true
             parameterType: STRING
           postgres_port:
