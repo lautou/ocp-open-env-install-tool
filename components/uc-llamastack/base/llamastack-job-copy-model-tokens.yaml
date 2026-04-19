@@ -28,16 +28,20 @@ spec:
             sleep 10
           done
 
-          # Wait for both InferenceServices to be Ready (model fully loaded on GPU)
-          echo "Waiting for granite-llm to be Ready (model loading)..."
+          # Wait for both InferenceServices to be Ready (model fully loaded on GPU).
+          # SA token secrets are created at InferenceService initialization time, so they
+          # already exist here. We wait for Ready so LlamaStack restarts into a working
+          # state rather than logging model refresh errors during GPU model loading.
+          echo "Waiting for granite-llm to be Ready (model loading on GPU)..."
           oc wait inferenceservice.serving.kserve.io/granite-llm \
             -n ai-models-service --for=condition=Ready --timeout=60m
 
-          echo "Waiting for granite-embedding to be Ready (model loading)..."
+          echo "Waiting for granite-embedding to be Ready (model loading on GPU)..."
           oc wait inferenceservice.serving.kserve.io/granite-embedding \
             -n ai-models-service --for=condition=Ready --timeout=60m
 
-          # Extract tokens (base64 encoded) from now-valid SA token secrets
+          # Extract tokens (base64 encoded) — available since SA creation, copied now
+          # so LlamaStack pod restart below starts with vLLM already serving
           echo "Copying granite model service account tokens to llamastack namespace..."
           EMBEDDING_TOKEN=$(oc get secret granite-embedding-sa-token -n ai-models-service -o jsonpath='{.data.token}')
           LLM_TOKEN=$(oc get secret granite-llm-sa-token -n ai-models-service -o jsonpath='{.data.token}')
