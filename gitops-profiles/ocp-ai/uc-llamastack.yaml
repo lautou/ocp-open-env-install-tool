@@ -35,3 +35,8 @@ spec:
     - /data
     kind: Secret
     name: granite-llm-sa-token
+  - group: kubeflow.org
+    jsonPointers:
+    - /spec/template/spec/containers/1/image
+    kind: Notebook
+    name: rag-ingestion

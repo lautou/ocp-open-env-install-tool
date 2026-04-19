@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: allow-llamastack-access
-  namespace: ai-models-service
+  namespace: llamastack
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -13,7 +13,7 @@ subjects:
   namespace: llamastack
 - kind: ServiceAccount
   name: granite-embedding-sa
-  namespace: ai-models-service
+  namespace: llamastack
 - kind: ServiceAccount
   name: granite-llm-sa
-  namespace: ai-models-service
+  namespace: llamastack

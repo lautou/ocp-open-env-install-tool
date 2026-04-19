@@ -71,11 +71,11 @@ spec:
       - name: VLLM_EMBEDDING_TLS_VERIFY
         value: "false"
       - name: VLLM_EMBEDDING_URL
-        value: https://granite-embedding-predictor.ai-models-service.svc.cluster.local:8443/v1
+        value: https://granite-embedding-predictor.llamastack.svc.cluster.local:8443/v1
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_URL
-        value: https://granite-llm-predictor.ai-models-service.svc.cluster.local:8443/v1
+        value: https://granite-llm-predictor.llamastack.svc.cluster.local:8443/v1
       port: 8321
       resources:
         limits:

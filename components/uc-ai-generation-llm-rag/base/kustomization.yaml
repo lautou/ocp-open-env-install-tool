@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- ai-generation-llm-rag-cm-ingestion-notebook.yaml
 - ai-generation-llm-rag-cm-pipeline-rag-data-ingestion.yaml
 - ai-generation-llm-rag-dspa-pipelines.yaml
 - ai-generation-llm-rag-obc-pipeline-artifacts.yaml
@@ -23,7 +22,6 @@ resources:
 - external-db-llamastack-secret-rag-postgresql-credentials.yaml
 - external-db-generation-llm-rag-service-dspa-mariadb.yaml
 - external-db-llamastack-service-rag-postgresql.yaml
-- ai-generation-llm-rag-notebook-rag-ingestion.yaml
 - openshift-gitops-cm-pipeline-upload-script.yaml
 - openshift-gitops-job-upload-pipeline-rag-data-ingestion.yaml
 - openshift-gitops-sa-pipeline-uploader.yaml

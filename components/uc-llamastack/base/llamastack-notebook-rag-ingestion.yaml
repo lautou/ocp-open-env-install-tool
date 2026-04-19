@@ -1,0 +1,184 @@
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    notebooks.opendatahub.io/inject-auth: "true"
+    notebooks.opendatahub.io/last-image-selection: s2i-minimal-notebook:2025.2
+    notebooks.opendatahub.io/last-image-version-git-commit-selection: d3137ca
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/image-display-name: Jupyter | Minimal | CPU | Python 3.12
+    openshift.io/description: RAG data ingestion and processing workbench
+    openshift.io/display-name: rag-ingestion
+  labels:
+    app: rag-ingestion
+    opendatahub.io/dashboard: "true"
+  name: rag-ingestion
+  namespace: llamastack
+spec:
+  template:
+    spec:
+      containers:
+      - env:
+        - name: NOTEBOOK_ARGS
+          value: |-
+            --ServerApp.port=8888
+                              --ServerApp.token=''
+                              --ServerApp.password=''
+                              --ServerApp.base_url=/notebook/llamastack/rag-ingestion
+                              --ServerApp.quit_button=False
+        - name: JUPYTER_IMAGE
+          value: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:2025.2
+        - name: PIP_CERT
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: REQUESTS_CA_BUNDLE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: SSL_CERT_FILE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: PIPELINES_SSL_SA_CERTS
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: KF_PIPELINES_SSL_SA_CERTS
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: GIT_SSL_CAINFO
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:2025.2
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /notebook/llamastack/rag-ingestion/api
+            port: notebook-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        name: rag-ingestion
+        ports:
+        - containerPort: 8888
+          name: notebook-port
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /notebook/llamastack/rag-ingestion/api
+            port: notebook-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /opt/app-root/src/
+          name: rag-ingestion-storage
+        - mountPath: /dev/shm
+          name: shm
+        - mountPath: /etc/pki/tls/custom-certs/ca-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+        - mountPath: /opt/app-root/pipeline-runtimes/
+          name: runtime-images
+        workingDir: /opt/app-root/src
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8888/
+        - --logtostderr=true
+        - --v=10
+        - --proxy-endpoints-port=8444
+        - --config-file=/etc/kube-rbac-proxy/config-file.yaml
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --auth-header-fields-enabled=true
+        - --auth-header-user-field-name=X-Auth-Request-User
+        - --auth-header-groups-field-name=X-Auth-Request-Groups
+        image: registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:4bff9c9b812872be081e64102cbacb711adfacd1862b5593e9809a6822720131
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8444
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: kube-rbac-proxy
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8444
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /etc/kube-rbac-proxy
+          name: kube-rbac-proxy-config
+        - mountPath: /etc/tls/private
+          name: kube-rbac-proxy-tls-certificates
+      enableServiceLinks: false
+      initContainers:
+      - command:
+        - /bin/sh
+        - -c
+        - |
+          if [ ! -f /opt/app-root/src/ingestion.ipynb ]; then
+            cp /notebooks/ingestion.ipynb /opt/app-root/src/ingestion.ipynb
+          fi
+        image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+        name: inject-notebook
+        resources: {}
+        volumeMounts:
+        - mountPath: /notebooks
+          name: notebook-ingestion
+        - mountPath: /opt/app-root/src
+          name: rag-ingestion-storage
+      serviceAccountName: rag-ingestion
+      volumes:
+      - name: rag-ingestion-storage
+        persistentVolumeClaim:
+          claimName: rag-ingestion-storage
+      - emptyDir:
+          medium: Memory
+        name: shm
+      - configMap:
+          items:
+          - key: ca-bundle.crt
+            path: ca-bundle.crt
+          name: workbench-trusted-ca-bundle
+          optional: true
+        name: trusted-ca
+      - configMap:
+          defaultMode: 420
+          name: pipeline-runtime-images
+          optional: true
+        name: runtime-images
+      - configMap:
+          defaultMode: 420
+          name: rag-ingestion-kube-rbac-proxy-config
+        name: kube-rbac-proxy-config
+      - configMap:
+          defaultMode: 420
+          name: ingestion-notebook
+        name: notebook-ingestion
+      - name: kube-rbac-proxy-tls-certificates
+        secret:
+          defaultMode: 420
+          secretName: rag-ingestion-kube-rbac-proxy-tls

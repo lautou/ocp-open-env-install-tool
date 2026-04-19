@@ -5,4 +5,7 @@ metadata:
     argocd.argoproj.io/managed-by: openshift-gitops
     opendatahub.io/dashboard: "true"
     openshift.io/cluster-monitoring: "true"
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: baseline
   name: llamastack

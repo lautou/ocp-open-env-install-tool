@@ -2,17 +2,4 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-- ai-models-service-configmap-granite-chat-template.yaml
-- ai-models-service-inferenceservice-granite-embedding.yaml
-- ai-models-service-inferenceservice-granite-llm.yaml
-- ai-models-service-rb-allow-pipeline-access.yaml
-- ai-models-service-role-inferenceservice-user.yaml
-- ai-models-service-sa-granite-embedding-sa.yaml
-- ai-models-service-sa-granite-llm-sa.yaml
-- ai-models-service-secret-granite-embedding-sa-token.yaml
-- ai-models-service-secret-granite-llm-sa-token.yaml
-- ai-models-service-secret-quay-redhat-ai-services.yaml
-- ai-models-service-secret-registry-redhat-io.yaml
-- ai-models-service-servingruntime-granite-embedding.yaml
-- ai-models-service-servingruntime-granite-llm.yaml
 - cluster-namespace-ai-models-service.yaml
