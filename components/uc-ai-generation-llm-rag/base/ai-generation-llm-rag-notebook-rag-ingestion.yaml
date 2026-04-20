@@ -142,6 +142,9 @@ spec:
           if [ ! -f /opt/app-root/src/ingestion.ipynb ]; then
             cp /notebooks/ingestion.ipynb /opt/app-root/src/ingestion.ipynb
           fi
+          if [ ! -f /opt/app-root/src/query.ipynb ]; then
+            cp /notebooks/query.ipynb /opt/app-root/src/query.ipynb
+          fi
         image: registry.access.redhat.com/ubi9/ubi-minimal:latest
         name: inject-notebook
         resources: {}

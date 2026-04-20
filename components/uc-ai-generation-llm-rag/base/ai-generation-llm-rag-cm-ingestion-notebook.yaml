@@ -62,7 +62,7 @@ data:
         "embedding_model = next(m for m in models if m.custom_metadata.get(\"model_type\") == \"embedding\")\n",
         "\n",
         "embedding_model_id = embedding_model.id\n",
-        "embedding_dimension = int(embedding_model.custom_metadata[\"embedding_dimension\"])"
+        "embedding_dimension = int(embedding_model.custom_metadata.get(\"embedding_dimension\", 768))"
        ]
       },
       {
@@ -126,6 +126,134 @@ data:
         "    },\n",
         ")\n",
         "print(vector_store_file)"
+       ]
+      }
+     ]
+    }
+  query.ipynb: |
+    {
+     "nbformat": 4,
+     "nbformat_minor": 5,
+     "metadata": {
+      "kernelspec": {
+       "display_name": "Python 3.12",
+       "language": "python",
+       "name": "python3"
+      }
+     },
+     "cells": [
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "0e4802a0-c90f-46bf-b446-3a49599fec08",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "%pip install llama-stack-client==0.4.2"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "7d88260a-b855-401c-9ecf-bbfb5a73c221",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "from llama_stack_client import LlamaStackClient\n",
+        "\n",
+        "# Do not append /v1 when using llama_stack_client.\n",
+        "client = LlamaStackClient(base_url=\"http://llamastack-service.ai-generation-llm-rag.svc.cluster.local:8321\")"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "2ce98099-133b-4850-8fbc-ee0f48b463ae",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "models = client.models.list()"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "c62e7da7-244c-4264-ae00-e944c41ba6f1",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "model_id = next(m.id for m in models if m.custom_metadata.get(\"model_type\") == \"llm\")\n",
+        "\n",
+        "embedding = next((m for m in models if m.custom_metadata.get(\"model_type\") == \"embedding\"), None)\n",
+        "if embedding:\n",
+        "    embedding_model_id = embedding.id\n",
+        "    embedding_dimension = int(embedding.custom_metadata.get(\"embedding_dimension\", 768))"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "5fd76157-d9f1-4613-b699-671de1ab3acd",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "# Find the populated vector store created by the ingestion notebook\n",
+        "stores = client.vector_stores.list()\n",
+        "all_stores = [s for s in stores.data if s.name == \"rag-knowledge-base\"]\n",
+        "print(f\"Found {len(all_stores)} store(s) named 'rag-knowledge-base'\")\n",
+        "\n",
+        "vector_store_id = None\n",
+        "for s in reversed(all_stores):\n",
+        "    files = client.vector_stores.files.list(vector_store_id=s.id)\n",
+        "    if files.data:\n",
+        "        vector_store_id = s.id\n",
+        "        print(f\"Using store {s.id} ({len(files.data)} file(s))\")\n",
+        "        break\n",
+        "\n",
+        "if not vector_store_id:\n",
+        "    raise ValueError(\"No populated vector store found — run ingestion.ipynb first.\")"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "34870b21-181c-48e0-afc0-685ffdea13b0",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "system_instructions = \"\"\"You are a precise and reliable AI assistant.\n",
+        "Use retrieved context when it is available.\n",
+        "If nothing relevant is found, say so clearly.\"\"\"\n",
+        "\n",
+        "query = \"What were the Federal Reserve's operating expenses in 2024?\"\n",
+        "\n",
+        "# Step 1: Search the vector store\n",
+        "search_response = client.vector_stores.search(\n",
+        "    vector_store_id=vector_store_id,\n",
+        "    query=query,\n",
+        "    max_num_results=5,\n",
+        ")\n",
+        "\n",
+        "# Step 2: Build context from retrieved chunks\n",
+        "chunks = search_response.data\n",
+        "if chunks:\n",
+        "    context = \"\\n\\n---\\n\\n\".join([\n",
+        "        \" \".join(item.text for item in c.content) if isinstance(c.content, list) else c.content\n",
+        "        for c in chunks\n",
+        "    ])\n",
+        "    augmented_input = f\"Relevant context from documents:\\n{context}\\n\\nQuestion: {query}\"\n",
+        "    print(f\"Retrieved {len(chunks)} chunks from vector store.\")\n",
+        "else:\n",
+        "    augmented_input = query\n",
+        "    print(\"No relevant context found — answering from model knowledge only.\")\n",
+        "\n",
+        "# Step 3: Call the model (no tools — context already injected)\n",
+        "response = client.responses.create(\n",
+        "    model=model_id,\n",
+        "    input=augmented_input,\n",
+        "    instructions=system_instructions,\n",
+        ")\n",
+        "print(response.output_text)"
        ]
       }
      ]
