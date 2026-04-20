@@ -33,8 +33,16 @@ data:
        "metadata": {},
        "outputs": [],
        "source": [
-        "from llama_stack_client import LlamaStackClient\n",
-        "\n",
+        "from llama_stack_client import LlamaStackClient"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "203f244b-137b-4c12-beeb-c594dabc2ce1",
+       "metadata": {},
+       "outputs": [],
+       "source": [
         "# Do not append /v1 when using llama_stack_client.\n",
         "client = LlamaStackClient(base_url=\"http://llamastack-service.ai-generation-llm-rag.svc.cluster.local:8321\")"
        ]
@@ -42,13 +50,11 @@ data:
       {
        "cell_type": "code",
        "execution_count": null,
-       "id": "ce7debd7-d4de-439a-a5b5-0c4d4b4d01be",
+       "id": "e79fb2c1-1af8-412c-bd92-c00c8f1076ba",
        "metadata": {},
        "outputs": [],
        "source": [
-        "models = client.models.list()\n",
-        "for m in models:\n",
-        "    print(m)"
+        "models = client.models.list()"
        ]
       },
       {
@@ -68,7 +74,7 @@ data:
       {
        "cell_type": "code",
        "execution_count": null,
-       "id": "23d7e39d-6217-4391-94b6-bed4aaeaa878",
+       "id": "1ab09f11-6e6d-46cd-97ca-e5512f445970",
        "metadata": {},
        "outputs": [],
        "source": [
@@ -159,8 +165,17 @@ data:
        "metadata": {},
        "outputs": [],
        "source": [
-        "from llama_stack_client import LlamaStackClient\n",
-        "\n",
+        "from llama_stack_client import LlamaStackClient"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "803d0d34-6aec-4453-9d8b-c2002c7706f8",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+        "# Use the Llama Stack service or route URL that is reachable from the workbench.\n",
         "# Do not append /v1 when using llama_stack_client.\n",
         "client = LlamaStackClient(base_url=\"http://llamastack-service.ai-generation-llm-rag.svc.cluster.local:8321\")"
        ]
@@ -225,6 +240,24 @@ data:
         "Use retrieved context when it is available.\n",
         "If nothing relevant is found, say so clearly.\"\"\"\n",
         "\n",
+        "query = \"How do you do great work?\"\n",
+        "\n",
+        "response = client.responses.create(\n",
+        "    model=model_id,\n",
+        "    input=query,\n",
+        "    instructions=system_instructions,\n",
+        ")\n",
+        "\n",
+        "print(response.output_text)"
+       ]
+      },
+      {
+       "cell_type": "code",
+       "execution_count": null,
+       "id": "ea217f99-6466-401b-86e0-7c164c9fc702",
+       "metadata": {},
+       "outputs": [],
+       "source": [
         "query = \"What were the Federal Reserve's operating expenses in 2024?\"\n",
         "\n",
         "# Step 1: Search the vector store\n",
@@ -234,7 +267,7 @@ data:
         "    max_num_results=5,\n",
         ")\n",
         "\n",
-        "# Step 2: Build context from retrieved chunks\n",
+        "# Step 2: Build context\n",
         "chunks = search_response.data\n",
         "if chunks:\n",
         "    context = \"\\n\\n---\\n\\n\".join([\n",
