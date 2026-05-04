@@ -274,6 +274,21 @@ configure_day2_gitops() {
     echo "WARN: Day2: cmp-plugin ConfigMap file not found at $CMP_PLUGIN_FILE"
   fi
 
+  # Pre-apply CMP RBAC to avoid chicken-and-egg problem
+  # The CMP plugin queries config.openshift.io/dnses and infrastructures to discover the cluster domain.
+  # Without this ClusterRole/Binding, the CMP fails with "Failed to query cluster DNS object from API",
+  # blocking ALL ApplicationSets from generating manifests, including openshift-gitops-admin-config
+  # which would normally create this RBAC. Must be applied before the first GitOps sync.
+  CMP_CR_FILE="components/openshift-gitops-admin-config/base/cluster-clusterrole-argocd-cmp-dns-reader.yaml"
+  CMP_CRB_FILE="components/openshift-gitops-admin-config/base/cluster-crb-argocd-cmp-dns-reader.yaml"
+  if [ -f "$CMP_CR_FILE" ] && [ -f "$CMP_CRB_FILE" ]; then
+    echo "Day2: Pre-applying CMP RBAC (argocd-cmp-dns-reader ClusterRole + ClusterRoleBinding)"
+    oc apply -f "$CMP_CR_FILE"
+    oc apply -f "$CMP_CRB_FILE"
+  else
+    echo "WARN: Day2: CMP RBAC files not found, CMP plugin may fail to query cluster DNS"
+  fi
+
   ARGOCD_CR_FILE="day2_config/gitops/custom-argocd.yaml"
   echo "Day2: Pre-applying custom ArgoCD configuration (Memory Limits) from $ARGOCD_CR_FILE"
   oc apply -f "$ARGOCD_CR_FILE"
