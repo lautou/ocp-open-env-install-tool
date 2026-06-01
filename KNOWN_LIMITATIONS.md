@@ -211,18 +211,13 @@ The following operators lack infra node placement configuration capabilities:
 - **[RHAIRFE-1244](https://issues.redhat.com/browse/RHAIRFE-1244)** - "Improve Install of Service Mesh 3 Operator"
 
 **OpenShift Bugs:**
-- **[OCPBUGS-9274](https://issues.redhat.com/browse/OCPBUGS-9274)** - "Ingress-canary daemonset does not tolerate Infra taints NoExecute"
 - **[OCPBUGS-49690](https://issues.redhat.com/browse/OCPBUGS-49690)** - "[RHOCP4.17] networking-console-plugin pods should run on control plane nodes"
-- **[OCPBUGS-51091](https://issues.redhat.com/browse/OCPBUGS-51091)** - "[RHOCP4.18] migrator pod should run on control plane node"
 - **[OCPBUGS-74211](https://issues.redhat.com/browse/OCPBUGS-74211)** - "Insight runtime extractor is not deployed on tainted nodes"
 - **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - "volume-data-source-validator should run on master (control plane) node"
-- **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node"
+- **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node" — **Closed / Won't Do** — Node placement not fixed because the collect-profiles cronjob is being **entirely removed in OCP 4.22** ([OCPBUGS-31547](https://issues.redhat.com/browse/OCPBUGS-31547) Verified). Limitation disappears on upgrade to 4.22+.
 
 **Data Foundation Bugs:**
 - **[DFBUGS-5355](https://issues.redhat.com/browse/DFBUGS-5355)** - "odf-prometheus-operator and odf-external-snapshotter-operator-stable pods does not have node.ocs.openshift.io/storage toleration"
-
-**Service Platform Bugs:**
-- **[SRVKP-8922](https://issues.redhat.com/browse/SRVKP-8922)** - "The Results configuration is not being propagated from TektonConfig to Results"
 
 ### Business Impact
 

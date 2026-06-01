@@ -361,7 +361,113 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 6. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
+### 6. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
+
+**Alert Name:** `TargetDown`
+**Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
+**Namespace:** `redhat-ods-applications`
+**Service:** `trustyai-service-operator-metrics-service`
+
+**Issue:**
+The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `selector: matchLabels: app.kubernetes.io/part-of: trustyai`. This accidentally matches the TrustyAI **operator controller-manager** service in `redhat-ods-applications`, which only exposes `/metrics` (Go runtime). The ServiceMonitor scrapes `/q/metrics` (Quarkus path, intended for TrustyAIService app pods) → 404 Not Found → TargetDown alert.
+
+**Impact:**
+- False-positive TargetDown alert (50% of targets down for `trustyai-service-operator-metrics-service`)
+- No actual impact on TrustyAI operator functionality
+- The correct `trustyai-service-operator-service-monitor` scrapes `/metrics` successfully
+
+**Root Cause:**
+`trustyai-metrics` ServiceMonitor has an overly broad `namespaceSelector: any: true` combined with `app.kubernetes.io/part-of: trustyai` which also matches the operator controller-manager service. The operator and the TrustyAIService app share the same label but expose different metrics paths.
+
+**Status:**
+- **JIRA:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) - TrustyAI ServiceMonitor has overly broad selector causing false TargetDown alerts
+- **Reported:** 2026-03-21
+- **Status:** New (unassigned)
+- **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
+- **Fix ETA:** TBD
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = TargetDown
+         - service = trustyai-service-operator-metrics-service
+         - namespace = redhat-ods-applications
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+
+---
+
+### 7. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
+
+**Alert Name:** `TargetDown`
+**Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
+**Namespace:** User project namespace (e.g. `ai-generation-llm-rag`)
+**Services:** `trustyai-service`, `trustyai-service-tls`
+
+**Issue:**
+The `trustyai-service` ServiceMonitor (created by the TrustyAIService CR reconciler) configures `scheme: http` with no `port:` filter. Prometheus discovers all ports on the selected services (`trustyai-service` and `trustyai-service-tls`) and scrapes each with `http://`. Since both services expose TLS ports (8443, 9443, 4443) alongside the plain HTTP port (8080), HTTP requests to HTTPS endpoints result in `400 Bad Request` (or `EOF` for port 4443).
+
+| Service | Port | Health | Error |
+|---|---|---|---|
+| `trustyai-service` | 8080 | ✅ UP | — |
+| `trustyai-service` | 4443 | ❌ DOWN | EOF |
+| `trustyai-service` | 8443 | ❌ DOWN | 400 Bad Request |
+| `trustyai-service` | 9443 | ❌ DOWN | 400 Bad Request |
+| `trustyai-service-tls` | 8443 | ❌ DOWN | 400 Bad Request |
+
+**Impact:**
+- False-positive TargetDown for `trustyai-service` (75% targets down)
+- False-positive TargetDown for `trustyai-service-tls` (100% targets down)
+- TrustyAI service is fully functional — this is monitoring misconfiguration only
+
+**Root Cause:**
+ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies `scheme: http` without restricting to a specific port. The `trustyai-service` and `trustyai-service-tls` Services both carry the `app.kubernetes.io/part-of: trustyai` label matched by the ServiceMonitor selector, causing all their ports to be scraped via HTTP.
+
+**Status:**
+- **JIRA:** [RHOAIENG-61424](https://redhat.atlassian.net/browse/RHOAIENG-61424) - TrustyAI ServiceMonitor uses scheme: http on TLS ports causing false TargetDown alerts
+- **Reported:** 2026-05-07
+- **Status:** New (unassigned)
+- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (distinct but same component)
+- **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
+- **Fix ETA:** TBD (likely addressed as part of TLS integration work RHOAIENG-61068)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = TargetDown
+         - service =~ trustyai-service|trustyai-service-tls
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
+
+**Verification:**
+```bash
+# Check Prometheus targets (user-workload Prometheus)
+oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
+  jq '.data.activeTargets[] | select(.labels.service | test("trustyai-service")) | {service: .labels.service, port: .labels.instance, health: .health, error: .lastError}'
+```
+
+---
+
+### 8. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
 
 **ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
 **Component:** Red Hat OpenShift AI (RHOAI) - KServe / ODH Model Controller
@@ -978,4 +1084,4 @@ oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
 - **Monthly:** Review this document and update bug statuses
 - **Quarterly:** Run audit script and verify all silences are still necessary
 
-Last reviewed: 2026-03-19
+Last reviewed: 2026-05-07
