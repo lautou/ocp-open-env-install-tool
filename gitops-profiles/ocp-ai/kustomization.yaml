@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
 - cluster-appproject-ai-usecases.yaml
 - cluster-appproject-demo-ei.yaml
-- demo-ai.yaml
+- demo-ei.yaml
 - uc-ai-generation-llm-rag.yaml
 - ../../gitops-bases/ai
 - ../../gitops-bases/core
