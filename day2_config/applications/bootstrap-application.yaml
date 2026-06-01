@@ -16,6 +16,11 @@ spec:
     repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
     targetRevision: master
     path: gitops-profiles/ocp-standard
+  ignoreDifferences:
+  - group: argoproj.io
+    jsonPointers:
+    - /metadata/annotations
+    kind: Application
   syncPolicy:
     automated:
       prune: true
