@@ -1,0 +1,48 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    modelFormat: vLLM
+    opendatahub.io/connections: mistral-medium-3-5-storage
+    opendatahub.io/genai-use-case: chat
+    opendatahub.io/hardware-profile-name: p4d-8gpu
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: mistral-medium-3-5
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: Standard
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: mistral-medium-3-5
+  namespace: demo-ei
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: Recreate
+    minReplicas: 0
+    model:
+      args:
+      - --tensor-parallel-size
+      - "8"
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+        limits:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+        requests:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+      runtime: mistral-medium-3-5
+      storageUri: pvc://mistral-medium-3-5-bf16/mistral-medium-3-5
+    timeout: 300
+    tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
