@@ -23,7 +23,8 @@ spec:
     automountServiceAccountToken: false
     deploymentStrategy:
       type: Recreate
-    minReplicas: 0
+    # minReplicas intentionally omitted: ArgoCD won't reset it on sync.
+    # Scale via RHOAI GUI (Start/Stop) or: oc patch inferenceservice mistral-medium-3-5 -n <ns> --type=merge -p '{"spec":{"predictor":{"minReplicas":1}}}'
     model:
       args:
       - --tensor-parallel-size

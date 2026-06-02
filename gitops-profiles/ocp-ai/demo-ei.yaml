@@ -19,8 +19,6 @@ spec:
     - /metadata/annotations/opendatahub.io~1hardware-profile-resource-version
     - /metadata/annotations/opendatahub.io~1connections
     - /metadata/finalizers
-    - /spec/predictor/minReplicas
-    - /spec/predictor/maxReplicas
     kind: InferenceService
   - group: serving.kserve.io
     jsonPointers:
