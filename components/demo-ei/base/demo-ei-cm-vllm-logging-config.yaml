@@ -11,14 +11,15 @@ data:
       "version": 1,
       "disable_existing_loggers": false,
       "formatters": {
-        "plain": {
-          "format": "%(levelname)s %(asctime)s %(name)s] %(message)s"
+        "json": {
+          "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+          "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(pathname)s %(lineno)d"
         }
       },
       "handlers": {
         "console": {
           "class": "logging.StreamHandler",
-          "formatter": "plain",
+          "formatter": "json",
           "level": "INFO",
           "stream": "ext://sys.stdout"
         }
