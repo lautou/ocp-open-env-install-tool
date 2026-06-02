@@ -12,4 +12,3 @@ spec:
     requests:
       storage: 300Gi
   storageClassName: gp3-csi
-  volumeMode: Filesystem
