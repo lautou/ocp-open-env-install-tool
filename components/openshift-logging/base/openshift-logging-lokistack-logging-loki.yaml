@@ -67,5 +67,11 @@ spec:
       tolerations:
         - key: node-role.kubernetes.io/infra
           operator: Exists
+  limits:
+    global:
+      ingestion:
+        # Increased from default 2MB/s (1x.pico) to handle verbose GPU/AI workload logs
+        ingestionRate: 10
+        ingestionBurstSize: 20
   tenants:
     mode: openshift-logging
