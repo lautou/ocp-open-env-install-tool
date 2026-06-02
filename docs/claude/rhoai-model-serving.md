@@ -187,3 +187,26 @@ To use `affinity` in the scheduler template, you must also provide the full cont
 - Or use EFS/S3 to avoid the AZ constraint entirely
 
 **EBS snapshot cross-AZ migration:** Very slow for large volumes (300 Gi = hours). Re-downloading from HuggingFace is faster (~34 min for 249 Go in a lab environment).
+
+---
+
+## LokiStack Rate Limits with GPU/AI Workloads
+
+Large AI workloads (vLLM, llm-d pods) generate very verbose logs that can exceed the default LokiStack ingestion rate for `1x.pico` deployments (2 MB/s).
+
+**Symptom:** `LokiTenantRateLimit` alert + 429 errors in Loki distributor logs:
+```
+ingestion rate limit exceeded for user infrastructure (limit: 2097152 bytes/sec)
+```
+
+**Fix:** Increase `ingestionRate` in the LokiStack spec (not a size upgrade):
+```yaml
+spec:
+  limits:
+    global:
+      ingestion:
+        ingestionRate: 10   # MB/s (default 2 for 1x.pico)
+        ingestionBurstSize: 20
+```
+
+Location: `components/openshift-logging/base/openshift-logging-lokistack-logging-loki.yaml`
