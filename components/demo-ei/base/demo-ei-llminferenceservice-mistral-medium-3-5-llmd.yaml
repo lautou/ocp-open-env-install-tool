@@ -16,9 +16,9 @@ spec:
   model:
     name: mistral-medium-3-5-llmd
     uri: pvc://mistral-medium-3-5-bf16/mistral-medium-3-5
-  # Default 0 replicas — scale up manually via GUI or CLI for demo
-  # ArgoCD ignores replicas field (see ignoreDifferences in demo-ei Application)
-  replicas: 0
+  # replicas intentionally omitted: ArgoCD won't touch it.
+  # Scale manually: oc patch llminferenceservice mistral-medium-3-5-llmd -n <ns> --type=merge -p '{"spec":{"replicas":1}}'
+  # Or via RHOAI GUI: Deployments → mistral-medium-3-5-llmd → Start/Stop
   router:
     gateway:
       refs:
