@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-logging-config
+  namespace: demo-ei
+  labels:
+    opendatahub.io/dashboard: "true"
+data:
+  logging_config.json: |
+    {
+      "version": 1,
+      "disable_existing_loggers": false,
+      "formatters": {
+        "plain": {
+          "format": "%(levelname)s %(asctime)s %(name)s] %(message)s"
+        }
+      },
+      "handlers": {
+        "console": {
+          "class": "logging.StreamHandler",
+          "formatter": "plain",
+          "level": "INFO",
+          "stream": "ext://sys.stdout"
+        }
+      },
+      "loggers": {
+        "vllm": {
+          "handlers": ["console"],
+          "level": "INFO",
+          "propagate": false
+        },
+        "uvicorn.access": {
+          "handlers": ["console"],
+          "level": "WARNING",
+          "propagate": false
+        }
+      },
+      "root": {
+        "handlers": ["console"],
+        "level": "WARNING"
+      }
+    }

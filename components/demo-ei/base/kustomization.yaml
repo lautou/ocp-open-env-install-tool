@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - cluster-namespace-demo-ei.yaml
+- demo-ei-cm-vllm-logging-config.yaml
 - demo-ei-inferenceservice-mistral-medium-3-5.yaml
 - demo-ei-job-patch-llamastack-config.yaml
 - demo-ei-llamastackdistribution-lsd-genai-playground.yaml

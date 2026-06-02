@@ -130,7 +130,9 @@ spec:
     containers:
     - env:
       - name: VLLM_ADDITIONAL_ARGS
-        value: --tensor-parallel-size 8
+        value: --tensor-parallel-size 8 --disable-access-log-for-endpoints /health,/metrics,/ping
+      - name: VLLM_LOGGING_CONFIG_PATH
+        value: /etc/vllm/logging_config.json
       name: main
       resources:
         limits:
@@ -141,7 +143,15 @@ spec:
           cpu: "48"
           memory: 320Gi
           nvidia.com/gpu: "8"
+      volumeMounts:
+      - mountPath: /etc/vllm
+        name: logging-config
+        readOnly: true
     tolerations:
     - effect: NoSchedule
       key: nvidia.com/gpu
       operator: Exists
+    volumes:
+    - configMap:
+        name: vllm-logging-config
+      name: logging-config
