@@ -9,6 +9,7 @@ spec:
   dashboardConfig:
     disableTracking: false
     genAiStudio: true
+    llmGatewayField: true
     modelAsService: true
   notebookController:
     enabled: true
