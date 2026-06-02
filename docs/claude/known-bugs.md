@@ -733,6 +733,38 @@ oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | b
 
 ---
 
+## Known Functional Bugs (No Alert Silence Required)
+
+Functional bugs that impact features but do not generate Prometheus alerts. No Alertmanager silence needed.
+
+---
+
+### 1. LlamaStack Config Generates http:// URL for LLMInferenceService (HTTPS), Breaking Gen AI Playground
+
+**JIRA:** [RHOAIENG-65719](https://redhat.atlassian.net/browse/RHOAIENG-65719)
+**Status:** Open
+**Affected versions:** RHOAI 3.4
+**Affected components:** Gen AI Studio Playground, LlamaStack, LLMInferenceService
+
+**Symptom:** When a `LLMInferenceService` model is added to the Gen AI Studio Playground, the model appears Ready and shows timing metrics (2-3s), but no response text is displayed. LlamaStack pod logs show `APIConnectionError: Connection error`.
+
+**Root cause:** The controller auto-generating the `llama-stack-config` ConfigMap uses `http://` scheme unconditionally. For `LLMInferenceService`, the kserve workload service (`<name>-kserve-workload-svc`) exposes **HTTPS on port 8000** (not HTTP). For standard `InferenceService`, HTTP on port 8080 is correct — this bug is specific to `LLMInferenceService`.
+
+**Workaround:**
+```bash
+NAMESPACE=<namespace>
+LLMISVC_NAME=<llmisvc-name>
+CURRENT=$(oc get configmap llama-stack-config -n $NAMESPACE -o jsonpath='{.data.config\.yaml}')
+UPDATED=$(echo "$CURRENT" \
+  | sed "s|http://${LLMISVC_NAME}-kserve-workload-svc|https://${LLMISVC_NAME}-kserve-workload-svc|g" \
+  | sed 's|tls_verify: ${env.VLLM_TLS_VERIFY:=true}|tls_verify: ${env.VLLM_TLS_VERIFY:=false}|g')
+oc patch configmap llama-stack-config -n $NAMESPACE --type=merge \
+  -p "{\"data\":{\"config.yaml\":$(echo "$UPDATED" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}}"
+oc rollout restart deployment/lsd-genai-playground -n $NAMESPACE
+```
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
