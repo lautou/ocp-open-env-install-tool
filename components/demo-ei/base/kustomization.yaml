@@ -3,6 +3,8 @@ kind: Kustomization
 resources:
 - cluster-namespace-demo-ei.yaml
 - demo-ei-inferenceservice-mistral-medium-3-5.yaml
+- demo-ei-job-patch-llamastack-config.yaml
+- demo-ei-llamastackdistribution-lsd-genai-playground.yaml
 - demo-ei-llminferenceservice-mistral-medium-3-5-llmd.yaml
 - demo-ei-pvc-mistral-medium-3-5-bf16.yaml
 - demo-ei-secret-mistral-medium-3-5-storage.yaml

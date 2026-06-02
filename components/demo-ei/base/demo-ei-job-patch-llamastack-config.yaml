@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    # Force=true allows Job re-run on sync (handles Job spec immutability)
+    argocd.argoproj.io/sync-options: Force=true
+  name: patch-llamastack-config-https
+  namespace: demo-ei
+spec:
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Waiting for llama-stack-config ConfigMap..."
+          until oc get configmap llama-stack-config -n demo-ei 2>/dev/null; do
+            sleep 10
+          done
+
+          echo "Patching llama-stack-config: http -> https for LLMInferenceService workload service..."
+          # Workaround for RHOAIENG-65719: controller generates http:// but LLMInferenceService
+          # kserve-workload-svc exposes HTTPS on port 8000
+          CURRENT=$(oc get configmap llama-stack-config -n demo-ei -o jsonpath='{.data.config\.yaml}')
+
+          # Only patch if http:// is still present (idempotent)
+          if echo "$CURRENT" | grep -q "http://.*kserve-workload-svc"; then
+            UPDATED=$(echo "$CURRENT" \
+              | sed 's|http://\(.*-kserve-workload-svc\)|https://\1|g' \
+              | sed 's|tls_verify: ${env.VLLM_TLS_VERIFY:=true}|tls_verify: ${env.VLLM_TLS_VERIFY:=false}|g')
+            oc patch configmap llama-stack-config -n demo-ei --type=merge \
+              -p "{\"data\":{\"config.yaml\":$(echo "$UPDATED" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}}"
+            echo "ConfigMap patched. Restarting lsd-genai-playground..."
+            oc rollout restart deployment/lsd-genai-playground -n demo-ei
+            echo "Done."
+          else
+            echo "ConfigMap already uses https://, no patch needed."
+          fi
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: patcher
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      restartPolicy: OnFailure
+      serviceAccountName: openshift-gitops-argocd-application-controller
