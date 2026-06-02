@@ -29,6 +29,8 @@ spec:
       args:
       - --tensor-parallel-size
       - "8"
+      - --disable-access-log-for-endpoints
+      - /health,/metrics,/ping
       modelFormat:
         name: vLLM
       name: ""

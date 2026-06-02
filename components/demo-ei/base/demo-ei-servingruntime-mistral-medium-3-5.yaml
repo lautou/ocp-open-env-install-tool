@@ -31,10 +31,20 @@ spec:
     env:
     - name: HF_HOME
       value: /tmp/hf_home
+    - name: VLLM_LOGGING_CONFIG_PATH
+      value: /etc/vllm/logging_config.json
     image: registry.redhat.io/rhaii/vllm-cuda-rhel9@sha256:ad06abf3bb5235ebb5b2df84cd1b9fd09e823f0ff2eebfc82bb4590275ccfe0b
     name: kserve-container
     ports:
     - containerPort: 8080
+    volumeMounts:
+    - mountPath: /etc/vllm
+      name: logging-config
+      readOnly: true
+  volumes:
+  - configMap:
+      name: vllm-logging-config
+    name: logging-config
   supportedModelFormats:
   - autoSelect: true
     name: vLLM
