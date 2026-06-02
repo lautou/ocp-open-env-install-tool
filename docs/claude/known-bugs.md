@@ -746,7 +746,7 @@ Functional bugs that impact features but do not generate Prometheus alerts. No A
 **Alert Name:** `KubeMemoryOvercommit`
 **Severity:** warning
 **JIRA:** N/A — expected behavior, not a bug
-**Status:** Silenced — by design
+**Status:** ⚠️ NOT silenced — visible in console, ignore manually when large LLM deployed
 
 **Context:** When a large LLM (e.g., Mistral Medium 3.5 128B) is deployed on a single p4d.24xlarge GPU node with `memory request: 320Gi`, the cluster's total memory requests exceed what remaining nodes can absorb if the GPU node fails. This triggers `KubeMemoryOvercommit`.
 
@@ -755,7 +755,9 @@ This is **expected and by design** for a GPU lab/demo environment:
 - No other node can absorb a 320Gi GPU workload anyway (no failover GPU node)
 - Fixing this would require a second p4d node (~$32/h) with no functional benefit for demos
 
-**Silence scope:** `alertname=KubeMemoryOvercommit, namespace=kube-system, severity=warning`
+**Why not silenced:** Silencing at cluster level would mask genuine memory pressure on worker nodes. Ignorable in GPU lab/demo context.
+
+**How to identify:** Alert description mentions ~45G overcommit = 320Gi LLM request on p4d node.
 
 ---
 
