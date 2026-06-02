@@ -254,6 +254,25 @@ Components use overlays for deployment variants. Common patterns:
 - ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
 - ✅ RHACM ClusterManagementAddons: Require `/spec/defaultConfigs` AND `/spec/installStrategy` (operator-managed) - 2026-04-08
 
+**⚠️ ignoreDifferences sur jsonPointers ne bloque PAS l'application lors du sync**
+
+`ignoreDifferences` empêche la **détection** du drift (ne montre pas OutOfSync) mais n'empêche **pas** l'application de la valeur du manifeste lors d'un sync (manuel ou selfHeal triggered).
+
+**Pattern correct pour laisser l'utilisateur contrôler un champ librement** (ex: `replicas`) :
+- ❌ NE PAS déclarer le champ dans le manifeste avec `ignoreDifferences` → le sync l'appliquera quand même
+- ✅ **Omettre complètement le champ du manifeste** → ArgoCD ne le touch jamais
+
+```yaml
+# ❌ MAUVAIS — selfHeal reset replicas à 0 à chaque sync
+spec:
+  replicas: 0  # dans le manifeste git
+# + ignoreDifferences /spec/replicas → ne protège PAS contre le sync
+
+# ✅ BON — ArgoCD ignore totalement le champ
+spec:
+  # replicas absent → utilisateur contrôle librement via GUI/CLI
+```
+
 **Excessive ignores are technical debt** - Test carefully before adding.
 
 ### ❌ Static Manifest + ignoreDifferences (DOES NOT WORK)
@@ -476,7 +495,9 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 - **ODF** - Dynamic Job with ConfigMap channel management
 - **RHCL (Kuadrant)** - 4 operators, OLM-generated names, complete observability stack
 - **ACK Route53** - Static Secret with CMP AWS credentials
-- **RHOAI** - DataScienceCluster, OdhDashboardConfig, MaaS Gateway
+- **RHOAI** - DataScienceCluster, OdhDashboardConfig, MaaS Gateway, LLMInferenceService (llm-d), Gen AI Playground
+
+**Model serving patterns** (InferenceService, LLMInferenceService, Playground, PVC labels, llm-d Gateway): See **[rhoai-model-serving.md](docs/claude/rhoai-model-serving.md)**
 
 **Troubleshooting components**: See [troubleshooting.md](docs/claude/troubleshooting.md)
 
