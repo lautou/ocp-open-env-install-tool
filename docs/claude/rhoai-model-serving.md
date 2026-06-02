@@ -210,3 +210,133 @@ spec:
 ```
 
 Location: `components/openshift-logging/base/openshift-logging-lokistack-logging-loki.yaml`
+
+---
+
+## vLLM Logging Configuration
+
+### Structured JSON Logging
+
+The `registry.redhat.io/rhaii/vllm-cuda-rhel9` image includes `pythonjsonlogger` as a **transitive dependency** of `opentelemetry-sdk` (a direct vLLM dependency). This is not documented or guaranteed by Red Hat — verify after each image upgrade.
+
+Configure JSON logging via `VLLM_LOGGING_CONFIG_PATH` pointing to a mounted ConfigMap:
+
+```yaml
+# ConfigMap (standard Python logging.config.dictConfig format)
+data:
+  logging_config.json: |
+    {
+      "version": 1,
+      "disable_existing_loggers": false,
+      "formatters": {
+        "json": {
+          "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+          "format": "%(asctime)s %(name)s %(levelname)s %(message)s %(pathname)s %(lineno)d"
+        }
+      },
+      "handlers": {
+        "console": {
+          "class": "logging.StreamHandler",
+          "formatter": "json",
+          "level": "INFO",
+          "stream": "ext://sys.stdout"
+        }
+      },
+      "loggers": {
+        "vllm": {"handlers": ["console"], "level": "INFO", "propagate": false},
+        "uvicorn.access": {"handlers": ["console"], "level": "WARNING", "propagate": false}
+      },
+      "root": {"handlers": ["console"], "level": "WARNING"}
+    }
+```
+
+### ⚠️ VLLM_LOGGING_CONFIG_PATH and --disable-access-log-for-endpoints are mutually exclusive
+
+vLLM's `get_uvicorn_log_config_dict()` returns immediately when `log_config_file` is set — the `--disable-access-log-for-endpoints` code path is never reached:
+
+```python
+if log_config is not None:
+    return log_config   # exits here — disable-access-log-for-endpoints never applied
+
+if args.disable_access_log_for_endpoints:
+    ...  # never reached
+```
+
+**Use `--disable-uvicorn-access-log` instead** — it works independently of `log_config`:
+
+```
+# ❌ Has no effect when VLLM_LOGGING_CONFIG_PATH is set
+--disable-access-log-for-endpoints /health,/metrics,/ping
+
+# ✅ Works regardless of log config
+--disable-uvicorn-access-log
+```
+
+### InferenceService vs LLMInferenceService — Protocol Difference
+
+| | `InferenceService` | `LLMInferenceService` |
+|---|---|---|
+| **Protocol** | HTTP | HTTPS (TLS, self-signed) |
+| **Port** | 8080 | 8000 |
+| **curl test** | `curl http://localhost:8080/v1/models` | `curl -sk https://localhost:8000/v1/models` |
+
+---
+
+## Tool Calling (Function Calling)
+
+### Always Use Both Args Together
+
+For Mistral models, tool calling requires **both** args — neither alone is sufficient:
+
+```
+--enable-auto-tool-choice   # activates tool call detection
+--tool-call-parser mistral  # parses Mistral's [TOOL_CALLS] token format
+```
+
+**`--enable-auto-tool-choice` alone** → vLLM detects tool intent but cannot parse → malformed responses
+
+**`--tool-call-parser mistral` alone** → parser configured but tool detection inactive → tools ignored
+
+**Validation test:**
+```bash
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"<name>","messages":[{"role":"user","content":"Calculate 7*8, use calculator tool"}],
+       "tools":[{"type":"function","function":{"name":"calculator","description":"Math",
+       "parameters":{"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"]}}}],
+       "tool_choice":"auto","max_tokens":100}'
+# Expected: finish_reason: tool_calls, tool_calls[0].function.name: "calculator"
+```
+
+---
+
+## LLMInferenceService — Stop/Start Lifecycle
+
+**Stop (frees GPUs immediately, preserves config):**
+```bash
+oc annotate llminferenceservice <name> -n <ns> serving.kserve.io/stop=true --overwrite
+```
+
+**Start (removes stop annotation):**
+```bash
+oc annotate llminferenceservice <name> -n <ns> serving.kserve.io/stop- --overwrite
+```
+
+**Why not scale replicas to 0?** Use the stop annotation — it's the official mechanism. Setting `replicas: 0` in the manifest causes ArgoCD selfHeal conflicts (see ArgoCD patterns in CLAUDE.md).
+
+**Known side effect:** While stopped, `odh-model-controller` logs continuous reconciliation errors (AuthPolicy targets deleted HTTPRoute). This is cosmetic only — [RHOAIENG-56131](https://redhat.atlassian.net/browse/RHOAIENG-56131), In Review.
+
+---
+
+## GPU MachineSet Autoscaling — Which One Triggers?
+
+The cluster autoscaler selects a MachineSet based on GPU count per node vs pod request:
+
+| Pod requests `nvidia.com/gpu` | T4 (4 GPU/node, g4dn.12xlarge) | A100 (8 GPU/node, p4d.24xlarge) | Triggered |
+|---|---|---|---|
+| 1–4 | ✅ can satisfy | ✅ can too | T4 (cheaper) |
+| 5–8 | ❌ insufficient | ✅ can satisfy | A100 only |
+
+**Prerequisite:** A `MachineAutoscaler` must exist for the target MachineSet **in the correct AZ**. If the AZ has no MachineAutoscaler, manual scaling is required (`oc scale machineset`).
+
+**AZ caveat:** p4d.24xlarge capacity is AZ-specific on AWS. Always verify which AZ has capacity before creating MachineSets — `InsufficientInstanceCapacity` errors will tell you which AZ to use instead.
