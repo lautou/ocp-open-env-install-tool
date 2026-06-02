@@ -26,12 +26,13 @@ A PostSync Job (`components/cluster-monitoring/base/openshift-monitoring-job-cre
 
 The Job creates 10-year silences for all known bugs documented below.
 
-### 1. mlflow-operator Broken Metrics Endpoint
+### 1. mlflow-operator Broken Metrics Endpoint ✅ FIXED — Silence removed
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - MLflow Operator
 **Namespace:** `redhat-ods-applications`
 **Service:** `mlflow-operator-controller-manager-metrics-service`
+**Status:** Fixed in RHOAI 3.4.EA2 ([RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791)). ServiceMonitor no longer exists. Silence removed from Alertmanager config (2026-06-02).
 
 **Issue:**
 The mlflow-operator ServiceMonitor targets a metrics endpoint that doesn't exist or is not properly exposed by the operator controller manager. This causes Prometheus to fail scraping, triggering continuous TargetDown alerts.
@@ -84,10 +85,11 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 2. llama-stack-k8s-operator PodDisruptionBudgetAtLimit
+### 2. llama-stack-k8s-operator PodDisruptionBudgetAtLimit ✅ FIXED — Silence removed
 
 **Alert Name:** `PodDisruptionBudgetAtLimit`
 **Component:** Red Hat OpenShift AI (RHOAI) - Llama Stack Operator
+**Status:** Fixed in RHOAI 3.4 ([RHAIENG-3783](https://redhat.atlassian.net/browse/RHAIENG-3783)). PDB now has desiredHealthy=0 (no disruption limit). Silence removed from Alertmanager config (2026-06-02).
 **Namespace:** `redhat-ods-applications`
 **PodDisruptionBudget:** `llama-stack-k8s-operator-controller-manager-pdb`
 

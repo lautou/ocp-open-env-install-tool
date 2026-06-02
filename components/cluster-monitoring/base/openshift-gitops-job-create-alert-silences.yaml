@@ -123,41 +123,7 @@ spec:
           START_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
           END_TIME=$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)
 
-          # 1. mlflow-operator TargetDown silence
-          MLFLOW_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
-              {"name": "service", "value": "mlflow-operator-controller-manager-metrics-service", "isRegex": false, "isEqual": true},
-              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: mlflow-operator ServiceMonitor targets non-existent metrics endpoint (JIRA: RHOAIENG-54791) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "mlflow-operator TargetDown" "$MLFLOW_PAYLOAD"
-
-          # 2. llama-stack PodDisruptionBudgetAtLimit silence
-          LLAMA_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "PodDisruptionBudgetAtLimit", "isRegex": false, "isEqual": true},
-              {"name": "poddisruptionbudget", "value": "llama-stack-k8s-operator-controller-manager-pdb", "isRegex": false, "isEqual": true},
-              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: llama-stack PDB with 1 replica (JIRA: RHAIENG-3783) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "llama-stack PodDisruptionBudgetAtLimit" "$LLAMA_PAYLOAD"
-
-          # 3. NooBaa database PodDisruptionBudgetAtLimit silence
+          # 1. NooBaa database PodDisruptionBudgetAtLimit silence
           NOOBAA_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
