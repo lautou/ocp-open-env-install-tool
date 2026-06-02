@@ -497,7 +497,9 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 - **ACK Route53** - Static Secret with CMP AWS credentials
 - **RHOAI** - DataScienceCluster, OdhDashboardConfig, MaaS Gateway, LLMInferenceService (llm-d), Gen AI Playground
 
-**Model serving patterns** (InferenceService, LLMInferenceService, Playground, PVC labels, llm-d Gateway): See **[rhoai-model-serving.md](docs/claude/rhoai-model-serving.md)**
+**Model serving patterns** (InferenceService, LLMInferenceService, Playground, PVC labels, llm-d Gateway, tool calling, JSON logging, stop annotation): See **[rhoai-model-serving.md](docs/claude/rhoai-model-serving.md)**
+
+**⚠️ vLLM config mutual exclusion:** `VLLM_LOGGING_CONFIG_PATH` and `--disable-access-log-for-endpoints` are mutually exclusive — use `--disable-uvicorn-access-log` instead when a log config file is set. See rhoai-model-serving.md for details.
 
 **Troubleshooting components**: See [troubleshooting.md](docs/claude/troubleshooting.md)
 
