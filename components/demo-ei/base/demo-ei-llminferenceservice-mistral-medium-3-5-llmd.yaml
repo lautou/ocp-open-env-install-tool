@@ -130,7 +130,7 @@ spec:
     containers:
     - env:
       - name: VLLM_ADDITIONAL_ARGS
-        value: --tensor-parallel-size 8 --disable-access-log-for-endpoints /health,/metrics,/ping
+        value: --tensor-parallel-size 8 --disable-uvicorn-access-log
       - name: VLLM_LOGGING_CONFIG_PATH
         value: /etc/vllm/logging_config.json
       name: main
