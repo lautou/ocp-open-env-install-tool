@@ -1,0 +1,147 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/genai-use-case: chat
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: mistral-medium-3-5-llmd
+    security.opendatahub.io/enable-auth: "false"
+  labels:
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: mistral-medium-3-5-llmd
+  namespace: demo-ei
+spec:
+  model:
+    name: mistral-medium-3-5-llmd
+    uri: pvc://mistral-medium-3-5-bf16/mistral-medium-3-5
+  # Default 0 replicas — scale up manually via GUI or CLI for demo
+  # ArgoCD ignores replicas field (see ignoreDifferences in demo-ei Application)
+  replicas: 0
+  router:
+    gateway:
+      refs:
+      - name: openshift-ai-inference
+        namespace: openshift-ingress
+    route: {}
+    scheduler:
+      # Full container spec required: controller does not merge defaults when template is provided
+      # See rhoai-model-serving.md for details on this controller behavior
+      template:
+        affinity:
+          podAffinity:
+            # Co-locate router-scheduler with vLLM pod on same node (required for EBS RWO PVC)
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: mistral-medium-3-5-llmd
+                  kserve.io/component: workload
+              topologyKey: kubernetes.io/hostname
+        tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+        containers:
+        - name: main
+          command:
+          - /app/epp
+          - --pool-name
+          - mistral-medium-3-5-llmd-inference-pool
+          - --pool-namespace
+          - demo-ei
+          - --zap-encoder
+          - json
+          - --grpc-port
+          - "9002"
+          - --grpc-health-port
+          - "9003"
+          - --enable-cert-reload=true
+          - --secure-serving=true
+          - --model-server-metrics-scheme=https
+          - --cert-path=/var/run/kserve/tls
+          args:
+          - --config-text
+          - |
+            apiVersion: inference.networking.x-k8s.io/v1alpha1
+            kind: EndpointPickerConfig
+            plugins:
+            - type: single-profile-handler
+            - type: queue-scorer
+            - type: prefix-cache-scorer
+            - type: max-score-picker
+            schedulingProfiles:
+            - name: default
+              plugins:
+              - pluginRef: queue-scorer
+                weight: 2
+              - pluginRef: prefix-cache-scorer
+                weight: 3
+              - pluginRef: max-score-picker
+          env:
+          - name: SSL_CERT_DIR
+            value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
+          image: registry.redhat.io/rhoai/odh-llm-d-inference-scheduler-rhel9@sha256:bddf686d6eaf1a607e1c697f58165d685944607cb4629648f27e56b2884e3de0
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          volumeMounts:
+          - mountPath: /var/run/kserve/tls
+            name: tls-certs
+            readOnly: true
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+        - name: tokenizer
+          image: registry.redhat.io/rhoai/odh-llm-d-kv-cache-rhel9@sha256:db4b79a17194574aeae3e702eb2740485c95f160166d2ea7b6cbab0a40cfe9e9
+          env:
+          - name: TOKENIZERS_DIR
+            value: /mnt/models
+          workingDir: /mnt/models
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          volumeMounts:
+          - mountPath: /tmp
+            name: tokenizer-tmp
+          - mountPath: /.cache
+            name: tokenizer-cache
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+          - mountPath: /mnt/models/base
+            name: kserve-pvc-source
+            readOnly: true
+            subPath: mistral-medium-3-5
+        volumes:
+        - name: tls-certs
+          secret:
+            secretName: mistral-medium-3-5-llmd-kserve-self-signed-certs
+        - name: tokenizer-uds
+          emptyDir: {}
+        - name: tokenizer-tmp
+          emptyDir: {}
+        - name: tokenizer-cache
+          emptyDir: {}
+        - name: kserve-pvc-source
+          persistentVolumeClaim:
+            claimName: mistral-medium-3-5-bf16
+  template:
+    containers:
+    - env:
+      - name: VLLM_ADDITIONAL_ARGS
+        value: --tensor-parallel-size 8
+      name: main
+      resources:
+        limits:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+        requests:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+    tolerations:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Exists
