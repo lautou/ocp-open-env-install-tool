@@ -14,6 +14,16 @@ spec:
     - /metadata/annotations
     kind: ConfigMap
     name: cluster-versions
+  - group: serving.kserve.io
+    jsonPointers:
+    - /metadata/annotations/opendatahub.io~1hardware-profile-resource-version
+    - /metadata/annotations/opendatahub.io~1connections
+    - /metadata/finalizers
+    kind: InferenceService
+  - group: serving.kserve.io
+    jsonPointers:
+    - /metadata/annotations
+    kind: ServingRuntime
   project: demo-ei
   source:
     path: components/demo-ei/overlays/default
