@@ -123,7 +123,24 @@ spec:
           START_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
           END_TIME=$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)
 
-          # 1. NooBaa database PodDisruptionBudgetAtLimit silence
+          # 1. KubeMemoryOvercommit — large LLM model serving (320Gi on p4d GPU node)
+          MEMORY_OVERCOMMIT_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "KubeMemoryOvercommit", "isRegex": false, "isEqual": true},
+              {"name": "namespace", "value": "kube-system", "isRegex": false, "isEqual": true},
+              {"name": "severity", "value": "warning", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Expected: cluster runs 128B LLM (320Gi request) on single p4d GPU node. Memory overcommit is by design for GPU lab/demo — no other node can absorb workload on failure. See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "KubeMemoryOvercommit LLM serving" "$MEMORY_OVERCOMMIT_PAYLOAD"
+
+          # 2. NooBaa database PodDisruptionBudgetAtLimit silence
           NOOBAA_PAYLOAD=$(cat <<EOF
           {
             "matchers": [

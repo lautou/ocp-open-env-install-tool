@@ -741,6 +741,24 @@ Functional bugs that impact features but do not generate Prometheus alerts. No A
 
 ---
 
+### 2. KubeMemoryOvercommit — Large LLM Model Serving on Single GPU Node
+
+**Alert Name:** `KubeMemoryOvercommit`
+**Severity:** warning
+**JIRA:** N/A — expected behavior, not a bug
+**Status:** Silenced — by design
+
+**Context:** When a large LLM (e.g., Mistral Medium 3.5 128B) is deployed on a single p4d.24xlarge GPU node with `memory request: 320Gi`, the cluster's total memory requests exceed what remaining nodes can absorb if the GPU node fails. This triggers `KubeMemoryOvercommit`.
+
+This is **expected and by design** for a GPU lab/demo environment:
+- The p4d node has 1.1 Ti allocatable RAM — far more than requested
+- No other node can absorb a 320Gi GPU workload anyway (no failover GPU node)
+- Fixing this would require a second p4d node (~$32/h) with no functional benefit for demos
+
+**Silence scope:** `alertname=KubeMemoryOvercommit, namespace=kube-system, severity=warning`
+
+---
+
 ### 1. LlamaStack Config Generates http:// URL for LLMInferenceService (HTTPS), Breaking Gen AI Playground
 
 **JIRA:** [RHOAIENG-65719](https://redhat.atlassian.net/browse/RHOAIENG-65719)
