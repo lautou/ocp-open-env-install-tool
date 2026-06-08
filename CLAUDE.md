@@ -521,6 +521,23 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 
 ## Development Workflow
 
+### Shell Script macOS Compatibility
+
+**RULE**: All scripts in the project root and `scripts/` must be compatible with macOS (bash 3.2, BSD sed/awk). **Exception**: `scripts/bastion_script.sh` runs exclusively on the Linux bastion — no macOS compat required.
+
+**Common macOS incompatibilities and fixes:**
+
+| Issue | macOS fails | Fix (portable) |
+|---|---|---|
+| `sed -i` in-place | `sed -i 's/foo/bar/' file` → error | `grep -v` + tmp file, or `sed -i.bak ... && rm .bak` |
+| Empty array with `set -u` | `"${EMPTY[@]}"` → unbound variable (bash 3.2) | Guard with `[ "${#arr[@]}" -gt 0 ]` |
+| `grep -P` (Perl regex) | Not available on macOS | Use `grep -E` (extended regex) |
+| `date -d` (GNU date) | Not available on macOS | Use `date -v` (macOS) or avoid |
+| `readlink -f` | Not available on macOS | Use `realpath` or `cd && pwd` |
+| `stat -c` (GNU stat format) | Not available on macOS | Use `stat -f` for macOS |
+
+**Test before committing** any new script on macOS or verify using shellcheck with a BSD-compat ruleset.
+
 ### ArgoCD Configuration Changes
 
 **CRITICAL**: After pushing GitOps configuration changes, ALWAYS immediately trigger sync on affected Applications.
