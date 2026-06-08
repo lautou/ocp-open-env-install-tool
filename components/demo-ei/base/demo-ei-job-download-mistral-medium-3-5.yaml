@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: download-mistral-medium-3-5
+  namespace: demo-ei
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.present
+                operator: In
+                values:
+                - "true"
+      containers:
+      - name: downloader
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          pip install -q huggingface_hub
+          mkdir -p /tmp/hf-cache
+          mkdir -p /models/mistral-medium-3-5
+          echo "Downloading mistralai/Mistral-Medium-3.5-128B (~267 GB)..."
+          hf download mistralai/Mistral-Medium-3.5-128B \
+            --local-dir /models/mistral-medium-3-5 \
+            --token "$HF_TOKEN"
+          echo "Download complete."
+          du -sh /models/mistral-medium-3-5/
+        env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hf-token
+              key: token
+        - name: TMPDIR
+          value: /tmp/hf-cache
+        resources:
+          requests:
+            cpu: "4"
+            memory: 8Gi
+          limits:
+            cpu: "8"
+            memory: 16Gi
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        - name: tmp
+          mountPath: /tmp
+      restartPolicy: OnFailure
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: mistral-medium-3-5-bf16
+      - name: tmp
+        emptyDir: {}

@@ -4,6 +4,7 @@ resources:
 - cluster-namespace-demo-ei.yaml
 - demo-ei-cm-vllm-logging-config.yaml
 - demo-ei-inferenceservice-mistral-medium-3-5.yaml
+- demo-ei-job-download-mistral-medium-3-5.yaml
 - redhat-ods-applications-hardwareprofile-p4d-8gpu.yaml
 - demo-ei-job-patch-llamastack-config.yaml
 - demo-ei-llamastackdistribution-lsd-genai-playground.yaml
