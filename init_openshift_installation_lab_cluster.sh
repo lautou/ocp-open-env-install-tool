@@ -90,7 +90,7 @@ SESSION_STATE_FILE="output/.bastion_session_${CONFIG_NAME}.info"
 PROVISIONING_STATE_FILE="output/.bastion_provisioning_${CONFIG_NAME}.info"
 
 generate_user_data() {
-  cat <<EOF | base64 -w 0
+  cat <<EOF | base64 | tr -d '\n'
 #!/bin/bash
 set -x
 exec > >(tee /var/log/cloud-init-output.log|logger -t user-data -s 2>/dev/console) 2>&1
