@@ -1,0 +1,35 @@
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/display-name: p4d-8gpu
+  name: p4d-8gpu
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+  - defaultCount: "48"
+    displayName: CPU
+    identifier: cpu
+    maxCount: "96"
+    minCount: "16"
+    resourceType: CPU
+  - defaultCount: 320Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 640Gi
+    minCount: 64Gi
+    resourceType: Memory
+  - defaultCount: 8
+    displayName: Accelerator
+    identifier: nvidia.com/gpu
+    maxCount: 8
+    minCount: 1
+    resourceType: Accelerator
+  scheduling:
+    node:
+      nodeSelector: {}
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+    type: Node
