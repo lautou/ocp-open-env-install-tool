@@ -20,7 +20,7 @@ echo ""
 count=0
 for file in gitops-profiles/*/kustomization.yaml; do
     if grep -q "repoURL=$OLD_URL" "$file"; then
-        sed -i "s|repoURL=$OLD_URL|repoURL=$NEW_URL|g" "$file"
+        sed -i'' "s|repoURL=$OLD_URL|repoURL=$NEW_URL|g" "$file"
         echo "  ✅ Updated: $file"
         ((count++))
     fi
