@@ -249,8 +249,8 @@ IAM_INSTANCE_PROFILE_NAME="ocp-bastion-profile-${CLUSTER_NAME}"
 
 # Remove AWS credentials from merged config (will be retrieved from Secrets Manager on bastion)
 echo "   Removing AWS credentials from merged config (stored in Secrets Manager)..."
-sed -i'' '/^AWS_ACCESS_KEY_ID=/d' "$MERGED_CONFIG_FILE"
-sed -i'' '/^AWS_SECRET_ACCESS_KEY=/d' "$MERGED_CONFIG_FILE"
+grep -v '^AWS_ACCESS_KEY_ID=' "$MERGED_CONFIG_FILE" > "${MERGED_CONFIG_FILE}.tmp" && mv "${MERGED_CONFIG_FILE}.tmp" "$MERGED_CONFIG_FILE"
+grep -v '^AWS_SECRET_ACCESS_KEY=' "$MERGED_CONFIG_FILE" > "${MERGED_CONFIG_FILE}.tmp" && mv "${MERGED_CONFIG_FILE}.tmp" "$MERGED_CONFIG_FILE"
 
 # Add Secrets Manager secret name to merged config
 echo "" >> "$MERGED_CONFIG_FILE"
