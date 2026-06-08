@@ -121,13 +121,13 @@ create_s3_bucket() {
 
   if [[ $bucket_prefix_length -lt 62 ]]; then
     for ((i=0; i < 62 - bucket_prefix_length - 1; i++)); do
-       bucket_suffix="${bucket_suffix}$(printf "\\x$(printf %x $((97 + RANDOM % 26)))")"
+       bucket_suffix="${bucket_suffix}$(printf "\\$(printf '%03o' $((97 + RANDOM % 26)))")"
     done
     bucket_name="$bucket_prefix-$bucket_suffix"
   elif [[ $bucket_prefix_length -gt 62 ]]; then
     bucket_prefix_truncated=${bucket_prefix::62}
     if [[ "$bucket_prefix_truncated" == *- ]]; then
-      bucket_name="${bucket_prefix::61}$(printf "\\x$(printf %x $((97 + RANDOM % 26)))")"
+      bucket_name="${bucket_prefix::61}$(printf "\\$(printf '%03o' $((97 + RANDOM % 26)))")"
     else
       bucket_name="$bucket_prefix_truncated"
     fi

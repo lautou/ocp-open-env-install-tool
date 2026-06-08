@@ -21,17 +21,17 @@ echo ""
 
 # Test helper functions
 pass() {
-  echo -e "  ${GREEN}✅ $1${NC}"
+  printf "%b\n" "  ${GREEN}✅ $1${NC}"
   PASSED=$((PASSED + 1))
 }
 
 fail() {
-  echo -e "  ${RED}❌ $1${NC}"
+  printf "%b\n" "  ${RED}❌ $1${NC}"
   FAILED=$((FAILED + 1))
 }
 
 info() {
-  echo -e "${YELLOW}$1${NC}"
+  printf "%b\n" "${YELLOW}$1${NC}"
 }
 
 # ============================================
@@ -184,7 +184,7 @@ test_wc_l_success() {
   info "Test 5: wc -l always returns valid output"
 
   # wc -l with matches
-  COUNT=$(echo -e "line1\nline2\nline3" | grep -o "line" | wc -l)
+  COUNT=$(printf "%b\n" "line1\nline2\nline3" | grep -o "line" | wc -l)
   if [ "$COUNT" = "3" ]; then
     pass "wc -l with matches: returns 3"
   else
@@ -329,15 +329,15 @@ test_oc_retry_infinite_loop
 echo "======================================"
 echo "Test Summary"
 echo "======================================"
-echo -e "${GREEN}Passed: $PASSED${NC}"
+printf "%b\n" "${GREEN}Passed: $PASSED${NC}"
 if [ $FAILED -gt 0 ]; then
-  echo -e "${RED}Failed: $FAILED${NC}"
+  printf "%b\n" "${RED}Failed: $FAILED${NC}"
   echo ""
-  echo -e "${RED}❌ TESTS FAILED${NC}"
+  printf "%b\n" "${RED}❌ TESTS FAILED${NC}"
   exit 1
 else
-  echo -e "${RED}Failed: $FAILED${NC}"
+  printf "%b\n" "${RED}Failed: $FAILED${NC}"
   echo ""
-  echo -e "${GREEN}✅ ALL TESTS PASSED${NC}"
+  printf "%b\n" "${GREEN}✅ ALL TESTS PASSED${NC}"
   exit 0
 fi
