@@ -16,6 +16,8 @@ spec:
     exposeRoute: false
   replicas: 1
   server:
+    distribution:
+      name: rh
     containerSpec:
       command:
       - /bin/sh
