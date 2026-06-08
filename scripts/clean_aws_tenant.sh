@@ -53,13 +53,14 @@ done
 
 echo "Checking and deleting previous CloudFormation stacks related to cluster '$CLUSTER_NAME'..."
 
-STAGE1_STACKS=("${NODEGROUP_STACKS[@]}")
+STAGE1_STACKS=()
+[ "${#NODEGROUP_STACKS[@]}" -gt 0 ] && STAGE1_STACKS+=("${NODEGROUP_STACKS[@]}")
 if [[ -n "$BOOTSTRAP_STACK" ]]; then STAGE1_STACKS+=("$BOOTSTRAP_STACK"); fi
 if [[ -n "$MASTERS_STACK" ]]; then STAGE1_STACKS+=("$MASTERS_STACK"); fi
 echo "--- Deleting Stage 1 CloudFormation Stacks (Nodegroups, Bootstrap, Masters) ---"
-delete_and_wait_stacks "${STAGE1_STACKS[@]}"
+[ "${#STAGE1_STACKS[@]}" -gt 0 ] && delete_and_wait_stacks "${STAGE1_STACKS[@]}"
 
-if [ ${#OTHER_CLUSTER_STACKS[@]} -gt 0 ]; then
+if [ "${#OTHER_CLUSTER_STACKS[@]}" -gt 0 ]; then
     echo "--- Deleting Other Cluster-Tagged CloudFormation Stacks ---"
     delete_and_wait_stacks "${OTHER_CLUSTER_STACKS[@]}"
 fi
