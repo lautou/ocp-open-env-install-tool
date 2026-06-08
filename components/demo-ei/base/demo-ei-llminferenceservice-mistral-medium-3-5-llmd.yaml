@@ -4,6 +4,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     opendatahub.io/genai-use-case: chat
+    opendatahub.io/hardware-profile-name: p4d-8gpu
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
     openshift.io/display-name: mistral-medium-3-5-llmd
     security.opendatahub.io/enable-auth: "false"
