@@ -734,6 +734,8 @@ cp -r day1_config day2_config pull-secret.txt "$UPLOAD_TO_BASTION_DIR"
 # Copy component files needed for Day 2 bootstrap
 mkdir -p "$UPLOAD_TO_BASTION_DIR/components/openshift-gitops-admin-config/base"
 cp components/openshift-gitops-admin-config/base/openshift-gitops-configmap-cmp-plugin.yaml \
+   components/openshift-gitops-admin-config/base/cluster-clusterrole-argocd-cmp-dns-reader.yaml \
+   components/openshift-gitops-admin-config/base/cluster-crb-argocd-cmp-dns-reader.yaml \
    "$UPLOAD_TO_BASTION_DIR/components/openshift-gitops-admin-config/base/"
 
 mkdir -p "$UPLOAD_TO_BASTION_DIR/day2_config/gitops"
