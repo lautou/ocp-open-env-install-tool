@@ -35,17 +35,105 @@ This OCP installation includes a rich set of optional Day 2 components deployed 
 
 ---
 
-## 📦 Prerequisites
+## 🚀 Quick Start — Step by Step
 
-* An active **AWS Blank Open Environment** service from the [Red Hat Demo Platform](https://demo.redhat.com).
-* A `pull-secret.txt` file from the [Red Hat Hybrid Cloud console](https://console.redhat.com/openshift/install). **Place this file in the root of the project.**
-* The following CLI tools installed on your workstation:
-    * `oc` (OpenShift Client)
-    * `git`
-    * `yq` (the [mikefarah/yq](https://github.com/mikefarah/yq) implementation)
-    * `podman` (for checking credentials)
-    * `aws` (AWS CLI)
-* If using Day 2 GitOps with private repositories, ensure you have your Git credentials ready in your configuration file.
+> **New user? Follow these steps in order. Skipping any step will break the installation.**
+
+### Step 1 — Fork or Clone the Repository
+
+**Option A: Use as-is (no customization)**
+```bash
+git clone https://github.com/lautou/ocp-open-env-install-tool.git
+cd ocp-open-env-install-tool
+```
+
+**Option B: Fork first (recommended — allows you to customize GitOps profiles)**
+1. Fork this repository on GitHub to your own org/account
+2. Clone your fork:
+```bash
+git clone https://github.com/<your-org>/ocp-open-env-install-tool.git
+cd ocp-open-env-install-tool
+```
+> ⚠️ If you forked, you **must** update `GIT_REPO_URL` in `config/common.config` (Step 3) to point to your fork — otherwise ArgoCD will sync from the upstream repo, not yours.
+
+### Step 2 — Always Pull Before Running
+
+Every time you run the installer, **pull the latest version first**. Running an outdated version can cause cryptic failures (missing RBAC, outdated CRDs, etc.):
+
+```bash
+git pull origin master   # or your target branch
+```
+
+### Step 3 — Create Your Configuration Files
+
+The `config/` directory does **not exist** by default — you must create it.
+
+```bash
+# Create the config directory
+mkdir -p config
+
+# 1. Create the shared common config (required)
+cp config_examples/common.config.example config/common.config
+
+# 2. Create a cluster-specific config (choose the profile matching your use case)
+cp config_examples/ocp-ai.config.example config/ocp-ai.config        # AI/ML profile
+# or
+cp config_examples/ocp-standard.config.example config/ocp-standard.config  # Standard profile
+```
+
+Then **edit both files** with your values:
+
+```bash
+# In config/common.config — mandatory fields:
+# - OCP_ADMIN_PASSWORD / OCP_NON_ADMIN_PASSWORD  → cluster passwords
+# - GIT_REPO_URL                                 → YOUR fork URL (if forked)
+# - GIT_REPO_REVISION                            → branch (default: master)
+
+# In config/ocp-ai.config — mandatory fields:
+# - CLUSTER_NAME         → e.g. "myocp"
+# - AWS_DEFAULT_REGION   → e.g. "eu-central-1"
+# - AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY → from RHDP environment
+# - RHDP_TOP_LEVEL_ROUTE53_DOMAIN → from RHDP environment (e.g. ".sandbox1234.opentlc.com")
+```
+
+### Step 4 — Add Your Pull Secret
+
+Download your pull secret from [console.redhat.com](https://console.redhat.com/openshift/install) and place it in the project root:
+
+```bash
+# The file must be named exactly pull-secret.txt at the project root
+ls pull-secret.txt   # verify it exists
+```
+
+### Step 5 — Install CLI Tools
+
+Ensure these tools are installed on your workstation:
+
+| Tool | Purpose | macOS install |
+|------|---------|--------------|
+| `oc` | OpenShift CLI | `brew install openshift-cli` |
+| `git` | Version control | pre-installed |
+| `yq` | YAML processing ([mikefarah/yq](https://github.com/mikefarah/yq)) | `brew install yq` |
+| `podman` | Registry credential check | `brew install podman` |
+| `aws` | AWS CLI | `brew install awscli` |
+
+### Step 6 — Run
+
+```bash
+./init_openshift_installation_lab_cluster.sh --config-file ocp-ai.config
+```
+
+> The installation takes **~1 hour**. If your connection drops, re-run the same command — the script auto-resumes.
+
+---
+
+## 📦 Prerequisites (Summary)
+
+* An active **AWS Blank Open Environment** from [Red Hat Demo Platform](https://demo.redhat.com)
+* `pull-secret.txt` in the project root
+* `config/common.config` and `config/<profile>.config` created and filled in
+* CLI tools: `oc`, `git`, `yq`, `podman`, `aws`
+* *(If forked)* `GIT_REPO_URL` updated in `config/common.config`
 
 ---
 
