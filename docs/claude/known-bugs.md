@@ -363,7 +363,7 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 6. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
+### 6. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404) ✅ FIXED — Silence removed
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
@@ -384,9 +384,7 @@ The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `s
 **Status:**
 - **JIRA:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) - TrustyAI ServiceMonitor has overly broad selector causing false TargetDown alerts
 - **Reported:** 2026-03-21
-- **Status:** New (unassigned)
-- **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
-- **Fix ETA:** TBD
+- **Status:** Fixed in RHOAI 3.4.x — `trustyai-metrics` ServiceMonitor no longer exists. Verified on RHOAI 3.4.1 / OCP 4.20.23 (2026-06-24).
 
 **Mitigation Applied:**
 
@@ -408,7 +406,7 @@ The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `s
 
 ---
 
-### 7. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
+### 7. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request) ✅ FIXED — Silence removed
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
@@ -437,10 +435,8 @@ ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies
 **Status:**
 - **JIRA:** [RHOAIENG-61424](https://redhat.atlassian.net/browse/RHOAIENG-61424) - TrustyAI ServiceMonitor uses scheme: http on TLS ports causing false TargetDown alerts
 - **Reported:** 2026-05-07
-- **Status:** New (unassigned)
-- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (distinct but same component)
-- **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
-- **Fix ETA:** TBD (likely addressed as part of TLS integration work RHOAIENG-61068)
+- **Status:** Fixed in RHOAI 3.4.x — `trustyai-service-operator-service-monitor` now uses explicit `port: metrics` + `/metrics` path. Verified on RHOAI 3.4.1 / OCP 4.20.23 (2026-06-24).
+- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (fixed simultaneously)
 
 **Mitigation Applied:**
 
