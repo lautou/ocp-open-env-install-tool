@@ -76,14 +76,9 @@ spec:
           echo "Waiting for new controller-manager pod to be ready..."
           sleep 10
           oc wait pods -n "$DWO_NAMESPACE" \
-            -l app.kubernetes.io/part-of=devworkspace-operator,app.kubernetes.io/component=devworkspace-controller \
+            -l app.kubernetes.io/name=devworkspace-controller \
             --for=condition=Ready \
-            --timeout=120s 2>/dev/null || \
-          oc wait pods -n "$DWO_NAMESPACE" \
-            -l app=devworkspace-controller \
-            --for=condition=Ready \
-            --timeout=120s 2>/dev/null || \
-          sleep 30
+            --timeout=120s 2>/dev/null || sleep 20
 
           # Verify webhook deployment now has nodeSelector
           echo "Verifying webhook deployment nodeSelector..."

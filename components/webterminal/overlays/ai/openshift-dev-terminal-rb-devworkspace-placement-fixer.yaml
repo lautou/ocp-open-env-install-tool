@@ -10,4 +10,3 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: devworkspace-placement-fixer
-  namespace: openshift-gitops
