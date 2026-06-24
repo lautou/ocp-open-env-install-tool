@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: devworkspace-placement-fixer
+  namespace: openshift-gitops
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      name: devworkspace-placement-fixer
+    spec:
+      serviceAccountName: devworkspace-placement-fixer
+      restartPolicy: Never
+      containers:
+      - name: placement-fixer
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          DWO_NAMESPACE="openshift-dev-terminal"
+
+          echo "==================================================="
+          echo "DevWorkspace Webhook Placement Fixer"
+          echo "Workaround: DWOC webhook nodeSelector not applied"
+          echo "at operator install time when deployed via GitOps"
+          echo "==================================================="
+
+          # Wait for DWOC to exist with nodeSelector configured
+          echo "Waiting for DevWorkspaceOperatorConfig with nodeSelector..."
+          while true; do
+            NODE_SELECTOR=$(oc get devworkspaceoperatorconfig devworkspace-operator-config \
+              -n "$DWO_NAMESPACE" \
+              -o jsonpath='{.config.webhook.nodeSelector}' 2>/dev/null || echo "")
+            if [ -n "$NODE_SELECTOR" ]; then
+              echo "✅ DWOC found with nodeSelector: $NODE_SELECTOR"
+              break
+            fi
+            echo "Waiting for DWOC nodeSelector..."
+            sleep 5
+          done
+
+          # Check if webhook deployment already has nodeSelector (idempotent)
+          EXISTING_SELECTOR=$(oc get deployment devworkspace-webhook-server \
+            -n "$DWO_NAMESPACE" \
+            -o jsonpath='{.spec.template.spec.nodeSelector}' 2>/dev/null || echo "")
+          if [ -n "$EXISTING_SELECTOR" ]; then
+            echo "✅ Webhook deployment already has nodeSelector: $EXISTING_SELECTOR"
+            echo "No action needed."
+            exit 0
+          fi
+
+          echo "Webhook deployment has no nodeSelector — triggering fix..."
+
+          # Delete controller-manager pod so OLM recreates it
+          # The new pod reads DWOC at startup and recreates the webhook deployment
+          # with the correct nodeSelector and tolerations
+          CM_POD=$(oc get pods -n "$DWO_NAMESPACE" \
+            --no-headers 2>/dev/null \
+            | grep devworkspace-controller-manager \
+            | awk '{print $1}')
+
+          if [ -z "$CM_POD" ]; then
+            echo "ERROR: devworkspace-controller-manager pod not found"
+            exit 1
+          fi
+
+          echo "Deleting controller-manager pod: $CM_POD"
+          oc delete pod "$CM_POD" -n "$DWO_NAMESPACE"
+
+          # Wait for new pod to be ready
+          echo "Waiting for new controller-manager pod to be ready..."
+          sleep 10
+          oc wait pods -n "$DWO_NAMESPACE" \
+            -l app.kubernetes.io/part-of=devworkspace-operator,app.kubernetes.io/component=devworkspace-controller \
+            --for=condition=Ready \
+            --timeout=120s 2>/dev/null || \
+          oc wait pods -n "$DWO_NAMESPACE" \
+            -l app=devworkspace-controller \
+            --for=condition=Ready \
+            --timeout=120s 2>/dev/null || \
+          sleep 30
+
+          # Verify webhook deployment now has nodeSelector
+          echo "Verifying webhook deployment nodeSelector..."
+          sleep 5
+          FINAL_SELECTOR=$(oc get deployment devworkspace-webhook-server \
+            -n "$DWO_NAMESPACE" \
+            -o jsonpath='{.spec.template.spec.nodeSelector}' 2>/dev/null || echo "")
+
+          if [ -n "$FINAL_SELECTOR" ]; then
+            echo "✅ SUCCESS: webhook deployment nodeSelector applied: $FINAL_SELECTOR"
+            exit 0
+          else
+            echo "❌ ERROR: webhook deployment still has no nodeSelector after fix"
+            exit 1
+          fi
