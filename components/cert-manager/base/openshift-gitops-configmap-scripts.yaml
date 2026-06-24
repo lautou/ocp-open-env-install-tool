@@ -6,7 +6,7 @@ metadata:
 data:
   watchdog-certmanager.sh: |
     #!/bin/bash
-    set -e
+    # No set -e: monitoring loop must survive individual command failures
 
     echo "===================================="
     echo "CertManager Watchdog Started"
@@ -22,9 +22,13 @@ data:
 
     # Track CR age for grace period
     CR_FIRST_SEEN=""
+    # Consecutive stuck counter — require 3 checks (~3 min) before acting
+    # Prevents false positives on transient reconciliation states (CM-412)
+    STUCK_COUNT=0
 
     # Infinite monitoring loop
     while true; do
+      {
       # Check if CertManager CR exists
       if oc get certmanager cluster &>/dev/null 2>&1; then
 
@@ -38,10 +42,9 @@ data:
         fi
 
         # Calculate CR age in seconds
+        CR_AGE=0
         if [ -n "$CR_CREATION" ]; then
-          CR_AGE=$(( $(date +%s) - $(date -d "$CR_CREATION" +%s) ))
-        else
-          CR_AGE=0
+          CR_AGE=$(( $(date +%s) - $(date -d "$CR_CREATION" +%s) )) || CR_AGE=0
         fi
 
         # Check deployment conditions
@@ -52,50 +55,58 @@ data:
         # Check if pods exist
         POD_COUNT=$(oc get pods -n cert-manager --no-headers 2>/dev/null | wc -l || echo "0")
 
-        # STUCK SCENARIO 1: CR exists but deploymentAvailable conditions are missing/empty
-        # This happens when operator is in a race condition and didn't create deployments
+        # STUCK SCENARIO 1: CR exists but deploymentAvailable conditions are missing/empty AND no pods
+        # Only act when CR is old enough (>120s) to rule out normal initialization
         if [ -z "$CONTROLLER_AVAILABLE" ] && [ -z "$CAINJECTOR_AVAILABLE" ] && [ -z "$WEBHOOK_AVAILABLE" ]; then
           if [ "$POD_COUNT" -eq 0 ] && [ "$CR_AGE" -gt 120 ]; then
-            echo "[$(date)] STUCK DETECTED: CR exists but NO conditions and NO pods (age: ${CR_AGE}s)"
-            echo "  This indicates operator race condition (CR exists but operator didn't reconcile)"
-            echo "  Controller condition: MISSING"
-            echo "  CAInjector condition: MISSING"
-            echo "  Webhook condition: MISSING"
-            echo "  Pod count: $POD_COUNT"
-            echo "  Deleting CertManager CR to trigger reconciliation..."
-
-            oc delete certmanager cluster --ignore-not-found
-            CR_FIRST_SEEN=""  # Reset tracking
-
-            echo "  CR deleted. Operator will recreate it."
+            STUCK_COUNT=$((STUCK_COUNT + 1))
+            echo "[$(date)] STUCK SCENARIO 1 (check $STUCK_COUNT/3): NO conditions, NO pods (age: ${CR_AGE}s)"
+            if [ "$STUCK_COUNT" -ge 3 ]; then
+              echo "  Confirmed stuck after 3 consecutive checks — deleting CR..."
+              oc delete certmanager cluster --ignore-not-found || true
+              CR_FIRST_SEEN=""
+              STUCK_COUNT=0
+              echo "  CR deleted. Operator will recreate it."
+            fi
           else
-            echo "[$(date)] CertManager initializing (age: ${CR_AGE}s, pods: $POD_COUNT) - waiting for conditions..."
+            STUCK_COUNT=0
+            echo "[$(date)] CertManager initializing (age: ${CR_AGE}s, pods: $POD_COUNT) - waiting..."
           fi
 
-        # STUCK SCENARIO 2: Conditions exist but at least one deployment is not available
+        # STUCK SCENARIO 2: Conditions exist but unavailable AND no pods running
+        # Guard on pod count: transient condition disappearance with running pods is NOT stuck
         elif [ "$CONTROLLER_AVAILABLE" != "True" ] || [ "$CAINJECTOR_AVAILABLE" != "True" ] || [ "$WEBHOOK_AVAILABLE" != "True" ]; then
-          echo "[$(date)] STUCK DETECTED: Deployment conditions show unavailable"
-          echo "  Controller: ${CONTROLLER_AVAILABLE:-MISSING}"
-          echo "  CAInjector: ${CAINJECTOR_AVAILABLE:-MISSING}"
-          echo "  Webhook: ${WEBHOOK_AVAILABLE:-MISSING}"
-          echo "  Pod count: $POD_COUNT"
-          echo "  Deleting CertManager CR to trigger reconciliation..."
-
-          oc delete certmanager cluster --ignore-not-found
-          CR_FIRST_SEEN=""  # Reset tracking
-
-          echo "  CR deleted. Operator will recreate it."
+          if [ "$POD_COUNT" -eq 0 ] && [ "$CR_AGE" -gt 120 ]; then
+            STUCK_COUNT=$((STUCK_COUNT + 1))
+            echo "[$(date)] STUCK SCENARIO 2 (check $STUCK_COUNT/3): conditions unavailable, NO pods"
+            echo "  Controller: ${CONTROLLER_AVAILABLE:-MISSING}"
+            echo "  CAInjector: ${CAINJECTOR_AVAILABLE:-MISSING}"
+            echo "  Webhook: ${WEBHOOK_AVAILABLE:-MISSING}"
+            if [ "$STUCK_COUNT" -ge 3 ]; then
+              echo "  Confirmed stuck after 3 consecutive checks — deleting CR..."
+              oc delete certmanager cluster --ignore-not-found || true
+              CR_FIRST_SEEN=""
+              STUCK_COUNT=0
+              echo "  CR deleted. Operator will recreate it."
+            fi
+          else
+            STUCK_COUNT=0
+            echo "[$(date)] CertManager conditions transient (Controller:${CONTROLLER_AVAILABLE:-MISSING} CAInjector:${CAINJECTOR_AVAILABLE:-MISSING} Webhook:${WEBHOOK_AVAILABLE:-MISSING} pods:$POD_COUNT) - monitoring..."
+          fi
 
         # HEALTHY: All conditions True
         else
+          STUCK_COUNT=0
           echo "[$(date)] CertManager healthy (all deployments available, pods: $POD_COUNT)"
         fi
 
       else
+        STUCK_COUNT=0
         # CR not found
         echo "[$(date)] CertManager CR not found (waiting for creation)"
-        CR_FIRST_SEEN=""  # Reset tracking
+        CR_FIRST_SEEN=""
       fi
+      } || echo "[$(date)] WARNING: loop iteration error (continuing)"
 
       # Check every 60 seconds
       sleep 60
