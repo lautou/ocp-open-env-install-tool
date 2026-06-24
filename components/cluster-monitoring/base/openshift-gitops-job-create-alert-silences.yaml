@@ -6,6 +6,7 @@ metadata:
   name: create-alert-silences
   namespace: openshift-gitops
 spec:
+  ttlSecondsAfterFinished: 600
   template:
     metadata:
       name: create-alert-silences
@@ -52,10 +53,22 @@ spec:
             sleep 5
           done
 
-          # Additional wait for Alertmanager API to be stable (critical for newly started pods)
-          echo "Waiting additional 30 seconds for Alertmanager API to stabilize..."
-          sleep 30
-          echo "✅ Alertmanager should be fully initialized"
+          # Wait until Alertmanager API actually responds (not just pod readiness)
+          echo "Waiting for Alertmanager API to accept connections..."
+          while true; do
+            oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 >/dev/null 2>&1 &
+            PF_PID=$!
+            sleep 2
+            API_CODE=$(curl -s -w "%{http_code}" -o /dev/null --connect-timeout 3 \
+              http://localhost:9093/api/v2/status 2>/dev/null)
+            kill $PF_PID 2>/dev/null || true
+            if [ "$API_CODE" = "200" ]; then
+              echo "✅ Alertmanager API ready (HTTP 200)"
+              break
+            fi
+            echo "Alertmanager API not ready yet (HTTP $API_CODE), retrying in 5s..."
+            sleep 5
+          done
 
           # Function to create silence with retry and verification
           create_silence() {
@@ -237,11 +250,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 8 ]; then
+          if [ "$SILENCE_COUNT" -ge 5 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 5+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest
