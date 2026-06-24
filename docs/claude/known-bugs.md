@@ -465,6 +465,31 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
+### 9. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
+
+**Alert Name:** `KubeDaemonSetMisScheduled`
+**Component:** OpenShift Insights — `insights-runtime-extractor` DaemonSet
+**Namespace:** `openshift-insights`
+
+**Issue:**
+The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: linux` (matches all nodes) but **no tolerations**. At cluster install time, the Insights operator deploys pods before Day 2 applies infra/storage taints. When the taint `node-role.kubernetes.io/infra=:NoSchedule` is added, existing pods are NOT evicted (`NoSchedule` ≠ `NoExecute`). The DaemonSet recalculates `desiredNumberScheduled=3` (untainted workers only), but the pod still runs on the infra node → `numberMisscheduled=1` → `KubeDaemonSetMisScheduled` alert fires.
+
+**Impact:** Cosmetic only — Insights service fully functional (`available=3/3`).
+
+**Root Cause:** Missing `tolerations: [{operator: Exists}]` in the DaemonSet spec.
+
+**Status:**
+- **JIRA:** [OCPBUGS-74211](https://redhat.atlassian.net/browse/OCPBUGS-74211) — New (unassigned), OCP 4.20.8
+- **Reported:** 2026-06-24
+- **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
+- **Fix ETA:** TBD — upstream fix adds `tolerations: [{operator: Exists}]`
+
+**Mitigation Applied:**
+- **Alertmanager Silence** (Automated via GitOps Job): matchers on `alertname=KubeDaemonSetMisScheduled`, `daemonset=insights-runtime-extractor`, `namespace=openshift-insights`
+- **Manual one-time fix:** `oc delete pod <misscheduled-pod> -n openshift-insights` — pod restarts on a valid worker
+
+---
+
 ### 8. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
 
 **ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
