@@ -762,6 +762,36 @@ Functional bugs that impact features but do not generate Prometheus alerts. No A
 
 ---
 
+### CRW-11483 — devworkspace-webhook-server DWOC nodeSelector not applied via GitOps
+
+**Component:** DevWorkspace Operator (DWO) v0.41.0
+**JIRA:** [CRW-11483](https://redhat.atlassian.net/browse/CRW-11483) — New / Major
+**Status:** Open (2026-06-24)
+**Affects:** Any OCP cluster with infra nodes deploying DWO via GitOps (ArgoCD)
+
+**Root cause:** Timing race — OLM installs operator at T=0, creates webhook deployment without nodeSelector. ArgoCD applies DWOC 2m43s later. The controller-manager webhook management runs ONLY at startup (no reconciliation loop). `oc rollout restart` is annulled by OLM (new ReplicaSet stays at 0 replicas).
+
+**Workaround:** `oc delete pod` on the controller-manager (NOT rollout restart). OLM recreates it, new startup reads DWOC, webhook deployment recreated with infra nodeSelector. A GitOps Job (`devworkspace-placement-fixer`) automates this in `components/webterminal/overlays/ai/`.
+
+**Related:** CRW-6232 (feature added), CRW-9297 (closed), CRW-7584 (affinity, To Do)
+
+---
+
+### SRVKP-12579 — tekton-results-postgres StatefulSet nodeSelector not propagated (SRVKP-9205 fix incomplete)
+
+**Component:** OpenShift Pipelines 1.22.3 — Tekton Results
+**JIRA:** [SRVKP-12579](https://redhat.atlassian.net/browse/SRVKP-12579) — New / Major
+**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — Release Pending (fix version: 1.20.5)
+**Status:** Open (2026-06-24)
+
+**Root cause:** SRVKP-9205 fix (PR #2909) propagated `nodeSelector`/`tolerations` to Tekton Results **Deployments** but NOT to the `tekton-results-postgres` **StatefulSet**. The TektonInstallerSet generates postgres with `nodeSelector=None` even when `TektonConfig.spec.config.nodeSelector` is set.
+
+**Observed:** `tekton-results-api`, `tekton-results-watcher`, `tekton-results-retention-policy-agent` → infra nodes ✅. `tekton-results-postgres-0` → worker node ❌.
+
+**No workaround implemented yet** — postgres remains on worker node until upstream fix.
+
+---
+
 ### 2. KubeMemoryOvercommit — Large LLM Model Serving on Single GPU Node
 
 **Alert Name:** `KubeMemoryOvercommit`
