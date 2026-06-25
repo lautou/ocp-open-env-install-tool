@@ -762,6 +762,29 @@ Functional bugs that impact features but do not generate Prometheus alerts. No A
 
 ---
 
+### CM-412 — CertManager CR does not create deployments when deployed via OpenShift GitOps
+
+**Component:** cert-manager-operator v1.18.1
+**JIRA:** [CM-412](https://redhat.atlassian.net/browse/CM-412) — In Progress / assigné à Bharath B (bhb@redhat.com)
+**Status:** Open since 2024-10-22, no fix version yet
+**Affects:** Any OCP cluster deploying cert-manager via GitOps (ArgoCD)
+
+**Two failure modes confirmed:**
+
+1. **Initial install (original CM-412):** ArgoCD creates CertManager CR → operator gets `StatusNotFound` → tries to CREATE CR (already exists) → race condition → deployments never created. All `*-deploymentDegraded=False` but `Ready Replicas=0`, no pods.
+
+2. **Running cluster (new, reported 2026-06-24):** On a healthy cluster (~5h uptime), `controller-deploymentAvailable` condition disappears transiently → `DefaultCertManager` reconciler fires → deletes all 3 deployments → tries to CREATE CR → `already exists` → reconciliation crashes → cert-manager completely headless.
+
+**Workaround (both modes):**
+```bash
+oc delete certmanager cluster --ignore-not-found
+# ~25 seconds later: all 3 pods Running again
+```
+
+**Our GitOps workaround:** Permanent watchdog Deployment (`watchdog-certmanager`) in `components/cert-manager/base/` — detects stuck state and deletes CR to trigger recovery. Fixed 2026-06-24: `set -e` bug + false positive on transient condition.
+
+---
+
 ### CRW-11483 — devworkspace-webhook-server DWOC nodeSelector not applied via GitOps
 
 **Component:** DevWorkspace Operator (DWO) v0.41.0
