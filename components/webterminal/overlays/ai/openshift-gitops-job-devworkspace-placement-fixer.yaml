@@ -56,7 +56,13 @@ spec:
 
           echo "Webhook deployment has no nodeSelector — triggering fix..."
 
-          # Delete controller-manager pod so OLM recreates it
+          # Step 1: Delete the webhook deployment to force full recreation
+          # (update path does not propagate DWOC nodeSelector — only creation does)
+          echo "Deleting webhook deployment to force recreation with nodeSelector..."
+          oc delete deployment devworkspace-webhook-server -n "$DWO_NAMESPACE" \
+            --ignore-not-found
+
+          # Step 2: Delete controller-manager pod so OLM recreates it
           # The new pod reads DWOC at startup and recreates the webhook deployment
           # with the correct nodeSelector and tolerations
           CM_POD=$(oc get pods -n "$DWO_NAMESPACE" \
@@ -72,16 +78,16 @@ spec:
           echo "Deleting controller-manager pod: $CM_POD"
           oc delete pod "$CM_POD" -n "$DWO_NAMESPACE"
 
-          # Wait for new pod to be ready
+          # Step 3: Wait for new controller-manager pod to be ready
           echo "Waiting for new controller-manager pod to be ready..."
           sleep 10
           oc wait pods -n "$DWO_NAMESPACE" \
             -l app.kubernetes.io/name=devworkspace-controller \
             --for=condition=Ready \
-            --timeout=120s 2>/dev/null || sleep 20
+            --timeout=120s 2>/dev/null || sleep 30
 
-          # Wait for webhook deployment to be recreated with nodeSelector (up to 90s)
-          echo "Waiting for webhook deployment nodeSelector to be applied..."
+          # Step 4: Wait for webhook deployment to be recreated with nodeSelector (up to 90s)
+          echo "Waiting for webhook deployment to be recreated with nodeSelector..."
           for i in $(seq 1 18); do
             FINAL_SELECTOR=$(oc get deployment devworkspace-webhook-server \
               -n "$DWO_NAMESPACE" \
@@ -90,7 +96,7 @@ spec:
               echo "✅ SUCCESS: webhook deployment nodeSelector applied: $FINAL_SELECTOR"
               exit 0
             fi
-            echo "  Attempt $i/18 — nodeSelector not yet applied, waiting 5s..."
+            echo "  Attempt $i/18 — waiting for webhook deployment recreation... (5s)"
             sleep 5
           done
           echo "❌ ERROR: webhook deployment still has no nodeSelector after 90s"
