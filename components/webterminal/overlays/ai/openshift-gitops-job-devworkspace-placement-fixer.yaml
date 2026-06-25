@@ -80,17 +80,18 @@ spec:
             --for=condition=Ready \
             --timeout=120s 2>/dev/null || sleep 20
 
-          # Verify webhook deployment now has nodeSelector
-          echo "Verifying webhook deployment nodeSelector..."
-          sleep 5
-          FINAL_SELECTOR=$(oc get deployment devworkspace-webhook-server \
-            -n "$DWO_NAMESPACE" \
-            -o jsonpath='{.spec.template.spec.nodeSelector}' 2>/dev/null || echo "")
-
-          if [ -n "$FINAL_SELECTOR" ]; then
-            echo "✅ SUCCESS: webhook deployment nodeSelector applied: $FINAL_SELECTOR"
-            exit 0
-          else
-            echo "❌ ERROR: webhook deployment still has no nodeSelector after fix"
-            exit 1
-          fi
+          # Wait for webhook deployment to be recreated with nodeSelector (up to 90s)
+          echo "Waiting for webhook deployment nodeSelector to be applied..."
+          for i in $(seq 1 18); do
+            FINAL_SELECTOR=$(oc get deployment devworkspace-webhook-server \
+              -n "$DWO_NAMESPACE" \
+              -o jsonpath='{.spec.template.spec.nodeSelector}' 2>/dev/null || echo "")
+            if [ -n "$FINAL_SELECTOR" ]; then
+              echo "✅ SUCCESS: webhook deployment nodeSelector applied: $FINAL_SELECTOR"
+              exit 0
+            fi
+            echo "  Attempt $i/18 — nodeSelector not yet applied, waiting 5s..."
+            sleep 5
+          done
+          echo "❌ ERROR: webhook deployment still has no nodeSelector after 90s"
+          exit 1
