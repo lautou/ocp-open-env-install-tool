@@ -5,13 +5,24 @@ resources:
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-namespace-external-db-maas.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
+- external-db-maas-deployment-postgresql.yaml
+- external-db-maas-pvc-postgresql.yaml
+- external-db-maas-rb-maas-db-secret.yaml
+- external-db-maas-role-maas-db-secret.yaml
+- external-db-maas-secret-postgresql-credentials.yaml
+- external-db-maas-service-postgresql.yaml
 - openshift-gitops-job-delete-rhoai-resources.yaml
+- openshift-gitops-job-maas-db-secret.yaml
+- openshift-gitops-sa-maas-db-secret.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - openshift-ingress-gateway-openshift-ai-inference.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
+- redhat-ods-applications-rb-maas-db-secret.yaml
+- redhat-ods-applications-role-maas-db-secret.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
 replacements:
