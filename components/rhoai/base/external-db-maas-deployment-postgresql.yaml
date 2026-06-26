@@ -30,7 +30,7 @@ spec:
             secretKeyRef:
               key: POSTGRESQL_DATABASE
               name: maas-postgresql-credentials
-        image: registry.redhat.io/rhel9/postgresql-17:latest
+        image: registry.redhat.io/rhel9/postgresql-16:9.7
         livenessProbe:
           exec:
             command:
