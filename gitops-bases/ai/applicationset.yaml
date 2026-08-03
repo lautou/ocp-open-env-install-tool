@@ -17,7 +17,7 @@ spec:
         item: nvidia-gpu-operator
       - branch: master
         item: rh-connectivity-link
-      - branch: master
+      - branch: benchmark-test
         item: rhoai
   template:
     metadata:
