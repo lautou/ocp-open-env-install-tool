@@ -11,10 +11,15 @@ show_usage() {
   echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
   echo "  Supports resuming sessions, multi-configuration, and parallel executions."
   echo ""
+  echo "  If --config-file is omitted, config/ocp-standard.config is used and a notice"
+  echo "  is printed. Before any prerequisite check runs, the tool prints every variable"
+  echo "  from common.config and the selected config file (secrets masked) and asks for"
+  echo "  confirmation, unless -y/--yes is passed."
+  echo ""
   echo "Options:"
   echo "  -h, --help         Show this help message and exit"
   echo "  --config-file      Specify a configuration file (looks in 'config/' directory)"
-  echo "  -y, --yes          Skip confirmation prompt (for automation)"
+  echo "  -y, --yes          Skip the configuration confirmation prompt (for automation)"
   echo ""
   echo "Examples:"
   echo "  $(basename "$0")                                   # Uses config/ocp-standard.config"
@@ -60,6 +65,7 @@ done
 CONFIG_DIR="config"
 
 if [[ -z "$CONFIG_ARG" ]]; then
+    echo "ℹ️  No --config-file specified. Defaulting to $CONFIG_DIR/ocp-standard.config"
     TARGET_CONFIG="$CONFIG_DIR/ocp-standard.config"
 else
     # Check if file exists as provided (absolute path)
@@ -162,6 +168,21 @@ retrieve_logs_and_summary() {
   fi
 }
 
+# Prints every KEY=VALUE assignment line from a config file, masking the value
+# for any key whose name suggests a secret (KEY/SECRET/TOKEN/PASSWORD).
+print_config_file_vars() {
+  local file="$1" line key
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
+    key="${BASH_REMATCH[1]}"
+    if [[ "$key" =~ (KEY|SECRET|TOKEN|PASSWORD) ]]; then
+      echo "  ${key}=****************"
+    else
+      echo "  ${line}"
+    fi
+  done < "$file"
+}
+
 # --- 3. ROBUST SESSION MANAGEMENT (INSTALLATION PHASE) ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
@@ -257,30 +278,46 @@ echo "" >> "$MERGED_CONFIG_FILE"
 echo "# AWS Secrets Manager Configuration" >> "$MERGED_CONFIG_FILE"
 echo "SECRETS_MANAGER_SECRET_NAME=\"$SECRETS_MANAGER_SECRET_NAME\"" >> "$MERGED_CONFIG_FILE"
 
-echo
-echo "------------------------------------"
-echo "Configuration variables (Merged Config: $CONFIG_NAME)"
-echo "------------------------------------"
-echo "INSTALL_TYPE=$INSTALL_TYPE"
-echo "OPENSHIFT_VERSION=$OPENSHIFT_VERSION"
-echo "RHDP_TOP_LEVEL_ROUTE53_DOMAIN=$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
-echo "CLUSTER_NAME=$CLUSTER_NAME"
-echo "AWS_ACCESS_KEY_ID=****************"
-echo "AWS_SECRET_ACCESS_KEY=****************"
-echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION"
-echo "AWS_INSTANCE_TYPE_CONTROLPLANE_NODES=$AWS_INSTANCE_TYPE_CONTROLPLANE_NODES"
-echo "AWS_INSTANCE_TYPE_COMPUTE_NODES=$AWS_INSTANCE_TYPE_COMPUTE_NODES"
-echo "AWS_INSTANCE_TYPE_INFRA_NODES=$AWS_INSTANCE_TYPE_INFRA_NODES"
-echo "AWS_INSTANCE_TYPE_STORAGE_NODES=$AWS_INSTANCE_TYPE_STORAGE_NODES"
-echo "GIT_CREDENTIALS_TEMPLATE_URL=$GIT_CREDENTIALS_TEMPLATE_URL"
-echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_NAME=****************"
-echo "GIT_CREDENTIALS_TEMPLATE_TOKEN_SECRET=****************"
-echo "GIT_REPO_URL=$GIT_REPO_URL"
-echo "GIT_REPO_REVISION=${GIT_REPO_REVISION:-HEAD}"
-echo "GIT_REPO_TOKEN_NAME=****************"
-echo "GIT_REPO_TOKEN_SECRET=****************"
-echo "OCP_DOWNLOAD_BASE_URL=$OCP_DOWNLOAD_BASE_URL"
-echo "------------------------------------"
+# --- CONFIGURATION RECAP & CONFIRMATION (before any prerequisite checks) ---
+echo ""
+echo "=========================================="
+echo "OpenShift Cluster Installation"
+echo "=========================================="
+echo "Cluster Name:    $CLUSTER_NAME"
+echo "AWS Region:      $AWS_DEFAULT_REGION"
+echo "Config File:     $TARGET_CONFIG"
+echo "GitOps Profile:  $GITOPS_PROFILE_PATH"
+echo "Install Type:    $INSTALL_TYPE"
+echo ""
+echo "------------------------------------------"
+echo "Full configuration (common.config + $CONFIG_NAME.config)"
+echo "------------------------------------------"
+if [[ -f "$COMMON_CONFIG" ]]; then
+    echo "# $COMMON_CONFIG"
+    print_config_file_vars "$COMMON_CONFIG"
+    echo ""
+fi
+echo "# $TARGET_CONFIG"
+print_config_file_vars "$TARGET_CONFIG"
+echo "------------------------------------------"
+
+if [[ "$AUTO_CONFIRM" != "true" ]]; then
+    echo ""
+    echo "⚠️  WARNING: This will DELETE all existing AWS resources"
+    echo "    in the target tenant before installation:"
+    echo "    - VPCs, Subnets, Security Groups"
+    echo "    - EC2 Instances, Load Balancers"
+    echo "    - Route53 Records, S3 Buckets"
+    echo "    - IAM Roles, Secrets Manager Secrets"
+    echo ""
+    read -p "Is this configuration correct? Proceed with installation? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
+    echo ""
+fi
 
 echo "Check if aws CLI is installed..."
 if ! hash aws 2>/dev/null; then
@@ -586,34 +623,6 @@ if [[ -f "$PROVISIONING_STATE_FILE" ]]; then
 fi
 
 if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
-    # User confirmation before destructive operation
-    if [[ "$AUTO_CONFIRM" != "true" ]]; then
-        echo ""
-        echo "=========================================="
-        echo "OpenShift Cluster Installation"
-        echo "=========================================="
-        echo "Cluster Name:    $CLUSTER_NAME"
-        echo "AWS Region:      $AWS_DEFAULT_REGION"
-        echo "Config File:     $TARGET_CONFIG"
-        echo "GitOps Profile:  $GITOPS_PROFILE_PATH"
-        echo "Install Type:    $INSTALL_TYPE"
-        echo ""
-        echo "⚠️  WARNING: This will DELETE all existing AWS resources"
-        echo "    in the target tenant before installation:"
-        echo "    - VPCs, Subnets, Security Groups"
-        echo "    - EC2 Instances, Load Balancers"
-        echo "    - Route53 Records, S3 Buckets"
-        echo "    - IAM Roles, Secrets Manager Secrets"
-        echo ""
-        read -p "Proceed with installation? [y/N] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Installation cancelled."
-            exit 0
-        fi
-        echo ""
-    fi
-
     echo "Check and clean the AWS tenant..."
     ./scripts/clean_aws_tenant.sh "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY" "$AWS_DEFAULT_REGION" "$CLUSTER_NAME" "$RHDP_TOP_LEVEL_ROUTE53_DOMAIN"
 
