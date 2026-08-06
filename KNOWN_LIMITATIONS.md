@@ -188,6 +188,17 @@ The following operators lack infra node placement configuration capabilities:
   - Controller-manager deployment pods do NOT respect infra placement
   - Detailed ticket documentation: `JIRA-LeaderWorkerSet-InfraNodes.md`
 
+#### JobSet Operator
+- **JIRA:** [RHOAIENG-55981](https://issues.redhat.com/browse/RHOAIENG-55981) — same bug class as Leader Worker Set Operator above; no dedicated JobSet ticket filed yet
+- **Status:** Confirmed reproduced by live testing on an OCP sandbox cluster (2026-08-06)
+- **Impact:** `jobset-controller-manager` deployment runs on worker nodes instead of infra nodes
+- **Affected Versions:** OpenShift 4.20, 4.22; JobSet Operator v1.0.0
+- **Current CR Spec:** Same `operator.openshift.io/v1` `JobSetOperator` shape as `LeaderWorkerSetOperator` — only supports `logLevel`, `operatorLogLevel`, `managementState`, `observedConfig`, `unsupportedConfigOverrides`
+- **Workaround:** None available (same limitation as Leader Worker Set Operator)
+- **Notes:**
+  - Operator Subscription pod (`jobset-operator`) correctly landed on an infra node with the expected nodeSelector/tolerations (configured in Subscription spec.config)
+  - `jobset-controller-manager` deployment has empty `nodeSelector`/`tolerations` and landed on a plain worker node — verified via `oc get pod -n openshift-jobset-operator -o wide` + node role check
+
 #### OpenShift Builds
 - **JIRA:** [RFE-8720](https://issues.redhat.com/browse/RFE-8720)
 - **Title:** "Builds for RH Openshift: Allow node-selector and taints configuration for build operator components"

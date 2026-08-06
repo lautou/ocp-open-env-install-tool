@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../common
+- cluster-jobsetoperator-cluster.yaml
+- cluster-namespace-openshift-jobset-operator.yaml
+- openshift-jobset-operator-operatorgroup-openshift-jobset-operator.yaml
+- openshift-jobset-operator-subscription-openshift-jobset-operator.yaml
+replacements:
+- source:
+    fieldPath: data.jobset
+    kind: ConfigMap
+    name: cluster-versions
+  targets:
+  - fieldPaths:
+    - spec.channel
+    select:
+      kind: Subscription
+      name: job-set

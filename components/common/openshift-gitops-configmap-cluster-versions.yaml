@@ -43,6 +43,7 @@ data:
   odf: "stable-4.20"
 
   # AI
+  jobset: "stable-v1.0"
   kueue: "stable-v1.2"
   lws: "stable-v1.0"
   nvidia-gpu-operator: "v26.3"
