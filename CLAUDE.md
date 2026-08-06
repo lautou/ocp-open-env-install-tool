@@ -479,6 +479,8 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 - ✅ Any cluster where RHACM might be added later
 - ✅ Defensive coding (prevents future breakage)
 
+**Same collision class, different resource**: `application` is also ambiguous — `app.k8s.io/v1beta1` (unrelated, typically empty) vs ArgoCD's own `argoproj.io/v1alpha1`. `oc get application -n openshift-gitops` can silently return "No resources found" even when every ArgoCD Application is healthy. Always use `oc get application.argoproj.io` when checking ArgoCD state from the CLI.
+
 **See**: [jobs.md](docs/claude/jobs.md) "Best Practices" and [troubleshooting.md](docs/claude/troubleshooting.md) "Job Stuck in Infinite Loop"
 
 ## Component Notes
