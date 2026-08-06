@@ -7,7 +7,7 @@ spec:
   generators:
   - list:
       elements:
-      - branch: benchmark-test
+      - branch: master
         item: jobset
       - branch: master
         item: kueue
