@@ -815,6 +815,36 @@ oc delete certmanager cluster --ignore-not-found
 
 ---
 
+### OCPBUGS-105277 — Cluster autoscaler over-provisions a second GPU node before device-plugin capacity appears
+
+**Component:** Cluster Autoscaler (cluster-autoscaler 1.33.0)
+**JIRA:** [OCPBUGS-105277](https://redhat.atlassian.net/browse/OCPBUGS-105277) — New
+**Status:** Open since 2026-08-06, no fix version yet
+**Affects:** Any OCP cluster with a GPU MachineSet scaled from 0 via cluster-autoscaler + NVIDIA GPU Operator (e.g. `myocp-xvl7h-gpu-*`)
+
+**Root cause:** A GPU node registers `Ready` (kubelet up) several minutes before the GPU Operator finishes installing drivers and the device plugin advertises `nvidia.com/gpu` in `.status.allocatable`. Cluster-autoscaler re-evaluates the still-pending pod against the "Ready but GPU-less" node, concludes it doesn't fit, and immediately scales the MachineSet again — provisioning a real, billed second GPU instance (`g4dn.12xlarge`) that sits idle. Confirmed via live reproduction: MachineSet scales 0→1 at T+0, node registers ~T+3m30s, pod flips back to unschedulable ~T+4m15s, cluster-autoscaler scales 1→2 at ~T+4m16s.
+
+Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194](https://bugzilla.redhat.com/show_bug.cgi?id=1943194), already present on the GPU MachineSet template) only prevents mis-simulation during the scale-from-zero/unregistered phase — confirmed correct in logs (no premature scale-up while the node is still unregistered). It does not cover this post-registration race. Also tested `ClusterAutoscaler.spec.scaleUp.newPodScaleUpDelay` as a possible mitigation — confirmed via live test that it does not help (delays only the first scale-up, not the second).
+
+**No workaround implemented.** `MachineAutoscaler.spec.maxReplicas: 2` on the GPU node group already bounds the blast radius to at most one wasted extra node, never worse. Dropping `maxReplicas` to 1 would eliminate the wasted node entirely for single-GPU-pod workloads, but was deliberately left at 2 to preserve the ability to scale to 2 concurrent GPU nodes if a benchmark ever needs it — revisit if this recurs often enough to change that trade-off.
+
+---
+
+### RHOAIENG-81202 — LLMInferenceService+LeaderWorkerSet Ready stuck at Progressing
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.4.2 — KServe / LLMInferenceService controller
+**JIRA:** [RHOAIENG-81202](https://redhat.atlassian.net/browse/RHOAIENG-81202) — New
+**Status:** Open since 2026-08-05, no fix version yet
+**Related:** [RHOAIENG-70416](https://redhat.atlassian.net/browse/RHOAIENG-70416) — same bug class, fixed upstream via kserve/kserve#5703 for the older `InferenceService.workerSpec` path (targeted RHOAI 3.5 GA, not yet released) — that fix does not cover the newer `LLMInferenceService`+`LeaderWorkerSet` reconciler
+
+**Issue:** Deploying an `LLMInferenceService` with `spec.worker` set (triggers a `LeaderWorkerSet`-backed multi-node deployment) can leave `LLMInferenceService.status` conditions stuck at `Ready=Progressing` indefinitely, even after the underlying `LeaderWorkerSet` reports `Available: True` and all leader/worker pods are `Running`/`Ready`. Observed stuck for 9+ minutes with no further reconciliation.
+
+**Root cause:** `pkg/controller/v1alpha2/llmisvc/controller.go` gates its `.Owns(&LeaderWorkerSet{})` watch registration behind a one-time `IsCrdAvailable()` check performed at controller-manager startup. If that check runs before the `LeaderWorkerSet` CRD is fully established/discoverable (plausible during a fresh install or operator-install ordering), the watch is never registered for that process's lifetime — status changes on the owned `LeaderWorkerSet` never trigger a re-reconcile of the parent `LLMInferenceService`.
+
+**Workaround:** annotate the `LLMInferenceService` to force a fresh reconcile — resolves `Ready` to `True` immediately, confirming the underlying workload was already healthy.
+
+---
+
 ### 2. KubeMemoryOvercommit — Large LLM Model Serving on Single GPU Node
 
 **Alert Name:** `KubeMemoryOvercommit`
