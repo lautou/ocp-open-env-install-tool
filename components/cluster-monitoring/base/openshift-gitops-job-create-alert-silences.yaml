@@ -251,6 +251,23 @@ spec:
           )
           create_silence "insights-runtime-extractor KubeDaemonSetMisScheduled" "$INSIGHTS_DS_PAYLOAD"
 
+          # 10. TrustyAI ServiceMonitor overly broad selector matches operator's own metrics service
+          TRUSTYAI_OPERATOR_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
+              {"name": "service", "value": "trustyai-service-operator.*metrics-service", "isRegex": true, "isEqual": true},
+              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: TrustyAI trustyai-metrics ServiceMonitor overly broad selector matches operator's own service (JIRA: RHOAIENG-54605) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "TrustyAI ServiceMonitor overly broad selector" "$TRUSTYAI_OPERATOR_PAYLOAD"
+
           echo ""
           echo "================================================"
           echo "Verifying all silences are active..."
@@ -267,11 +284,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 6 ]; then
+          if [ "$SILENCE_COUNT" -ge 8 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 6+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest

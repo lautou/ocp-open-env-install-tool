@@ -26,126 +26,7 @@ A PostSync Job (`components/cluster-monitoring/base/openshift-monitoring-job-cre
 
 The Job creates 10-year silences for all known bugs documented below.
 
-### 1. mlflow-operator Broken Metrics Endpoint ✅ FIXED — Silence removed
-
-**Alert Name:** `TargetDown`
-**Component:** Red Hat OpenShift AI (RHOAI) - MLflow Operator
-**Namespace:** `redhat-ods-applications`
-**Service:** `mlflow-operator-controller-manager-metrics-service`
-**Status:** Fixed in RHOAI 3.4.EA2 ([RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791)). ServiceMonitor no longer exists. Silence removed from Alertmanager config (2026-06-02).
-
-**Issue:**
-The mlflow-operator ServiceMonitor targets a metrics endpoint that doesn't exist or is not properly exposed by the operator controller manager. This causes Prometheus to fail scraping, triggering continuous TargetDown alerts.
-
-**Impact:**
-- False-positive TargetDown alerts
-- No actual impact on MLflow functionality
-- Operator functions normally despite missing metrics
-
-**Root Cause:**
-Upstream bug in mlflow-operator v2.0.0 - ServiceMonitor configuration doesn't match actual controller manager endpoints.
-
-**Status:**
-- **JIRA:** [RHOAIENG-54791](https://redhat.atlassian.net/browse/RHOAIENG-54791) - mlflow-operator ServiceMonitor targets non-existent metrics endpoint causing continuous TargetDown alerts
-- **Reported:** Red Hat internal bug tracker
-- **Workaround:** Alert routed to null receiver + Alertmanager silence active
-- **Fix ETA:** TBD (pending upstream resolution)
-
-**Mitigation Applied:**
-
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = TargetDown
-         - service = mlflow-operator-controller-manager-metrics-service
-         - namespace = redhat-ods-applications
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
-   - **Created by:** argocd-automation
-   - **Effect:** Alert shows as "suppressed" in web console
-   - **Automation:** Runs automatically on every cluster deployment
-
-**Verification:**
-```bash
-# Check if ServiceMonitor still exists
-oc get servicemonitor -n redhat-ods-applications -l app.kubernetes.io/name=mlflow-operator
-
-# Check Prometheus targets status
-oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
-  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
-  jq '.data.activeTargets[] | select(.labels.service == "mlflow-operator-controller-manager-metrics-service")'
-```
-
----
-
-### 2. llama-stack-k8s-operator PodDisruptionBudgetAtLimit ✅ FIXED — Silence removed
-
-**Alert Name:** `PodDisruptionBudgetAtLimit`
-**Component:** Red Hat OpenShift AI (RHOAI) - Llama Stack Operator
-**Status:** Fixed in RHOAI 3.4 ([RHAIENG-3783](https://redhat.atlassian.net/browse/RHAIENG-3783)). PDB now has desiredHealthy=0 (no disruption limit). Silence removed from Alertmanager config (2026-06-02).
-**Namespace:** `redhat-ods-applications`
-**PodDisruptionBudget:** `llama-stack-k8s-operator-controller-manager-pdb`
-
-**Issue:**
-The llama-stack-k8s-operator PodDisruptionBudget is configured with `minAvailable: 1` but only 1 replica exists, resulting in 0 allowed disruptions. This triggers the PodDisruptionBudgetAtLimit alert even though the configuration is intentional for the operator's high availability requirements.
-
-**Impact:**
-- False-positive PodDisruptionBudgetAtLimit alerts
-- No actual impact on operator functionality
-- Operator controller manager runs normally with single replica
-
-**Root Cause:**
-PDB configuration in llama-stack-k8s-operator expects potential multi-replica deployment but currently runs with single replica, causing the allowed disruptions to be 0 which triggers the alert threshold.
-
-**Status:**
-- **JIRA:** [RHAIENG-3783](https://redhat.atlassian.net/browse/RHAIENG-3783)
-- **Reported:** Red Hat internal bug tracker
-- **Workaround:** Alert routed to null receiver + Alertmanager silence active
-- **Fix ETA:** TBD (pending upstream resolution)
-
-**Mitigation Applied:**
-
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = PodDisruptionBudgetAtLimit
-         - poddisruptionbudget = llama-stack-k8s-operator-controller-manager-pdb
-         - namespace = redhat-ods-applications
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
-   - **Created by:** argocd-automation
-   - **Effect:** Alert shows as "suppressed" in web console
-   - **Automation:** Runs automatically on every cluster deployment
-
-**Verification:**
-```bash
-# Check PDB configuration
-oc get pdb llama-stack-k8s-operator-controller-manager-pdb -n redhat-ods-applications -o yaml
-
-# Check allowed disruptions
-oc get pdb llama-stack-k8s-operator-controller-manager-pdb -n redhat-ods-applications \
-  -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
-
-# Expected: 0 (triggers the alert)
-```
-
----
-
-### 3. NooBaa Database PodDisruptionBudgetAtLimit
+### 1. NooBaa Database PodDisruptionBudgetAtLimit
 
 **Alert Name:** `PodDisruptionBudgetAtLimit`
 **Component:** OpenShift Data Foundation (ODF) - NooBaa
@@ -210,7 +91,7 @@ oc get statefulset noobaa-db-pg -n openshift-storage \
 
 ---
 
-### 4. Apicurio Registry UI PodDisruptionBudgetAtLimit
+### 2. Apicurio Registry UI PodDisruptionBudgetAtLimit
 
 **Alert Name:** `PodDisruptionBudgetAtLimit`
 **Component:** Apicurio Registry - UI Component
@@ -276,7 +157,7 @@ oc get deployment apicurio-studio-ui-deployment -n apicurio \
 
 ---
 
-### 5. Kuadrant istio-pod-monitor TargetDown
+### 3. Kuadrant istio-pod-monitor TargetDown
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat Connectivity Link (RHCL) - Kuadrant Operator
@@ -363,20 +244,29 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 6. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404) ✅ FIXED — Silence removed
+### 4. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
 **Namespace:** `redhat-ods-applications`
-**Service:** `trustyai-service-operator-metrics-service`
+**Service:** `trustyai-service-operator-metrics-service` (and `trustyai-service-operator-controller-manager-metrics-service`)
+
+**⚠️ Re-opened (2026-08-08):** previously marked "Fixed, silence removed" based on the absence of the `trustyai-metrics` ServiceMonitor. That conclusion was **wrong** — the operator creates this ServiceMonitor *lazily*, only when the first `TrustyAIService` CR is created anywhere on the cluster, not unconditionally. It had simply never been triggered. Deploying a throwaway test `TrustyAIService` reproduced it immediately with the exact original broken config. Confirmed still present on RHOAI 3.4.2 / OCP 4.20.30 despite Jira showing `3.5 EA1` as the fixVersion.
 
 **Issue:**
 The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `selector: matchLabels: app.kubernetes.io/part-of: trustyai`. This accidentally matches the TrustyAI **operator controller-manager** service in `redhat-ods-applications`, which only exposes `/metrics` (Go runtime). The ServiceMonitor scrapes `/q/metrics` (Quarkus path, intended for TrustyAIService app pods) → 404 Not Found → TargetDown alert.
 
+**Live proof (2026-08-08), real Prometheus scrape results after deploying a test `TrustyAIService`:**
+
+| Target | Health | Error |
+|---|---|---|
+| operator pod `:8080/q/metrics` (matched by the broad selector) | ❌ DOWN | 404 Not Found |
+| operator pod `:8080/metrics` (correct `trustyai-service-operator-service-monitor`) | ✅ UP | — |
+
 **Impact:**
-- False-positive TargetDown alert (50% of targets down for `trustyai-service-operator-metrics-service`)
+- False-positive TargetDown alert for `trustyai-service-operator-metrics-service`
 - No actual impact on TrustyAI operator functionality
-- The correct `trustyai-service-operator-service-monitor` scrapes `/metrics` successfully
+- Only manifests once **any** `TrustyAIService` CR is deployed anywhere on the cluster — currently dormant since none is deployed, but will fire the moment one is created
 
 **Root Cause:**
 `trustyai-metrics` ServiceMonitor has an overly broad `namespaceSelector: any: true` combined with `app.kubernetes.io/part-of: trustyai` which also matches the operator controller-manager service. The operator and the TrustyAIService app share the same label but expose different metrics paths.
@@ -384,7 +274,7 @@ The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `s
 **Status:**
 - **JIRA:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) - TrustyAI ServiceMonitor has overly broad selector causing false TargetDown alerts
 - **Reported:** 2026-03-21
-- **Status:** Fixed in RHOAI 3.4.x — `trustyai-metrics` ServiceMonitor no longer exists. Verified on RHOAI 3.4.1 / OCP 4.20.23 (2026-06-24).
+- **Status:** Open — Jira shows Closed with fixVersion `3.5 EA1 RHOAI RELEASE` (released 2026-06-17), but live reproduction on RHOAI 3.4.2 / OCP 4.20.30 (2026-08-08) confirms the bug is still present. The fix has not reached our version.
 
 **Mitigation Applied:**
 
@@ -394,27 +284,40 @@ The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `s
    routes:
      - matchers:
          - alertname = TargetDown
-         - service = trustyai-service-operator-metrics-service
+         - service =~ trustyai-service-operator.*metrics-service
          - namespace = redhat-ods-applications
        receiver: 'null'
        continue: false
    ```
 
 2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
+   - **Created by:** `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook)
    - **Duration:** 10 years from cluster deployment
+
+**Verification:**
+```bash
+# Deploy a throwaway TrustyAIService to trigger the lazy ServiceMonitor creation, then check:
+oc get servicemonitor trustyai-metrics -n redhat-ods-applications -o yaml
+oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
+  jq '.data.activeTargets[] | select(.labels.service == "trustyai-service-operator-metrics-service") | {health, lastError}'
+```
 
 ---
 
-### 7. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request) ✅ FIXED — Silence removed
+### 5. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
 **Namespace:** User project namespace (e.g. `ai-generation-llm-rag`)
 **Services:** `trustyai-service`, `trustyai-service-tls`
 
+**⚠️ Confirmed still broken (2026-08-08):** previously marked "Fixed, silence removed" and separately "untestable" pending a real instance. Deployed a throwaway test `TrustyAIService` on this cluster (RHOAI 3.4.2 / OCP 4.20.30) and reproduced the bug exactly.
+
 **Issue:**
 The `trustyai-service` ServiceMonitor (created by the TrustyAIService CR reconciler) configures `scheme: http` with no `port:` filter. Prometheus discovers all ports on the selected services (`trustyai-service` and `trustyai-service-tls`) and scrapes each with `http://`. Since both services expose TLS ports (8443, 9443, 4443) alongside the plain HTTP port (8080), HTTP requests to HTTPS endpoints result in `400 Bad Request` (or `EOF` for port 4443).
+
+**Live proof (2026-08-08), real Prometheus scrape results:**
 
 | Service | Port | Health | Error |
 |---|---|---|---|
@@ -424,10 +327,13 @@ The `trustyai-service` ServiceMonitor (created by the TrustyAIService CR reconci
 | `trustyai-service` | 9443 | ❌ DOWN | 400 Bad Request |
 | `trustyai-service-tls` | 8443 | ❌ DOWN | 400 Bad Request |
 
+Matches the Jira ticket's own reproduction table exactly.
+
 **Impact:**
 - False-positive TargetDown for `trustyai-service` (75% targets down)
 - False-positive TargetDown for `trustyai-service-tls` (100% targets down)
 - TrustyAI service is fully functional — this is monitoring misconfiguration only
+- Only manifests once a `TrustyAIService` CR is deployed in a user namespace — currently dormant since none is deployed on this cluster
 
 **Root Cause:**
 ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies `scheme: http` without restricting to a specific port. The `trustyai-service` and `trustyai-service-tls` Services both carry the `app.kubernetes.io/part-of: trustyai` label matched by the ServiceMonitor selector, causing all their ports to be scraped via HTTP.
@@ -435,25 +341,21 @@ ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies
 **Status:**
 - **JIRA:** [RHOAIENG-61424](https://redhat.atlassian.net/browse/RHOAIENG-61424) - TrustyAI ServiceMonitor uses scheme: http on TLS ports causing false TargetDown alerts
 - **Reported:** 2026-05-07
-- **Status:** Fixed in RHOAI 3.4.x — `trustyai-service-operator-service-monitor` now uses explicit `port: metrics` + `/metrics` path. Verified on RHOAI 3.4.1 / OCP 4.20.23 (2026-06-24).
-- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (fixed simultaneously)
+- **Status:** Open — Jira shows Closed with fixVersion `3.5 EA1 RHOAI RELEASE` (released 2026-06-17), but live reproduction on RHOAI 3.4.2 / OCP 4.20.30 (2026-08-08) confirms the bug is still present. The fix has not reached our version.
+- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (overly broad `trustyai-metrics` selector) — see the "TrustyAI ServiceMonitor Overly Broad Selector" entry above; same root class of bug, re-opened alongside this one on the same date.
 
-**Mitigation Applied:**
+**No hack currently implemented** — this bug only fires once a `TrustyAIService` CR exists, and none is deployed on this cluster right now. Add the routing + silence below (same pattern as RHOAIENG-54605) if/when a real `TrustyAIService` gets deployed and the alert actually starts firing.
 
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = TargetDown
-         - service =~ trustyai-service|trustyai-service-tls
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
+**Suggested mitigation (not yet applied — no live target to silence against):**
+```yaml
+# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+routes:
+  - matchers:
+      - alertname = TargetDown
+      - service =~ trustyai-service|trustyai-service-tls
+    receiver: 'null'
+    continue: false
+```
 
 **Verification:**
 ```bash
@@ -465,7 +367,7 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 9. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
+### 6. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
 
 **Alert Name:** `KubeDaemonSetMisScheduled`
 **Component:** OpenShift Insights — `insights-runtime-extractor` DaemonSet
@@ -490,7 +392,7 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 
 ---
 
-### 8. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
+### 7. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
 
 **ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
 **Component:** Red Hat OpenShift AI (RHOAI) - KServe / ODH Model Controller
@@ -568,10 +470,10 @@ The Kueue operator configures webhook timeouts that exceed the recommended 13-se
 Kueue webhooks perform complex validation logic for queue management and workload scheduling that requires more than 13 seconds to complete, especially in large clusters with many queue resources. The extended timeout is intentional and necessary for proper operation.
 
 **Status:**
-- **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578)
+- **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578) — Jira shows **Closed/Done** (2026-03-22), but no `fixVersion` recorded and the ticket's own text frames the fix as "remove the timeout bump in Kueue Operator." Unconfirmed whether that shipped in the Kueue version bundled with OCP 4.20.
 - **Reported:** Red Hat internal bug tracker
-- **Workaround:** Recommendation disabled in Insights configuration
-- **Fix ETA:** TBD (pending upstream resolution)
+- **Workaround:** Recommendation disabled in Insights configuration — **keep in place** until confirmed the warning no longer fires on this cluster
+- **Fix ETA:** TBD (pending re-verification)
 
 **Mitigation Applied:**
 
@@ -813,6 +715,8 @@ oc delete certmanager cluster --ignore-not-found
 
 **No workaround implemented yet** — postgres remains on worker node until upstream fix.
 
+**⚠️ Confirmed applicable (2026-08-08):** `components/openshift-pipelines/base/cluster-tektonconfig-config.yaml` does set an infra `nodeSelector`, so this bug is active on this cluster. Neither fix has shipped: SRVKP-9205 (Deployments) is "Release Pending" targeting Pipelines 1.20.5, and this StatefulSet follow-up is "Dev Complete" with no fixVersion yet. No patch Job exists for `tekton-results-postgres` the way there is for ODF/DWO — would need one if infra-only placement is a hard requirement.
+
 ---
 
 ### OCPBUGS-105277 — Cluster autoscaler over-provisions a second GPU node before device-plugin capacity appears
@@ -842,6 +746,8 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 **Root cause:** `pkg/controller/v1alpha2/llmisvc/controller.go` gates its `.Owns(&LeaderWorkerSet{})` watch registration behind a one-time `IsCrdAvailable()` check performed at controller-manager startup. If that check runs before the `LeaderWorkerSet` CRD is fully established/discoverable (plausible during a fresh install or operator-install ordering), the watch is never registered for that process's lifetime — status changes on the owned `LeaderWorkerSet` never trigger a re-reconcile of the parent `LLMInferenceService`.
 
 **Workaround:** annotate the `LLMInferenceService` to force a fresh reconcile — resolves `Ready` to `True` immediately, confirming the underlying workload was already healthy.
+
+**⚠️ Gap (2026-08-08):** this workaround is manual only — no GitOps Job automates the reconcile-forcing annotation. Any multi-node LLMInferenceService deployed on this cluster (RHOAI 3.4, matches the ticket's own environment) can get stuck at `Ready=Progressing` indefinitely with no self-healing.
 
 ---
 
@@ -888,6 +794,8 @@ oc patch configmap llama-stack-config -n $NAMESPACE --type=merge \
   -p "{\"data\":{\"config.yaml\":$(echo "$UPDATED" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}}"
 oc rollout restart deployment/lsd-genai-playground -n $NAMESPACE
 ```
+
+**⚠️ Gap (2026-08-08):** fix shipped in RHOAI 3.5 EA2 (released 2026-07-15) — newer than our RHOAI 3.4, so **not fixed on this cluster**. The patch above is documented but not wired into GitOps (no Job/CMP applies it automatically). Adding a `LLMInferenceService` model to the Gen AI Studio Playground on this cluster will break with `APIConnectionError` and require the manual patch every time until upgrading past 3.5 EA2.
 
 ---
 
@@ -1001,26 +909,26 @@ curl -X POST -H "Content-Type: application/json" --data @/tmp/alert-silence.json
 kill $PORT_FORWARD_PID
 ```
 
-**Example for mlflow-operator:**
+**Example for Apicurio Registry UI:**
 ```bash
-cat > /tmp/mlflow-silence.json <<EOF
+cat > /tmp/apicurio-silence.json <<EOF
 {
   "matchers": [
     {
       "name": "alertname",
-      "value": "TargetDown",
+      "value": "PodDisruptionBudgetAtLimit",
       "isRegex": false,
       "isEqual": true
     },
     {
-      "name": "service",
-      "value": "mlflow-operator-controller-manager-metrics-service",
+      "name": "poddisruptionbudget",
+      "value": "apicurio-studio-ui-poddisruptionbudget",
       "isRegex": false,
       "isEqual": true
     },
     {
       "name": "namespace",
-      "value": "redhat-ods-applications",
+      "value": "apicurio",
       "isRegex": false,
       "isEqual": true
     }
@@ -1028,14 +936,14 @@ cat > /tmp/mlflow-silence.json <<EOF
   "startsAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
   "endsAt": "$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)",
   "createdBy": "admin",
-  "comment": "Known bug: mlflow-operator ServiceMonitor targets non-existent metrics endpoint (JIRA: RHOAIENG-54791) - See KNOWN_BUGS.md"
+  "comment": "Known bug: Apicurio Registry UI single-replica PDB triggers false-positive alert (JIRA: APICURIO-24) - See KNOWN_BUGS.md"
 }
 EOF
 
 oc port-forward -n openshift-monitoring alertmanager-main-0 9093:9093 &
 PORT_FORWARD_PID=$!
 sleep 3
-curl -X POST -H "Content-Type: application/json" --data @/tmp/mlflow-silence.json \
+curl -X POST -H "Content-Type: application/json" --data @/tmp/apicurio-silence.json \
   http://localhost:9093/api/v2/silences
 kill $PORT_FORWARD_PID
 ```
