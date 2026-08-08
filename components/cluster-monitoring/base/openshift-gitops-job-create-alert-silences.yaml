@@ -282,11 +282,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 9 ]; then
+          if [ "$SILENCE_COUNT" -ge 8 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 9+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest

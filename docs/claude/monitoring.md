@@ -28,15 +28,16 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 - Audit procedures
 
 **Current silenced alerts:**
-1. **NooBaa database PodDisruptionBudgetAtLimit** - ODF NooBaa single-replica PostgreSQL PDB (JIRA: DFBUGS-5294)
-2. **Apicurio Registry UI PodDisruptionBudgetAtLimit** - Apicurio Registry UI single-replica PDB (JIRA: APICURIO-24)
-3. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
-4. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
-5. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
-6. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
-7. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
-8. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
-9. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
+1. **Apicurio Registry UI PodDisruptionBudgetAtLimit** - Apicurio Registry UI single-replica PDB (JIRA: APICURIO-24)
+2. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
+3. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
+4. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
+5. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
+6. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
+7. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
+8. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
+
+**Removed:** NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294) — ODF 4.22's `noobaa-operator` now self-manages this silence natively; see `known-bugs.md` for details.
 
 ## Adding New Alert Silences
 
@@ -127,7 +128,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - Creates 10-year silences via Alertmanager API for all known bugs
    - **Retry logic**: 3 attempts per silence with 5-second delays
    - **Verification**: Confirms each silence was created successfully via API query
-   - **Final validation**: Verifies 9+ active silences exist before completing
+   - **Final validation**: Verifies 8+ active silences exist before completing
    - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
@@ -136,7 +137,6 @@ The manual silence creation steps above are kept for reference, but in practice,
    - RoleBinding: connects SA to Role
 
 3. **Known bugs silenced automatically**:
-   - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294)
    - Apicurio Registry UI PodDisruptionBudgetAtLimit (JIRA: APICURIO-24)
    - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)
    - InsightsRecommendationActive (config migration)

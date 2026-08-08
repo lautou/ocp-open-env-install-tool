@@ -26,20 +26,7 @@ A PostSync Job (`components/cluster-monitoring/base/openshift-monitoring-job-cre
 
 The Job creates 10-year silences for all known bugs documented below.
 
-### 1. NooBaa Database PodDisruptionBudgetAtLimit — RESOLVED, hack removed (2026-08-08)
-
-**Component:** OpenShift Data Foundation (ODF) - NooBaa
-**JIRA:** [DFBUGS-5294](https://redhat.atlassian.net/browse/DFBUGS-5294) — Closed/Done, fixed in `odf-4.22` (released 2026-07-09)
-
-**Issue (unchanged, by design):** the NooBaa CNPG PostgreSQL PDB (`noobaa-db-pg-cluster-primary`) has `minAvailable: 1` on a single-replica database, so `disruptionsAllowed` is always `0` — CNPG performs a graceful primary switchover during node drains instead. This still triggers `PodDisruptionBudgetAtLimit`; that part is intentional and hasn't changed.
-
-**What changed:** as of ODF 4.22, the `noobaa-operator` itself creates and hourly-reconciles an indefinite Alertmanager silence for this exact alert — no external workaround needed anymore. Confirmed live on this cluster (ODF `4.22.1-rhodf`): `noobaa-operator` logs show `"cnpg:: reconciling PDB alert silence for CNPG cluster noobaa-db-pg-cluster"` → `"PDB alert silence already exists and is valid (ID: ..., expires: 3000-01-01T00:00:00Z)"`, and the live Alertmanager silence list shows the operator's own silence (`createdBy: noobaa-operator`) active alongside our now-redundant one.
-
-**Removed:** the `null`-receiver routing rule in `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` and the corresponding silence-creation block in `components/cluster-monitoring/base/openshift-gitops-job-create-alert-silences.yaml` — both redundant now that the operator self-manages this on any cluster running ODF 4.22+.
-
----
-
-### 2. Apicurio Registry UI PodDisruptionBudgetAtLimit
+### 1. Apicurio Registry UI PodDisruptionBudgetAtLimit
 
 **Alert Name:** `PodDisruptionBudgetAtLimit`
 **Component:** Apicurio Registry - UI Component
@@ -106,7 +93,7 @@ oc get deployment apicurio-studio-ui-deployment -n apicurio \
 
 ---
 
-### 3. Kuadrant istio-pod-monitor TargetDown
+### 2. Kuadrant istio-pod-monitor TargetDown
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat Connectivity Link (RHCL) - Kuadrant Operator
@@ -193,7 +180,7 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 4. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
+### 3. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
@@ -254,7 +241,7 @@ oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
 
 ---
 
-### 5. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
+### 4. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
@@ -320,7 +307,7 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 6. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
+### 5. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
 
 **Alert Name:** `KubeDaemonSetMisScheduled`
 **Component:** OpenShift Insights — `insights-runtime-extractor` DaemonSet
@@ -345,7 +332,7 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 
 ---
 
-### 7. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
+### 6. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
 
 **ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
 **Component:** Red Hat OpenShift AI (RHOAI) - KServe / ODH Model Controller
