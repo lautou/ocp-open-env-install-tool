@@ -13,7 +13,7 @@ spec:
         item: openshift-pipelines
       - branch: master
         item: rhb-apicurio-registry-operator
-      - branch: benchmark-test
+      - branch: master
         item: webterminal
   template:
     metadata:
