@@ -227,7 +227,7 @@ The project does NOT enable a separate user-workload Alertmanager instance. All 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Recommendations generate `InsightsRecommendationActive` alerts in the cluster that must be suppressed via Alertmanager.
 
 **Configuration:**
-- `components/openshift-config/base/openshift-config-secret-support.yaml` (documentation only)
+- `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` (real Insights Operator config, OCP 4.15+ preferred location — see below)
 - `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` (alert routing)
 - `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml` (automated silences)
 
@@ -238,12 +238,12 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 - Recommendations generate `InsightsRecommendationActive` alerts with `severity: info`
 - Recommendations appear in **Red Hat Hybrid Cloud Console**: https://console.redhat.com/openshift/insights/advisor
 - **Note:** Insights UI is NOT in local OpenShift web console (only in Red Hat cloud console)
-- **CRITICAL:** `disabled_recommendations` in `support` Secret does NOT suppress alerts (documentation only)
-- **Alerts must be suppressed via Alertmanager** (routing to null receiver + API silences)
+- **CRITICAL:** `disabled_recommendations` (previously in the `support` Secret) was never a real Insights Operator config field on either the legacy Secret or the new ConfigMap schema — confirmed against `openshift/insights-operator` source (2026-08-09). It never suppressed anything; the Secret carrying it has been removed.
+- **Alerts must be suppressed via Alertmanager** (routing to null receiver + API silences) — this is unaffected by the above and continues to work
 
 **Suppressing InsightsRecommendationActive Alerts:**
 
-**CRITICAL:** The `disabled_recommendations` field in the `support` Secret does NOT suppress alerts in the OpenShift console. The Red Hat cloud service generates recommendations regardless of local configuration and sends them back to the cluster as Prometheus metrics.
+**CRITICAL:** A `disabled_recommendations` field does NOT exist in the Insights Operator config schema (legacy Secret or new ConfigMap) — the Red Hat cloud service generates recommendations regardless of local configuration and sends them back to the cluster as Prometheus metrics. Per-recommendation suppression on the Red Hat Hybrid Cloud Console's Advisor dashboard is done via that UI's own "Disable recommendation" button, not local cluster config.
 
 **Working approach** (implemented):
 
@@ -269,30 +269,11 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    - Reason: Kueue requires extended timeout for complex validations
    - Suppression: Alertmanager routing + API silence
 
-2. **Insights Operator Configuration Location** - `io_415_change_config_location`
-   - Issue: Documentation suggests ConfigMap migration in OCP 4.15+
-   - Reality: Insights Operator in OCP 4.20 still expects Secret (ConfigMap requires TechPreview feature gates)
-   - Reason: Implementation hasn't been updated to match documentation
-   - Suppression: Alertmanager routing + API silence
+2. **Insights Operator Configuration Location** - `io_415_change_config_location` — **actually fixed 2026-08-09**, not just suppressed: created `components/openshift-config/base/openshift-insights-cm-insights-config.yaml`. Confirmed live that insights-operator prefers this ConfigMap over the legacy Secret when it exists (previously logged `Cannot get the configuration config map: ... not found. Default configuration is used.`). The Alertmanager suppression is left in place as a safety net for the local alert regardless.
 
-**Why disabled_recommendations doesn't work:**
+**Why there's no local per-recommendation disable field:**
 
-The `support` Secret's `disabled_recommendations` field is intended to control what data the Insights Operator GATHERS, not what alerts appear in the cluster. However:
-- OCP 4.20 appears to ignore this field (may require `InsightsConfig` feature gate)
-- Even if honored, it only affects data gathering, not the alerts
-- Red Hat cloud service analyzes whatever data it receives and sends recommendations back
-- Recommendations become Prometheus metrics (`insights_recommendation_active`) which trigger alerts
-- Only Alertmanager can suppress these alerts
-
-**Configuration retained for documentation:**
-```yaml
-# components/openshift-config/base/openshift-config-secret-support.yaml
-# NOTE: This does NOT suppress alerts - kept for documentation only
-insights:
-  disabled_recommendations:
-    - rule_id: "ccx_rules_ocp.external.rules.webhook_timeout_is_larger_than_default"
-    - rule_id: "ccx_rules_ocp.external.rules.io_415_change_config_location"
-```
+`disabled_recommendations` was never a real Insights Operator config field — confirmed against the actual Go structs in `openshift/insights-operator` (`pkg/config/legacy_config.go` for the Secret, `pkg/config/types.go` for the ConfigMap): neither has ever had anything beyond a global `disableInsightsAlerts`/`alerting.disabled` on-off switch. Recommendations are generated cloud-side by the Red Hat service from whatever data gets gathered, then sent back as Prometheus metrics (`insights_recommendation_active`) — only Alertmanager can suppress the resulting local alert; per-recommendation suppression on the Advisor dashboard itself requires that UI's own "Disable recommendation" action.
 
 **Verification:**
 

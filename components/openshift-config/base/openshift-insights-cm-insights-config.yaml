@@ -1,0 +1,18 @@
+# Migrates Insights Operator configuration from the deprecated "support" Secret
+# (openshift-config namespace) to the ConfigMap-based configuration OCP 4.15+
+# prefers. When this ConfigMap exists, the operator reads it instead of the
+# Secret (confirmed live: without it, insights-operator logs
+# `Cannot get the configuration config map: configmaps "insights-config" not
+# found. Default configuration is used.` and falls back to the legacy Secret).
+#
+# Left empty (all defaults) since the Secret never carried any real config -
+# its only content (a disabled_recommendations list) was never a field either
+# schema actually supports. See docs/claude/known-bugs.md for the full story.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insights-config
+  namespace: openshift-insights
+data:
+  config.yaml: |
+    {}

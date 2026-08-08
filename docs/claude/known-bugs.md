@@ -383,9 +383,11 @@ for i in json.load(sys.stdin)['items']:
 
 ## Disabled Insights Recommendations
 
-Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA. These can be disabled via the `support` Secret in `openshift-config` namespace.
+Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA.
 
-**Configuration:** `components/openshift-config/base/openshift-config-secret-support.yaml`
+**⚠️ There is no local per-recommendation disable field.** Confirmed 2026-08-09 against the actual `openshift/insights-operator` source (`pkg/config/legacy_config.go` for the legacy `support` Secret, `pkg/config/types.go` for the current `insights-config` ConfigMap): neither schema has ever had a `disabled_recommendations`-style field, only a global `disableInsightsAlerts`/`alerting.disabled` on/off switch for *all* recommendations. Recommendations are generated cloud-side and sent back as Prometheus metrics (`insights_recommendation_active`); the only thing that actually suppresses the resulting local alert is **Alertmanager routing + a silence** (see each entry below). Suppressing a specific recommendation on the Red Hat Hybrid Cloud Console's Advisor dashboard itself requires that UI's own "Disable recommendation" button — out of GitOps' reach.
+
+**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-config/base/openshift-insights-cm-insights-config.yaml`. The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list.
 
 ---
 
@@ -413,102 +415,64 @@ Kueue operator configures its validating/mutating webhooks with `timeoutSeconds:
 - **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578) — Jira shows Closed/Done (2026-03-22)
 - **Upstream fix confirmed merged:** [openshift/kueue-operator#1588](https://github.com/openshift/kueue-operator/pull/1588) ("Remove webhook timeout" — "the webhook timeout shouldn't be updated as the maximum allowed is 13 seconds"), merged 2026-03-16.
 - ⚠️ **Not yet in the downstream product (confirmed live, 2026-08-08):** this cluster runs `kueue-operator.v1.2.0` (Red Hat build of Kueue), and both `kueue-validating-webhook-configuration` and `kueue-mutating-webhook-configuration` still show `timeoutSeconds: 23` on every webhook. The `InsightsRecommendationActive` alert is genuinely still firing (confirmed active, state `suppressed` by our silence) — this is a real unfixed condition on this cluster, not a stale false-positive being needlessly hidden. The upstream merge hasn't propagated to the productized Kueue operator build yet.
-- **Workaround:** Recommendation disabled in Insights configuration — **keep in place**, confirmed still needed
+- **Workaround:** Alertmanager routing + API silence for the local alert — **keep in place**, confirmed still needed
 - **Fix ETA:** TBD — re-check `kueue-operator` CSV version after any operator upgrade for whether `timeoutSeconds` finally drops to ≤13s
 
 **Mitigation Applied:**
 
-**Insights Configuration** (GitOps-managed):
+**Alertmanager Routing** (GitOps-managed):
 ```yaml
-# Location: components/openshift-config/base/openshift-config-secret-support.yaml
-insights:
-  disabled_recommendations:
-    - rule_id: "ccx_rules_ocp.external.rules.webhook_timeout_is_larger_than_default"
+# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+routes:
+  - matchers:
+      - alertname = InsightsRecommendationActive
+      - description =~ .*webhook.*timeout.*13s.*
+    receiver: 'null'
+    continue: false
 ```
+
+**Alertmanager Silence** (Automated via GitOps Job): created by `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook), 10-year duration, `createdBy: argocd-automation`.
 
 **Verification:**
 ```bash
-# Check support Secret exists
-oc get secret support -n openshift-config
+# Verify the alert is suppressed locally
+oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
+  wget -q -O- 'http://localhost:9093/api/v2/alerts' | \
+  jq '.[] | select(.labels.alertname == "InsightsRecommendationActive" and (.labels.description // "" | test("webhook.*timeout.*13s"))) | {state: .status.state}'
 
-# View disabled recommendations
-oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
-
-# Check Insights Operator logs for configuration reload
-oc logs -n openshift-insights deployment/insights-operator | grep -i "disabled"
-
-# Verify recommendation no longer appears (24-48 hours after disabling)
-# View in Red Hat Hybrid Cloud Console:
+# Cloud-side recommendation display (separate surface, not affected by the above):
 # https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
-# The webhook_timeout_is_larger_than_default recommendation should not appear
 ```
-
-**Important:**
-- Insights recommendations may take 24-48 hours to refresh after disabling
-- The recommendation will still be detected but marked as disabled
-- Changes persist across cluster upgrades
 
 ---
 
-### 2. Insights Operator Configuration Location Change
+### 2. Insights Operator Configuration Location Change — RESOLVED (2026-08-09)
 
 **Recommendation:** `Deprecated: Configuration via support Secret (use ConfigMap instead)`
 **Rule ID:** `ccx_rules_ocp.external.rules.io_415_change_config_location`
 **Component:** Insights Operator
-**Risk Level:** Low
-**Namespace:** `openshift-config`
 
-**Issue:**
-Red Hat documentation for OCP 4.15+ states that Insights Operator configuration should be migrated from Secret to ConfigMap (`support` ConfigMap instead of `support` Secret). This triggers an Insights recommendation suggesting the configuration location is deprecated.
-
-**Impact:**
-- Low risk Insights recommendation appears in console
-- No actual impact on Insights Operator functionality
-- Operator continues to work correctly with Secret-based configuration
-- Recommendation appears in Insights Advisor dashboard
-
-**Root Cause:**
-Despite documentation mentioning ConfigMap migration in OCP 4.15+, the Insights Operator implementation in OCP 4.20 still expects and reads from the `support` Secret, not a ConfigMap. The operator code has not been updated to match the documentation change, making this a false-positive recommendation.
-
-**Status:**
-- **JIRA:** TBD (documentation vs implementation mismatch)
-- **Reported:** Internal observation during OCP 4.20 testing
-- **Workaround:** Recommendation disabled in Insights configuration
-- **Fix ETA:** Unknown (requires operator code update or documentation correction)
-
-**Mitigation Applied:**
-
-**Insights Configuration** (GitOps-managed):
-```yaml
-# Location: components/openshift-config/base/openshift-config-secret-support.yaml
-insights:
-  disabled_recommendations:
-    - rule_id: "ccx_rules_ocp.external.rules.io_415_change_config_location"
+**⚠️ Previous conclusion was wrong.** This entry used to say the OCP 4.20 operator "still expects Secret, not ConfigMap, code hasn't been updated" and treated it as a false positive to silence. Re-verified live on OCP 4.22.8 (2026-08-09): the operator genuinely checks for the ConfigMap first. Before this fix, `insights-operator` logs showed:
 ```
+Cannot get the configuration config map: configmaps "insights-config" not found. Default configuration is used.
+```
+...then fell back to the legacy Secret. It was never a false positive — we simply had never created the `insights-config` ConfigMap the operator has supported (and preferred) since OCP 4.15.
+
+**Fix applied (this repo):** `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` — creates the `insights-config` ConfigMap in `openshift-insights` (empty/defaults, since the old Secret never carried any real config to migrate). Also removed the legacy `support` Secret (`components/openshift-config/base/openshift-config-secret-support.yaml`) — keeping it around was itself the trigger for this recommendation.
+
+**RBAC dependency:** `openshift-insights` isn't labeled `argocd.argoproj.io/managed-by` (system namespace) — same RBAC-gap class as OSSM-15257, RHOAIENG-82144, and OCPBUGS-100168 above. Added `openshift-insights-role-configmap-manager.yaml` + `openshift-insights-rb-configmap-manager.yaml`, scoped narrowly to `configmaps` only.
 
 **Verification:**
 ```bash
-# Verify Insights Operator reads from Secret (not ConfigMap)
-oc get secret support -n openshift-config
-oc get configmap support -n openshift-config 2>/dev/null || echo "ConfigMap does not exist (expected)"
+# Confirm the operator now reads the ConfigMap (no more "not found" warning)
+oc get configmap insights-config -n openshift-insights
+oc logs -n openshift-insights deployment/insights-operator | grep -i "configuration config map"
 
-# Check Insights Operator deployment environment/volume mounts
-oc get deployment insights-operator -n openshift-insights -o yaml | grep -A5 "support"
-
-# View disabled recommendations
-oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
-
-# Verify recommendation no longer appears (24-48 hours after disabling)
-# View in Red Hat Hybrid Cloud Console:
-# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
-# The io_415_change_config_location recommendation should not appear
+# The legacy Secret should be gone
+oc get secret support -n openshift-config 2>&1  # expect NotFound
 ```
 
-**Important:**
-- **Use Secret, not ConfigMap**: Despite OCP 4.15+ documentation, operator still expects Secret in 4.20
-- Testing confirmed operator does NOT read from ConfigMap
-- This may change in future OCP versions - monitor release notes
-- Changes persist across cluster upgrades
+**Alertmanager suppression retained as a safety net** for the local `InsightsRecommendationActive` alert regardless (matches `description =~ .*config.*migrated.*secret.*configmap.*` in `openshift-monitoring-secret-alertmanager-main.yaml` + a Job-created silence) — the actual Advisor-dashboard recommendation should stop firing entirely now that the real condition is fixed, but the alert-side suppression costs nothing to leave in place.
 
 ---
 
@@ -536,18 +500,10 @@ The Insights rule checks for the presence of explicit `maxUnavailable` configura
 **Status:**
 - **JIRA:** TBD (Insights rule false-positive)
 - **Reported:** 2026-04-07 during cluster deployment
-- **Workaround:** Recommendation disabled in Insights configuration + Alertmanager routing/silence
+- **Workaround:** Alertmanager routing/silence for the local alert
 - **Fix ETA:** Unknown (requires Insights rule refinement to check actual unavailableMachineCount)
 
 **Mitigation Applied:**
-
-**Insights Configuration** (GitOps-managed):
-```yaml
-# Location: components/openshift-config/base/openshift-config-secret-support.yaml
-insights:
-  disabled_recommendations:
-    - rule_id: "ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable"
-```
 
 **Alertmanager Routing** (GitOps-managed):
 ```yaml
@@ -581,21 +537,19 @@ oc get mcp master worker -o json | jq -r '.items[] | {
 # master: maxUnavailable=null (defaults to 1), unavailableMachineCount=0
 # worker: maxUnavailable=null (defaults to 1), unavailableMachineCount=0
 
-# View disabled recommendations
-oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
+# Verify the alert is suppressed locally
+oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
+  wget -q -O- 'http://localhost:9093/api/v2/alerts' | \
+  jq '.[] | select(.labels.alertname == "InsightsRecommendationActive" and (.labels.description // "" | test("MachineConfigPool.*maxUnavailable"))) | {state: .status.state}'
 
-# Verify recommendation no longer appears (24-48 hours after disabling)
-# View in Red Hat Hybrid Cloud Console:
+# Cloud-side recommendation display (separate surface, not affected by the above):
 # https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
-# The machineconfigpool_maxunavailable recommendation should not appear
 ```
 
 **Important:**
 - **Default is correct**: null maxUnavailable defaults to 1, which is appropriate for rolling updates
 - **False-positive detection**: Recommendation fires even when unavailableMachineCount=0
 - Explicitly setting `maxUnavailable: 1` would silence the Insights rule but is unnecessary
-- Insights recommendations may take 24-48 hours to refresh after disabling
-- Changes persist across cluster upgrades
 
 ---
 
@@ -987,86 +941,16 @@ oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
 
 ### Disabling Insights Recommendations
 
-When adding a new disabled Insights recommendation, follow this process:
+**There is no local per-recommendation config field** (verified against `openshift/insights-operator` source, see the section intro above) — an `InsightsRecommendationActive` alert is silenced exactly the same way as any other Prometheus alert: via the "Silencing Prometheus Alerts" process earlier in this document (Alertmanager routing to `null` + a Job-created API silence). The only Insights-specific part is the matcher: since every recommendation shares the same `alertname`, match on `description =~ <regex fragment unique to the recommendation text>` instead of a rule-ID field.
 
-#### 1. Verify It's Actually a False Positive
+When adding a new one:
 
-- [ ] Confirm the recommendation is incorrect or not applicable
-- [ ] Check if there's an actual configuration issue that should be fixed
-- [ ] Search JIRA for existing bug reports
-- [ ] Verify the recommendation appears in Insights Advisor dashboard
+1. **Verify it's actually a false positive** — confirm the recommendation is incorrect/not applicable for this environment (if it's a real issue, fix it instead of silencing it).
+2. **Document it** in this file's "Disabled Insights Recommendations" section: recommendation text, rule ID (for reference only — not used as a matcher), root cause, JIRA link.
+3. **Add the Alertmanager routing + silence** following the "Silencing Prometheus Alerts" steps above, with `alertname = InsightsRecommendationActive` plus a `description =~ ...` matcher.
+4. **Note the limitation:** this only suppresses the local alert (OCP console "Alerting" page). It does not remove the recommendation from the Red Hat Hybrid Cloud Console's Advisor dashboard — that requires that UI's own "Disable recommendation" action.
 
-#### 2. Document the Recommendation
-
-Add entry to this file's "Disabled Insights Recommendations" section with:
-- Recommendation text and rule ID
-- Component and namespace (if applicable)
-- Detailed issue description
-- Root cause analysis
-- Impact assessment
-- JIRA ticket link
-- Verification commands
-
-#### 3. Add to Insights Configuration
-
-Edit: `components/openshift-config/base/openshift-config-secret-support.yaml`
-
-```yaml
-insights:
-  disabled_recommendations:
-    # JIRA: [JIRA-TICKET]
-    # Component: [Component name]
-    # Rule: [short rule name]
-    # Issue: [Brief explanation]
-    # Impact: [What happens if not disabled]
-    # Reason: [Why it's disabled]
-    - rule_id: "ccx_rules_ocp.external.rules.[rule_id]"
-```
-
-**Important:**
-- Add clear inline comments for each disabled rule
-- Include JIRA ticket reference
-- Use the full rule_id from Insights console URL
-- Place new rules at the bottom of the disabled list
-- **Note:** Despite OCP 4.15+ documentation mentioning ConfigMap, the Insights Operator in OCP 4.20 still uses Secret
-
-#### 4. Commit and Sync
-
-```bash
-git add KNOWN_BUGS.md components/openshift-config/base/openshift-config-secret-support.yaml
-git commit -m "Disable Insights recommendation [rule_id] - [JIRA ticket]"
-git push
-
-# Verify ArgoCD sync
-oc get application openshift-config -n openshift-gitops
-
-# Wait for Secret to be created/updated
-oc get secret support -n openshift-config
-```
-
-#### 5. Verify Recommendation Disabled
-
-```bash
-# Check support Secret exists
-oc get secret support -n openshift-config
-
-# View disabled recommendations
-oc get secret support -n openshift-config -o jsonpath='{.data.config\.yaml}' | base64 -d
-
-# Check Insights Operator logs for configuration reload
-oc logs -n openshift-insights deployment/insights-operator --tail=50 | grep -i "disabled\|reload"
-
-# Wait 24-48 hours for Insights to refresh
-# Then verify in Red Hat Hybrid Cloud Console:
-# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
-# The recommendation should no longer appear or be marked as disabled
-```
-
-**Important:**
-- Insights recommendations may take 24-48 hours to refresh after configuration change
-- The recommendation may still appear but marked as "disabled by user"
-- Changes persist across cluster upgrades
-- Insights Operator must restart to pick up configuration changes
+If the recommendation is about genuine Insights Operator *configuration* (not a specific rule finding — e.g. an upload endpoint, proxy, or the Secret→ConfigMap migration), that's a different thing: edit `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` per the documented `insights-config` ConfigMap schema instead.
 
 ---
 
