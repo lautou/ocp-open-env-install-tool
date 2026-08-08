@@ -6,7 +6,6 @@ metadata:
   name: create-alert-silences
   namespace: openshift-gitops
 spec:
-  ttlSecondsAfterFinished: 600
   template:
     metadata:
       name: create-alert-silences
