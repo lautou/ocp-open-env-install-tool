@@ -143,7 +143,7 @@ All GitOps configuration Jobs use dedicated ServiceAccounts with minimal permiss
 | ServiceAccount | Used By | Permissions | Reduction |
 |---------------|---------|-------------|-----------|
 | `console-plugin-manager` | 6 console plugin Jobs | ONLY console.operator.openshift.io patch | ~99% |
-| `cert-manager-operator` | Permanent watchdog Deployment (not a Job — see `components.md` cert-manager section) | cert-manager.io + specific namespace Roles | ~95% |
+| `cert-manager-operator` | Permanent watchdog Deployment (not a Job — see `components.md` cert-manager section) | `certmanagers.operator.openshift.io` + CRD read + `pods` read in `cert-manager` only (trimmed 2026-08-09 to match actual usage) | ~99% |
 | `loki-s3-secret-creator` | 2 S3 secret Jobs | Secret create/update in logging/netobserv | ~95% |
 | `cleanup-operator` | 3 cleanup Jobs | Pod/resource delete in target namespaces | ~97% |
 

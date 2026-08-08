@@ -164,7 +164,7 @@ Each component includes:
    **Operator-Specific ClusterRoles**:
 
    ClusterRoles grant permissions for operator-managed resources:
-   - `cert-manager-operator`: Manage cert-manager CRs (Certificate, ClusterIssuer)
+   - `cert-manager-operator`: read CRDs + get/list/delete the cluster-scoped `CertManager` CR only — trimmed 2026-08-09 to match what the `watchdog-certmanager` Deployment (its only consumer) actually calls; it does **not** grant `Certificate`/`ClusterIssuer`/`apiservers` access (that used to be true for 3 now-deleted Jobs, retired in commit `9099d3d`, 2026-03-29)
    - `console-plugin-manager`: Patch Console CR for plugin enablement
    - `cleanup-operator`: Delete installer pods in kube-system
    - `ack-config-operator`: Manage ACK Route53 configuration
@@ -683,15 +683,17 @@ spec:
 - OpenShift manages installation fields (`spec.audit`, metadata annotations, ownerReferences)
 - CMP placeholder replaced with actual API domain at build time
 
-**RBAC**: `openshift-gitops-clusterrole-cert-manager-operator` grants `patch` permissions on `apiservers`
+**RBAC**: synced by ArgoCD's own `openshift-gitops-argocd-application-controller` SA, which has independent cluster-scoped `patch` on `apiservers.config.openshift.io` (confirmed live 2026-08-09) — **not** related to the `cert-manager-operator` ClusterRole below, despite an earlier version of this doc implying otherwise. `apiservers` is cluster-scoped, so the namespace-level `managed-by` mechanism doesn't apply to it either way.
 
-**No ignoreDifferences needed**: Explicit ClusterRole RBAC is sufficient. ArgoCD and OpenShift coexist, each managing their own fields.
+**No ignoreDifferences needed**: ArgoCD and OpenShift coexist, each managing their own fields.
 
 **Watchdog Deployment** (CM-412 workaround):
 
 **Purpose**: Continuous monitoring for cert-manager operator stuck states, with automatic recovery.
 
 **File**: `components/cert-manager/base/openshift-gitops-deployment-watchdog-certmanager.yaml`
+
+**RBAC history (2026-08-09):** this Deployment is the renamed continuation of the old `create-cluster-cert-manager-resources` Job (commit `9099d3d`, 2026-03-29 — "Renamed Job: create-cluster-cert-manager-resources → watchdog-certmanager"), which used to create Certificates/ClusterIssuers directly. The rename carried the old Job's RBAC forward unchanged even though the new watchdog script only calls `oc get crd`, `oc get/delete certmanager cluster`, and `oc get pods -n cert-manager`. Trimmed the `cert-manager-operator` SA's ClusterRole and namespace Roles down to exactly that — removed 4 entirely-unused Role/RoleBinding pairs (`openshift-ingress`, `openshift-config`, `openshift-ingress-operator`, `kube-system`, all for `certificates.cert-manager.io`/`ingresscontrollers`/`secrets` — leftover from the other 2 Jobs this same commit deleted) and narrowed the `cert-manager` namespace Role and the ClusterRole to drop `secrets create/delete`, `clusterissuers.cert-manager.io`, and `config.openshift.io apiservers/dnses/infrastructures`. Verified live: zero Jobs/CronJobs on the cluster ever used this SA, `oc auth can-i` confirms exactly the intended before/after permission set, and the watchdog kept running (no restart, no gap in its 60s health-check log) straight through the change.
 
 **Implementation**:
 ```yaml
