@@ -471,13 +471,14 @@ The Kueue operator configures webhook timeouts that exceed the recommended 13-se
 - Recommendation appears in Insights Advisor dashboard
 
 **Root Cause:**
-Kueue webhooks perform complex validation logic for queue management and workload scheduling that requires more than 13 seconds to complete, especially in large clusters with many queue resources. The extended timeout is intentional and necessary for proper operation.
+Kueue operator configures its validating/mutating webhooks with `timeoutSeconds: 23`, above the 13s Insights recommends. ⚠️ Correction (2026-08-08): this was **not** actually necessary — see Status below, the fix's own author states the timeout bump should never have been applied.
 
 **Status:**
-- **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578) — Jira shows **Closed/Done** (2026-03-22), but no `fixVersion` recorded and the ticket's own text frames the fix as "remove the timeout bump in Kueue Operator." Unconfirmed whether that shipped in the Kueue version bundled with OCP 4.20.
-- **Reported:** Red Hat internal bug tracker
-- **Workaround:** Recommendation disabled in Insights configuration — **keep in place** until confirmed the warning no longer fires on this cluster
-- **Fix ETA:** TBD (pending re-verification)
+- **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578) — Jira shows Closed/Done (2026-03-22)
+- **Upstream fix confirmed merged:** [openshift/kueue-operator#1588](https://github.com/openshift/kueue-operator/pull/1588) ("Remove webhook timeout" — "the webhook timeout shouldn't be updated as the maximum allowed is 13 seconds"), merged 2026-03-16.
+- ⚠️ **Not yet in the downstream product (confirmed live, 2026-08-08):** this cluster runs `kueue-operator.v1.2.0` (Red Hat build of Kueue), and both `kueue-validating-webhook-configuration` and `kueue-mutating-webhook-configuration` still show `timeoutSeconds: 23` on every webhook. The `InsightsRecommendationActive` alert is genuinely still firing (confirmed active, state `suppressed` by our silence) — this is a real unfixed condition on this cluster, not a stale false-positive being needlessly hidden. The upstream merge hasn't propagated to the productized Kueue operator build yet.
+- **Workaround:** Recommendation disabled in Insights configuration — **keep in place**, confirmed still needed
+- **Fix ETA:** TBD — re-check `kueue-operator` CSV version after any operator upgrade for whether `timeoutSeconds` finally drops to ≤13s
 
 **Mitigation Applied:**
 
@@ -743,7 +744,8 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 **Component:** Red Hat OpenShift AI (RHOAI) 3.4.2 — KServe / LLMInferenceService controller
 **JIRA:** [RHOAIENG-81202](https://redhat.atlassian.net/browse/RHOAIENG-81202) — New
 **Status:** Open since 2026-08-05, no fix version yet
-**Related:** [RHOAIENG-70416](https://redhat.atlassian.net/browse/RHOAIENG-70416) — same bug class, fixed upstream via kserve/kserve#5703 for the older `InferenceService.workerSpec` path (targeted RHOAI 3.5 GA, not yet released) — that fix does not cover the newer `LLMInferenceService`+`LeaderWorkerSet` reconciler
+**Related:** [RHOAIENG-70416](https://redhat.atlassian.net/browse/RHOAIENG-70416) — same bug class, for the older `InferenceService.workerSpec` path — that fix does not cover the newer `LLMInferenceService`+`LeaderWorkerSet` reconciler regardless of its own status. Dormant on this cluster: `oc get inferenceservice -A` confirms zero InferenceServices of any kind are deployed (2026-08-08).
+- ⚠️ **Jira/reality mismatch on RHOAIENG-70416 (confirmed 2026-08-08):** Jira shows Closed/Done, fixVersion `3.5 GA RHOAI RELEASE` (not yet released, target 2026-08-19), and a Konflux Release Team comment claims "Fixed in Konflux Advisory RHBA-2026:40009". The upstream PR ([kserve/kserve#5703](https://github.com/kserve/kserve/pull/5703)) did merge, but the **midstream** PR that actually needs to land in the fork RHOAI builds from — [opendatahub-io/kserve#1649](https://github.com/opendatahub-io/kserve/pull/1649) — failed its required CI checks (`e2e-predictor`, `e2e-llm-inference-service`) and was **closed without merging** on 2026-06-25, with no successful retest recorded afterward. The Konflux advisory comment's claim could not be verified against the actual code state — treat RHOAIENG-70416 as unresolved in the repo RHOAI builds from, not as genuinely fixed, until independently re-verified.
 
 **Issue:** Deploying an `LLMInferenceService` with `spec.worker` set (triggers a `LeaderWorkerSet`-backed multi-node deployment) can leave `LLMInferenceService.status` conditions stuck at `Ready=Progressing` indefinitely, even after the underlying `LeaderWorkerSet` reports `Available: True` and all leader/worker pods are `Running`/`Ready`. Observed stuck for 9+ minutes with no further reconciliation.
 
