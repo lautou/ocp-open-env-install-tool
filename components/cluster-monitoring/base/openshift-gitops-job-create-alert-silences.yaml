@@ -135,23 +135,6 @@ spec:
           START_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
           END_TIME=$(date -u -d '+10 years' +%Y-%m-%dT%H:%M:%S.000Z)
 
-          # 1. NooBaa database PodDisruptionBudgetAtLimit silence
-          NOOBAA_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "PodDisruptionBudgetAtLimit", "isRegex": false, "isEqual": true},
-              {"name": "poddisruptionbudget", "value": "noobaa-db-pg-cluster-primary", "isRegex": false, "isEqual": true},
-              {"name": "namespace", "value": "openshift-storage", "isRegex": false, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: NooBaa database PDB with single replica (JIRA: DFBUGS-5294) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "NooBaa PodDisruptionBudgetAtLimit" "$NOOBAA_PAYLOAD"
-
           # 4. Apicurio Registry UI PodDisruptionBudgetAtLimit silence
           APICURIO_PAYLOAD=$(cat <<EOF
           {

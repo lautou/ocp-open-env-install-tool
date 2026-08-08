@@ -26,68 +26,16 @@ A PostSync Job (`components/cluster-monitoring/base/openshift-monitoring-job-cre
 
 The Job creates 10-year silences for all known bugs documented below.
 
-### 1. NooBaa Database PodDisruptionBudgetAtLimit
+### 1. NooBaa Database PodDisruptionBudgetAtLimit — RESOLVED, hack removed (2026-08-08)
 
-**Alert Name:** `PodDisruptionBudgetAtLimit`
 **Component:** OpenShift Data Foundation (ODF) - NooBaa
-**Namespace:** `openshift-storage`
-**PodDisruptionBudget:** `noobaa-db-pg-cluster-primary`
+**JIRA:** [DFBUGS-5294](https://redhat.atlassian.net/browse/DFBUGS-5294) — Closed/Done, fixed in `odf-4.22` (released 2026-07-09)
 
-**Issue:**
-The NooBaa PostgreSQL database PodDisruptionBudget is configured with `minAvailable: 1` but only 1 replica exists (single-replica database), resulting in 0 allowed disruptions. This triggers the PodDisruptionBudgetAtLimit alert even though the configuration is intentional for database high availability requirements.
+**Issue (unchanged, by design):** the NooBaa CNPG PostgreSQL PDB (`noobaa-db-pg-cluster-primary`) has `minAvailable: 1` on a single-replica database, so `disruptionsAllowed` is always `0` — CNPG performs a graceful primary switchover during node drains instead. This still triggers `PodDisruptionBudgetAtLimit`; that part is intentional and hasn't changed.
 
-**Impact:**
-- False-positive PodDisruptionBudgetAtLimit alerts
-- No actual impact on NooBaa or ODF functionality
-- Database operates normally with single replica and proper PDB protection
+**What changed:** as of ODF 4.22, the `noobaa-operator` itself creates and hourly-reconciles an indefinite Alertmanager silence for this exact alert — no external workaround needed anymore. Confirmed live on this cluster (ODF `4.22.1-rhodf`): `noobaa-operator` logs show `"cnpg:: reconciling PDB alert silence for CNPG cluster noobaa-db-pg-cluster"` → `"PDB alert silence already exists and is valid (ID: ..., expires: 3000-01-01T00:00:00Z)"`, and the live Alertmanager silence list shows the operator's own silence (`createdBy: noobaa-operator`) active alongside our now-redundant one.
 
-**Root Cause:**
-PDB configuration in NooBaa expects single-replica PostgreSQL deployment with `minAvailable: 1`, which mathematically results in 0 allowed disruptions (1 available - 1 required = 0). This is correct behavior for protecting a single-replica database but triggers the alert threshold.
-
-**Status:**
-- **JIRA:** [DFBUGS-5294](https://redhat.atlassian.net/browse/DFBUGS-5294)
-- **Reported:** Red Hat internal bug tracker
-- **Workaround:** Alert routed to null receiver + Alertmanager silence active
-- **Fix ETA:** TBD (pending upstream resolution)
-
-**Mitigation Applied:**
-
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = PodDisruptionBudgetAtLimit
-         - poddisruptionbudget = noobaa-db-pg-cluster-primary
-         - namespace = openshift-storage
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-monitoring-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
-   - **Created by:** argocd-automation
-   - **Effect:** Alert shows as "suppressed" in web console
-   - **Automation:** Runs automatically on every cluster deployment
-
-**Verification:**
-```bash
-# Check PDB configuration
-oc get pdb noobaa-db-pg-cluster-primary -n openshift-storage -o yaml
-
-# Check allowed disruptions
-oc get pdb noobaa-db-pg-cluster-primary -n openshift-storage \
-  -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
-
-# Expected: 0 (triggers the alert)
-
-# Check database replica count
-oc get statefulset noobaa-db-pg -n openshift-storage \
-  -o jsonpath='{.spec.replicas}{"\n"}'
-
-# Expected: 1 (single replica)
-```
+**Removed:** the `null`-receiver routing rule in `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` and the corresponding silence-creation block in `components/cluster-monitoring/base/openshift-gitops-job-create-alert-silences.yaml` — both redundant now that the operator self-manages this on any cluster running ODF 4.22+.
 
 ---
 
