@@ -796,6 +796,8 @@ None of these three have JIRA tickets filed — noted here only as context for w
 
 **Fix applied (this repo):** `components/openshift-config/base/TEMPORARY-FIX-openshift-apiserver-networkpolicy-allow-check-endpoints-monitoring.yaml` — an additive NetworkPolicy opening port 17698 to namespaces labeled `network.openshift.io/policy-group: monitoring` (matches both `openshift-monitoring` and `openshift-user-workload-monitoring`), for pods labeled `apiserver: "true"`. This is the exact workaround from the original bug report, confirmed there to resolve the alert. Remove once OCP 4.22.z ships a build where `allow-apiserver` itself includes port 17698.
 
+**RBAC dependency:** `openshift-apiserver` isn't labeled `argocd.argoproj.io/managed-by` (it's a system namespace, not one this repo creates), so the ArgoCD Application Controller SA had no permission to create a `NetworkPolicy` there — same RBAC-gap class as OSSM-15257 and RHOAIENG-82144 above. Added `openshift-apiserver-role-networkpolicy-manager.yaml` + `openshift-apiserver-rb-networkpolicy-manager.yaml`, scoped narrowly to `networkpolicies.networking.k8s.io` only (not a broad `edit`/`admin` grant), given the sensitivity of this namespace.
+
 ---
 
 ## Adding New Alert Silences and Insights Disabling

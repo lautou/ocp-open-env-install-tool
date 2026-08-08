@@ -5,4 +5,6 @@ resources:
   - TEMPORARY-FIX-openshift-apiserver-networkpolicy-allow-check-endpoints-monitoring.yaml
   - cluster-apiserver-cluster.yaml
   - cluster-namespace-openshift-config.yaml
+  - openshift-apiserver-rb-networkpolicy-manager.yaml
+  - openshift-apiserver-role-networkpolicy-manager.yaml
   - openshift-config-secret-support.yaml
