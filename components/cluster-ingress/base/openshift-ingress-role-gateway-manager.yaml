@@ -1,3 +1,13 @@
+# Required even though openshift-ingress carries argocd.argoproj.io/managed-by: openshift-gitops.
+# Confirmed live 2026-08-09: ArgoCD's own auto-generated Role there grants only
+# get/list/watch on gateways.gateway.networking.k8s.io (write access is only granted for
+# HTTPRoute/GRPCRoute/etc.) - it deliberately mirrors OpenShift's own
+# system:openshift:gateway-api:aggregate-to-admin ClusterRole, which has the identical split.
+# This matches the upstream Gateway API security model (gateway-api.sigs.k8s.io/concepts/security-model):
+# "The creation of a new Gateway should be considered as a privileged permission." Two independent
+# Red Hat components enforcing the same restriction means this is permanent, by-design RBAC, NOT a
+# bug to chase upstream - contrast with telemetry-manager's Role (JIRA OSSM-15257), which IS a
+# genuine upstream defect (Sail Operator's ClusterRoles are missing aggregation labels entirely).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

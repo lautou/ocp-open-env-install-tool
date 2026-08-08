@@ -137,11 +137,14 @@ metadata:
 
 ---
 
-## 5. ArgoCD RBAC for System Namespaces It Doesn't Manage
+## 5. ArgoCD RBAC Gaps (Unmanaged Namespaces AND managed-by Coverage Gaps)
 
-**When**: A component needs ArgoCD to create/manage a resource in a pre-existing OpenShift system namespace (one this repo didn't create) that isn't labeled `argocd.argoproj.io/managed-by`. Without this, syncs fail with `<resource> is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource ...`.
+**When**: A component needs ArgoCD to create/manage a resource and hits `<resource> is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource ...`. This happens in two distinct scenarios — check which one you're in before picking a fix:
 
-There are two valid approaches — pick based on scope and namespace sensitivity:
+1. **Namespace isn't `managed-by`-labeled at all** (e.g. `openshift-apiserver`) — ArgoCD has no generated RBAC there whatsoever.
+2. **Namespace IS `managed-by`-labeled, but the auto-generated Role still doesn't cover the resource type** (e.g. `openshift-ingress`, which carries the label). Confirmed live 2026-08-09: OpenShift GitOps's auto-generated `openshift-gitops-argocd-application-controller` Role there is **not** a wildcard grant — it's a curated per-API-group allowlist, with a blanket `get/list/watch`-only fallback for anything not explicitly listed. `gateway.networking.k8s.io/gateways` gets read-only (matching OpenShift's own `gateway-api:aggregate-to-admin` ClusterRole — see `components.md` "MaaS Gateway for Model Serving" for why this is deliberate, not a bug). `telemetry.istio.io` isn't listed at all (JIRA [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257) — a genuine upstream gap). **Don't assume a `managed-by` label means full write access — check the actual generated Role's rules on your cluster (`oc get role openshift-gitops-argocd-application-controller -n <namespace> -o yaml`) before concluding RBAC should already work.**
+
+Both scenarios use the same two fix approaches — pick based on scope and namespace sensitivity:
 
 ### Option A: Narrow Role/RoleBinding (preferred for sensitive namespaces, one-off grants)
 
@@ -177,8 +180,9 @@ subjects:
 ```
 
 **Examples**:
-- `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `-rb-telemetry-manager.yaml` (scoped to `telemetries.telemetry.istio.io` in `openshift-ingress`)
-- `components/openshift-config/base/openshift-apiserver-role-networkpolicy-manager.yaml` + `-rb-networkpolicy-manager.yaml` (scoped to `networkpolicies` in `openshift-apiserver`)
+- `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `-rb-telemetry-manager.yaml` (scenario 2 — `openshift-ingress` is `managed-by`-labeled, but its generated Role has no `telemetry.istio.io` entry at all)
+- `components/cluster-ingress/base/openshift-ingress-role-gateway-manager.yaml` + `-rb-gateway-manager.yaml` (scenario 2 — same namespace, generated Role covers `gateway.networking.k8s.io/gateways` but read-only)
+- `components/openshift-config/base/openshift-apiserver-role-networkpolicy-manager.yaml` + `-rb-networkpolicy-manager.yaml` (scenario 1 — `openshift-apiserver` has no `managed-by` label at all)
 
 **File naming**: name by the target namespace + what it manages (`<namespace>-role-<resource>-manager.yaml`, `<namespace>-rb-<resource>-manager.yaml`), not by the source SA — see the cross-namespace RBAC naming rule in `gitops-specialist-agent.md`.
 

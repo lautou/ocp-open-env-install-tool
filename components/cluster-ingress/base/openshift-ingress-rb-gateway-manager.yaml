@@ -1,3 +1,5 @@
+# See openshift-ingress-role-gateway-manager.yaml for why this is needed despite the
+# namespace's managed-by label - permanent, by-design RBAC, not a bug.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

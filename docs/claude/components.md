@@ -1973,10 +1973,19 @@ subjects:
   namespace: openshift-gitops
 ```
 
-**Why explicit RBAC is needed:**
-- Gateway is a custom resource from gateway.networking.k8s.io API group
-- Auto-generated Role from namespace label grants only **read** permissions (`get, list, watch`) for CRDs
-- ArgoCD needs **write** permissions to create/update Gateways
+**Why explicit RBAC is needed (confirmed live 2026-08-09):**
+- The `openshift-gitops-argocd-application-controller` Role that OpenShift GitOps auto-generates in `openshift-ingress` for the `managed-by` label is **not** a wildcard grant — it's a curated allowlist. Pulled directly from the live cluster, its rule for Gateway API is:
+  ```yaml
+  - apiGroups: [gateway.networking.k8s.io]
+    resources: [gateways]
+    verbs: [get, list, watch]        # read-only
+  - apiGroups: [gateway.networking.k8s.io]
+    resources: [httproutes, grpcroutes, referencegrants, backendtlspolicies]
+    verbs: [get, list, watch, create, update, patch, delete, ...]   # full CRUD
+  ```
+- This exactly mirrors OpenShift's own `system:openshift:gateway-api:aggregate-to-admin` ClusterRole (`openshift/cluster-ingress-operator`) — two independent Red Hat components landing on the identical read-only-for-Gateway split.
+- This matches the upstream Gateway API security model ([gateway-api.sigs.k8s.io/concepts/security-model](https://gateway-api.sigs.k8s.io/concepts/security-model/)): *"The creation of a new Gateway should be considered as a privileged permission"* — Gateways provision real infrastructure (LoadBalancer, DNS), so even the `admin`/`edit` ClusterRoles deliberately exclude write access to them; only HTTPRoute/GRPCRoute (the Application Developer persona's resources) get full CRUD.
+- **Conclusion: this is permanent, by-design RBAC — not a bug to file upstream.** Contrast with `telemetry-manager`'s RBAC in the same namespace (`docs/claude/known-bugs.md`, JIRA [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257)), which **is** a genuine upstream defect — Sail Operator's Helm-installed ClusterRoles are missing the `aggregate-to-admin`/`aggregate-to-edit` labels entirely, with no persona-model justification for the gap.
 - RBAC defined in cluster-ingress component (shared infrastructure) rather than rhoai component
 - Error without RBAC: `gateways.gateway.networking.k8s.io is forbidden: cannot create resource "gateways"`
 
