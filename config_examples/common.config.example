@@ -10,7 +10,7 @@ CLUSTER_NAME="myocp"
 
 # --- OPENSHIFT VERSION ---
 # The specific version of OpenShift to install.
-OPENSHIFT_VERSION="4.20.10"
+OPENSHIFT_VERSION="4.22.8"
 
 # Base URL to download the openshift-install and oc binaries
 OCP_DOWNLOAD_BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp"

@@ -7,10 +7,10 @@ metadata:
   namespace: openshift-gitops
 data:
   # Observability
-  cluster-logging: "stable-6.4"
+  cluster-logging: "stable-6.6"
   cluster-observability: "stable"
   grafana: "v5"
-  loki: "stable-6.4"
+  loki: "stable-6.6"
   network-observability: "stable"
   opentelemetry: "stable"
   tempo: "stable"
@@ -26,11 +26,11 @@ data:
   rhcl-operator: "stable"
 
   # CI/CD & Dev Tools
-  cert-manager: "stable-v1.18"
+  cert-manager: "stable-v1.20"
   devworkspace: "fast"  # Usually coupled with Web Terminal
-  openshift-builds: "builds-1.7"
-  openshift-gitops: "gitops-1.20"
-  openshift-pipelines: "pipelines-1.21"
+  openshift-builds: "builds-1.8"
+  openshift-gitops: "gitops-1.21"
+  openshift-pipelines: "pipelines-1.23"
   web-terminal: "fast"
 
   # Infrastructure & Storage
@@ -40,15 +40,15 @@ data:
   
   # OpenShift Data Foundation (ODF)
   # All ODF components typically share the same version lifecycle
-  odf: "stable-4.20"
+  odf: "stable-4.22"
 
   # AI
   jobset: "stable-v1.0"
-  kueue: "stable-v1.2"
+  kueue: "stable-v1.4"
   lws: "stable-v1.0"
   nvidia-gpu-operator: "v26.3"
   rhoai: "stable-3.4"
 
   # Cluster management
-  rhacm: "release-2.16"
-  rhacs: "rhacs-4.10"
+  rhacm: "release-2.17"
+  rhacs: "rhacs-4.11"
