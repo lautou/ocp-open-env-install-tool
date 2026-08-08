@@ -6,7 +6,6 @@ metadata:
   name: devworkspace-placement-fixer
   namespace: openshift-gitops
 spec:
-  ttlSecondsAfterFinished: 600
   template:
     metadata:
       name: devworkspace-placement-fixer
