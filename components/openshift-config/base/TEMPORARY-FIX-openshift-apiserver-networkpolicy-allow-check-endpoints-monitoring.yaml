@@ -1,0 +1,39 @@
+# TEMPORARY FIX for OCPBUGS-100168 (https://redhat.atlassian.net/browse/OCPBUGS-100168)
+#
+# On OCP 4.22, the platform-shipped "allow-apiserver" NetworkPolicy in
+# openshift-apiserver only opens ingress on port 8443 (the API server port).
+# The check-endpoints sidecar container listens on port 17698, which no
+# NetworkPolicy allows, so Prometheus scraping it times out and fires
+# TargetDown: "100% of the check-endpoints/check-endpoints targets in
+# openshift-apiserver namespace have been unreachable for more than 15
+# minutes." The apiserver itself is unaffected - this only blocks metrics
+# scraping.
+#
+# Fix already verified upstream for OCP 5.0 (OCPBUGS-86583, PR
+# https://github.com/openshift/cluster-openshift-apiserver-operator/pull/719)
+# but the 4.22.z backport (OCPBUGS-100168) is still in progress as of
+# 2026-08-09. This is the exact workaround suggested and confirmed
+# ("the alert is gone") in the original bug report.
+#
+# Remove once OCP 4.22.z ships a version where "allow-apiserver" itself
+# includes port 17698 - check `oc get networkpolicy allow-apiserver
+# -n openshift-apiserver -o yaml` for the port before removing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-check-endpoints-monitoring
+  namespace: openshift-apiserver
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: monitoring
+    ports:
+    - port: 17698
+      protocol: TCP
+  policyTypes:
+  - Ingress

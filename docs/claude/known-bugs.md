@@ -782,6 +782,22 @@ None of these three have JIRA tickets filed — noted here only as context for w
 
 ---
 
+### OCPBUGS-100168 — check-endpoints TargetDown in openshift-apiserver (NetworkPolicy missing port 17698)
+
+**Component:** OCP 4.22 platform — `cluster-openshift-apiserver-operator`
+**JIRA:** [OCPBUGS-100168](https://redhat.atlassian.net/browse/OCPBUGS-100168) — Status `POST` (4.22.z backport in progress, not yet released; backport approved 2026-07-29, still no shipped fix version as of 2026-08-07)
+**Upstream fix (verified for 5.0, not yet backported to 4.22):** [PR #719](https://github.com/openshift/cluster-openshift-apiserver-operator/pull/719) (`bindata/v3.11.0/openshift-apiserver/networkpolicy-allow.yaml`) — also reported independently at [cluster-openshift-apiserver-operator#718](https://github.com/openshift/cluster-openshift-apiserver-operator/issues/718)
+
+**Alert:** `TargetDown` — "100% of the check-endpoints/check-endpoints targets in openshift-apiserver namespace have been unreachable for more than 15 minutes."
+
+**Issue:** the platform-shipped `allow-apiserver` NetworkPolicy in `openshift-apiserver` only opens ingress on port 8443 (the API server port). The `check-endpoints` sidecar container (part of every `openshift-apiserver` pod) listens on port 17698, which no NetworkPolicy allows, so Prometheus's scrape of it times out. The apiserver itself is unaffected — confirmed live: all `openshift-apiserver` pods `Running 2/2`, all nodes `Ready`, the `api` job (port 8443) is `up`; only `check-endpoints` (port 17698) targets are `down` with `context deadline exceeded`.
+
+**Root cause:** confirmed via `oc get networkpolicy allow-apiserver -n openshift-apiserver -o yaml` — ingress rule only lists `port: 8443`, nothing for 17698. `default-deny` in the same namespace drops everything else.
+
+**Fix applied (this repo):** `components/openshift-config/base/TEMPORARY-FIX-openshift-apiserver-networkpolicy-allow-check-endpoints-monitoring.yaml` — an additive NetworkPolicy opening port 17698 to namespaces labeled `network.openshift.io/policy-group: monitoring` (matches both `openshift-monitoring` and `openshift-user-workload-monitoring`), for pods labeled `apiserver: "true"`. This is the exact workaround from the original bug report, confirmed there to resolve the alert. Remove once OCP 4.22.z ships a build where `allow-apiserver` itself includes port 17698.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
