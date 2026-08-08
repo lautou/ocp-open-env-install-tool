@@ -1,0 +1,78 @@
+# TEMPORARY FIX for RHOAIENG-82144 (https://redhat.atlassian.net/browse/RHOAIENG-82144)
+#
+# On OCP 4.22+, openshift-ingress ships a blanket deny-all NetworkPolicy.
+# RHOAI 3.4.x's MaaS Gateway does not yet deploy a NetworkPolicy for the
+# payload-processing pods it creates in openshift-ingress, so they crash-loop
+# unable to reach the Kubernetes API server (dial tcp 172.30.0.1:443: i/o
+# timeout) or receive ext_proc traffic from the gateway.
+#
+# This is the exact fix already merged upstream in opendatahub-io/models-as-a-service
+# (PRs #1105, #1157, #1179 - deployment/base/payload-processing/networking/networkpolicy.yaml),
+# applied here early via GitOps until it ships natively in a RHOAI 3.4.x release.
+#
+# Remove this file once RHOAI 3.4.x (or later, once we upgrade) creates this
+# NetworkPolicy itself - check for a "payload-processing" NetworkPolicy already
+# present in openshift-ingress before removing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payload-processing
+  namespace: openshift-ingress
+  labels:
+    app.opendatahub.io/modelsasservice: "true"
+    app.kubernetes.io/part-of: maas
+    app.kubernetes.io/component: networking
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - payload-processing
+          - payload-pre-processing
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ext_proc traffic from any Istio-managed gateway pod in the
+    # ingress namespace (covers both data-science-gateway and maas-default-gateway).
+    - from:
+        - podSelector:
+            matchLabels:
+              gateway.istio.io/managed: istio.io-gateway-controller
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-ingress
+      ports:
+        - protocol: TCP
+          port: 9004
+    # Allow monitoring scrape from OpenShift monitoring namespaces
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-monitoring
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-user-workload-monitoring
+      ports:
+        - protocol: TCP
+          port: 9005
+        - protocol: TCP
+          port: 9090
+  egress:
+    # Allow DNS resolution (CoreDNS on OCP uses port 5353)
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
+    # Allow Kubernetes API server access (controller-runtime client)
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443

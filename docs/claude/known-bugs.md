@@ -832,6 +832,21 @@ None of these three have JIRA tickets filed — noted here only as context for w
 
 ---
 
+### RHOAIENG-82144 — MaaS payload-processing CrashLoopBackOff in openshift-ingress (missing NetworkPolicy)
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.4.2 — ModelsAsService / MaaS Gateway, `payload-processing` (MaaS Inference Payload Processing / ext_proc)
+**JIRA:** [RHOAIENG-82144](https://redhat.atlassian.net/browse/RHOAIENG-82144) — New, filed 2026-08-09
+**Related:** [RHOAIENG-76928](https://redhat.atlassian.net/browse/RHOAIENG-76928) (sibling bug, same "MaaS NetworkPolicy allow-list drift" class, different namespace/destination — `maas-api`→PostgreSQL, not `payload-processing`→API server, already fixed for 3.5), [RHOAIENG-77945](https://redhat.atlassian.net/browse/RHOAIENG-77945) (epic: "Standardize NetworkPolicy ownership model"), [RHOAIENG-53206](https://redhat.atlassian.net/browse/RHOAIENG-53206) (documented in official 3.4/3.5 release notes — same failure shape for Spark Operator in `redhat-ods-applications`)
+**Upstream fix (already merged, not yet in RHOAI 3.4.x):** [models-as-a-service#1105](https://github.com/opendatahub-io/models-as-a-service/pull/1105), [#1157](https://github.com/opendatahub-io/models-as-a-service/pull/1157), [#1179](https://github.com/opendatahub-io/models-as-a-service/pull/1179) — same open question asked upstream in [models-as-a-service#1090](https://github.com/opendatahub-io/models-as-a-service/issues/1090)
+
+**Issue:** `openshift-ingress` on OCP 4.22+ ships a blanket deny-all `NetworkPolicy` (`openshift-ingress-deny-all`, `podSelector: {}`, no rules). RHOAI 3.4.x's MaaS Gateway deploys `payload-processing` pods into that namespace but doesn't yet deploy a matching allow-list NetworkPolicy for them, so they crash-loop: `dial tcp 172.30.0.1:443: i/o timeout` reaching the Kubernetes API server, then `Could not wait for Cache to sync` → manager shuts down → CrashLoopBackOff (19+ restarts observed).
+
+**Root cause:** confirmed via `oc get networkpolicy -n openshift-ingress` — none of the existing allow policies (`data-science-gateway-allow`, `istiod-allow`, `kube-auth-proxy`, `maas-default-gateway-allow`, `openshift-ai-inference-allow`, `router-default`) match `payload-processing`'s pod labels (`app: payload-processing`, `app.kubernetes.io/name: maas-api`), so it falls through to the pure deny-all.
+
+**Fix applied (this repo):** `components/rhoai/base/TEMPORARY-FIX-openshift-ingress-networkpolicy-payload-processing.yaml` — the exact NetworkPolicy already merged upstream (ingress on 9004 from Istio-managed gateway pods + monitoring scrape, egress DNS + Kubernetes API 443/6443), applied early via GitOps until RHOAI 3.4.x ships it natively. Remove once RHOAI creates this NetworkPolicy itself (check for a `payload-processing` NetworkPolicy already present in `openshift-ingress` before removing).
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
