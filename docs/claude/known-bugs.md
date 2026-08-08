@@ -474,6 +474,8 @@ oc get secret support -n openshift-config 2>&1  # expect NotFound
 
 **Alertmanager suppression retained as a safety net** for the local `InsightsRecommendationActive` alert regardless (matches `description =~ .*config.*migrated.*secret.*configmap.*` in `openshift-monitoring-secret-alertmanager-main.yaml` + a Job-created silence) — the actual Advisor-dashboard recommendation should stop firing entirely now that the real condition is fixed, but the alert-side suppression costs nothing to leave in place.
 
+**Confirmed on the Advisor dashboard itself (2026-08-08, same day):** cluster now shows "0 Recommendations" / "not affected by any known recommendations" on console.redhat.com — cleared without any manual "Disable recommendation" action, much faster than the 24-48h refresh cycle Red Hat docs typically describe.
+
 ---
 
 ### 3. MachineConfigPool maxUnavailable Configuration
