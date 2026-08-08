@@ -7,6 +7,3 @@ resources:
   - cluster-namespace-openshift-config.yaml
   - openshift-apiserver-rb-networkpolicy-manager.yaml
   - openshift-apiserver-role-networkpolicy-manager.yaml
-  - openshift-insights-cm-insights-config.yaml
-  - openshift-insights-rb-configmap-manager.yaml
-  - openshift-insights-role-configmap-manager.yaml

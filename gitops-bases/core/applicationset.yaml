@@ -42,6 +42,8 @@ spec:
       - branch: master
         item: openshift-gitops-admin-config
       - branch: master
+        item: openshift-insights
+      - branch: master
         item: openshift-operators
       - branch: master
         item: opentelemetry

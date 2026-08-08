@@ -221,7 +221,7 @@ Components use overlays for deployment variants. Common patterns:
 - **Prerequisites**: `oc`, `git`, `yq`, `podman`, `aws` CLI
 - **AWS Tenant Isolation**: Tool assumes **dedicated AWS tenant** (demo/lab only). `clean_aws_tenant.sh` deletes **ALL S3 buckets** without filtering. ⚠️ **DO NOT USE IN SHARED AWS ACCOUNTS**
 - **Git repo**: Fork and update `GIT_REPO_URL` in `common.config` for custom changes
-- **Critical components**: Never remove `cluster-ingress`, `cluster-oauth`, `openshift-config`, `openshift-gitops-admin-config` from ApplicationSets
+- **Critical components**: Never remove `cluster-ingress`, `cluster-oauth`, `openshift-config`, `openshift-gitops-admin-config`, `openshift-insights` from ApplicationSets
 
 **Security**: See [security.md](docs/claude/security.md) for AWS Secrets Manager integration, Job QoS patterns.
 

@@ -387,7 +387,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 
 **⚠️ There is no local per-recommendation disable field.** Confirmed 2026-08-09 against the actual `openshift/insights-operator` source (`pkg/config/legacy_config.go` for the legacy `support` Secret, `pkg/config/types.go` for the current `insights-config` ConfigMap): neither schema has ever had a `disabled_recommendations`-style field, only a global `disableInsightsAlerts`/`alerting.disabled` on/off switch for *all* recommendations. Recommendations are generated cloud-side and sent back as Prometheus metrics (`insights_recommendation_active`); the only thing that actually suppresses the resulting local alert is **Alertmanager routing + a silence** (see each entry below). Suppressing a specific recommendation on the Red Hat Hybrid Cloud Console's Advisor dashboard itself requires that UI's own "Disable recommendation" button — out of GitOps' reach.
 
-**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-config/base/openshift-insights-cm-insights-config.yaml`. The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list.
+**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`, its own dedicated core component (see entry #2 below for why). The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list.
 
 ---
 
@@ -458,9 +458,9 @@ Cannot get the configuration config map: configmaps "insights-config" not found.
 ```
 ...then fell back to the legacy Secret. It was never a false positive — we simply had never created the `insights-config` ConfigMap the operator has supported (and preferred) since OCP 4.15.
 
-**Fix applied (this repo):** `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` — creates the `insights-config` ConfigMap in `openshift-insights` (empty/defaults, since the old Secret never carried any real config to migrate). Also removed the legacy `support` Secret (`components/openshift-config/base/openshift-config-secret-support.yaml`) — keeping it around was itself the trigger for this recommendation.
+**Fix applied (this repo):** `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` — creates the `insights-config` ConfigMap in `openshift-insights` (empty/defaults, since the old Secret never carried any real config to migrate). Also removed the legacy `support` Secret (`components/openshift-config/base/openshift-config-secret-support.yaml`) — keeping it around was itself the trigger for this recommendation.
 
-**RBAC dependency:** `openshift-insights` isn't labeled `argocd.argoproj.io/managed-by` (system namespace) — same RBAC-gap class as OSSM-15257, RHOAIENG-82144, and OCPBUGS-100168 above. Added `openshift-insights-role-configmap-manager.yaml` + `openshift-insights-rb-configmap-manager.yaml`, scoped narrowly to `configmaps` only.
+**RBAC approach (revised 2026-08-09):** `openshift-insights` isn't labeled `argocd.argoproj.io/managed-by` (system namespace) — same RBAC-gap class as OSSM-15257, RHOAIENG-82144, and OCPBUGS-100168 above. Rather than a narrow per-resource `Role`/`RoleBinding` (the approach used for OCPBUGS-100168's `openshift-apiserver` fix), `openshift-insights` got its own dedicated core component (`components/openshift-insights/`, registered in `gitops-bases/core/applicationset.yaml`) whose base includes a `Namespace` manifest carrying `argocd.argoproj.io/managed-by: openshift-gitops` — the same pattern already used for `openshift-config`/`openshift-ingress`/etc. This lets ArgoCD auto-generate the namespace's RBAC itself; no manual Role/RoleBinding needed. Chosen here (vs. the narrow-Role approach) because `openshift-insights` is a lower-sensitivity namespace than `openshift-apiserver` and is expected to grow more GitOps-managed content over time.
 
 **Verification:**
 ```bash
@@ -950,7 +950,7 @@ When adding a new one:
 3. **Add the Alertmanager routing + silence** following the "Silencing Prometheus Alerts" steps above, with `alertname = InsightsRecommendationActive` plus a `description =~ ...` matcher.
 4. **Note the limitation:** this only suppresses the local alert (OCP console "Alerting" page). It does not remove the recommendation from the Red Hat Hybrid Cloud Console's Advisor dashboard — that requires that UI's own "Disable recommendation" action.
 
-If the recommendation is about genuine Insights Operator *configuration* (not a specific rule finding — e.g. an upload endpoint, proxy, or the Secret→ConfigMap migration), that's a different thing: edit `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` per the documented `insights-config` ConfigMap schema instead.
+If the recommendation is about genuine Insights Operator *configuration* (not a specific rule finding — e.g. an upload endpoint, proxy, or the Secret→ConfigMap migration), that's a different thing: edit `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` per the documented `insights-config` ConfigMap schema instead.
 
 ---
 

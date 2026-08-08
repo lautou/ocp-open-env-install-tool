@@ -227,7 +227,7 @@ The project does NOT enable a separate user-workload Alertmanager instance. All 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Recommendations generate `InsightsRecommendationActive` alerts in the cluster that must be suppressed via Alertmanager.
 
 **Configuration:**
-- `components/openshift-config/base/openshift-insights-cm-insights-config.yaml` (real Insights Operator config, OCP 4.15+ preferred location — see below)
+- `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` (real Insights Operator config, OCP 4.15+ preferred location — see below; its own core component so `openshift-insights` can carry `argocd.argoproj.io/managed-by` like other GitOps-managed system namespaces, no manual RBAC needed)
 - `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` (alert routing)
 - `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml` (automated silences)
 
@@ -269,7 +269,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    - Reason: Kueue requires extended timeout for complex validations
    - Suppression: Alertmanager routing + API silence
 
-2. **Insights Operator Configuration Location** - `io_415_change_config_location` — **actually fixed 2026-08-09**, not just suppressed: created `components/openshift-config/base/openshift-insights-cm-insights-config.yaml`. Confirmed live that insights-operator prefers this ConfigMap over the legacy Secret when it exists (previously logged `Cannot get the configuration config map: ... not found. Default configuration is used.`). The Alertmanager suppression is left in place as a safety net for the local alert regardless.
+2. **Insights Operator Configuration Location** - `io_415_change_config_location` — **actually fixed 2026-08-09**, not just suppressed: created `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` (its own dedicated core component). Confirmed live that insights-operator prefers this ConfigMap over the legacy Secret when it exists (previously logged `Cannot get the configuration config map: ... not found. Default configuration is used.`). The Alertmanager suppression is left in place as a safety net for the local alert regardless.
 
 **Why there's no local per-recommendation disable field:**
 
