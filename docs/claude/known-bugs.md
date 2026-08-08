@@ -817,6 +817,21 @@ None of these three have JIRA tickets filed — noted here only as context for w
 
 ---
 
+### OSSM-15257 — Sail Operator ClusterRoles missing aggregate-to-admin/edit labels (Telemetry resource ArgoCD OutOfSync)
+
+**Component:** OpenShift Service Mesh 3 / Sail Operator (`istiod` Helm chart)
+**JIRA:** [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257) — New, filed 2026-08-08
+**Related:** [OSSM-8132](https://redhat.atlassian.net/browse/OSSM-8132), [OSSM-8316](https://redhat.atlassian.net/browse/OSSM-8316) — same defect, closed 2024-11-08 on the claim OSSM 3 would fix it; our live repro shows it doesn't
+**Affects:** `rh-connectivity-link` component's `Telemetry/namespace-metrics` resource in `openshift-ingress`
+
+**Issue:** Sail Operator's Helm-installed ClusterRoles (`istiod-clusterrole-*`, `istio-reader-clusterrole-*`, `istiod-gateway-controller-*`) don't carry `rbac.authorization.k8s.io/aggregate-to-admin`/`aggregate-to-edit` labels, so any principal holding only the aggregated `admin`/`edit` ClusterRole in a namespace — including the ArgoCD Application Controller SA via `argocd.argoproj.io/managed-by` — can't create `*.istio.io` resources there. ArgoCD Application `rh-connectivity-link` showed `OutOfSync`/sync `Failed`: `telemetries.telemetry.istio.io is forbidden: ... cannot create resource "telemetries" in API group "telemetry.istio.io"`.
+
+**Root cause:** confirmed via `oc get clusterrole -l 'rbac.authorization.k8s.io/aggregate-to-admin=true' -o name | grep istio` returning nothing on `istiod`/`istio-reader` ClusterRoles (OLM-managed ClusterRoles like `istiocsrs.operator.openshift.io` do carry the label — only the Helm/Sail-installed ones don't).
+
+**Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.

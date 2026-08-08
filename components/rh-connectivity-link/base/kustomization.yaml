@@ -41,6 +41,8 @@ resources:
 - openshift-gitops-job-configure-grafana-datasource-token.yaml
 - openshift-gitops-serviceaccount-grafana-datasource-configurator.yaml
 - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
+- openshift-ingress-rb-telemetry-manager.yaml
+- openshift-ingress-role-telemetry-manager.yaml
 - openshift-ingress-servicemonitor-istiod.yaml
 - openshift-ingress-telemetry-namespace-metrics.yaml
 replacements:
