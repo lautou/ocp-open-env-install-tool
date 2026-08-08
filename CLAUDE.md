@@ -516,7 +516,7 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 **Quick reference**:
 - Alertmanager managed via GitOps in `cluster-monitoring` component
 - Alert silences require **BOTH** routing to null receiver AND Alertmanager API silence
-- Automated silences via PostSync Job (8 known bugs silenced automatically)
+- Automated silences via PostSync Job (9 known bugs silenced automatically)
 - User workload monitoring: No separate Alertmanager (routes through cluster Alertmanager)
 
 **Before adding alert silences**: Verify bug, document in known-bugs.md, add routing + silence, run audit script.

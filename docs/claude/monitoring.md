@@ -36,6 +36,7 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 6. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
 7. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
 8. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
+9. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
 
 ## Adding New Alert Silences
 
@@ -126,7 +127,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - Creates 10-year silences via Alertmanager API for all known bugs
    - **Retry logic**: 3 attempts per silence with 5-second delays
    - **Verification**: Confirms each silence was created successfully via API query
-   - **Final validation**: Verifies 8+ active silences exist before completing
+   - **Final validation**: Verifies 9+ active silences exist before completing
    - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
@@ -143,6 +144,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - Kuadrant istio-pod-monitor TargetDown (JIRA: CONNLINK-911)
    - insights-runtime-extractor KubeDaemonSetMisScheduled (JIRA: OCPBUGS-74211)
    - TrustyAI ServiceMonitor overly broad selector TargetDown (JIRA: RHOAIENG-54605)
+   - TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown (JIRA: RHOAIENG-61424)
 
 **Reliability Improvements (2026-03-23):**
 

@@ -344,18 +344,22 @@ ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies
 - **Status:** Open — Jira shows Closed with fixVersion `3.5 EA1 RHOAI RELEASE` (released 2026-06-17), but live reproduction on RHOAI 3.4.2 / OCP 4.20.30 (2026-08-08) confirms the bug is still present. The fix has not reached our version.
 - **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (overly broad `trustyai-metrics` selector) — see the "TrustyAI ServiceMonitor Overly Broad Selector" entry above; same root class of bug, re-opened alongside this one on the same date.
 
-**No hack currently implemented** — this bug only fires once a `TrustyAIService` CR exists, and none is deployed on this cluster right now. Add the routing + silence below (same pattern as RHOAIENG-54605) if/when a real `TrustyAIService` gets deployed and the alert actually starts firing.
+**Mitigation Applied (2026-08-08):** proactively silenced alongside RHOAIENG-54605 for consistency, even though no `TrustyAIService` is deployed on this cluster right now to actually trigger it — pre-empting the alert the moment one is created, same as every other entry in this doc.
 
-**Suggested mitigation (not yet applied — no live target to silence against):**
-```yaml
-# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-routes:
-  - matchers:
-      - alertname = TargetDown
-      - service =~ trustyai-service|trustyai-service-tls
-    receiver: 'null'
-    continue: false
-```
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = TargetDown
+         - service =~ trustyai-service|trustyai-service-tls
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook)
+   - **Duration:** 10 years from cluster deployment
 
 **Verification:**
 ```bash

@@ -267,6 +267,22 @@ spec:
           )
           create_silence "TrustyAI ServiceMonitor overly broad selector" "$TRUSTYAI_OPERATOR_PAYLOAD"
 
+          # 11. TrustyAI ServiceMonitor scheme:http on TLS ports (per-instance)
+          TRUSTYAI_INSTANCE_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
+              {"name": "service", "value": "trustyai-service|trustyai-service-tls", "isRegex": true, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: TrustyAI per-instance ServiceMonitor scheme:http on TLS ports (JIRA: RHOAIENG-61424) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "TrustyAI ServiceMonitor scheme:http on TLS ports" "$TRUSTYAI_INSTANCE_PAYLOAD"
+
           echo ""
           echo "================================================"
           echo "Verifying all silences are active..."
@@ -283,11 +299,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 8 ]; then
+          if [ "$SILENCE_COUNT" -ge 9 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 9+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest
