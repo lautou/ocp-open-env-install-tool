@@ -5,9 +5,14 @@ resources:
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-namespace-external-db-genai-playground.yaml
 - cluster-namespace-external-db-maas.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
+- external-db-genai-playground-deployment-postgresql.yaml
+- external-db-genai-playground-pvc-postgresql.yaml
+- external-db-genai-playground-secret-postgresql-credentials.yaml
+- external-db-genai-playground-service-postgresql.yaml
 - external-db-maas-deployment-postgresql.yaml
 - external-db-maas-pvc-postgresql.yaml
 - external-db-maas-rb-maas-db-secret.yaml
