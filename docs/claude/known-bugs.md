@@ -115,6 +115,7 @@ PDB configuration in Apicurio Registry Operator creates `minAvailable: 1` for si
 - **Reported:** 2026-03-30
 - **Workaround:** Alert routed to null receiver + Alertmanager silence active
 - **Fix ETA:** TBD (pending operator update to skip PDB for single-replica deployments)
+- ℹ️ **Currently dormant on this cluster (confirmed 2026-08-08):** the `rhb-apicurio-registry-operator` is deployed (Synced/Healthy), but no `apicurio` namespace resources exist — no ApicurioRegistry3 instance has been created, so the UI Deployment/PDB this bug depends on doesn't exist yet. Silence stays proactive (same pattern as every other entry here) for whenever an instance gets deployed.
 
 **Mitigation Applied:**
 
