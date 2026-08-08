@@ -269,7 +269,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    - Reason: Kueue requires extended timeout for complex validations
    - Suppression: Alertmanager routing + API silence
 
-2. **Insights Operator Configuration Location** - `io_415_change_config_location` — **actually fixed 2026-08-09**, not just suppressed: created `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` (its own dedicated core component). Confirmed live that insights-operator prefers this ConfigMap over the legacy Secret when it exists (previously logged `Cannot get the configuration config map: ... not found. Default configuration is used.`). The Alertmanager suppression is left in place as a safety net for the local alert regardless.
+(The `io_415_change_config_location` recommendation previously listed here was fixed for real 2026-08-09 — see `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` — and confirmed cleared from the Advisor dashboard the same day. No longer tracked as a suppressed recommendation since it wasn't an upstream bug, just a gap in our own setup.)
 
 **Why there's no local per-recommendation disable field:**
 

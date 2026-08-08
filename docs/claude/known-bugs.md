@@ -387,7 +387,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 
 **⚠️ There is no local per-recommendation disable field.** Confirmed 2026-08-09 against the actual `openshift/insights-operator` source (`pkg/config/legacy_config.go` for the legacy `support` Secret, `pkg/config/types.go` for the current `insights-config` ConfigMap): neither schema has ever had a `disabled_recommendations`-style field, only a global `disableInsightsAlerts`/`alerting.disabled` on/off switch for *all* recommendations. Recommendations are generated cloud-side and sent back as Prometheus metrics (`insights_recommendation_active`); the only thing that actually suppresses the resulting local alert is **Alertmanager routing + a silence** (see each entry below). Suppressing a specific recommendation on the Red Hat Hybrid Cloud Console's Advisor dashboard itself requires that UI's own "Disable recommendation" button — out of GitOps' reach.
 
-**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`, its own dedicated core component (see entry #2 below for why). The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list.
+**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`, its own dedicated core component (`components/openshift-insights/`, registered in `gitops-bases/core/applicationset.yaml`, with a `Namespace` manifest carrying `argocd.argoproj.io/managed-by: openshift-gitops` so ArgoCD can manage it without a manual RBAC grant — same pattern as `openshift-config`/`openshift-ingress`). The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list. (The recommendation that prompted creating the ConfigMap — `io_415_change_config_location` — was fixed and confirmed cleared from the Advisor dashboard the same day; no longer tracked here since it wasn't an upstream bug, just a gap in our own setup.)
 
 ---
 
@@ -446,39 +446,7 @@ oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
 
 ---
 
-### 2. Insights Operator Configuration Location Change — RESOLVED (2026-08-09)
-
-**Recommendation:** `Deprecated: Configuration via support Secret (use ConfigMap instead)`
-**Rule ID:** `ccx_rules_ocp.external.rules.io_415_change_config_location`
-**Component:** Insights Operator
-
-**⚠️ Previous conclusion was wrong.** This entry used to say the OCP 4.20 operator "still expects Secret, not ConfigMap, code hasn't been updated" and treated it as a false positive to silence. Re-verified live on OCP 4.22.8 (2026-08-09): the operator genuinely checks for the ConfigMap first. Before this fix, `insights-operator` logs showed:
-```
-Cannot get the configuration config map: configmaps "insights-config" not found. Default configuration is used.
-```
-...then fell back to the legacy Secret. It was never a false positive — we simply had never created the `insights-config` ConfigMap the operator has supported (and preferred) since OCP 4.15.
-
-**Fix applied (this repo):** `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` — creates the `insights-config` ConfigMap in `openshift-insights` (empty/defaults, since the old Secret never carried any real config to migrate). Also removed the legacy `support` Secret (`components/openshift-config/base/openshift-config-secret-support.yaml`) — keeping it around was itself the trigger for this recommendation.
-
-**RBAC approach (revised 2026-08-09):** `openshift-insights` isn't labeled `argocd.argoproj.io/managed-by` (system namespace) — same RBAC-gap class as OSSM-15257, RHOAIENG-82144, and OCPBUGS-100168 above. Rather than a narrow per-resource `Role`/`RoleBinding` (the approach used for OCPBUGS-100168's `openshift-apiserver` fix), `openshift-insights` got its own dedicated core component (`components/openshift-insights/`, registered in `gitops-bases/core/applicationset.yaml`) whose base includes a `Namespace` manifest carrying `argocd.argoproj.io/managed-by: openshift-gitops` — the same pattern already used for `openshift-config`/`openshift-ingress`/etc. This lets ArgoCD auto-generate the namespace's RBAC itself; no manual Role/RoleBinding needed. Chosen here (vs. the narrow-Role approach) because `openshift-insights` is a lower-sensitivity namespace than `openshift-apiserver` and is expected to grow more GitOps-managed content over time.
-
-**Verification:**
-```bash
-# Confirm the operator now reads the ConfigMap (no more "not found" warning)
-oc get configmap insights-config -n openshift-insights
-oc logs -n openshift-insights deployment/insights-operator | grep -i "configuration config map"
-
-# The legacy Secret should be gone
-oc get secret support -n openshift-config 2>&1  # expect NotFound
-```
-
-**Alertmanager suppression retained as a safety net** for the local `InsightsRecommendationActive` alert regardless (matches `description =~ .*config.*migrated.*secret.*configmap.*` in `openshift-monitoring-secret-alertmanager-main.yaml` + a Job-created silence) — the actual Advisor-dashboard recommendation should stop firing entirely now that the real condition is fixed, but the alert-side suppression costs nothing to leave in place.
-
-**Confirmed on the Advisor dashboard itself (2026-08-08, same day):** cluster now shows "0 Recommendations" / "not affected by any known recommendations" on console.redhat.com — cleared without any manual "Disable recommendation" action, much faster than the 24-48h refresh cycle Red Hat docs typically describe.
-
----
-
-### 3. MachineConfigPool maxUnavailable Configuration
+### 2. MachineConfigPool maxUnavailable Configuration
 
 **Recommendation:** `MachineConfigPool will never finish updating when the 'unavailableMachineCount' is greater than 'maxUnavailable' in the MachineConfigPool`
 **Rule ID:** `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
