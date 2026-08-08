@@ -6,7 +6,7 @@
 
 This project uses **Kubernetes Jobs** extensively to automate Day 2 operations that cannot be accomplished with static manifests alone. Jobs handle dynamic configuration, secret management, resource patching, and cleanup tasks.
 
-**Total Jobs**: 14 across 10 components
+**Total Jobs**: run `grep -rl "^kind: Job$" components/ | wc -l` for the current count (drifts as components are added — don't hardcode it here)
 
 **Why Jobs?**
 - Dynamic value discovery (e.g., extracting auto-generated secrets)
@@ -260,10 +260,9 @@ spec:
 
 **Correct deletion sequence**:
 ```bash
-# 1. Delete user workload Applications FIRST
-oc delete application uc-ai-generation-llm-rag -n openshift-gitops
-oc delete application uc-llamastack -n openshift-gitops
-oc delete application ai-models-service -n openshift-gitops
+# 1. Delete user workload Applications FIRST (any Application deploying
+#    InferenceServices/Notebooks/Pipelines, if a profile adds one)
+oc delete application <user-workload-app> -n openshift-gitops
 
 # 2. Wait for user workloads to fully delete
 sleep 60
@@ -273,8 +272,7 @@ oc delete application rhoai -n openshift-gitops
 ```
 
 **PreDelete hook procedure** (Step 0-10):
-- **Step 0**: Clean user workload namespaces (safety net if not deleted first)
-  - Force-deletes resources in ai-generation-llm-rag, llamastack, ai-models-service
+- **Step 0**: Clean user workload namespaces (safety net if not deleted first) — array ships empty; populate per-profile if one adds a user workload namespace
   - Removes finalizers to prevent stuck namespaces
   - Warns if user workloads found (indicates wrong deletion order)
 - **Step 1**: Delete DataScienceCluster CR
@@ -284,7 +282,7 @@ oc delete application rhoai -n openshift-gitops
 - **Step 5**: Wait for operator pods to terminate
 - **Step 6**: Delete OperatorGroup
 - **Step 7**: Delete webhooks (prevents namespace deadlock)
-- **Step 8**: Delete RHOAI namespaces (redhat-ods-*, ai-generation-llm-rag, etc.)
+- **Step 8**: Delete RHOAI namespaces (redhat-ods-operator, redhat-ods-applications, external-rhoai-db)
 - **Step 9**: Delete RHOAI CRDs (opendatahub.io, kubeflow.org)
 - **Step 10**: Verify cleanup
 
@@ -296,7 +294,7 @@ oc delete application rhoai -n openshift-gitops
 
 **Safety net**: Step 0 attempts cleanup if user workloads remain, but proper deletion order is still recommended for graceful cleanup.
 
-**Complete guide**: See [rhoai-deletion-order.md](../rhoai-deletion-order.md)
+**Complete guide**: See [rhoai-deletion-order.md](rhoai-deletion-order.md)
 
 #### When to Use PreDelete vs PostDelete
 
@@ -688,11 +686,8 @@ spec:
 
 **Jobs:**
 - `openshift-gitops-job-cleanup-installer-pods.yaml` → Delete failed installer pods
-- `openshift-gitops-job-cleanup-auto-tektonconfig.yaml` → Resolve TektonConfig targetNamespace race condition (OpenShift Pipelines)
-  - Deletes operator's auto-created TektonConfig if wrong targetNamespace
-  - Uses sync-wave orchestration to run between operator install and ArgoCD TektonConfig creation
-  - Idempotent: checks targetNamespace before deleting (no-op if already correct)
-  - See `docs/claude/components.md` "OpenShift Pipelines → TektonConfig Race Condition" for full details
+- `components/openshift-pipelines/base/openshift-gitops-job-predelete-cleanup-tekton-resources.yaml` + `openshift-gitops-job-postdelete-cleanup-tekton-crds.yaml` → Clean Tekton resource removal (TektonHub → TektonConfig → TektonResults, then CRDs) following Red Hat's documented uninstall procedure
+  - See `docs/claude/components.md` "PreDelete/PostDelete Hooks" (under OpenShift Pipelines) for full details
 - `openshift-gitops-job-delete-openshift-builds-resources.yaml` → Remove OpenShift Builds operator (superseded by Pipelines)
   - Uses proper operator cleanup sequence (Subscription → CSV → CR finalizer removal → Namespace)
   - See "Pattern: Operator Cleanup with Finalizer Handling" below
@@ -769,66 +764,19 @@ Operators retry internally until dependencies are met.
 
 ### 8. Operator Node Selector Updates (1 Job)
 
-**Pattern**: Modify OLM-managed Subscription node placement post-deployment
+**Pattern**: Patch OLM Subscription `spec.config.nodeSelector` post-deployment (regular Job, not a hook — see "Jobs Pattern: Regular Jobs (NOT Hooks)" in root CLAUDE.md)
 
 **Why Jobs?**
-- OLM Subscriptions with `config.nodeSelector` don't apply immediately to deployed operators
-- Direct Deployment patching required after operator installation
+- ODF's operator Subscriptions need infra-node placement, but the exact Subscription names embed the ODF channel (discovered at runtime from the `cluster-versions` ConfigMap) and aren't known statically
+- Must wait for each Subscription to exist before patching (created by OLM after the Subscription CR triggers install)
 
-**Job:**
-- `openshift-storage-job-update-subscriptions-node-selector.yaml` → Apply infra node selector to ODF operators
-
-**Template:**
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "3"
-  name: update-subscriptions-node-selector
-  namespace: openshift-storage
-spec:
-  template:
-    spec:
-      containers:
-      - command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-
-          echo "Waiting for ODF operator deployments..."
-          oc wait deployment odf-operator-controller-manager -n openshift-storage --for=condition=Available --timeout=300s
-
-          echo "Patching operator deployments with infra node selector..."
-          for deployment in $(oc get deployments -n openshift-storage -o name | grep -E "odf-|ocs-|noobaa-"); do
-            echo "Patching $deployment"
-            oc patch $deployment -n openshift-storage --type=merge -p '{
-              "spec": {
-                "template": {
-                  "spec": {
-                    "nodeSelector": {"node-role.kubernetes.io/infra": ""},
-                    "tolerations": [{"key": "node-role.kubernetes.io/infra", "operator": "Exists"}]
-                  }
-                }
-              }
-            }'
-          done
-
-          echo "All deployments patched."
-        image: registry.redhat.io/openshift4/ose-cli:latest
-        name: update-node-selector
-      restartPolicy: Never
-      serviceAccountName: openshift-gitops-argocd-application-controller
-```
+**Job:** `components/openshift-storage/base/openshift-gitops-job-update-odf-subscriptions-node-selector.yaml`, runs in `openshift-gitops` namespace (uses explicit `subscription.operators.coreos.com` API group — see "OLM Resource API Groups - RHACM Conflict" in root CLAUDE.md)
 
 **Key patterns:**
-- Wait for initial deployment
-- Loop through multiple deployments with `grep -E` filter
-- Patch deployment spec (triggers pod recreation)
-- Strategic merge patch with full JSON structure
+- `Force=true` only, no hook annotation — self-heals via a `while ! oc get subscription...; do sleep 5; done` wait loop instead of a PostSync hook
+- Reads the ODF channel from the `cluster-versions` ConfigMap to construct each Subscription's full name
+- Patches `spec.config.nodeSelector`/`tolerations` on each `Subscription` (not the resulting Deployment directly) — OLM propagates it from there
+- Two Subscriptions (`odf-external-snapshotter-operator`, `odf-prometheus-operator`) are intentionally excluded due to a known upstream bug preventing nodeSelector/toleration configuration on them
 
 ### 9. GPU MachineSet Creation (1 Job)
 
@@ -1166,13 +1114,13 @@ spec:
 apiVersion: objectbucket.io/v1alpha1
 kind: ObjectBucketClaim
 spec:
-  bucketName: ai-generation-llm-rag-pipelines  # Static, predictable
+  bucketName: my-component-pipelines  # Static, predictable
 
 # DSPA with hardcoded bucket name
 spec:
   objectStorage:
     externalStorage:
-      bucket: "ai-generation-llm-rag-pipelines"  # Same static name
+      bucket: "my-component-pipelines"  # Same static name
 ```
 
 **Result**: Simple, declarative, robust. No PostSync Job needed.
@@ -1343,7 +1291,7 @@ hostname: maas-api.apps.${OCP_BASE_DOMAIN}
    - Use standard `nodeSelector` + `tolerations`
 
 4. **Use dedicated ServiceAccounts with least-privilege RBAC**
-   - ✅ **IMPLEMENTED**: All 20 Jobs use dedicated ServiceAccounts (AUDIT.md ISSUE-009 resolved)
+   - ✅ **IMPLEMENTED**: All Jobs use dedicated ServiceAccounts (AUDIT.md ISSUE-009 resolved)
    - Principle of least privilege (0 cluster-admin usage)
    - Pattern: 1 ServiceAccount per Job type or shared for similar operations
    - Examples:
@@ -1893,17 +1841,17 @@ oc patch application <app-name> -n openshift-gitops --type=merge -p '{"metadata"
 
 ## Summary
 
-**Jobs are essential** for GitOps automation beyond static manifests. This project uses 15 Jobs across 9 categories:
+**Jobs are essential** for GitOps automation beyond static manifests. This project groups them into these categories (see "Job Categories" above for the current Jobs in each — counts are omitted here since they drift as components are added):
 
-1. **Console Plugin Management** (6) - Patch shared Console CR
-2. **Secret Management** (2) - Extract operator-generated credentials
-3. **Shared Resource Patching** (1) - Runtime configuration requiring dynamic logic
-4. **Alert Management** (1) - Alertmanager API automation
-5. **Dynamic Configuration** (1) - Inject discovered values
-6. **Cleanup** (2) - Remove unwanted resources
-7. **Dependency Waiting** (0) - Cross-component synchronization (pattern removed)
-8. **Node Selector Updates** (1) - Post-deployment operator placement
-9. **Infrastructure Creation** (1) - GPU MachineSet generation
+1. **Console Plugin Management** - Patch shared Console CR
+2. **Secret Management** - Extract operator-generated credentials
+3. **Shared Resource Patching** - Runtime configuration requiring dynamic logic
+4. **Alert Management** - Alertmanager API automation
+5. **Dynamic Configuration** - Inject discovered values
+6. **Cleanup** - Remove unwanted resources / Tekton PreDelete-PostDelete cleanup
+7. **Dependency Waiting** - Cross-component synchronization (pattern removed as a dedicated category; waiting loops now live inline in the Jobs that need them, e.g. category 8)
+8. **Node Selector Updates** - Post-deployment operator/Subscription placement
+9. **Infrastructure Creation** - GPU MachineSet generation
 
 **Deprecated Jobs** (replaced by static manifests + CMP):
 - 3 cert-manager Jobs → Now static Certificates with CMP placeholders

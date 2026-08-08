@@ -30,14 +30,15 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 **Current silenced alerts:**
 1. **Apicurio Registry UI PodDisruptionBudgetAtLimit** - Apicurio Registry UI single-replica PDB (JIRA: APICURIO-24)
 2. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
-3. **InsightsRecommendationActive (config migration)** - Insights Operator config migration recommendation
-4. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
-5. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
-6. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
-7. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
-8. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
+3. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
+4. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
+5. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
+6. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
+7. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
 
-**Removed:** NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294) — ODF 4.22's `noobaa-operator` now self-manages this silence natively; see `known-bugs.md` for details.
+**Removed:**
+- NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294) — ODF 4.22's `noobaa-operator` now self-manages this silence natively; see `known-bugs.md` for details.
+- InsightsRecommendationActive (config migration) — the underlying gap (legacy `support` Secret instead of `insights-config` ConfigMap) was fixed for real 2026-08-09; routing + silence removed since the recommendation can no longer fire.
 
 ## Adding New Alert Silences
 
@@ -115,20 +116,20 @@ curl -X POST -H "Content-Type: application/json" \
 
 ## Automated Alert Silences via GitOps
 
-**IMPORTANT:** Alert silences are now **fully automated** via an ArgoCD PostSync Job!
+**IMPORTANT:** Alert silences are now **fully automated** via a GitOps Job!
 
 The manual silence creation steps above are kept for reference, but in practice, all known bug silences are created automatically when the cluster-monitoring component syncs.
 
 **How it works:**
 
-1. **PostSync Job** (`openshift-monitoring-job-create-alert-silences.yaml`):
-   - Runs automatically after cluster-monitoring ApplicationSet syncs
+1. **Job** (`openshift-gitops-job-create-alert-silences.yaml`, `Force=true` only — not a hook):
+   - Runs on every cluster-monitoring sync
    - Waits for Alertmanager StatefulSet and pods to be fully ready
    - **Additional 30-second stabilization wait** (ensures API is fully initialized)
    - Creates 10-year silences via Alertmanager API for all known bugs
    - **Retry logic**: 3 attempts per silence with 5-second delays
    - **Verification**: Confirms each silence was created successfully via API query
-   - **Final validation**: Verifies 8+ active silences exist before completing
+   - **Final validation**: Verifies 7+ active silences exist before completing
    - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
@@ -139,7 +140,6 @@ The manual silence creation steps above are kept for reference, but in practice,
 3. **Known bugs silenced automatically**:
    - Apicurio Registry UI PodDisruptionBudgetAtLimit (JIRA: APICURIO-24)
    - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)
-   - InsightsRecommendationActive (config migration)
    - InsightsRecommendationActive (MachineConfigPool maxUnavailable)
    - Kuadrant istio-pod-monitor TargetDown (JIRA: CONNLINK-911)
    - insights-runtime-extractor KubeDaemonSetMisScheduled (JIRA: OCPBUGS-74211)
@@ -169,7 +169,7 @@ The Job was improved to address timing issues that caused silent failures:
 - ✅ **Self-healing** - Automatic retry on transient failures
 - ✅ **Verifiable** - Job exit code reflects actual success/failure
 
-**Location:** `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
+**Location:** `components/cluster-monitoring/base/openshift-gitops-job-create-alert-silences.yaml`
 
 **Implementation:** Uses `openshift/cli` image with native bash tools (grep/sed) to parse JSON API responses - no external dependencies required.
 
@@ -229,7 +229,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 **Configuration:**
 - `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` (real Insights Operator config, OCP 4.15+ preferred location — see below; its own core component so `openshift-insights` can carry `argocd.argoproj.io/managed-by` like other GitOps-managed system namespaces, no manual RBAC needed)
 - `components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml` (alert routing)
-- `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml` (automated silences)
+- `components/cluster-monitoring/base/openshift-gitops-job-create-alert-silences.yaml` (automated silences)
 
 **How It Works:**
 - Insights Operator runs in `openshift-insights` namespace
@@ -257,10 +257,10 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    ```
 
 2. **Alertmanager API Silences** - Fully suppresses alerts (state: "suppressed"):
-   - Created automatically by PostSync Job
+   - Created automatically by the GitOps Job on every sync
    - 10-year duration, persisted to Alertmanager PVC
    - Recreated on every cluster deployment
-   - See: `components/cluster-monitoring/base/openshift-monitoring-job-create-alert-silences.yaml`
+   - See: `components/cluster-monitoring/base/openshift-gitops-job-create-alert-silences.yaml`
 
 **Currently Suppressed Recommendations:**
 
@@ -269,7 +269,13 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    - Reason: Kueue requires extended timeout for complex validations
    - Suppression: Alertmanager routing + API silence
 
-(The `io_415_change_config_location` recommendation previously listed here was fixed for real 2026-08-09 — see `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml` — and confirmed cleared from the Advisor dashboard the same day. No longer tracked as a suppressed recommendation since it wasn't an upstream bug, just a gap in our own setup.)
+2. **MachineConfigPool maxUnavailable** - `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
+   - JIRA: TBD (Insights rule false-positive)
+   - Reason: `maxUnavailable: null` (defaults to 1) is flagged even when pools are fully updated (`unavailableMachineCount=0`)
+   - Suppression: Alertmanager routing + API silence
+   - Details: `known-bugs.md` "MachineConfigPool maxUnavailable Configuration"
+
+(The `io_415_change_config_location` recommendation previously listed here was fixed for real 2026-08-09 — see `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`. Its Alertmanager routing rule and API silence were removed since the underlying gap can't recur.)
 
 **Why there's no local per-recommendation disable field:**
 
@@ -291,11 +297,11 @@ curl -s http://localhost:9093/api/v2/alerts | \
   for a in alerts if a['labels']['alertname'] == 'InsightsRecommendationActive']"
 
 # Expected output: state should be "suppressed"
-# The Insights Operator config has been migrated from secret t... => suppressed
 # Configuring the webhook's timeout for Pod API exceeds 13s is... => suppressed
+# MachineConfigPool will never finish updating when the 'unav... => suppressed
 
 # Check automated silence Job logs
-oc logs -n openshift-monitoring job/create-alert-silences | grep -i insights
+oc logs -n openshift-gitops job/create-alert-silences | grep -i insights
 ```
 
 **Insights Recommendations vs Standard Prometheus Alerts:**

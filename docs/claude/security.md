@@ -130,24 +130,22 @@ Without resource requests/limits, Jobs get:
 
 **How It Works:**
 
-All 20 GitOps configuration Jobs use dedicated ServiceAccounts with minimal permissions tailored to their specific tasks.
+All GitOps configuration Jobs use dedicated ServiceAccounts with minimal permissions tailored to their specific tasks (run `grep -rl "^kind: Job$" components/ | wc -l` for the current Job count — drifts as components are added).
 
 **Security Implementation:**
 
-1. **13 Dedicated ServiceAccounts** - One per Job type or shared for similar operations
-2. **8 ClusterRoles** - Minimal cluster-scoped permissions only when required
-3. **17 Namespace Roles** - Preferred over ClusterRoles (principle of least privilege)
-4. **0 cluster-admin usage** - No Jobs have broad cluster permissions
+- **Dedicated ServiceAccounts** - One per Job type or shared for similar operations
+- **Namespace Roles preferred over ClusterRoles** - Principle of least privilege
+- **0 cluster-admin usage** - No Jobs have broad cluster permissions
 
 **ServiceAccount Examples:**
 
 | ServiceAccount | Used By | Permissions | Reduction |
 |---------------|---------|-------------|-----------|
 | `console-plugin-manager` | 6 console plugin Jobs | ONLY console.operator.openshift.io patch | ~99% |
-| `cert-manager-operator` | 3 cert-manager Jobs | cert-manager.io + specific namespace Roles | ~95% |
+| `cert-manager-operator` | Permanent watchdog Deployment (not a Job — see `components.md` cert-manager section) | cert-manager.io + specific namespace Roles | ~95% |
 | `loki-s3-secret-creator` | 2 S3 secret Jobs | Secret create/update in logging/netobserv | ~95% |
-| `cleanup-operator` | 2 cleanup Jobs | Pod delete in openshift-kube-controller-manager | ~97% |
-| `dependency-waiter` | 1 dependency Job | Read-only subscription access | ~98% |
+| `cleanup-operator` | 3 cleanup Jobs | Pod/resource delete in target namespaces | ~97% |
 
 **Pattern Applied:**
 

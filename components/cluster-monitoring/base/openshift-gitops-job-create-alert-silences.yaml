@@ -168,23 +168,7 @@ spec:
           )
           create_silence "Insights webhook timeout recommendation" "$INSIGHTS_WEBHOOK_PAYLOAD"
 
-          # 6. Insights recommendation - config location migration
-          INSIGHTS_CONFIG_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "InsightsRecommendationActive", "isRegex": false, "isEqual": true},
-              {"name": "description", "value": ".*config.*migrated.*secret.*configmap.*", "isRegex": true, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: Insights config migration recommendation - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "Insights config migration recommendation" "$INSIGHTS_CONFIG_PAYLOAD"
-
-          # 7. Insights recommendation - MachineConfigPool maxUnavailable
+          # 6. Insights recommendation - MachineConfigPool maxUnavailable
           INSIGHTS_MCP_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
@@ -200,7 +184,7 @@ spec:
           )
           create_silence "Insights MachineConfigPool maxUnavailable recommendation" "$INSIGHTS_MCP_PAYLOAD"
 
-          # 8. Kuadrant istio-pod-monitor TargetDown
+          # 7. Kuadrant istio-pod-monitor TargetDown
           ISTIO_PODMONITOR_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
@@ -216,7 +200,7 @@ spec:
           )
           create_silence "Kuadrant istio-pod-monitor TargetDown" "$ISTIO_PODMONITOR_PAYLOAD"
 
-          # 9. insights-runtime-extractor KubeDaemonSetMisScheduled (race condition with infra taint)
+          # 8. insights-runtime-extractor KubeDaemonSetMisScheduled (race condition with infra taint)
           INSIGHTS_DS_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
@@ -233,7 +217,7 @@ spec:
           )
           create_silence "insights-runtime-extractor KubeDaemonSetMisScheduled" "$INSIGHTS_DS_PAYLOAD"
 
-          # 10. TrustyAI ServiceMonitor overly broad selector matches operator's own metrics service
+          # 9. TrustyAI ServiceMonitor overly broad selector matches operator's own metrics service
           TRUSTYAI_OPERATOR_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
@@ -250,7 +234,7 @@ spec:
           )
           create_silence "TrustyAI ServiceMonitor overly broad selector" "$TRUSTYAI_OPERATOR_PAYLOAD"
 
-          # 11. TrustyAI ServiceMonitor scheme:http on TLS ports (per-instance)
+          # 10. TrustyAI ServiceMonitor scheme:http on TLS ports (per-instance)
           TRUSTYAI_INSTANCE_PAYLOAD=$(cat <<EOF
           {
             "matchers": [
@@ -282,11 +266,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 8 ]; then
+          if [ "$SILENCE_COUNT" -ge 7 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 7+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest

@@ -1,7 +1,11 @@
 # ArgoCD Hook Robustness Guide
 
-**Last Updated:** 2026-04-11  
+**Last Updated:** 2026-04-11 (historical incident); note added 2026-08-09
 **Problem Solved:** PostSync hook Jobs deadlocking and requiring manual intervention
+
+**⚠️ Status note (2026-08-09):** the incident and solutions below led directly to this project's current, stricter rule — **PostSync hooks are now banned entirely** for Jobs (see root `CLAUDE.md` "Jobs Pattern: Regular Jobs (NOT Hooks)"). Hooks are still used today, but **only** for `PreDelete`/`PostDelete` deletion-time cleanup (never `PostSync`) — the delete-policy and timeout principles below still apply to those. See the corrected Jobs list under "Our Jobs" further down.
+
+**⚠️ Further update:** the `uc-ai-generation-llm-rag` Application and its `upload-pipeline-rag-data-ingestion` Job referenced throughout this doc were removed entirely from this repo (the RAG demo use case was dropped from the base `ocp-ai` profile). The commands below are kept verbatim as a real worked example of the hook-debugging technique — substitute your own Application/Job names when applying it.
 
 ## The Problem
 
@@ -184,7 +188,7 @@ except yaml.YAMLError as e:
 - **Executes:** AFTER ArgoCD deletes Application resources
 - **Trigger:** Explicit Application deletion: `oc delete application <name>`
 - **Use case:** Cleanup after resources are gone
-- **Example:** Disable console plugins after operator is removed
+- **Example:** `openshift-gitops-job-postdelete-cleanup-tekton-crds.yaml` — deletes Tekton CRDs after the operator's own resources are removed
 
 ### Critical: ApplicationSet with applicationsSync: create-update
 
@@ -213,11 +217,13 @@ spec:
 - Always use `HookSucceeded,HookFailed` for auto-cleanup even on failure
 - Ensures hooks don't block deletion workflow
 
-**Our Jobs (all now using HookSucceeded,HookFailed):**
-- `delete-openshift-builds-resources` (PreDelete)
-- `delete-rhoai-resources` (PreDelete)
-- `disable-pipelines-console-plugin` (PostDelete)
-- `disable-odf-console-plugins` (PostDelete)
+**Our Jobs** (verified 2026-08-09 — these are the only Jobs in the repo still using any hook annotation; all others are plain `Force=true` Jobs):
+- `delete-openshift-builds-resources` (PreDelete, `HookSucceeded,HookFailed`)
+- `delete-rhoai-resources` (PreDelete, `HookSucceeded,HookFailed`)
+- `disable-pipelines-console-plugin` (PreDelete, `HookSucceeded,HookFailed`)
+- `disable-odf-console-plugins` (PreDelete, `HookSucceeded,HookFailed`)
+- `predelete-cleanup-tekton-resources` (PreDelete, no delete-policy set)
+- `postdelete-cleanup-tekton-crds` (PostDelete, no delete-policy set)
 
 ## When Jobs Still Fail
 

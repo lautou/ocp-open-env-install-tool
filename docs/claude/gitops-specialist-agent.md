@@ -20,6 +20,8 @@ Expert in OpenShift Day 2 operations automation using ArgoCD ApplicationSets, Co
 
 ## Context & Current State
 
+**⚠️ Point-in-time snapshot, dated 2026-03-31 ("Last 14 Days - 245 commits analyzed") — not a living summary.** The counts below (components, ApplicationSets, profiles, Jobs, namespace labels) were accurate as of that date and have since drifted (verified 2026-08-09: actual component count is 43, not 30; profiles 14, not 13; Jobs 20, not 16). Don't treat any number in this section as current — check the live repo (`find components -maxdepth 0 -type d | wc -l`, `grep -rl "^kind: Job$" components/ | wc -l`, etc.) instead. Kept here for its narrative value (what changed and why), not as a dashboard.
+
 ### Project Overview
 
 **Project**: OpenShift Container Platform installation tool with Profile-Based GitOps architecture deployed on AWS
@@ -135,7 +137,7 @@ resources:
 
 **Additional labels**: Add as needed (e.g., `openshift.io/cluster-monitoring: "true"` for monitoring namespaces)
 
-**IMPORTANT**: Do NOT fix existing namespaces without this label (14/35 have technical debt - leave it alone, focus on new work only)
+**IMPORTANT**: Do NOT fix existing namespaces without this label as a cleanup task — a number of existing namespaces predate this rule and carry this technical debt intentionally left alone; focus on new work only
 
 **Mandatory template for NEW namespaces**:
 ```yaml
@@ -300,42 +302,42 @@ For Roles/RoleBindings that grant permissions in a different namespace than wher
 ❌ openshift-gitops-rolebinding-cleanup-operator-kube-system.yaml
 ```
 
-**Resource name patterns (inside YAML metadata.name)**:
+**Resource name patterns (inside YAML metadata.name)** — verified against actual repo practice 2026-08-09 (the table below reflects reality, not the aspirational `<action>-<resources>`/`<role>-<target-sa>` pattern this used to describe, which no example in the repo actually follows):
 
-| Resource | Name Pattern | Example |
+| Resource | Name Pattern | Real examples |
 |----------|-------------|---------|
-| Role / ClusterRole | `<action>-<resources>` | `manage-certificates`, `edit-configmaps` |
-| RoleBinding | `<role-name>-<target-sa/user/group>` | `manage-certificates-gitops` |
-| ClusterRoleBinding | `<clusterrole-name>-<target-sa/user/group>` | `edit-certificates-cert-manager-operator` |
+| Role | `<resource-or-subject>-<manager\|operator\|creator\|configurator>` | `gateway-manager`, `telemetry-manager`, `networkpolicy-manager`, `cleanup-operator`, `odf-subscription-configurator`, `loki-s3-secret-creator` |
+| RoleBinding | **same name as the Role it binds** — no target-SA suffix | `gateway-manager` (binds Role `gateway-manager`), `telemetry-manager` (binds Role `telemetry-manager`) |
+| ClusterRoleBinding | `cluster-crb-<component>-<resource>-<edit\|admin>` (usually binding an OLM-generated ClusterRole) | `cluster-crb-pipelines-tektonconfig-edit` |
 
-**Example complete RBAC set**:
+**Example complete RBAC set** (real files: `components/cluster-ingress/base/openshift-ingress-role-gateway-manager.yaml` + `openshift-ingress-rb-gateway-manager.yaml`):
 
 ```yaml
-# File: cert-manager-role-cert-manager-operator.yaml
+# File: openshift-ingress-role-gateway-manager.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: cert-manager-operator        # <action>-<resources>
-  namespace: cert-manager
+  name: gateway-manager
+  namespace: openshift-ingress
 rules:
-- apiGroups: ["cert-manager.io"]
-  resources: [certificates, clusterissuers]
-  verbs: [get, list, create, patch]
+- apiGroups: [gateway.networking.k8s.io]
+  resources: [gateways]
+  verbs: ['*']
 
 ---
-# File: cert-manager-rolebinding-cert-manager-operator.yaml
+# File: openshift-ingress-rb-gateway-manager.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: cert-manager-operator-gitops  # <role>-<target-sa>
-  namespace: cert-manager
+  name: gateway-manager  # same name as the Role, not <role>-<target-sa>
+  namespace: openshift-ingress
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: cert-manager-operator
+  name: gateway-manager
 subjects:
 - kind: ServiceAccount
-  name: cert-manager-operator
+  name: openshift-gitops-argocd-application-controller
   namespace: openshift-gitops
 ```
 
@@ -600,7 +602,7 @@ routes:
 
 **External documentation**:
 - `docs/claude/components.md` - Component-specific configuration patterns
-- `docs/claude/jobs.md` - Job architecture, ArgoCD hooks, development guide (16 Jobs)
+- `docs/claude/jobs.md` - Job architecture, ArgoCD hooks, development guide
 - `docs/claude/monitoring.md` - Alertmanager, alert silences, Insights recommendations
 - `docs/claude/known-bugs.md` - False-positive alerts and upstream bugs
 - `docs/claude/installation.md` - Installation flow, session recovery, profiles
@@ -836,18 +838,20 @@ metadata:
 
 ## Current State Awareness
 
-**Active Work**:
-- 16 Jobs remaining (potential migration candidates)
-- 14/35 namespaces missing managed-by label (DO NOT FIX - focus on new work)
+**⚠️ Same point-in-time caveat as "Context & Current State" above — the counts below are from the 2026-03-31 snapshot, not current.**
+
+**Active Work (as of that snapshot)**:
+- Jobs remaining as static-manifest-conversion candidates (check current count, don't rely on any number written here)
+- Some namespaces missing managed-by label (DO NOT FIX - focus on new work) — check `grep -rL "managed-by" components/*/base/cluster-namespace-*.yaml` for the current gap
 - CM-412 requires permanent watchdog Deployment
 - OLM install plan grouping workaround in place (namespace isolation for AI profile)
 
-**Completed Work**:
-- All AUDIT.md issues resolved (9/9, 100% resolution rate)
+**Completed Work (as of that snapshot)**:
+- All AUDIT.md issues resolved (10/10, 100% resolution rate — see AUDIT.md itself, not the historical "9/9" figure elsewhere)
 - Zero technical debt in RBAC (all Jobs use dedicated ServiceAccounts)
 - InfoSec leak detection handled (.gitleaks.toml + documentation)
 - CMP plugin system operational
-- ApplicationSets consolidated (20 → 18)
+- ApplicationSets consolidated
 
 ---
 
@@ -866,7 +870,7 @@ The system prompt contains the condensed version of all rules, tasks, and contex
 - **CLAUDE.md**: Main AI context documentation
 - **AUDIT.md**: Comprehensive project audit (100% resolution rate)
 - **docs/claude/components.md**: Component-specific patterns
-- **docs/claude/jobs.md**: Job architecture (16 Jobs)
+- **docs/claude/jobs.md**: Job architecture
 - **docs/claude/security.md**: Security patterns, InfoSec leak detection
 - **docs/claude/monitoring.md**: Alert management
 - **docs/claude/known-bugs.md**: Known issues and false positives

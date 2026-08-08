@@ -31,19 +31,21 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - **[argocd-hook-robustness.md](docs/claude/argocd-hook-robustness.md)** - ⚠️ **CRITICAL**: PostSync hook robustness (delete policies, timeouts, deadlock prevention)
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns (CMP plugin, network policies, cert-manager, ODF, RHCL, ACK, etc.)
 - **[rhoai-model-serving.md](docs/claude/rhoai-model-serving.md)** - RHOAI 3.x model serving patterns: InferenceService GitOps labels, Gen AI Studio/Playground prereqs, llm-d/LLMInferenceService architecture, PVC RWO workaround, GPU instance availability
-- **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide (14 Jobs)
+- **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide
 - **[kfp-secret-patterns.md](docs/claude/kfp-secret-patterns.md)** - ⚠️ **CRITICAL**: KFP v2 secret injection patterns (platformSpec, task-level vs executor-level config, troubleshooting)
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
 - **[known-bugs.md](docs/claude/known-bugs.md)** - False-positive alerts and upstream bugs
 - **[installation.md](docs/claude/installation.md)** - Installation flow, session recovery, profiles
 - **[security.md](docs/claude/security.md)** - AWS Secrets Manager, Job QoS, tenant isolation, InfoSec leak detection (.gitleaks.toml)
 - **[troubleshooting.md](docs/claude/troubleshooting.md)** - Common issues and debugging
+- **[gitops-specialist-agent.md](docs/claude/gitops-specialist-agent.md)** - YAML naming conventions, RBAC patterns, project structure reference
+- **[rhoai-deletion-order.md](docs/claude/rhoai-deletion-order.md)** - RHOAI component deletion order and PreDelete hook procedures
 
 **Project audit**: Complete codebase analysis available:
 - **[AUDIT.md](AUDIT.md)** - Comprehensive project audit (structure, components, GitOps architecture, Jobs, security, documentation, known issues, recommendations)
-  - **Status**: ✅ COMPLETE (2026-03-27) - 🎉 **100% resolution rate (9/9 issues resolved)**
-  - **Achievement**: ALL critical/high/medium/low priority issues resolved
-  - **Outstanding issues**: 0 - All technical debt eliminated
+  - **Status**: ✅ COMPLETE (2026-03-27, point-in-time snapshot) - 🎉 **100% resolution rate (10/10 issues resolved)**
+  - **Achievement**: ALL issues identified in that audit were resolved
+  - **Note**: this reflects the original 10-item audit list only, not an ongoing "zero technical debt" claim — the project intentionally carries tracked debt via the `TEMPORARY-FIX-` convention (see [known-bugs.md](docs/claude/known-bugs.md))
 
 **Before working on specific topics, read the relevant external doc.**
 
@@ -73,7 +75,7 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - User says "add to CLAUDE.md" → **FIRST check if external doc exists**, THEN decide where to add
 
 **5. Size limits**
-- CLAUDE.md: <500 lines (currently ~506)
+- CLAUDE.md: <500 lines (check with `wc -l CLAUDE.md` — don't hardcode a snapshot count here, it drifts)
 - Individual sections: <100 lines
 - Subsections: <30 lines
 - **If exceeded**: Move detailed content to external doc, keep summary + cross-reference
@@ -90,12 +92,6 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 2. If YES: Consolidate (summary in CLAUDE.md, details in external doc)
 3. If NO: Add to appropriate location (CLAUDE.md if critical pattern, external doc if detailed)
 4. Update cross-references
-
-**Recent consolidation (2026-04-16)**: Reduced CLAUDE.md from 607 → 446 lines (26% reduction)
-- PreDelete hooks: 64 → 15 lines (cross-ref to jobs.md)
-- RHOAI deletion: 46 → 20 lines (cross-ref to rhoai-deletion-order.md)
-- Jobs pattern: 89 → 25 lines (cross-ref to jobs.md)
-- ignoreDifferences examples: 58 → 20 lines (cross-ref to argocd-patterns-checklist.md)
 
 ## ⚠️ CRITICAL: Required ArgoCD Patterns
 
@@ -402,8 +398,8 @@ done
 
 **Correct deletion order**:
 ```bash
-# 1. User workloads FIRST
-oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+# 1. User workloads FIRST (any Application deploying InferenceServices/Notebooks/Pipelines)
+oc delete application <user-workload-app> -n openshift-gitops
 sleep 60  # Wait for cleanup
 
 # 2. Platform LAST

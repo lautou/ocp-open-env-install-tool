@@ -1,5 +1,7 @@
 # JIRA Bug Report: Missing PGDATA Configuration in pgvector PostgreSQL Deployment
 
+**Filing status:** Drafted, not yet filed against Red Hat's Jira (no ticket number/link exists below). Ready to submit as-is to the RHOAI Documentation Team if someone picks this up. The underlying pgvector/PGDATA gotcha applies to any OpenShift PostgreSQL deployment with a fresh cloud-storage PVC, independent of any specific component in this repo.
+
 **Summary:**
 Documentation missing required PGDATA environment variable for pgvector PostgreSQL deployment
 

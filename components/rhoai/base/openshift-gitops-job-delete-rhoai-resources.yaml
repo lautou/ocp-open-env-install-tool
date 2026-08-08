@@ -32,8 +32,8 @@ spec:
           echo "Using PreDelete hook to run BEFORE ArgoCD deletes resources."
           echo "This ensures proper deletion order per Red Hat docs."
           echo ""
-          echo "CRITICAL: User workload Applications (uc-*, ai-models-service) should be"
-          echo "deleted BEFORE the rhoai Application. If not, workloads will be orphaned."
+          echo "CRITICAL: User workload Applications (InferenceServices, Notebooks, Pipelines)"
+          echo "should be deleted BEFORE the rhoai Application. If not, workloads will be orphaned."
           echo "This hook will attempt cleanup, but proper ordering is recommended."
           echo ""
 
@@ -42,11 +42,11 @@ spec:
           # resources in your OpenShift cluster and delete anything no longer in use to
           # prevent potential issues, such as pipelines that cannot run, notebooks that
           # cannot be undeployed, or models that cannot be undeployed."
+          # No generic AI use-case namespaces ship in this repo's base profiles today —
+          # add profile-specific user workload namespaces here if a profile introduces one.
           echo "Step 0: Cleaning up user workload namespaces (if any remain)..."
 
           USER_WORKLOAD_NAMESPACES=(
-            "ai-generation-llm-rag"
-            "external-db-ai-generation-llm-rag"
           )
 
           for ns in "${USER_WORKLOAD_NAMESPACES[@]}"; do
@@ -173,8 +173,6 @@ spec:
           NAMESPACES=(
             "redhat-ods-operator"
             "redhat-ods-applications"
-            "ai-generation-llm-rag"
-            "external-db-ai-generation-llm-rag"
             "external-rhoai-db"
           )
 

@@ -245,7 +245,7 @@ oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
 
 **Alert Name:** `TargetDown`
 **Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
-**Namespace:** User project namespace (e.g. `ai-generation-llm-rag`)
+**Namespace:** Any user project namespace where a `TrustyAIService` is deployed
 **Services:** `trustyai-service`, `trustyai-service-tls`
 
 **⚠️ Confirmed still broken (2026-08-08):** previously marked "Fixed, silence removed" and separately "untestable" pending a real instance. Deployed a throwaway test `TrustyAIService` on this cluster (RHOAI 3.4.2 / OCP 4.20.30) and reproduced the bug exactly.
@@ -332,62 +332,13 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 
 ---
 
-### 6. RHOAI InferenceService AuthProxyPreserved (Sticky Condition)
-
-**ArgoCD Health:** `ai-models-service` shows `Progressing` (not Healthy)
-**Component:** Red Hat OpenShift AI (RHOAI) - KServe / ODH Model Controller
-**Namespace:** `ai-models-service`
-**Resources:** `InferenceService/granite-llm`, `InferenceService/granite-embedding`
-
-**Issue:**
-After a cluster restart or RHOAI upgrade that changes the `kube-rbac-proxy` image SHA in `inferenceservice-config`, the ODH Model Controller sets `LatestDeploymentReady: False` with reason `AuthProxyPreserved` on all running InferenceServices. This condition **never clears automatically**, even after the running pods are updated to the correct image.
-
-**Impact:**
-- ArgoCD `ai-models-service` shows `Progressing` instead of `Healthy` — cosmetic only
-- Models are fully operational: `Ready: True`, `PredictorReady: True`, `IngressReady: True`
-- No inference serving disruption
-
-**Root Cause:**
-The ODH Model Controller detects a mismatch between the `kube-rbac-proxy` image in the running Deployment and the desired image in `inferenceservice-config` ConfigMap. To avoid GPU pod restarts (which would unload the model), it preserves the existing auth proxy container and sets `AuthProxyPreserved`. However, the condition is sticky — it does not clear even after the Deployment image is updated to match. This appears to be a bug in the condition reconciliation logic.
-
-**Observed:** 2026-04-18 after cluster restart.
-
-**Workaround — after each cluster restart, if `AuthProxyPreserved` appears:**
-```bash
-# 1. Get the desired image from operator config
-NEW_SHA=$(oc get configmap inferenceservice-config -n redhat-ods-applications \
-  -o jsonpath='{.data.deploy}' | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('rawDeployment',{}).get('authProxy',{}).get('image',''))" 2>/dev/null || \
-  oc get configmap inferenceservice-config -n redhat-ods-applications -o yaml | grep "kube-auth-proxy" | grep -o 'sha256:[a-f0-9]*' | head -1)
-
-# 2. Patch both Deployments with the correct image
-oc set image deployment/granite-llm-predictor kube-rbac-proxy="registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:4027ce7319cb9c9fbed1e736b440c0fa6e8bfeb5a4433a4c753402642a1839af" -n ai-models-service
-oc set image deployment/granite-embedding-predictor kube-rbac-proxy="registry.redhat.io/rhoai/odh-kube-auth-proxy-rhel9@sha256:4027ce7319cb9c9fbed1e736b440c0fa6e8bfeb5a4433a4c753402642a1839af" -n ai-models-service
-
-# 3. Wait for rollout (models will reload — ~5 min)
-oc rollout status deployment/granite-llm-predictor deployment/granite-embedding-predictor -n ai-models-service --timeout=10m
-```
-
-**Note:** Even after patching, `AuthProxyPreserved` condition may remain set (sticky bug). The models are operational regardless. Monitor with:
-```bash
-oc get inferenceservice -n ai-models-service -o json | python3 -c "
-import json,sys
-for i in json.load(sys.stdin)['items']:
-    conds = {c['type']: c['status'] for c in i.get('status',{}).get('conditions',[])}
-    print(i['metadata']['name'], conds)
-"
-```
-
-**Status:** Known RHOAI bug — no upstream JIRA found yet. Not silenced (no Prometheus alert, ArgoCD health only).
-
----
-
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA.
 
 **⚠️ There is no local per-recommendation disable field.** Confirmed 2026-08-09 against the actual `openshift/insights-operator` source (`pkg/config/legacy_config.go` for the legacy `support` Secret, `pkg/config/types.go` for the current `insights-config` ConfigMap): neither schema has ever had a `disabled_recommendations`-style field, only a global `disableInsightsAlerts`/`alerting.disabled` on/off switch for *all* recommendations. Recommendations are generated cloud-side and sent back as Prometheus metrics (`insights_recommendation_active`); the only thing that actually suppresses the resulting local alert is **Alertmanager routing + a silence** (see each entry below). Suppressing a specific recommendation on the Red Hat Hybrid Cloud Console's Advisor dashboard itself requires that UI's own "Disable recommendation" button — out of GitOps' reach.
 
-**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`, its own dedicated core component (`components/openshift-insights/`, registered in `gitops-bases/core/applicationset.yaml`, with a `Namespace` manifest carrying `argocd.argoproj.io/managed-by: openshift-gitops` so ArgoCD can manage it without a manual RBAC grant — same pattern as `openshift-config`/`openshift-ingress`). The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list. (The recommendation that prompted creating the ConfigMap — `io_415_change_config_location` — was fixed and confirmed cleared from the Advisor dashboard the same day; no longer tracked here since it wasn't an upstream bug, just a gap in our own setup.)
+**Real Insights Operator configuration** (distinct from recommendation suppression — for actual operator settings like `dataReporting`, `alerting`, `sca`, `proxy`): `components/openshift-insights/base/openshift-insights-cm-insights-config.yaml`, its own dedicated core component (`components/openshift-insights/`, registered in `gitops-bases/core/applicationset.yaml`, with a `Namespace` manifest carrying `argocd.argoproj.io/managed-by: openshift-gitops` so ArgoCD can manage it without a manual RBAC grant — same pattern as `openshift-config`/`openshift-ingress`). The legacy `support` Secret in `openshift-config` was removed 2026-08-09 — it only ever carried the non-functional `disabled_recommendations` list. (The recommendation that prompted creating the ConfigMap — `io_415_change_config_location` — was fixed and confirmed cleared from the Advisor dashboard the same day; its Alertmanager routing rule and API silence were removed too since it wasn't an upstream bug, just a gap in our own setup that can't recur.)
 
 ---
 

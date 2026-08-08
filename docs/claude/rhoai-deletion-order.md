@@ -14,20 +14,16 @@ From [Red Hat OpenShift AI 3.3 Documentation](https://docs.redhat.com/en/documen
 
 ### 1. Delete User Workload Applications FIRST
 
-These Applications deploy workloads that depend on the RHOAI platform:
+Any Application that deploys workloads depending on the RHOAI platform (InferenceServices, LlamaStack distributions, Notebooks, Pipelines) must go first:
 
 ```bash
-# Delete AI use case Application (manages InferenceServices, LlamaStack, Notebooks, Pipelines)
-oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+# Delete the Application(s) managing your AI use case workloads
+oc delete application <user-workload-app> -n openshift-gitops
 ```
 
-**Why**: This Application manages:
-- InferenceServices (KServe)
-- LlamaStack distribution
-- Notebooks
-- Pipelines
+**Why**: These resources become orphaned and non-functional if the RHOAI platform is removed first.
 
-All of these resources become orphaned and non-functional if the RHOAI platform is removed first.
+**Note**: No AI use-case Application ships in this repo's base profiles by default — this applies whenever a profile adds one (e.g. a custom or engagement-specific profile).
 
 ### 2. Delete RHOAI Platform Application LAST
 
@@ -61,17 +57,16 @@ oc delete application rhoai -n openshift-gitops
 
 ## PreDelete Hook Safety Net
 
-The RHOAI PreDelete hook (as of 2026-04-16) includes a **Step 0** that attempts to clean up user workload namespaces:
+The RHOAI PreDelete hook includes a **Step 0** that attempts to clean up user workload namespaces:
 
 ```yaml
 # Step 0: Clean up user workload namespaces (if any remain)
 USER_WORKLOAD_NAMESPACES=(
-  "ai-generation-llm-rag"
-  "external-db-ai-generation-llm-rag"
+  # Add profile-specific user workload namespaces here if a profile introduces one
 )
 ```
 
-**Purpose**: Safety net for cases where user workload Applications weren't deleted first.
+**Purpose**: Safety net for cases where user workload Applications weren't deleted first. The array ships empty since no generic AI use-case namespace is part of this repo's base profiles — populate it for any profile that adds one.
 
 **Limitation**: This is a **force-cleanup** that may not gracefully undeploy workloads. Proper deletion order is still recommended.
 
@@ -83,7 +78,7 @@ When switching profiles or removing AI components:
 
 ```bash
 # 1. User workloads first
-oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+oc delete application <user-workload-app> -n openshift-gitops
 
 # Wait for user workload deletions to complete
 sleep 30
@@ -117,7 +112,7 @@ oc patch application cluster-profile -n openshift-gitops --type=json -p='[
 oc wait --for=condition=Synced application cluster-profile -n openshift-gitops --timeout=120s
 
 # 3. Delete user workload Applications FIRST
-oc delete application uc-ai-generation-llm-rag -n openshift-gitops
+oc delete application <user-workload-app> -n openshift-gitops
 
 # 4. Wait for user workloads to fully delete
 sleep 60
@@ -134,8 +129,8 @@ oc delete applicationset cluster-ai -n openshift-gitops
 After deletion:
 
 ```bash
-# Check for remaining user workload namespaces
-oc get namespaces | grep -E "ai-generation-llm-rag|external-db-ai-generation-llm-rag"
+# Check for remaining user workload namespaces (adjust the pattern to your profile's namespaces)
+oc get namespaces | grep -E "<your-user-workload-namespace-pattern>"
 
 # Check for remaining RHOAI namespaces
 oc get namespaces | grep -E "ods|rhoai"
@@ -155,7 +150,7 @@ If namespaces are stuck in "Terminating" after incorrect deletion order:
 
 ```bash
 # Force-delete all resources in user workload namespaces
-for ns in ai-generation-llm-rag external-db-ai-generation-llm-rag; do
+for ns in <your-user-workload-namespaces>; do
   oc delete all --all -n $ns --force --grace-period=0
   oc delete pvc --all -n $ns --force --grace-period=0
   oc patch namespace $ns --type=json -p='[{"op": "remove", "path": "/metadata/finalizers"}]'

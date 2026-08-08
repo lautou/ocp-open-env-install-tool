@@ -60,11 +60,14 @@
 The tool supports robust recovery from network interruptions:
 
 - **Session files** stored in `output/`:
-  - `.bastion_session_<config>.info` - SSH connection details
+  - `.bastion_session_<config>.info` - SSH connection details, including `BASTION_INSTANCE_ID`
   - `.bastion_provisioning_<config>.info` - Bastion instance ID during creation
 - **Recovery behavior**:
-  - Re-running the script detects active sessions and prompts to resume
-  - Reattaches to existing tmux session on bastion
+  - Re-running the script checks the bastion's real EC2 state via `aws ec2 describe-instances` before attempting SSH — not just "does the session file exist"
+  - **Terminated/gone**: session file is stale, starts a fresh install instead of hanging on an unreachable host
+  - **Stopped**: starts the instance, waits for `instance-running` + `system-status-ok`, then resumes
+  - **Running**: reattaches to the existing tmux session on bastion directly
+  - All SSH liveness checks use `-o ConnectTimeout=5 -o BatchMode=yes` so a dead/unreachable host fails fast instead of hanging on a password prompt or silently-dropped packets
   - Detects partially-provisioned bastion instances and resumes waiting
 
 ## Output Directory Structure

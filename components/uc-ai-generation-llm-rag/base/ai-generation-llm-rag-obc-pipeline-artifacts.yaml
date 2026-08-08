@@ -1,8 +1,0 @@
-apiVersion: objectbucket.io/v1alpha1
-kind: ObjectBucketClaim
-metadata:
-  name: pipeline-artifacts
-  namespace: ai-generation-llm-rag
-spec:
-  bucketName: ai-generation-llm-rag-pipelines
-  storageClassName: openshift-storage.noobaa.io

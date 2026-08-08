@@ -1293,11 +1293,11 @@ Result: task_c does NOT depend on task_b, contrary to graph visualization
 
 ```bash
 # Get most recent workflow
-WORKFLOW=$(oc get workflow -n ai-generation-llm-rag \
+WORKFLOW=$(oc get workflow -n <pipeline-namespace> \
   --sort-by=.metadata.creationTimestamp | tail -1 | awk '{print $1}')
 
 # Check actual task execution timing
-oc get workflow ${WORKFLOW} -n ai-generation-llm-rag \
+oc get workflow ${WORKFLOW} -n <pipeline-namespace> \
   -o jsonpath='{.status.nodes}' | \
   jq -r '[.[] | select(.type == "Pod")] | sort_by(.startedAt) | 
   map({

@@ -24,9 +24,8 @@ spec:
 **Why**: The `cluster-versions` ConfigMap is a shared resource used by ALL components for version tracking. Without `ignoreDifferences`, ArgoCD will report OutOfSync because multiple Applications update the tracking annotations.
 
 **Examples**:
-- ✅ `gitops-profiles/ocp-ai/uc-ai-generation-llm-rag.yaml` (lines 22-27)
-- ✅ `gitops-bases/ai/ai-models-service-appset.yaml` (lines 31-36)
-- ✅ `gitops-bases/ai/applicationset.yaml` (lines 39-46)
+- ✅ `gitops-bases/ai/applicationset.yaml`
+- ✅ `gitops-bases/rh-connectivity-link/default/applicationset.yaml`
 
 **Rule**: ALWAYS add this to Application/ApplicationSet `spec.ignoreDifferences` or `spec.template.spec.ignoreDifferences`
 
@@ -51,9 +50,10 @@ metadata:
 **Why**: ArgoCD uses this label to track which GitOps instance manages the namespace. Without it, ArgoCD may have permission issues or fail to manage resources in the namespace.
 
 **Examples**:
-- ✅ `components/ai-models-service/base/cluster-namespace-ai-models-service.yaml`
-- ✅ `components/uc-ai-generation-llm-rag/base/cluster-namespace-ai-generation-llm-rag.yaml`
-- ✅ `components/uc-llamastack/base/cluster-namespace-llamastack.yaml`
+- ✅ `components/rh-connectivity-link/base/cluster-namespace-kuadrant-system.yaml`
+- ✅ `components/openshift-insights/base/cluster-namespace-openshift-insights.yaml`
+
+**Note**: Not every namespace in this repo has this label — some (e.g. `nvidia-gpu-operator`, `jobset`, `kueue`, `leader-work-set`) intentionally omit it. Only add it when ArgoCD needs to manage resources inside that namespace beyond what the operator's own installation covers.
 
 **File naming**: `cluster-namespace-<namespace-name>.yaml`
 
@@ -96,10 +96,10 @@ spec:
 - ❌ Resources where CRD is pre-installed by OpenShift
 
 **Examples**:
-- ✅ `components/ai-models-service/base/ai-models-service-inferenceservice-granite-embedding.yaml`
+- ✅ `components/demo-ei/base/demo-ei-inferenceservice-mistral-medium-3-5.yaml`
 - ✅ `components/cert-manager/base/cert-manager-clusterissuer-cluster.yaml`
 - ✅ `components/nvidia-gpu-operator/base/cluster-clusterpolicy-gpu-cluster-policy.yaml`
-- ✅ `components/rhoai/base/rhoai-datasciencecluster-default-dsc.yaml`
+- ✅ `components/rhoai/base/cluster-datasciencecluster-default-dsc.yaml`
 
 **Rule**: ALL operator CRs MUST have `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true` annotation
 
@@ -118,7 +118,7 @@ metadata:
 
 **When**: InferenceService resources that should persist even if removed from Git (e.g., shared services).
 
-**Example**: `ai-models-service-inferenceservice-granite-embedding.yaml`
+**No current example in this repo** — apply this when introducing a shared/persistent InferenceService.
 
 ### Optional: Delete=false for cluster-critical resources
 
@@ -134,6 +134,72 @@ metadata:
 **Examples**:
 - `cluster-ingresscontroller-default.yaml`
 - `cluster-oauth-cluster.yaml`
+
+---
+
+## 5. ArgoCD RBAC for System Namespaces It Doesn't Manage
+
+**When**: A component needs ArgoCD to create/manage a resource in a pre-existing OpenShift system namespace (one this repo didn't create) that isn't labeled `argocd.argoproj.io/managed-by`. Without this, syncs fail with `<resource> is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource ...`.
+
+There are two valid approaches — pick based on scope and namespace sensitivity:
+
+### Option A: Narrow Role/RoleBinding (preferred for sensitive namespaces, one-off grants)
+
+Grant only the specific resource type needed, nothing broader (not `edit`/`admin`):
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: <resource>-manager
+  namespace: <target-namespace>
+rules:
+- apiGroups:
+  - <api-group>
+  resources:
+  - <resource-plural>
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: <resource>-manager
+  namespace: <target-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: <resource>-manager
+subjects:
+- kind: ServiceAccount
+  name: openshift-gitops-argocd-application-controller
+  namespace: openshift-gitops
+```
+
+**Examples**:
+- `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `-rb-telemetry-manager.yaml` (scoped to `telemetries.telemetry.istio.io` in `openshift-ingress`)
+- `components/openshift-config/base/openshift-apiserver-role-networkpolicy-manager.yaml` + `-rb-networkpolicy-manager.yaml` (scoped to `networkpolicies` in `openshift-apiserver`)
+
+**File naming**: name by the target namespace + what it manages (`<namespace>-role-<resource>-manager.yaml`, `<namespace>-rb-<resource>-manager.yaml`), not by the source SA — see the cross-namespace RBAC naming rule in `gitops-specialist-agent.md`.
+
+### Option B: Dedicated component with `managed-by` on the namespace (preferred when a namespace will accumulate more GitOps-managed content over time)
+
+Give the namespace itself the standard label, then ArgoCD auto-generates its own RBAC there — no manual Role/RoleBinding needed at all:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
+  labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
+  name: <namespace-name>
+```
+
+**Example**: `components/openshift-insights/` — its own core component (registered in `gitops-bases/core/applicationset.yaml`) whose base is just this Namespace manifest plus the resources that need to live there. Same pattern already used for `openshift-config`/`openshift-ingress`.
+
+**Trade-off**: Option A has a smaller blast radius (grants exactly one resource type) but doesn't scale if a namespace needs several different resource types managed over time — each new type needs its own Role. Option B scales cleanly but grants the namespace's auto-generated Role, which is broader than a single resource type (still far short of `cluster-admin` — see the actual generated Role's rules to confirm what it covers on your cluster).
 
 ---
 
@@ -197,43 +263,54 @@ oc get <resource-type> <resource-name> -n <namespace> -o jsonpath='{.metadata.an
 
 ## Real Examples from This Project
 
-### ✅ CORRECT: uc-ai-generation-llm-rag Application
+### ✅ CORRECT: ApplicationSet template (all components now deploy this way, not standalone Application files)
 
-**File**: `gitops-profiles/ocp-ai/uc-ai-generation-llm-rag.yaml`
+**File**: `gitops-bases/rh-connectivity-link/default/applicationset.yaml`
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
-kind: Application
+kind: ApplicationSet
 metadata:
-  name: uc-ai-generation-llm-rag
-  namespace: openshift-gitops
   finalizers:
-  - resources-finalizer.argocd.argoproj.io/background
+  - resources-finalizer.argocd.argoproj.io
+  name: rh-connectivity-link
+  namespace: openshift-gitops
 spec:
-  project: ai-usecases
-  source:
-    path: components/uc-ai-generation-llm-rag/overlays/default
-    repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-    targetRevision: master
-  destination:
-    server: https://kubernetes.default.svc
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    retry:
-      limit: 10
-  ignoreDifferences:  # ✅ CORRECT: cluster-versions ConfigMap ignored
-  - group:
-    jsonPointers:
-    - /metadata/annotations
-    kind: ConfigMap
-    name: cluster-versions
+  generators:
+  - list:
+      elements:
+      - branch: master
+        item: rh-connectivity-link
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io/background
+      name: '{{item}}'
+    spec:
+      project: default  # ✅ CORRECT: use the default AppProject, not a custom one
+      source:
+        path: components/{{item}}/overlays/default
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: '{{branch}}'
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
+      ignoreDifferences:  # ✅ CORRECT: cluster-versions ConfigMap ignored
+      - group: ''
+        jsonPointers:
+        - /metadata/annotations
+        kind: ConfigMap
+        name: cluster-versions
 ```
 
-### ✅ CORRECT: ai-generation-llm-rag Namespace
+### ✅ CORRECT: kuadrant-system Namespace
 
-**File**: `components/uc-ai-generation-llm-rag/base/cluster-namespace-ai-generation-llm-rag.yaml`
+**File**: `components/rh-connectivity-link/base/cluster-namespace-kuadrant-system.yaml`
 
 ```yaml
 apiVersion: v1
@@ -241,23 +318,23 @@ kind: Namespace
 metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops  # ✅ CORRECT: managed-by label
-  name: ai-generation-llm-rag
+  name: kuadrant-system
 ```
 
 ### ✅ CORRECT: InferenceService with SkipDryRunOnMissingResource
 
-**File**: `components/ai-models-service/base/ai-models-service-inferenceservice-granite-embedding.yaml`
+**File**: `components/demo-ei/base/demo-ei-inferenceservice-mistral-medium-3-5.yaml`
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   annotations:
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true,Prune=false  # ✅ CORRECT
-    opendatahub.io/model-type: embedding
-    security.opendatahub.io/enable-auth: "true"
-  name: granite-embedding
-  namespace: ai-models-service
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true  # ✅ CORRECT
+    opendatahub.io/model-type: generative
+    security.opendatahub.io/enable-auth: "false"
+  name: mistral-medium-3-5
+  namespace: demo-ei
 spec:
   predictor:
     ...

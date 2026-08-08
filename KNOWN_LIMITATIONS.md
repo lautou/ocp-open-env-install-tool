@@ -51,8 +51,7 @@ This is a known architectural limitation of Classic OLM v0.
 
 ### Upstream Status
 
-Red Hat Engineering confirmed this is **expected behavior** for Classic OLM v0. The limitation is documented in:
-- Red Hat Support Case: [Insert case number after filing]
+Red Hat Engineering confirmed this is **expected behavior** for Classic OLM v0. No Red Hat Support Case has been filed for this — the limitation is documented here and in:
 - OpenShift Documentation: Operator Lifecycle Manager concepts
 
 **Recommended Solution from Red Hat:**
@@ -90,8 +89,8 @@ AI overlays create dedicated namespaces and OperatorGroups:
 - kustomization.yaml (sets namespace: openshift-pipelines-operator)
 
 # components/webterminal/overlays/ai/
-- cluster-namespace-openshift-dev-terminal.yaml
-- openshift-dev-terminal-operatorgroup-openshift-dev-terminal.yaml
+- cluster-namespace-openshift-dev-terminal-operators.yaml
+- openshift-dev-terminal-operators-operatorgroup-openshift-dev-terminal-operators.yaml
 - kustomization.yaml (sets namespace: openshift-dev-terminal)
 ```
 
@@ -139,7 +138,6 @@ Red Hat is developing **OLM v1** which will address this limitation with improve
 
 ### References
 
-- **Technical Report:** `/tmp/redhat-olm-issue-report.md` (detailed analysis for Red Hat Engineering)
 - **Red Hat Documentation:** [Operator Lifecycle Manager concepts](https://docs.openshift.com/container-platform/latest/operators/understanding/olm/olm-understanding-olm.html)
 - **Component Implementation:**
   - `gitops-bases/devops/default/applicationset.yaml` - Standard profiles
@@ -186,7 +184,6 @@ The following operators lack infra node placement configuration capabilities:
 - **Notes:**
   - Operator Subscription pod correctly uses infra nodeSelector/tolerations (configured in Subscription spec.config)
   - Controller-manager deployment pods do NOT respect infra placement
-  - Detailed ticket documentation: `JIRA-LeaderWorkerSet-InfraNodes.md`
 
 #### JobSet Operator
 - **JIRA:** [RHOAIENG-55981](https://issues.redhat.com/browse/RHOAIENG-55981) — same bug class as Leader Worker Set Operator above; no dedicated JobSet ticket filed yet
@@ -385,4 +382,4 @@ done
 
 ---
 
-**Last Updated:** 2026-03-30
+**Last Updated:** 2026-08-08 (dead references removed; AI overlay filenames verified against current repo state)

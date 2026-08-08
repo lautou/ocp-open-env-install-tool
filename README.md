@@ -363,5 +363,5 @@ See `docs/claude/security.md` for detailed RBAC implementation.
 **Critical Implementation Detail:**
 - Kubernetes API access requires `nodes:` selector (not IP-based rules)
 - OVN-Kubernetes performs DNAT before ANP evaluation
-- See `CLAUDE.md` "Network Isolation with AdminNetworkPolicy" section
+- See [`docs/claude/components.md`](docs/claude/components.md#cluster-network-adminnetworkpolicy) "Cluster Network (AdminNetworkPolicy)" section
 

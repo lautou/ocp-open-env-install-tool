@@ -5,6 +5,8 @@
 **RHOAI Version:** 2.18  
 **Platform:** OpenShift Data Science Pipelines (DSPA)
 
+**Note:** The `collect-chunks`/`store-in-pgvector`/`rag-data-ingestion` examples below come from a RAG demo pipeline that has since been removed from this repo's base profiles (no `uc-*` Application ships by default anymore). The KFP v2 platform-spec patterns themselves are still generally applicable to any future pipeline — keep this doc for that reason, but treat the concrete namespace/pipeline names as illustrative, not current state.
+
 ## Overview
 
 This document describes the correct patterns for injecting Kubernetes secrets into Kubeflow Pipelines (KFP) v2 components. Understanding these patterns is critical because **KFP has specific requirements** about where and how secrets can be configured.

@@ -1,6 +1,7 @@
 # Project Comparison: AI Accelerator vs OCP Open Environment Install Tool
 
-**Comparison Date:** 2026-03-27
+**Comparison Date:** 2026-03-27 — **point-in-time snapshot**. Both projects evolve independently; specific counts (kustomization files, Job totals, operator lists) and architectural claims below reflect each repo's state on the comparison date and are not re-verified on an ongoing basis. Re-check against both repos before relying on this for a current decision.
+
 **Analyzed Projects:**
 - **AI Accelerator**: `/home/ltourrea/workspace/ai-accelerator`
 - **OCP Open Env Install Tool**: `/home/ltourrea/workspace/ocp-open-env-install-tool`
