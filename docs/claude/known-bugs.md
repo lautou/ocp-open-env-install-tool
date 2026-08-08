@@ -701,7 +701,9 @@ oc delete certmanager cluster --ignore-not-found
 
 **Root cause:** Timing race — OLM installs operator at T=0, creates webhook deployment without nodeSelector. ArgoCD applies DWOC 2m43s later. The controller-manager webhook management runs ONLY at startup (no reconciliation loop). `oc rollout restart` is annulled by OLM (new ReplicaSet stays at 0 replicas).
 
-**Workaround:** `oc delete pod` on the controller-manager (NOT rollout restart). OLM recreates it, new startup reads DWOC, webhook deployment recreated with infra nodeSelector. A GitOps Job (`devworkspace-placement-fixer`) automates this in `components/webterminal/overlays/ai/`.
+**Manual workaround (documented, not automated):** `oc delete pod` on the controller-manager (NOT rollout restart). OLM recreates it, new startup reads DWOC, webhook deployment recreated with infra nodeSelector.
+
+**⚠️ Hack removed by policy (2026-08-08):** the GitOps Job that automated this (`devworkspace-placement-fixer` in `components/webterminal/overlays/ai/`) has been deleted. This is a deliberate decision, not a fix — the project no longer carries automated infra-node-placement remediation hacks. **CRW-11483 is still open and unfixed upstream** (confirmed no movement as of this date); on a fresh cluster deploy, `devworkspace-webhook-server` will land without the infra nodeSelector again, with no automatic correction. Apply the manual workaround above if strict infra-only placement is required.
 
 **Related:** CRW-6232 (feature added), CRW-9297 (closed), CRW-7584 (affinity, To Do)
 
@@ -710,17 +712,17 @@ oc delete certmanager cluster --ignore-not-found
 ### SRVKP-12579 — tekton-results-postgres StatefulSet nodeSelector not propagated (SRVKP-9205 fix incomplete)
 
 **Component:** OpenShift Pipelines 1.22.3 — Tekton Results
-**JIRA:** [SRVKP-12579](https://redhat.atlassian.net/browse/SRVKP-12579) — New / Major
-**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — Release Pending (fix version: 1.20.5)
-**Status:** Open (2026-06-24)
+**JIRA:** [SRVKP-12579](https://redhat.atlassian.net/browse/SRVKP-12579) — Dev Complete
+**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — ✅ **Fixed and confirmed live on this cluster** (2026-08-08), despite Jira showing "Release Pending" / fixVersion `Pipelines 1.20.5` as not yet released — same silent-backport pattern seen elsewhere in this doc (e.g. RHOAIENG-54605).
+**Status:** Open — StatefulSet gap only
 
 **Root cause:** SRVKP-9205 fix (PR #2909) propagated `nodeSelector`/`tolerations` to Tekton Results **Deployments** but NOT to the `tekton-results-postgres` **StatefulSet**. The TektonInstallerSet generates postgres with `nodeSelector=None` even when `TektonConfig.spec.config.nodeSelector` is set.
 
-**Observed:** `tekton-results-api`, `tekton-results-watcher`, `tekton-results-retention-policy-agent` → infra nodes ✅. `tekton-results-postgres-0` → worker node ❌.
+**Live confirmation (2026-08-08) — this is not dormant, it's actively happening right now, no test setup needed:**
+- `tekton-results-api`, `tekton-results-watcher`, `tekton-results-retention-policy-agent` Deployments all have explicit `nodeSelector: {node-role.kubernetes.io/infra: ""}` set (verified via `oc get deployment ... -o jsonpath='{.spec.template.spec.nodeSelector}'`, not just coincidental pod placement) → correctly scheduled on infra nodes ✅ — **SRVKP-9205 confirmed genuinely fixed here.**
+- `tekton-results-postgres` StatefulSet's `nodeSelector` field is **empty** → pod `tekton-results-postgres-0` is running on a plain worker node (`ip-10-0-77-68`, role `worker` only) ❌ — **SRVKP-12579 confirmed still broken.**
 
-**No workaround implemented yet** — postgres remains on worker node until upstream fix.
-
-**⚠️ Confirmed applicable (2026-08-08):** `components/openshift-pipelines/base/cluster-tektonconfig-config.yaml` does set an infra `nodeSelector`, so this bug is active on this cluster. Neither fix has shipped: SRVKP-9205 (Deployments) is "Release Pending" targeting Pipelines 1.20.5, and this StatefulSet follow-up is "Dev Complete" with no fixVersion yet. No patch Job exists for `tekton-results-postgres` the way there is for ODF/DWO — would need one if infra-only placement is a hard requirement.
+**No hack for this — deliberate policy (2026-08-08):** this project does not carry automated infra-node-placement remediation hacks. Tracking continues via this doc only; no Job will be added to patch `tekton-results-postgres` onto infra nodes even once SRVKP-12579 ships.
 
 ---
 

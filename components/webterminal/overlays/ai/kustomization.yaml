@@ -5,7 +5,3 @@ resources:
 - ../../base
 - cluster-namespace-openshift-dev-terminal-operators.yaml
 - openshift-dev-terminal-operators-operatorgroup-openshift-dev-terminal-operators.yaml
-- openshift-dev-terminal-rb-devworkspace-placement-fixer.yaml
-- openshift-dev-terminal-role-devworkspace-placement-fixer.yaml
-- openshift-gitops-job-devworkspace-placement-fixer.yaml
-- openshift-gitops-sa-devworkspace-placement-fixer.yaml
