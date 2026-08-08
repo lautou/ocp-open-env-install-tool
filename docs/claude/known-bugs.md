@@ -806,6 +806,15 @@ oc rollout restart deployment/lsd-genai-playground -n $NAMESPACE
 
 **⚠️ Gap (2026-08-08):** fix shipped in RHOAI 3.5 EA2 (released 2026-07-15) — newer than our RHOAI 3.4, so **not fixed on this cluster**. The patch above is documented but not wired into GitOps (no Job/CMP applies it automatically). Adding a `LLMInferenceService` model to the Gen AI Studio Playground on this cluster will break with `APIConnectionError` and require the manual patch every time until upgrading past 3.5 EA2.
 
+**Live verification attempt (2026-08-08):** deployed a throwaway `LLMInferenceService` (Granite 3.1 8B quantized, single-pod, no `spec.worker` — manifest adapted from `openshift-sizeops/benchmarks/manifests/llmd-multinode-instance.yaml`) and confirmed the bug's precondition directly: `<name>-kserve-workload-svc` exposes `appProtocol: https` on port 8000, created immediately once the LLMInferenceService exists, independent of pod readiness. This matches the root cause exactly.
+
+Could not complete the full end-to-end reproduction (an actual `APIConnectionError` via the Playground) — the "Add to Playground" UI flow hit a cascade of separate, apparently-unrelated Tech Preview bugs in the Gen AI Studio dashboard backend, each blocking on the last:
+1. `GET /gen-ai/api/v1/lsd/models` returns a hard `500` instead of an empty list when no `LlamaStackDistribution` exists yet in the target namespace
+2. After deploying a `LlamaStackDistribution` (requires an external Postgres backend — see `external-db-genai-playground`, added permanently to `components/rhoai/base/`), `GET /gen-ai/api/v1/aaa/models` still reported `llmInferenceServices=0` for the namespace despite the LLMInferenceService being genuinely `Ready=True`, even after labeling the namespace `opendatahub.io/dashboard=true` (the standard Data Science Project marker)
+3. The frontend treats one namespace's `500` as fatal for the entire "AI asset endpoints" page across all namespaces, not just the failing one
+
+None of these three have JIRA tickets filed — noted here only as context for why full reproduction stopped short. The structural evidence above (the `https`/port-8000 Service) combined with the confirmed-unreleased fix is treated as sufficient confirmation that this bug is real and unfixed on this cluster.
+
 ---
 
 ## Adding New Alert Silences and Insights Disabling
