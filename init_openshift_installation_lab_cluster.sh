@@ -183,13 +183,72 @@ print_config_file_vars() {
   done < "$file"
 }
 
+# --- 2b. EARLY CREDENTIAL LOAD ---
+# The session-resume check below queries live EC2 instance state via the AWS API,
+# so AWS credentials must be available before Section 4's full configuration load runs.
+COMMON_CONFIG="$CONFIG_DIR/common.config"
+if [[ -f "$COMMON_CONFIG" ]]; then
+  source "$COMMON_CONFIG"
+fi
+if [[ ! -f "$TARGET_CONFIG" ]]; then
+  echo "ERROR: Configuration file $TARGET_CONFIG not found."
+  exit 1
+fi
+source "$TARGET_CONFIG"
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+
 # --- 3. ROBUST SESSION MANAGEMENT (INSTALLATION PHASE) ---
 if [[ -f "$SESSION_STATE_FILE" ]]; then
   source "$SESSION_STATE_FILE"
-  
+
+  # Ask AWS for the bastion's real instance state before ever touching SSH.
+  # SSH reachability alone can't distinguish "instance stopped/terminated" from
+  # "instance running but tmux session ended" -- and against a stopped instance,
+  # an unbounded SSH attempt hangs instead of failing fast.
+  BASTION_INSTANCE_STATE=""
+  if [[ -n "${BASTION_INSTANCE_ID:-}" ]]; then
+    BASTION_INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids "$BASTION_INSTANCE_ID" --query "Reservations[].Instances[].State.Name" --output text 2>/dev/null || echo "terminated")
+  fi
+
+  if [[ "$BASTION_INSTANCE_STATE" == "terminated" ]]; then
+    echo "ℹ️  Bastion instance $BASTION_INSTANCE_ID from the previous session no longer exists."
+    echo "🗑️  Cleaning up stale state file. Proceeding with a fresh installation..."
+    rm -f "$SESSION_STATE_FILE"
+    BASTION_HOST=""
+  elif [[ "$BASTION_INSTANCE_STATE" == "stopped" || "$BASTION_INSTANCE_STATE" == "stopping" ]]; then
+    echo ""
+    echo "⚠️  Bastion instance $BASTION_INSTANCE_ID is STOPPED -- not crashed, not terminated."
+    echo "   It was likely stopped externally (schedule/manual stop), not by a failed install."
+    echo ""
+    echo -n "❓ Start it and attempt to resume the session? (Default: No, proceed with fresh install) [y/N]: "
+    read -r response
+    response=${response:-N}
+
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+      echo "▶️  Starting instance $BASTION_INSTANCE_ID..."
+      aws ec2 start-instances --instance-ids "$BASTION_INSTANCE_ID" > /dev/null
+      echo -n "Waiting for running state..."
+      aws ec2 wait instance-running --instance-ids "$BASTION_INSTANCE_ID"
+      echo " Done."
+      echo -n "Waiting for system status check..."
+      aws ec2 wait system-status-ok --instance-ids "$BASTION_INSTANCE_ID"
+      echo " Done."
+      BASTION_HOST=$(aws ec2 describe-instances --instance-ids "$BASTION_INSTANCE_ID" --query "Reservations[].Instances[].PublicDnsName" --output text)
+      {
+        echo "BASTION_HOST=$BASTION_HOST"
+        echo "BASTION_INSTANCE_ID=$BASTION_INSTANCE_ID"
+      } > "$SESSION_STATE_FILE"
+      echo "✅ Instance running again at $BASTION_HOST."
+    else
+      echo "🗑️  Leaving the stopped instance for teardown; proceeding with a fresh installation..."
+      rm -f "$SESSION_STATE_FILE"
+      BASTION_HOST=""
+    fi
+  fi
+
   SESSION_ALIVE=false
-  if [[ -n "$BASTION_HOST" ]]; then
-      if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
+  if [[ -n "${BASTION_HOST:-}" ]]; then
+      if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -o "BatchMode=yes" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
           SESSION_ALIVE=true
       fi
   fi
@@ -208,7 +267,7 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
       ssh -t -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" \
         "tmux attach-session -t ocp_install"
 
-      if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
+      if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -o "BatchMode=yes" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "tmux has-session -t ocp_install 2>/dev/null"; then
           echo "⏸️  Session detached. State file kept."
           exit 0
       else
@@ -222,10 +281,10 @@ if [[ -f "$SESSION_STATE_FILE" ]]; then
       rm -f "$SESSION_STATE_FILE"
     fi
 
-  else
+  elif [[ -n "${BASTION_HOST:-}" ]]; then
     echo "ℹ️  Session 'ocp_install' not found on bastion. Checking for success artifacts..."
-    
-    if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "test -f cluster_summary.txt"; then
+
+    if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -o "BatchMode=yes" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$BASTION_HOST" "test -f cluster_summary.txt"; then
         echo "✅ SUCCESS: Installation finished successfully while you were away!"
         retrieve_logs_and_summary "$BASTION_HOST" "$BASTION_KEY_PEM_FILE"
         echo "🧹 Cleaning up stale session file (Next run will be a fresh install)."
@@ -727,7 +786,10 @@ if [[ "$RECOVERED_PROVISIONING" == "false" ]]; then
 fi
 
 rm -f "$PROVISIONING_STATE_FILE"
-echo "BASTION_HOST=$PUBLIC_DNS_NAME" > "$SESSION_STATE_FILE"
+{
+  echo "BASTION_HOST=$PUBLIC_DNS_NAME"
+  echo "BASTION_INSTANCE_ID=$INSTANCE_ID"
+} > "$SESSION_STATE_FILE"
 
 echo "Prepare files..."
 mkdir -p "$UPLOAD_TO_BASTION_DIR/argocd/common"
@@ -767,7 +829,7 @@ BASTION_STATUS=$?
 set -e
 
 if [ $BASTION_STATUS -eq 0 ]; then
-  if ssh -q -o "StrictHostKeyChecking=no" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "tmux has-session -t ocp_install 2>/dev/null"; then
+  if ssh -q -o "StrictHostKeyChecking=no" -o "ConnectTimeout=5" -o "BatchMode=yes" -i "$BASTION_KEY_PEM_FILE" "ec2-user@$PUBLIC_DNS_NAME" "tmux has-session -t ocp_install 2>/dev/null"; then
     echo ""
     echo "⏸️  Session detached. State file kept."
     exit 0
