@@ -139,12 +139,17 @@ metadata:
 
 ## 5. ArgoCD RBAC Gaps (Unmanaged Namespaces AND managed-by Coverage Gaps)
 
-**When**: A component needs ArgoCD to create/manage a resource and hits `<resource> is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource ...`. This happens in two distinct scenarios — check which one you're in before picking a fix:
+**When**: A component needs explicit permission in a namespace despite that namespace carrying (or being eligible for) the `managed-by` label. Three distinct scenarios — check which one you're in before picking a fix, since the underlying cause and the right fix differ:
 
-1. **Namespace isn't `managed-by`-labeled at all** (e.g. `openshift-apiserver`) — ArgoCD has no generated RBAC there whatsoever.
+1. **Namespace isn't `managed-by`-labeled at all** (e.g. `openshift-apiserver`) — ArgoCD has no generated RBAC there whatsoever. Error: `<resource> is forbidden: User "system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller" cannot create resource ...`.
 2. **Namespace IS `managed-by`-labeled, but the auto-generated Role still doesn't cover the resource type** (e.g. `openshift-ingress`, which carries the label). Confirmed live 2026-08-09: OpenShift GitOps's auto-generated `openshift-gitops-argocd-application-controller` Role there is **not** a wildcard grant — it's a curated per-API-group allowlist, with a blanket `get/list/watch`-only fallback for anything not explicitly listed. `gateway.networking.k8s.io/gateways` gets read-only (matching OpenShift's own `gateway-api:aggregate-to-admin` ClusterRole — see `components.md` "MaaS Gateway for Model Serving" for why this is deliberate, not a bug). `telemetry.istio.io` isn't listed at all (JIRA [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257) — a genuine upstream gap). **Don't assume a `managed-by` label means full write access — check the actual generated Role's rules on your cluster (`oc get role openshift-gitops-argocd-application-controller -n <namespace> -o yaml`) before concluding RBAC should already work.**
+3. **A custom (non-ArgoCD) ServiceAccount needs access, regardless of the namespace's `managed-by` label.** Confirmed by reading `argocd-operator`'s `role.go` reconciler directly: the `managed-by` mechanism only ever generates Role/RoleBinding for ArgoCD's *own* component SAs (`<cr>-argocd-application-controller`, `<cr>-argocd-server`, `-redis`, `-dex`, etc.) — never for a project-defined SA like a dedicated Job's ServiceAccount. This is completely independent of scenarios 1/2 — the label was never going to help here no matter how broad its generated Role is. **This is normal Kubernetes RBAC, not an ArgoCD/GitOps gap — no JIRA ticket applies.** Examples (both needed and actively used, confirmed live 2026-08-09):
+- `components/cluster-monitoring/base/openshift-monitoring-role-create-alert-silences.yaml` + `-rolebinding-create-alert-silences.yaml` — grants the `create-alert-silences` SA (used only by its own Job) `pods`/`pods/portforward`/`statefulsets` access in `openshift-monitoring` to port-forward to Alertmanager.
+- `components/openshift-gitops-admin-config/base/openshift-kube-controller-manager-role-cleanup-operator.yaml` + `-rb-cleanup-operator.yaml` — grants the shared `cleanup-operator` SA `pods` delete/list in `openshift-kube-controller-manager`, used by the `cleanup-installer-pods` Job to remove stuck `Error`/`Failed` `installer-*` pods left behind by static-pod-revision rollouts (a known OpenShift operational pattern, unrelated to GitOps).
 
-Both scenarios use the same two fix approaches — pick based on scope and namespace sensitivity:
+Contrast with the now-removed `cert-manager-operator` grants that used to sit in `openshift-ingress`/`openshift-config`/`openshift-ingress-operator`/`kube-system` — also scenario 3, but those turned out orphaned from a retired Job (see `components.md` cert-manager section). **Scenario 3 alone doesn't mean "leave it alone" — still verify the grant is actually used before assuming it's necessary.**
+
+Scenarios 1 and 2 can use either fix approach below. **Scenario 3 can only use Option A** — Option B (labeling the namespace) is a no-op for a non-ArgoCD SA, since the auto-generated RBAC it creates is exactly what excludes that SA in the first place.
 
 ### Option A: Narrow Role/RoleBinding (preferred for sensitive namespaces, one-off grants)
 
@@ -183,6 +188,7 @@ subjects:
 - `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `-rb-telemetry-manager.yaml` (scenario 2 — `openshift-ingress` is `managed-by`-labeled, but its generated Role has no `telemetry.istio.io` entry at all)
 - `components/cluster-ingress/base/openshift-ingress-role-gateway-manager.yaml` + `-rb-gateway-manager.yaml` (scenario 2 — same namespace, generated Role covers `gateway.networking.k8s.io/gateways` but read-only)
 - `components/openshift-config/base/openshift-apiserver-role-networkpolicy-manager.yaml` + `-rb-networkpolicy-manager.yaml` (scenario 1 — `openshift-apiserver` has no `managed-by` label at all)
+- `components/cluster-monitoring/base/openshift-monitoring-role-create-alert-silences.yaml` + `-rolebinding-create-alert-silences.yaml` (scenario 3 — `openshift-monitoring` is `managed-by`-labeled, but the grant is for a custom `create-alert-silences` SA that the label mechanism never covers)
 
 **File naming**: name by the target namespace + what it manages (`<namespace>-role-<resource>-manager.yaml`, `<namespace>-rb-<resource>-manager.yaml`), not by the source SA — see the cross-namespace RBAC naming rule in `gitops-specialist-agent.md`.
 
