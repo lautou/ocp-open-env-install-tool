@@ -254,22 +254,7 @@ spec:
 
 **File**: `components/rhoai/base/openshift-gitops-job-delete-rhoai-resources.yaml`
 
-**⚠️ CRITICAL DELETION ORDER**: RHOAI requires user workload Applications to be deleted BEFORE the platform Application.
-
-**Why**: Per [Red Hat documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.3/html/installing_and_uninstalling_openshift_ai_self-managed/uninstalling-openshift-ai-self-managed_uninstalling-openshift-ai-self-managed), user workloads (InferenceServices, Notebooks, Pipelines) become non-functional after the platform is removed. They cannot clean up gracefully without the CRDs, operators, and webhooks.
-
-**Correct deletion sequence**:
-```bash
-# 1. Delete user workload Applications FIRST (any Application deploying
-#    InferenceServices/Notebooks/Pipelines, if a profile adds one)
-oc delete application <user-workload-app> -n openshift-gitops
-
-# 2. Wait for user workloads to fully delete
-sleep 60
-
-# 3. THEN delete platform Application (triggers PreDelete hook)
-oc delete application rhoai -n openshift-gitops
-```
+**⚠️ CRITICAL DELETION ORDER**: RHOAI requires user workload Applications to be deleted BEFORE the platform Application — see [rhoai-deletion-order.md](rhoai-deletion-order.md) for the full rationale, correct deletion sequence, and consequences of getting it wrong.
 
 **PreDelete hook procedure** (Step 0-10):
 - **Step 0**: Clean user workload namespaces (safety net if not deleted first) — array ships empty; populate per-profile if one adds a user workload namespace
@@ -286,15 +271,7 @@ oc delete application rhoai -n openshift-gitops
 - **Step 9**: Delete RHOAI CRDs (opendatahub.io, kubeflow.org)
 - **Step 10**: Verify cleanup
 
-**Failure if wrong order** (verified 2026-04-16):
-- Deleting platform before user workloads → 10 namespaces stuck in Terminating for 75+ minutes
-- InferenceServices can't undeploy (CRDs deleted)
-- Notebooks can't stop (operator removed)
-- Manual force-cleanup required
-
-**Safety net**: Step 0 attempts cleanup if user workloads remain, but proper deletion order is still recommended for graceful cleanup.
-
-**Complete guide**: See [rhoai-deletion-order.md](rhoai-deletion-order.md)
+**Complete guide**: See [rhoai-deletion-order.md](rhoai-deletion-order.md) for the deletion-order rationale, failure consequences, and profile-switch procedure.
 
 #### When to Use PreDelete vs PostDelete
 
@@ -503,9 +480,7 @@ ignoreDifferences:
 - Delete=false prevents ArgoCD from deleting resource
 - OpenShift continues managing other fields
 
-**Lesson learned:**
-- ❌ Static + ignoreDifferences FAILS when ignoring fields **IN Git** (logical contradiction - "here's config, ignore it")
-- ✅ Static + ignoreDifferences WORKS when ignoring fields **NOT in Git** (shared resource - "manage subset only")
+**Lesson learned**: see root CLAUDE.md → "Static Manifest + ignoreDifferences (DOES NOT WORK)" / "Shared Resources with ignoreDifferences (WORKS)" for the general rule this example demonstrates.
 
 ### 4. Alert Management (1 Job)
 
@@ -1301,56 +1276,9 @@ hostname: maas-api.apps.${OCP_BASE_DOMAIN}
    - See [security.md](security.md) "Job RBAC Security" section for full details
 
 5. **Always use explicit API groups for OLM resources**
-   - **CRITICAL on clusters with RHACM installed**
-   - OLM and RHACM share resource names (subscription, channel, etc.)
-   - Generic commands resolve to wrong API group → Forbidden errors → infinite loops
-
-   **Problem:**
-   ```bash
-   # ❌ WRONG - Ambiguous on RHACM clusters
-   oc get subscription my-operator -n my-namespace
-   
-   # Result: Uses apps.open-cluster-management.io (RHACM)
-   # Expected: operators.coreos.com (OLM)
-   # Error: Forbidden (ServiceAccount has OLM RBAC, not RHACM RBAC)
-   ```
-
-   **Solution - Always specify full resource type:**
-   ```bash
-   # ✅ CORRECT - Explicit API group
-   oc get subscription.operators.coreos.com my-operator -n my-namespace
-   oc patch subscription.operators.coreos.com my-operator -n my-namespace --type=merge -p "$PATCH"
-   oc delete subscription.operators.coreos.com my-operator -n my-namespace
-   oc wait subscription.operators.coreos.com my-operator --for=...
-   ```
-
-   **OLM resources requiring explicit API groups:**
-   - `subscription.operators.coreos.com` - **CRITICAL** (conflicts with RHACM)
-   - `csv.operators.coreos.com` (ClusterServiceVersion)
-   - `installplan.operators.coreos.com`
-   - `operatorgroup.operators.coreos.com`
-   - `catalogsource.operators.coreos.com`
-
-   **RHACM conflicting resources:**
-   - `subscription` → `apps.open-cluster-management.io/v1` (RHACM app deployments)
-   - `channel` → `apps.open-cluster-management.io/v1`
-   - `helmrelease` → `apps.open-cluster-management.io/v1`
-   - `placementrule` → `apps.open-cluster-management.io/v1`
-
-   **Real-world failure (fixed in 8ab206e):**
-   - **Job**: `update-odf-subscriptions-node-selector`
-   - **Symptom**: Running 24+ hours, stuck in infinite wait loop
-   - **Root cause**: `oc get subscription` resolved to RHACM API
-   - **Error**: `Forbidden: User "..." cannot get resource "subscriptions" in API group "apps.open-cluster-management.io"`
-   - **Loop logic**: Command failed → `! command` = true → wait loop continues forever
-   - **Fix**: Added `.operators.coreos.com` to all subscription references
-   - **Result**: Job completes in 30 seconds instead of running forever
-
-   **When this matters:**
-   - ✅ Always use explicit API groups (defensive coding)
-   - ✅ Especially critical on `ocp-reference` profile (includes RHACM)
-   - ✅ Prevents failures when RHACM added to existing clusters
-   - ✅ Makes RBAC errors clearer (correct API group, actual permission issue)
+   - Critical on any cluster with RHACM installed — unqualified `oc get subscription` resolves to RHACM's API (`apps.open-cluster-management.io`), not OLM's, causing Forbidden errors that manifest as an infinite wait loop rather than an obvious failure
+   - Always use `subscription.operators.coreos.com`, `csv.operators.coreos.com`, `installplan.operators.coreos.com`, `operatorgroup.operators.coreos.com`, `catalogsource.operators.coreos.com`
+   - See [troubleshooting.md](troubleshooting.md) → "Job Stuck in Infinite Loop - OLM API Group Ambiguity" for the full incident and diagnosis steps
 
 ### RBAC Security Patterns
 

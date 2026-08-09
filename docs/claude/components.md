@@ -651,9 +651,7 @@ spec:
 - `ignoreDifferences` prevents ArgoCD from trying to delete/recreate the resource
 - `SkipDryRunOnMissingResource` allows sync before Certificate Secret exists
 
-**Lesson learned**:
-- ✅ Static + ignoreDifferences works for **shared resources** when ignoring fields NOT in Git
-- ❌ Static + ignoreDifferences fails when ignoring fields IN Git (logical contradiction)
+**Lesson learned**: see root CLAUDE.md → "Static Manifest + ignoreDifferences (DOES NOT WORK)" / "Shared Resources with ignoreDifferences (WORKS)" for the general rule this example demonstrates.
 
 **APIServer Configuration** (openshift-config component):
 
@@ -1178,11 +1176,7 @@ metadata:
     argocd.argoproj.io/managed-by: openshift-gitops
 ```
 
-**How the namespace label works:**
-- OpenShift GitOps operator automatically creates Role/RoleBinding in labeled namespaces
-- Auto-generated Role grants **read** permissions (`get, list, watch`) for ALL resources (`apiGroups: ['*']`)
-- Auto-generated Role grants **write** permissions for specific operator resources (apps.open-cluster-management.io, cluster.open-cluster-management.io, etc.)
-- ArgoCD can manage most namespace-scoped ACM resources without additional RBAC
+See "OpenShift GitOps § RBAC Configuration" above for how the namespace `managed-by` label mechanism works in general (read-all + curated write allowlist). For RHACM, the write allowlist covers `apps.open-cluster-management.io`/`cluster.open-cluster-management.io` resources but not Search.
 
 **Search Resource Exception:**
 
@@ -1841,7 +1835,7 @@ spec:
 
 ### OdhDashboardConfig Management
 
-**Pattern**: Direct CR management with ArgoCD ignoreDifferences (not Jobs)
+**Pattern**: Direct CR management via namespace-level RBAC (not Jobs, no ignoreDifferences)
 
 The OdhDashboardConfig CR is **managed directly** by ArgoCD instead of using a patch Job:
 
@@ -1863,51 +1857,9 @@ spec:
     pvcSize: 20Gi
 ```
 
-**RBAC for Custom Resources:**
-
-ArgoCD requires explicit RBAC to manage RHOAI custom resources:
-
-```yaml
-# ClusterRole for OdhDashboardConfig management
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: odhdashboardconfigs.opendatahub.io-v1alpha-edit
-rules:
-  - apiGroups: [opendatahub.io]
-    resources: [odhdashboardconfigs]
-    verbs: [get, list, watch, create, update, patch, delete]
-
-# ClusterRoleBinding to ArgoCD ServiceAccount
-subjects:
-  - kind: ServiceAccount
-    name: openshift-gitops-argocd-application-controller
-    namespace: openshift-gitops
-```
-
 **RBAC Pattern:**
 
-OdhDashboardConfig uses **namespace-level RBAC** (same pattern as HardwareProfile):
-
-```yaml
-# components/rhoai/base/cluster-namespace-redhat-ods-applications.yaml
-metadata:
-  labels:
-    argocd.argoproj.io/managed-by: openshift-gitops  # Grants ArgoCD edit permissions
-```
-
-**No ignoreDifferences needed:**
-- The `managed-by` label provides sufficient RBAC for ArgoCD to manage the CR
-- Operator adds runtime annotations/labels (e.g., `platform.opendatahub.io/*`)
-- Operator manages dynamic spec fields (`hardwareProfileOrder`, `templateDisablement`, `templateOrder`)
-- ArgoCD manages declared spec fields (`dashboardConfig`, `notebookController`)
-- No sync conflicts occur - each system manages its own fields
-
-**Why this approach:**
-- ✅ Simple: Single namespace label grants all necessary permissions
-- ✅ No ignoreDifferences: Namespace RBAC handles operator-managed metadata
-- ✅ GitOps-native: CR managed like any other namespace-scoped resource
-- ✅ Auditable: Changes tracked in Git, visible in ArgoCD UI
+Namespace-level RBAC only (`argocd.argoproj.io/managed-by: openshift-gitops` on `redhat-ods-applications`, same pattern as HardwareProfile below) — no `ignoreDifferences` needed. The operator manages its own dynamic fields (`hardwareProfileOrder`, `templateDisablement`, `templateOrder`, runtime `platform.opendatahub.io/*` annotations) while ArgoCD manages the declared fields (`dashboardConfig`, `notebookController`); since the two sets don't overlap, there's no sync conflict.
 
 ### MaaS Gateway for Model Serving
 

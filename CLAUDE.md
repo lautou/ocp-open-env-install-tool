@@ -32,7 +32,6 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - **[components.md](docs/claude/components.md)** - Component-specific configuration patterns (CMP plugin, network policies, cert-manager, ODF, RHCL, ACK, etc.)
 - **[rhoai-model-serving.md](docs/claude/rhoai-model-serving.md)** - RHOAI 3.x model serving patterns: InferenceService GitOps labels, Gen AI Studio/Playground prereqs, llm-d/LLMInferenceService architecture, PVC RWO workaround, GPU instance availability
 - **[jobs.md](docs/claude/jobs.md)** - Job architecture, ArgoCD hooks, development guide
-- **[kfp-secret-patterns.md](docs/claude/kfp-secret-patterns.md)** - ⚠️ **CRITICAL**: KFP v2 secret injection patterns (platformSpec, task-level vs executor-level config, troubleshooting)
 - **[monitoring.md](docs/claude/monitoring.md)** - Alertmanager, alert silences, Insights recommendations
 - **[known-bugs.md](docs/claude/known-bugs.md)** - False-positive alerts and upstream bugs
 - **[installation.md](docs/claude/installation.md)** - Installation flow, session recovery, profiles
@@ -316,57 +315,22 @@ ignoreDifferences:
 
 ### ✅ SkipDryRunOnMissingResource for Operator CRs (CRITICAL)
 
-**Pattern**: Add `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true` annotation to ALL operator Custom Resources when CRDs are installed by the operator.
+**Pattern**: Add `argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true` to ALL operator Custom Resources when CRDs are installed by the operator itself — never on built-in Kubernetes/OpenShift resources.
 
-**Problem Without Annotation**:
+**Why**: ArgoCD dry-run-validates every resource before applying any of them. If a CR's CRD doesn't exist yet, validation fails and the *entire* sync aborts — including the Subscription that would install the CRD in the first place. Without the annotation this is a permanent deadlock (Application stuck OutOfSync/Missing forever) on any fresh cluster deployment.
 
-ArgoCD validates ALL resources before applying ANY resources:
-
-1. **Validation Phase**: ArgoCD attempts dry-run on all manifests
-2. **CRD Missing**: Operator Custom Resource validation fails (CRD doesn't exist yet)
-3. **Sync Aborted**: ArgoCD aborts ENTIRE sync without applying ANY resources
-4. **Deadlock**: Operator Subscription never created → CRDs never installed → CR validation always fails
-
-**Result**: Application stuck in OutOfSync/Missing state forever.
-
-**Solution**: Annotation bypasses validation for CRs, allowing Subscription to deploy first.
-
-**When to Use**:
-
-✅ **ALL** Custom Resources when CRDs are installed by operators (cert-manager, ODF, RHOAI, NetworkPolicy, etc.)
-
-❌ **DO NOT USE** for built-in Kubernetes/OpenShift resources
-
-**Critical**: Without this annotation, operator-based components WILL FAIL on fresh cluster deployments.
+**Complete guide**: [argocd-patterns-checklist.md](docs/claude/argocd-patterns-checklist.md)
 
 ### ✅ Jobs Pattern: Regular Jobs (NOT Hooks)
 
-**CRITICAL**: Use regular Jobs with `Force=true` annotation ONLY (NO hook annotations) to avoid sync deadlocks.
+**CRITICAL**: Use regular Jobs with `Force=true` annotation ONLY (NO hook annotations) — see "Required ArgoCD Patterns" above for the required annotation and why hooks deadlock.
 
-**Required annotations**:
-```yaml
-metadata:
-  annotations:
-    argocd.argoproj.io/sync-options: Force=true  # ONLY this
-    # ❌ DO NOT add: argocd.argoproj.io/hook: PostSync
-```
-
-**Why NO hook annotations**:
-- PostSync hook → ArgoCD waits for Job completion → deadlock if Job waits forever
-- Regular Job → Sync completes immediately → Application "Synced + Progressing" → no deadlock
-
-**Pattern**: Jobs wait for dependencies via infinite loops (no timeout needed)
+**Pattern**: Jobs wait for dependencies via infinite loops (no timeout needed), accepting the race condition (Job may start before its dependency) as the cost of self-healing:
 ```bash
 while ! oc get secret my-dependency -n target-namespace; do
   sleep 5
 done
 ```
-
-**Key benefits**:
-- ✅ No sync deadlock - ArgoCD not blocked
-- ✅ Self-healing - Job waits patiently for dependencies
-- ✅ Updatable - Force=true handles Job immutability
-- ⚠️ Trade-off: Race condition (Job may start before dependencies), handled by wait loop
 
 **Examples**: `create-secret-netobserv-loki-s3`, `update-odf-subscriptions-node-selector`, `ack-config-injector`
 
@@ -438,46 +402,11 @@ oc delete applicationset cluster-ai -n openshift-gitops
 
 ### OLM Resource API Groups - RHACM Conflict
 
-**Pattern**: Always use explicit API groups for OLM resources in Job scripts and CLI commands.
-
-**CRITICAL on clusters with RHACM installed**: OLM and RHACM share resource type names, causing API group ambiguity.
-
-**The Problem**:
-- **OLM**: `subscription.operators.coreos.com` (operator installations)
-- **RHACM**: `subscription.apps.open-cluster-management.io` (application deployments)
-- Generic `oc get subscription` → defaults to RHACM API
-- Jobs have RBAC for OLM API, not RHACM API
-- Result: Forbidden errors → infinite wait loops → Jobs never complete
-
-**Always use explicit API groups in Jobs/scripts**:
-```bash
-# ❌ WRONG - Ambiguous (resolves to RHACM on clusters with ACM)
-oc get subscription my-operator -n my-namespace
-
-# ✅ CORRECT - Explicit API group
-oc get subscription.operators.coreos.com my-operator -n my-namespace
-```
-
-**OLM resources requiring explicit API groups**:
-- `subscription.operators.coreos.com` - **CRITICAL** (conflicts with RHACM)
-- `csv.operators.coreos.com` (ClusterServiceVersion)
-- `installplan.operators.coreos.com`
-- `operatorgroup.operators.coreos.com`
-
-**Real failure** (fixed in 8ab206e):
-- Job `update-odf-subscriptions-node-selector` stuck 24+ hours in wait loop
-- Root cause: `oc get subscription` → Forbidden (wrong API group)
-- Fix: Added `.operators.coreos.com` to all commands
-- Result: Job completes in 30 seconds instead of infinite loop
-
-**When this matters**:
-- ✅ All profiles with RHACM installed (`ocp-reference`, `ocp-acm-hub`)
-- ✅ Any cluster where RHACM might be added later
-- ✅ Defensive coding (prevents future breakage)
+**Pattern**: Always use explicit API groups for OLM resources (`subscription.operators.coreos.com`, `csv.operators.coreos.com`, `installplan.operators.coreos.com`, `operatorgroup.operators.coreos.com`) in Job scripts and CLI commands. On clusters with RHACM installed, an unqualified `oc get subscription` resolves to RHACM's API (`apps.open-cluster-management.io`) instead of OLM's — Jobs have RBAC for the OLM API only, so this produces Forbidden errors that manifest as an infinite wait loop, not an obvious failure.
 
 **Same collision class, different resource**: `application` is also ambiguous — `app.k8s.io/v1beta1` (unrelated, typically empty) vs ArgoCD's own `argoproj.io/v1alpha1`. `oc get application -n openshift-gitops` can silently return "No resources found" even when every ArgoCD Application is healthy. Always use `oc get application.argoproj.io` when checking ArgoCD state from the CLI.
 
-**See**: [jobs.md](docs/claude/jobs.md) "Best Practices" and [troubleshooting.md](docs/claude/troubleshooting.md) "Job Stuck in Infinite Loop"
+**Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "Job Stuck in Infinite Loop - OLM API Group Ambiguity" (full incident, diagnosis steps, affected resource list)
 
 ## Component Notes
 
@@ -523,16 +452,12 @@ oc get subscription.operators.coreos.com my-operator -n my-namespace
 
 **RULE**: All scripts in the project root and `scripts/` must be compatible with macOS (bash 3.2, BSD sed/awk). **Exception**: `scripts/bastion_script.sh` runs exclusively on the Linux bastion — no macOS compat required.
 
-**Common macOS incompatibilities and fixes:**
+**Common gotchas not already covered by the global macOS Compatibility rule** (`sed -i`, `grep -P`, `readlink -f`, `stat -c`, etc. — see `~/.claude/CLAUDE.md`):
 
 | Issue | macOS fails | Fix (portable) |
 |---|---|---|
-| `sed -i` in-place | `sed -i 's/foo/bar/' file` → error | `grep -v` + tmp file, or `sed -i.bak ... && rm .bak` |
 | Empty array with `set -u` | `"${EMPTY[@]}"` → unbound variable (bash 3.2) | Guard with `[ "${#arr[@]}" -gt 0 ]` |
-| `grep -P` (Perl regex) | Not available on macOS | Use `grep -E` (extended regex) |
 | `date -d` (GNU date) | Not available on macOS | Use `date -v` (macOS) or avoid |
-| `readlink -f` | Not available on macOS | Use `realpath` or `cd && pwd` |
-| `stat -c` (GNU stat format) | Not available on macOS | Use `stat -f` for macOS |
 
 **Test before committing** any new script on macOS or verify using shellcheck with a BSD-compat ruleset.
 

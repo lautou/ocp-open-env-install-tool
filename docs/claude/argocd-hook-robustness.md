@@ -192,19 +192,7 @@ except yaml.YAMLError as e:
 
 ### Critical: ApplicationSet with applicationsSync: create-update
 
-**Our ApplicationSets use:**
-```yaml
-spec:
-  syncPolicy:
-    applicationsSync: create-update  # Prevents auto-deletion
-```
-
-**Workflow to trigger delete hooks:**
-1. Remove component from generator list → Application **orphaned** (still exists, not managed)
-2. **Explicitly delete:** `oc delete application <name>` → Hooks execute
-3. PreDelete hook runs → Resources deleted → PostDelete hook runs
-
-**Without explicit deletion:** Application remains orphaned forever, hooks never execute!
+Our ApplicationSets use `applicationsSync: create-update`, which means removing a component from the generator list orphans its Application (still exists, unmanaged) rather than deleting it — PreDelete/PostDelete hooks only run on an explicit `oc delete application <name>`, never otherwise. See [jobs.md](jobs.md) → "PreDelete Hooks and ApplicationSet Configuration" for the full mechanics and required ApplicationSet/Application finalizer config.
 
 ### Why Delete Policies Are Critical for PreDelete/PostDelete
 

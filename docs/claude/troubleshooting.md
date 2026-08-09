@@ -515,6 +515,8 @@ oc wait subscription.operators.coreos.com my-operator -n my-namespace --for=...
 - ✅ Especially critical on `ocp-reference` profile (includes RHACM)
 - ✅ Test Jobs on RHACM-enabled clusters before production
 
+**Same collision class, different resource:** `application` is also ambiguous — `app.k8s.io/v1beta1` (unrelated, typically empty) vs ArgoCD's own `argoproj.io/v1alpha1`. `oc get application -n openshift-gitops` can silently return "No resources found" even when every ArgoCD Application is healthy. Always use `oc get application.argoproj.io` when checking ArgoCD state from the CLI.
+
 **Related Issues:**
 - All Jobs working with OLM operators (subscriptions, CSVs, InstallPlans)
 - Bastion installation script (GitOps operator installation)
