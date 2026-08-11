@@ -28,6 +28,8 @@ spec:
       managementState: Managed
     sparkoperator:
       managementState: Managed
+    trainer:
+      managementState: Managed
     trainingoperator:
       managementState: Removed
     trustyai:
