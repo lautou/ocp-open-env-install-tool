@@ -26,6 +26,8 @@ spec:
       managementState: Managed
     ray:
       managementState: Managed
+    sparkoperator:
+      managementState: Managed
     trainingoperator:
       managementState: Removed
     trustyai:
