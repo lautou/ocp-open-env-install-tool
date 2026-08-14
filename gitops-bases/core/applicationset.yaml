@@ -51,6 +51,8 @@ spec:
         item: tempo
       - branch: master
         item: user-workload-monitoring
+      - branch: master
+        item: vertical-pod-autoscaler
   template:
     metadata:
       finalizers:

@@ -42,6 +42,8 @@ data:
   # All ODF components typically share the same version lifecycle
   odf: "stable-4.22"
 
+  vertical-pod-autoscaler: "stable"
+
   # AI
   jobset: "stable-v1.0"
   kueue: "stable-v1.4"

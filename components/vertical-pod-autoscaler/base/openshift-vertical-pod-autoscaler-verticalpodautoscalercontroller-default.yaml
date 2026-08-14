@@ -1,0 +1,33 @@
+apiVersion: autoscaling.openshift.io/v1
+kind: VerticalPodAutoscalerController
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: default
+  namespace: openshift-vertical-pod-autoscaler
+spec:
+  deploymentOverrides:
+    admission:
+      container:
+        resources: {}
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    recommender:
+      container:
+        resources: {}
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
+    updater:
+      container:
+        resources: {}
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      tolerations:
+        - key: node-role.kubernetes.io/infra
+          operator: Exists
