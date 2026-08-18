@@ -332,6 +332,64 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 
 ---
 
+### 6. ODFNodeMTULessThan9000 (ovs-system internal device, not a real NIC)
+
+**Alert Name:** `ODFNodeMTULessThan9000`
+**Component:** OpenShift Data Foundation (ODF) — `ocs-metrics-exporter` alert rule
+**Severity:** info
+
+**Issue:**
+The alert's PromQL (`count(node_network_mtu_bytes{device!~"^(veth|docker|flannel|cali|tun|tap).*"} < 9000) > 0`) scans every non-excluded network interface on every node, not just the interface(s) ODF actually uses for storage traffic. It fires on `ovs-system` — OVN-Kubernetes's internal OVS datapath housekeeping device, present on every node by design, fixed at MTU 1500, carrying no real traffic — because that device isn't covered by the rule's exclusion regex.
+
+**Live confirmation on this cluster (2026-08-18):** re-verified live against the exact alert expression across all 12 nodes — every single match is `device="ovs-system"`, value `1500`. No other device anywhere on the cluster is below 9000:
+- Host NIC (`ens5`): **9001** on all 12 nodes (masters/workers/infra/storage)
+- OVN-Kubernetes overlay/pod network: **8901** (correct ~100-byte Geneve encapsulation offset)
+- `ovs-system`: **1500** — the sole trigger
+
+**Impact:**
+- False-positive info-severity `ODFNodeMTULessThan9000` alert
+- No actual MTU misconfiguration — every real, traffic-carrying interface is correctly jumbo-framed
+
+**Root Cause:**
+`ovs-system` exists on any OVN-Kubernetes cluster (the default CNI for modern OpenShift) regardless of platform, so this is a broad false-positive, not something specific to this cluster's config. Confirmed via Red Hat's own ODF engineering team as an acknowledged, unfixed gap in the alert rule's device exclusion list — see Status below.
+
+**Status:**
+- **JIRA:** [DFBUGS-5761](https://redhat.atlassian.net/browse/DFBUGS-5761) — Assigned, unfixed. Long thread with multiple unrelated customers (bare-metal, VMware, telco) hitting the same structural false positive for different device classes (unused bare-metal NICs/bridges, telco VLAN sub-interfaces, Multus dedicated-network topology mismatches). None of the prior reports name `ovs-system` specifically — added as a new data point via comment on 2026-08-18, since it demonstrates the bug also affects the simplest possible ODF/OVN-Kubernetes deployment shape (plain cloud install, no Multus, no bare-metal, no VLANs), not just exotic networking topologies.
+- **JIRA:** [DFBUGS-6835](https://redhat.atlassian.net/browse/DFBUGS-6835) — New, unfixed, effectively a duplicate of the same rule-scoping problem.
+- **Reported:** DFBUGS-5761 opened 2026-02-25, DFBUGS-6835 opened 2026-05-08. Red Hat engineer (Yati Padia) confirmed 2026-07-18: *"we need to modify specific devices on which ocs-metrics-exporter should raise alert"* — acknowledged but no fix version yet.
+- **⚠️ Caveat on the JIRA's suggested workaround:** a comment recommends `oc patch storagecluster ocs-storagecluster ... spec.monitoring.excludedAlerts`. Verified directly against this cluster's live CRD (ODF 4.22.1) — the field's own description states *"Alerts still fire in Prometheus but are excluded from health score"*. This only affects the ODF Health Score/Overview dashboard, **not** Alertmanager/console alerting — it does not actually suppress the alert. Use the standard Alertmanager routing+silence pattern below instead for real suppression.
+- **Fix ETA:** TBD — pending upstream change to the alert rule's device exclusion regex (suggested fix: add `ovs-system` to `^(veth|docker|flannel|cali|tun|tap).*`)
+
+**Mitigation Applied:**
+
+1. **Routing Configuration** (GitOps-managed):
+   ```yaml
+   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
+   routes:
+     - matchers:
+         - alertname = ODFNodeMTULessThan9000
+       receiver: 'null'
+       continue: false
+   ```
+
+2. **Alertmanager Silence** (Automated via GitOps Job):
+   - **Created by:** `openshift-gitops-job-create-alert-silences.yaml` (regular Job, `Force=true` only)
+   - **Duration:** 10 years from cluster deployment
+   - **Created by:** argocd-automation
+
+**Verification:**
+```bash
+# Confirm ovs-system is the sole device tripping the alert's own expression
+oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
+  wget -q -O- 'http://localhost:9090/api/v1/query?query=node_network_mtu_bytes%7Bdevice%21~%22%5E%28veth%7Cdocker%7Cflannel%7Ccali%7Ctun%7Ctap%29.%2A%22%7D%20%3C%209000'
+
+# Confirm the alert is suppressed
+oc exec -n openshift-monitoring statefulset/alertmanager-main -c alertmanager -- \
+  amtool alert query --alertmanager.url=http://localhost:9093 | grep -i ODFNodeMTU
+```
+
+---
+
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA.

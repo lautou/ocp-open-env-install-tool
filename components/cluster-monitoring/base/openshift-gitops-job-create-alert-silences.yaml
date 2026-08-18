@@ -250,6 +250,21 @@ spec:
           )
           create_silence "TrustyAI ServiceMonitor scheme:http on TLS ports" "$TRUSTYAI_INSTANCE_PAYLOAD"
 
+          # 11. ODFNodeMTULessThan9000 fires on the internal ovs-system datapath device
+          ODF_MTU_PAYLOAD=$(cat <<EOF
+          {
+            "matchers": [
+              {"name": "alertname", "value": "ODFNodeMTULessThan9000", "isRegex": false, "isEqual": true}
+            ],
+            "startsAt": "$START_TIME",
+            "endsAt": "$END_TIME",
+            "createdBy": "argocd-automation",
+            "comment": "Known bug: ODF MTU alert rule matches ovs-system internal device, not just real NICs (JIRA: DFBUGS-5761, DFBUGS-6835) - See KNOWN_BUGS.md"
+          }
+          EOF
+          )
+          create_silence "ODFNodeMTULessThan9000 ovs-system false positive" "$ODF_MTU_PAYLOAD"
+
           echo ""
           echo "================================================"
           echo "Verifying all silences are active..."
@@ -266,11 +281,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 7 ]; then
+          if [ "$SILENCE_COUNT" -ge 8 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 7+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest
