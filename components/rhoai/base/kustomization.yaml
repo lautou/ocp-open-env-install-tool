@@ -2,10 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
-# TEMPORARY-FIX-openshift-ingress-networkpolicy-payload-processing.yaml removed
-# 2026-08-18 to test whether RHOAIENG-82144 is actually fixed natively in
-# RHOAI 3.4.3 per Chaitanya Kulkarni's comment on the ticket - see
-# docs/claude/known-bugs.md. Re-add once test result is known.
+- TEMPORARY-FIX-openshift-ingress-networkpolicy-payload-processing.yaml
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
