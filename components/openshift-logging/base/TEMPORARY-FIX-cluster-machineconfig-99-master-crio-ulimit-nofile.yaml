@@ -1,0 +1,32 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 99-master-crio-ulimit-nofile
+  # Master-pool counterpart of TEMPORARY-FIX-cluster-machineconfig-99-worker-crio-ulimit-nofile.yaml
+  # (see that file / docs/claude/known-bugs.md for the full OCPBUGS-62095 /
+  # LOG-9336 / LOG-9695 / LOG-9829 writeup).
+  #
+  # Confirmed live 2026-08-18: the master-node collector (instance-98fp5 on
+  # ip-10-0-36-145) hit the exact same "Too many open files (os error 24)"
+  # fd exhaustion during a mass worker-pool reboot (burst of local log-file
+  # churn from kube-rbac-proxy-crio restarts pushed it past the 1024-fd
+  # soft limit), with up=0 / connection refused on its metrics port and
+  # /proc/1/limits confirming Max open files=1024. Masters run far fewer
+  # pods than infra nodes so hit this far less often, but are not immune -
+  # this raises their CRI-O default nofile soft limit the same way.
+  #
+  # Remove alongside the worker MachineConfig once Logging 6.6.z (LOG-9829)
+  # or 6.7.0 (LOG-9336) ships with Vector's own self-raise-ulimit fix.
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+      - path: /etc/crio/crio.conf.d/99-default-ulimits.conf
+        mode: 0644
+        overwrite: true
+        contents:
+          source: data:text/plain;charset=utf-8;base64,W2NyaW8ucnVudGltZV0KZGVmYXVsdF91bGltaXRzID0gWwogICJub2ZpbGU9NjU1MzY6NjU1MzYiLApdCg==
