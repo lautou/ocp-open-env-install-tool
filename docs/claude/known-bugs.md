@@ -675,6 +675,28 @@ None of these three have JIRA tickets filed — noted here only as context for w
 
 ---
 
+### LOG-9695 / LOG-9336 / LOG-9829 — Vector collector "Too many open files" causing CollectorNodeDown / OOMKilled (OCPBUGS-62095 ulimit regression)
+
+**Component:** Red Hat OpenShift Logging 6.6.0 — Vector collector (DaemonSet `instance`)
+**JIRA:** [LOG-9695](https://redhat.atlassian.net/browse/LOG-9695) — New, unfixed, filed 2026-07-24, exact match to our environment (OCP 4.22.4 + Logging 6.6.0; ours: OCP 4.22.8 + Logging 6.6.0). [LOG-9336](https://redhat.atlassian.net/browse/LOG-9336) — status POST, fix targeted for Logging 6.7.0 (unreleased). [LOG-9829](https://redhat.atlassian.net/browse/LOG-9829) — 6.6.z backport, status MODIFIED (code merged, awaiting QE/release as of 2026-08-17), fix version "Logging 6.6.z" not yet released.
+**Root platform bug:** [OCPBUGS-62095](https://redhat.atlassian.net/browse/OCPBUGS-62095) — Closed/Done, fixVersion 4.20.0. Starting with freshly-installed OCP 4.20+/4.21+ clusters, the default container `ulimit -n` (max open files) dropped from 1,048,576 to 1024 — a deliberate CRI-O/platform change, documented in the 4.21 release notes as a known consequence requiring a workaround. Clusters *upgraded* from 4.20→4.21 keep the old high limit; only fresh installs get the new low default.
+**Alert:** `CollectorNodeDown` (real condition, not a false positive — the collector genuinely crashes/restarts)
+**Status:** Open upstream, no shipped fix for our version (Logging 6.6.0) as of 2026-08-18.
+
+**Issue:** Vector needs one open file descriptor per actively-tailed container log file, plus fds for its Prometheus metrics listener and Loki sink connections. With the soft limit at 1024, nodes with high pod density exhaust available fds, producing repeated `Failed reading file for fingerprinting. ... error=Too many open files (os error 24)` errors. In some cases (confirmed in LOG-9695) this escalates to a `vector-worker` thread panic and `CrashLoopBackOff`.
+
+**Live confirmation on this cluster (2026-08-18):** `CollectorNodeDown` firing for 3 collector pods (`instance-mqmww`, `instance-j9pr6`, `instance-lk5fz`), all on the 3 infra nodes (73-118 pods each, vs 36 on a regular worker). Kernel logs confirmed genuine memory-cgroup OOM kills (`Memory cgroup out of memory: Killed process ... (vector)`) at the container's 2Gi limit, matching the fd-exhaustion + Loki-sink-retry backpressure pattern described in the Jira tickets above. Node-level `MemoryPressure`/`DiskPressure` were `False` on all 3 — confirms the ceiling is the container's own resource limits, not host memory.
+
+**Root cause:** OCPBUGS-62095's platform-wide ulimit reduction (1024) is too low for Vector's file-tailing workload on pod-dense nodes; no released Logging build yet raises Vector's own ulimit at startup (planned fix: `ulimit -Sn "$(ulimit -Hn)"` in `run-vector.sh`, landing in 6.6.z/6.7.0).
+
+**Fix applied (this repo):** `components/openshift-logging/base/TEMPORARY-FIX-cluster-machineconfig-99-worker-crio-ulimit-nofile.yaml` — a MachineConfig targeting the `worker` MachineConfigPool (this cluster has no separate `infra` MCP; infra/storage nodes are worker-role too) that drops a `/etc/crio/crio.conf.d/99-default-ulimits.conf` snippet raising CRI-O's default container nofile soft limit from 1024 to 65536 (well under the 524288 hard limit). Applies to every container on every worker-role node, not just the collector — the underlying platform regression affects any container, not just Vector (see the kourier-gateway example cited in OCPBUGS-62095).
+
+**⚠️ Applying this MachineConfig triggers a rolling reboot of every node in the `worker` MachineConfigPool** (all 9 nodes on this cluster: 3 infra + 3 storage + 3 regular workers), one at a time, via the Machine Config Operator. Not covered: master nodes (also affected by the platform-wide ulimit change but not showing symptoms observed here — the collector runs there too, but master nodes host far fewer pods).
+
+**Remove when:** Logging 6.6.z (LOG-9829) or 6.7.0 (LOG-9336) ships with Vector's self-raise-ulimit fix, confirmed on this cluster's installed version — or OCPBUGS-62095's default is revisited upstream.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
