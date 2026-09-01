@@ -96,7 +96,6 @@ spec:
 - ❌ Resources where CRD is pre-installed by OpenShift
 
 **Examples**:
-- ✅ `components/demo-ei/base/demo-ei-inferenceservice-mistral-medium-3-5.yaml`
 - ✅ `components/cert-manager/base/cert-manager-clusterissuer-cluster.yaml`
 - ✅ `components/nvidia-gpu-operator/base/cluster-clusterpolicy-gpu-cluster-policy.yaml`
 - ✅ `components/rhoai/base/cluster-datasciencecluster-default-dsc.yaml`
@@ -333,8 +332,6 @@ metadata:
 
 ### ✅ CORRECT: InferenceService with SkipDryRunOnMissingResource
 
-**File**: `components/demo-ei/base/demo-ei-inferenceservice-mistral-medium-3-5.yaml`
-
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -343,8 +340,8 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true  # ✅ CORRECT
     opendatahub.io/model-type: generative
     security.opendatahub.io/enable-auth: "false"
-  name: mistral-medium-3-5
-  namespace: demo-ei
+  name: my-model
+  namespace: my-namespace
 spec:
   predictor:
     ...
