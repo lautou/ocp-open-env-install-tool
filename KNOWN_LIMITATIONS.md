@@ -224,9 +224,6 @@ The following operators lack infra node placement configuration capabilities:
 - **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - "volume-data-source-validator should run on master (control plane) node"
 - **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node" — **Closed / Won't Do** — Node placement not fixed because the collect-profiles cronjob is being **entirely removed in OCP 4.22** ([OCPBUGS-31547](https://issues.redhat.com/browse/OCPBUGS-31547) Verified). Limitation disappears on upgrade to 4.22+.
 
-**Data Foundation Bugs:**
-- **[DFBUGS-5355](https://issues.redhat.com/browse/DFBUGS-5355)** - "odf-prometheus-operator and odf-external-snapshotter-operator-stable pods does not have node.ocs.openshift.io/storage toleration"
-
 ### Business Impact
 
 - **Increased costs:** Operator infrastructure workloads consume worker node resources that could be used for application workloads
@@ -382,4 +379,60 @@ done
 
 ---
 
-**Last Updated:** 2026-08-08 (dead references removed; AI overlay filenames verified against current repo state)
+## NooBaa Stuck in INITIALIZING State After create_system() Interruption
+
+### Issue
+
+**Component:** OpenShift Data Foundation (ODF) - Multi-Cloud Object Gateway (NooBaa)
+**Severity:** Critical - blocks ODF/MCG entirely (`NooBaa` and `StorageCluster` stuck `Configuring`/`Progressing` forever); no automatic recovery
+**Affects:** `noobaa-operator`, all versions checked - the code gap has existed since the file's origin (confirmed via full git blame of `phase4_configuring.go`)
+**Status:** Open upstream - filed as [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384)
+
+### Description
+
+If `noobaa-core` restarts near the tail end of the NooBaa server's one-time `create_system()` bootstrap call, the system record is left with `state.mode = "INITIALIZING"` in the `nbcore` Postgres DB forever, even though every other artifact `create_system()` produces (admin/operator/support accounts with access keys, default pool, first bucket, system address table, cluster record) is already fully and correctly created.
+
+`noobaa-operator`'s reconcile loop (`pkg/system/phase4_configuring.go`, `SetDesiredSecretOp`) calls `system.get_system_status()`, whose documented response schema allows exactly 4 states: `DOES_NOT_EXIST`, `INITIALIZING`, `COULD_NOT_INITIALIZE`, `READY`. The operator's `switch` statement only handles 3 of them - there is no `case "INITIALIZING"`. With no matching case, the function returns without ever setting `auth_token`, and the very next RPC call (`account.read_account()`) fails permanently:
+
+```
+RPC: account.read_account() Response Error: Code=UNAUTHORIZED Message=not anonymous method read_account
+```
+
+This repeats every ~10s forever - the error is a generic (non-persistent) one, so it is retried indefinitely with no backoff and no alternate recovery path.
+
+### Root Cause
+
+Confirmed by direct code inspection (`noobaa/noobaa-operator`, `pkg/system/phase4_configuring.go`) and by querying the live `nbcore` DB during a real occurrence on this project's cluster (OCP 4.22.8, ODF 4.22.2-rhodf): a `noobaa-core-0` pod restart (readiness-probe failure) raced with the in-flight `create_system()` call, interrupting it at its second-to-last step. See [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384) for the full evidence trail, including a table mapping every `create_system()` step to direct DB proof of completion.
+
+This is not new: [access.redhat.com/solutions/6542741](https://access.redhat.com/solutions/6542741) (filed 2021, OCS 4.8) shows the identical log signature from the same class of race, but was left "SOLUTION IN PROGRESS"/unpublished and never identified the real operator defect.
+
+### Workaround (manual, not officially supported)
+
+Red Hat's own KCS process treats direct `nbcore` writes as support-guided-only. This is offered as a diagnostic/emergency option, not a general recommendation - the officially supported alternative is a full NooBaa rebuild ([access.redhat.com/solutions/5948631](https://access.redhat.com/solutions/5948631)), which causes data loss.
+
+If a live occurrence shows the same pattern (all accounts/pool/bucket already present in the DB, only `state.mode` stuck at `INITIALIZING`), correct just that field:
+
+```bash
+# 1. Confirm the stuck state and get the system _id
+oc exec -n openshift-storage <cnpg-primary-pod> -c postgres -- \
+  psql -U postgres -d nbcore -c "SELECT _id, data->'state' FROM systems;"
+
+# 2. Identify the CNPG primary (writes must go here)
+oc exec -n openshift-storage <pod> -c postgres -- psql -U postgres -d nbcore -c "SELECT pg_is_in_recovery();"
+# false = primary
+
+# 3. Correct the state (matches exactly what the app's own _update_system_state() writes)
+NOW_MS=$(date +%s%3N)
+oc exec -n openshift-storage <cnpg-primary-pod> -c postgres -- psql -U postgres -d nbcore -c \
+  "UPDATE systems SET data = jsonb_set(data, '{state}', '{\"mode\": \"READY\", \"last_update\": ${NOW_MS}}'::jsonb) WHERE _id = '<system _id>';"
+```
+
+Within one reconcile loop (~10-20s), `noobaa-operator` mints a fresh auth token, `account.read_account()` succeeds, and the reconcile chain completes (including creating `noobaa-endpoint` if it had never been deployed). Verified end-to-end on this project's cluster on 2026-09-01: `NooBaa` → `Ready`, `StorageCluster` → `Ready`, ArgoCD `openshift-storage` Application → `Synced`/`Healthy`.
+
+### Future Resolution
+
+Tracked upstream at [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384). Suggested fix direction: add an `INITIALIZING` case to `SetDesiredSecretOp`'s switch - either bounded poll/wait for another in-flight reconcile to finish it, or safely re-verify and complete the remaining `create_system()` steps once the original caller is confirmed gone.
+
+---
+
+**Last Updated:** 2026-09-02 (removed DFBUGS-5355, fully resolved in odf-4.21 and verified live; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
