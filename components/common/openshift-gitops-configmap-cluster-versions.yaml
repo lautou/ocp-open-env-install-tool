@@ -49,7 +49,7 @@ data:
   kueue: "stable-v1.4"
   lws: "stable-v1.0"
   nvidia-gpu-operator: "v26.3"
-  rhoai: "stable-3.4"
+  rhoai: "stable-3.5"
 
   # Cluster management
   rhacm: "release-2.17"
