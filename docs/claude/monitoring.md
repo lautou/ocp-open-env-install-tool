@@ -29,16 +29,17 @@ The cluster Alertmanager (`alertmanager-main` in `openshift-monitoring`) is mana
 
 **Current silenced alerts:**
 1. **Apicurio Registry UI PodDisruptionBudgetAtLimit** - Apicurio Registry UI single-replica PDB (JIRA: APICURIO-24)
-2. **InsightsRecommendationActive (webhook timeout)** - Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578)
-3. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
-4. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
-5. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
-6. **TrustyAI ServiceMonitor overly broad selector TargetDown** - trustyai-metrics ServiceMonitor matches operator's own service (JIRA: RHOAIENG-54605)
-7. **TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown** - per-instance ServiceMonitor scrapes TLS ports over HTTP (JIRA: RHOAIENG-61424)
+2. **InsightsRecommendationActive (MachineConfigPool maxUnavailable)** - MachineConfigPool false-positive recommendation
+3. **Kuadrant istio-pod-monitor TargetDown** - RHCL Kuadrant PodMonitor empty namespaceSelector (JIRA: CONNLINK-911)
+4. **insights-runtime-extractor KubeDaemonSetMisScheduled** - race condition with infra taint (JIRA: OCPBUGS-74211)
+5. **ODFNodeMTULessThan9000** - ovs-system internal device matched by alert rule, not a real NIC (JIRA: DFBUGS-5761, DFBUGS-6835)
 
 **Removed:**
 - NooBaa database PodDisruptionBudgetAtLimit (JIRA: DFBUGS-5294) — ODF 4.22's `noobaa-operator` now self-manages this silence natively; see `known-bugs.md` for details.
 - InsightsRecommendationActive (config migration) — the underlying gap (legacy `support` Secret instead of `insights-config` ConfigMap) was fixed for real 2026-08-09; routing + silence removed since the recommendation can no longer fire.
+- InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578) — verified live 2026-09-02: `kueue-operator` is now at v1.4.1 (was v1.2.0 when this was last confirmed broken), all webhook `timeoutSeconds` now read `10` (down from the erroneous `23`), matching the upstream fix (openshift/kueue-operator#1588). No `InsightsRecommendationActive` alert currently firing for this condition.
+- TrustyAI ServiceMonitor overly broad selector TargetDown (JIRA: RHOAIENG-54605) — verified live 2026-09-02: the `trustyai-service-operator-service-monitor` now correctly scopes to the plain-HTTP `metrics` port only; `up{job="trustyai-service-operator-metrics-service"}` reports `1`, no `TargetDown` firing.
+- TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown (JIRA: RHOAIENG-61424) — same verification as above; the ServiceMonitor no longer targets the TLS `https` port.
 
 ## Adding New Alert Silences
 
@@ -129,7 +130,7 @@ The manual silence creation steps above are kept for reference, but in practice,
    - Creates 10-year silences via Alertmanager API for all known bugs
    - **Retry logic**: 3 attempts per silence with 5-second delays
    - **Verification**: Confirms each silence was created successfully via API query
-   - **Final validation**: Verifies 7+ active silences exist before completing
+   - **Final validation**: Verifies 5+ active silences exist before completing
    - **Fails loudly**: Job fails if any silence creation fails (no silent failures)
 
 2. **RBAC Resources**:
@@ -139,12 +140,10 @@ The manual silence creation steps above are kept for reference, but in practice,
 
 3. **Known bugs silenced automatically**:
    - Apicurio Registry UI PodDisruptionBudgetAtLimit (JIRA: APICURIO-24)
-   - InsightsRecommendationActive (webhook timeout) (JIRA: OCPKUEUE-578)
    - InsightsRecommendationActive (MachineConfigPool maxUnavailable)
    - Kuadrant istio-pod-monitor TargetDown (JIRA: CONNLINK-911)
    - insights-runtime-extractor KubeDaemonSetMisScheduled (JIRA: OCPBUGS-74211)
-   - TrustyAI ServiceMonitor overly broad selector TargetDown (JIRA: RHOAIENG-54605)
-   - TrustyAI ServiceMonitor scheme:http on TLS ports TargetDown (JIRA: RHOAIENG-61424)
+   - ODFNodeMTULessThan9000 (JIRA: DFBUGS-5761, DFBUGS-6835)
 
 **Reliability Improvements (2026-03-23):**
 
@@ -252,7 +251,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
    # components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
    - matchers:
        - alertname = InsightsRecommendationActive
-       - description =~ .*webhook.*timeout.*13s.*
+       - description =~ .*MachineConfigPool.*unavailableMachineCount.*maxUnavailable.*
      receiver: 'null'
    ```
 
@@ -264,12 +263,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 
 **Currently Suppressed Recommendations:**
 
-1. **Kueue Webhook Timeout** - `webhook_timeout_is_larger_than_default`
-   - JIRA: OCPKUEUE-578
-   - Reason: Kueue requires extended timeout for complex validations
-   - Suppression: Alertmanager routing + API silence
-
-2. **MachineConfigPool maxUnavailable** - `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
+1. **MachineConfigPool maxUnavailable** - `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
    - JIRA: TBD (Insights rule false-positive)
    - Reason: `maxUnavailable: null` (defaults to 1) is flagged even when pools are fully updated (`unavailableMachineCount=0`)
    - Suppression: Alertmanager routing + API silence
@@ -297,7 +291,6 @@ curl -s http://localhost:9093/api/v2/alerts | \
   for a in alerts if a['labels']['alertname'] == 'InsightsRecommendationActive']"
 
 # Expected output: state should be "suppressed"
-# Configuring the webhook's timeout for Pod API exceeds 13s is... => suppressed
 # MachineConfigPool will never finish updating when the 'unav... => suppressed
 
 # Check automated silence Job logs

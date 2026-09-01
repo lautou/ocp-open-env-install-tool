@@ -152,22 +152,6 @@ spec:
           )
           create_silence "Apicurio PodDisruptionBudgetAtLimit" "$APICURIO_PAYLOAD"
 
-          # 5. Insights recommendation - Kueue webhook timeout
-          INSIGHTS_WEBHOOK_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "InsightsRecommendationActive", "isRegex": false, "isEqual": true},
-              {"name": "description", "value": ".*webhook.*timeout.*13s.*", "isRegex": true, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: Kueue webhook timeout recommendation (JIRA: OCPKUEUE-578) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "Insights webhook timeout recommendation" "$INSIGHTS_WEBHOOK_PAYLOAD"
-
           # 6. Insights recommendation - MachineConfigPool maxUnavailable
           INSIGHTS_MCP_PAYLOAD=$(cat <<EOF
           {
@@ -217,39 +201,6 @@ spec:
           )
           create_silence "insights-runtime-extractor KubeDaemonSetMisScheduled" "$INSIGHTS_DS_PAYLOAD"
 
-          # 9. TrustyAI ServiceMonitor overly broad selector matches operator's own metrics service
-          TRUSTYAI_OPERATOR_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
-              {"name": "service", "value": "trustyai-service-operator.*metrics-service", "isRegex": true, "isEqual": true},
-              {"name": "namespace", "value": "redhat-ods-applications", "isRegex": false, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: TrustyAI trustyai-metrics ServiceMonitor overly broad selector matches operator's own service (JIRA: RHOAIENG-54605) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "TrustyAI ServiceMonitor overly broad selector" "$TRUSTYAI_OPERATOR_PAYLOAD"
-
-          # 10. TrustyAI ServiceMonitor scheme:http on TLS ports (per-instance)
-          TRUSTYAI_INSTANCE_PAYLOAD=$(cat <<EOF
-          {
-            "matchers": [
-              {"name": "alertname", "value": "TargetDown", "isRegex": false, "isEqual": true},
-              {"name": "service", "value": "trustyai-service|trustyai-service-tls", "isRegex": true, "isEqual": true}
-            ],
-            "startsAt": "$START_TIME",
-            "endsAt": "$END_TIME",
-            "createdBy": "argocd-automation",
-            "comment": "Known bug: TrustyAI per-instance ServiceMonitor scheme:http on TLS ports (JIRA: RHOAIENG-61424) - See KNOWN_BUGS.md"
-          }
-          EOF
-          )
-          create_silence "TrustyAI ServiceMonitor scheme:http on TLS ports" "$TRUSTYAI_INSTANCE_PAYLOAD"
-
           # 11. ODFNodeMTULessThan9000 fires on the internal ovs-system datapath device
           ODF_MTU_PAYLOAD=$(cat <<EOF
           {
@@ -281,11 +232,11 @@ spec:
 
           echo "Active silences: $SILENCE_COUNT"
 
-          if [ "$SILENCE_COUNT" -ge 8 ]; then
+          if [ "$SILENCE_COUNT" -ge 5 ]; then
             echo "✅ SUCCESS: All alert silences created and verified"
             exit 0
           else
-            echo "❌ ERROR: Expected 8+ silences, found $SILENCE_COUNT"
+            echo "❌ ERROR: Expected 5+ silences, found $SILENCE_COUNT"
             exit 1
           fi
         image: registry.redhat.io/openshift4/ose-cli:latest

@@ -180,134 +180,7 @@ oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prom
 
 ---
 
-### 3. TrustyAI ServiceMonitor Overly Broad Selector (Operator Metrics 404)
-
-**Alert Name:** `TargetDown`
-**Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
-**Namespace:** `redhat-ods-applications`
-**Service:** `trustyai-service-operator-metrics-service` (and `trustyai-service-operator-controller-manager-metrics-service`)
-
-**⚠️ Re-opened (2026-08-08):** previously marked "Fixed, silence removed" based on the absence of the `trustyai-metrics` ServiceMonitor. That conclusion was **wrong** — the operator creates this ServiceMonitor *lazily*, only when the first `TrustyAIService` CR is created anywhere on the cluster, not unconditionally. It had simply never been triggered. Deploying a throwaway test `TrustyAIService` reproduced it immediately with the exact original broken config. Confirmed still present on RHOAI 3.4.2 / OCP 4.20.30 despite Jira showing `3.5 EA1` as the fixVersion.
-
-**Issue:**
-The `trustyai-metrics` ServiceMonitor uses `namespaceSelector: any: true` and `selector: matchLabels: app.kubernetes.io/part-of: trustyai`. This accidentally matches the TrustyAI **operator controller-manager** service in `redhat-ods-applications`, which only exposes `/metrics` (Go runtime). The ServiceMonitor scrapes `/q/metrics` (Quarkus path, intended for TrustyAIService app pods) → 404 Not Found → TargetDown alert.
-
-**Live proof (2026-08-08), real Prometheus scrape results after deploying a test `TrustyAIService`:**
-
-| Target | Health | Error |
-|---|---|---|
-| operator pod `:8080/q/metrics` (matched by the broad selector) | ❌ DOWN | 404 Not Found |
-| operator pod `:8080/metrics` (correct `trustyai-service-operator-service-monitor`) | ✅ UP | — |
-
-**Impact:**
-- False-positive TargetDown alert for `trustyai-service-operator-metrics-service`
-- No actual impact on TrustyAI operator functionality
-- Only manifests once **any** `TrustyAIService` CR is deployed anywhere on the cluster — currently dormant since none is deployed, but will fire the moment one is created
-
-**Root Cause:**
-`trustyai-metrics` ServiceMonitor has an overly broad `namespaceSelector: any: true` combined with `app.kubernetes.io/part-of: trustyai` which also matches the operator controller-manager service. The operator and the TrustyAIService app share the same label but expose different metrics paths.
-
-**Status:**
-- **JIRA:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) - TrustyAI ServiceMonitor has overly broad selector causing false TargetDown alerts
-- **Reported:** 2026-03-21
-- **Status:** Open — Jira shows Closed with fixVersion `3.5 EA1 RHOAI RELEASE` (released 2026-06-17), but live reproduction on RHOAI 3.4.2 / OCP 4.20.30 (2026-08-08) confirms the bug is still present. The fix has not reached our version.
-
-**Mitigation Applied:**
-
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = TargetDown
-         - service =~ trustyai-service-operator.*metrics-service
-         - namespace = redhat-ods-applications
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
-
-**Verification:**
-```bash
-# Deploy a throwaway TrustyAIService to trigger the lazy ServiceMonitor creation, then check:
-oc get servicemonitor trustyai-metrics -n redhat-ods-applications -o yaml
-oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
-  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
-  jq '.data.activeTargets[] | select(.labels.service == "trustyai-service-operator-metrics-service") | {health, lastError}'
-```
-
----
-
-### 4. TrustyAI ServiceMonitor scheme: http on TLS Ports (400 Bad Request)
-
-**Alert Name:** `TargetDown`
-**Component:** Red Hat OpenShift AI (RHOAI) - TrustyAI Operator
-**Namespace:** Any user project namespace where a `TrustyAIService` is deployed
-**Services:** `trustyai-service`, `trustyai-service-tls`
-
-**⚠️ Confirmed still broken (2026-08-08):** previously marked "Fixed, silence removed" and separately "untestable" pending a real instance. Deployed a throwaway test `TrustyAIService` on this cluster (RHOAI 3.4.2 / OCP 4.20.30) and reproduced the bug exactly.
-
-**Issue:**
-The `trustyai-service` ServiceMonitor (created by the TrustyAIService CR reconciler) configures `scheme: http` with no `port:` filter. Prometheus discovers all ports on the selected services (`trustyai-service` and `trustyai-service-tls`) and scrapes each with `http://`. Since both services expose TLS ports (8443, 9443, 4443) alongside the plain HTTP port (8080), HTTP requests to HTTPS endpoints result in `400 Bad Request` (or `EOF` for port 4443).
-
-**Live proof (2026-08-08), real Prometheus scrape results:**
-
-| Service | Port | Health | Error |
-|---|---|---|---|
-| `trustyai-service` | 8080 | ✅ UP | — |
-| `trustyai-service` | 4443 | ❌ DOWN | EOF |
-| `trustyai-service` | 8443 | ❌ DOWN | 400 Bad Request |
-| `trustyai-service` | 9443 | ❌ DOWN | 400 Bad Request |
-| `trustyai-service-tls` | 8443 | ❌ DOWN | 400 Bad Request |
-
-Matches the Jira ticket's own reproduction table exactly.
-
-**Impact:**
-- False-positive TargetDown for `trustyai-service` (75% targets down)
-- False-positive TargetDown for `trustyai-service-tls` (100% targets down)
-- TrustyAI service is fully functional — this is monitoring misconfiguration only
-- Only manifests once a `TrustyAIService` CR is deployed in a user namespace — currently dormant since none is deployed on this cluster
-
-**Root Cause:**
-ServiceMonitor created by TrustyAI operator for the TrustyAIService CR specifies `scheme: http` without restricting to a specific port. The `trustyai-service` and `trustyai-service-tls` Services both carry the `app.kubernetes.io/part-of: trustyai` label matched by the ServiceMonitor selector, causing all their ports to be scraped via HTTP.
-
-**Status:**
-- **JIRA:** [RHOAIENG-61424](https://redhat.atlassian.net/browse/RHOAIENG-61424) - TrustyAI ServiceMonitor uses scheme: http on TLS ports causing false TargetDown alerts
-- **Reported:** 2026-05-07
-- **Status:** Open — Jira shows Closed with fixVersion `3.5 EA1 RHOAI RELEASE` (released 2026-06-17), but live reproduction on RHOAI 3.4.2 / OCP 4.20.30 (2026-08-08) confirms the bug is still present. The fix has not reached our version.
-- **Related:** [RHOAIENG-54605](https://redhat.atlassian.net/browse/RHOAIENG-54605) (overly broad `trustyai-metrics` selector) — see the "TrustyAI ServiceMonitor Overly Broad Selector" entry above; same root class of bug, re-opened alongside this one on the same date.
-
-**Mitigation Applied (2026-08-08):** proactively silenced alongside RHOAIENG-54605 for consistency, even though no `TrustyAIService` is deployed on this cluster right now to actually trigger it — pre-empting the alert the moment one is created, same as every other entry in this doc.
-
-1. **Routing Configuration** (GitOps-managed):
-   ```yaml
-   # Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-   routes:
-     - matchers:
-         - alertname = TargetDown
-         - service =~ trustyai-service|trustyai-service-tls
-       receiver: 'null'
-       continue: false
-   ```
-
-2. **Alertmanager Silence** (Automated via GitOps Job):
-   - **Created by:** `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook)
-   - **Duration:** 10 years from cluster deployment
-
-**Verification:**
-```bash
-# Check Prometheus targets (user-workload Prometheus)
-oc exec -n openshift-user-workload-monitoring prometheus-user-workload-0 -c prometheus -- \
-  wget -q -O- 'http://localhost:9090/api/v1/targets' | \
-  jq '.data.activeTargets[] | select(.labels.service | test("trustyai-service")) | {service: .labels.service, port: .labels.instance, health: .health, error: .lastError}'
-```
-
----
-
-### 5. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
+### 3. insights-runtime-extractor KubeDaemonSetMisScheduled (Race Condition with Infra Taint)
 
 **Alert Name:** `KubeDaemonSetMisScheduled`
 **Component:** OpenShift Insights — `insights-runtime-extractor` DaemonSet
@@ -332,7 +205,7 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 
 ---
 
-### 6. ODFNodeMTULessThan9000 (ovs-system internal device, not a real NIC)
+### 4. ODFNodeMTULessThan9000 (ovs-system internal device, not a real NIC)
 
 **Alert Name:** `ODFNodeMTULessThan9000`
 **Component:** OpenShift Data Foundation (ODF) — `ocs-metrics-exporter` alert rule
@@ -400,62 +273,7 @@ Red Hat Insights provides cloud-based analysis and recommendations for OpenShift
 
 ---
 
-### 1. Kueue Webhook Timeout Exceeds Recommendation
-
-**Recommendation:** `Configuring the webhook's timeout for Pod API exceeds 13s is not recommended`
-**Rule ID:** `ccx_rules_ocp.external.rules.webhook_timeout_is_larger_than_default`
-**Component:** Kueue Operator
-**Risk Level:** Moderate
-**Namespace:** N/A (cluster-wide configuration)
-
-**Issue:**
-The Kueue operator configures webhook timeouts that exceed the recommended 13-second threshold. This triggers an Insights recommendation suggesting the timeout is too high, which could impact API responsiveness.
-
-**Impact:**
-- Moderate risk Insights recommendation appears in console
-- No actual impact on Kueue functionality
-- Webhook operates normally with extended timeout
-- Recommendation appears in Insights Advisor dashboard
-
-**Root Cause:**
-Kueue operator configures its validating/mutating webhooks with `timeoutSeconds: 23`, above the 13s Insights recommends. ⚠️ Correction (2026-08-08): this was **not** actually necessary — see Status below, the fix's own author states the timeout bump should never have been applied.
-
-**Status:**
-- **JIRA:** [OCPKUEUE-578](https://redhat.atlassian.net/browse/OCPKUEUE-578) — Jira shows Closed/Done (2026-03-22)
-- **Upstream fix confirmed merged:** [openshift/kueue-operator#1588](https://github.com/openshift/kueue-operator/pull/1588) ("Remove webhook timeout" — "the webhook timeout shouldn't be updated as the maximum allowed is 13 seconds"), merged 2026-03-16.
-- ⚠️ **Not yet in the downstream product (confirmed live, 2026-08-08):** this cluster runs `kueue-operator.v1.2.0` (Red Hat build of Kueue), and both `kueue-validating-webhook-configuration` and `kueue-mutating-webhook-configuration` still show `timeoutSeconds: 23` on every webhook. The `InsightsRecommendationActive` alert is genuinely still firing (confirmed active, state `suppressed` by our silence) — this is a real unfixed condition on this cluster, not a stale false-positive being needlessly hidden. The upstream merge hasn't propagated to the productized Kueue operator build yet.
-- **Workaround:** Alertmanager routing + API silence for the local alert — **keep in place**, confirmed still needed
-- **Fix ETA:** TBD — re-check `kueue-operator` CSV version after any operator upgrade for whether `timeoutSeconds` finally drops to ≤13s
-
-**Mitigation Applied:**
-
-**Alertmanager Routing** (GitOps-managed):
-```yaml
-# Location: components/cluster-monitoring/base/openshift-monitoring-secret-alertmanager-main.yaml
-routes:
-  - matchers:
-      - alertname = InsightsRecommendationActive
-      - description =~ .*webhook.*timeout.*13s.*
-    receiver: 'null'
-    continue: false
-```
-
-**Alertmanager Silence** (Automated via GitOps Job): created by `openshift-gitops-job-create-alert-silences.yaml` (PostSync hook), 10-year duration, `createdBy: argocd-automation`.
-
-**Verification:**
-```bash
-# Verify the alert is suppressed locally
-oc exec -n openshift-monitoring alertmanager-main-0 -c alertmanager -- \
-  wget -q -O- 'http://localhost:9093/api/v2/alerts' | \
-  jq '.[] | select(.labels.alertname == "InsightsRecommendationActive" and (.labels.description // "" | test("webhook.*timeout.*13s"))) | {state: .status.state}'
-
-# Cloud-side recommendation display (separate surface, not affected by the above):
-# https://console.redhat.com/openshift/insights/advisor/clusters/<CLUSTER_ID>
-```
-
----
-
-### 2. MachineConfigPool maxUnavailable Configuration
+### 1. MachineConfigPool maxUnavailable Configuration
 
 **Recommendation:** `MachineConfigPool will never finish updating when the 'unavailableMachineCount' is greater than 'maxUnavailable' in the MachineConfigPool`
 **Rule ID:** `ccx_rules_ocp.external.rules.machineconfigpool_maxunavailable`
@@ -582,7 +400,7 @@ oc delete certmanager cluster --ignore-not-found
 
 **Component:** OpenShift Pipelines 1.22.3 — Tekton Results
 **JIRA:** [SRVKP-12579](https://redhat.atlassian.net/browse/SRVKP-12579) — Dev Complete
-**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — ✅ **Fixed and confirmed live on this cluster** (2026-08-08), despite Jira showing "Release Pending" / fixVersion `Pipelines 1.20.5` as not yet released — same silent-backport pattern seen elsewhere in this doc (e.g. RHOAIENG-54605).
+**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — ✅ **Fixed and confirmed live on this cluster** (2026-08-08), despite Jira showing "Release Pending" / fixVersion `Pipelines 1.20.5` as not yet released — same silent-backport pattern seen elsewhere in this doc (e.g. RHOAIENG-70416, where the reverse happened: Jira claimed Closed/Done but the midstream PR was never actually merged).
 **Status:** Open — StatefulSet gap only
 
 **Root cause:** SRVKP-9205 fix (PR #2909) propagated `nodeSelector`/`tolerations` to Tekton Results **Deployments** but NOT to the `tekton-results-postgres` **StatefulSet**. The TektonInstallerSet generates postgres with `nodeSelector=None` even when `TektonConfig.spec.config.nodeSelector` is set.

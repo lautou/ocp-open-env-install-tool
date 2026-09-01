@@ -222,7 +222,6 @@ The following operators lack infra node placement configuration capabilities:
 - **[OCPBUGS-49690](https://issues.redhat.com/browse/OCPBUGS-49690)** - "[RHOCP4.17] networking-console-plugin pods should run on control plane nodes"
 - **[OCPBUGS-74211](https://issues.redhat.com/browse/OCPBUGS-74211)** - "Insight runtime extractor is not deployed on tainted nodes"
 - **[OCPBUGS-74232](https://issues.redhat.com/browse/OCPBUGS-74232)** - "volume-data-source-validator should run on master (control plane) node"
-- **[OCPBUGS-74350](https://issues.redhat.com/browse/OCPBUGS-74350)** - "collect-profiles job in openshift-operator-lifecycle-manager namespace should run on control plane node" — **Closed / Won't Do** — Node placement not fixed because the collect-profiles cronjob is being **entirely removed in OCP 4.22** ([OCPBUGS-31547](https://issues.redhat.com/browse/OCPBUGS-31547) Verified). Limitation disappears on upgrade to 4.22+.
 
 ### Business Impact
 
@@ -435,4 +434,4 @@ Tracked upstream at [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10
 
 ---
 
-**Last Updated:** 2026-09-02 (removed DFBUGS-5355, fully resolved in odf-4.21 and verified live; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
+**Last Updated:** 2026-09-02 (removed all closed/resolved JIRA still being tracked: DFBUGS-5355, OCPBUGS-74350 - both verified moot on this cluster's current versions; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
