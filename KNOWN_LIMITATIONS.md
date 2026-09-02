@@ -438,6 +438,8 @@ Engineering didn't dispute the root cause (the missing `INITIALIZING` case) — 
 
 The targeted DB workaround above remains this project's own documented approach — verified safe and effective in the specific case where every downstream artifact already exists correctly (as shown in the evidence table) — but it is explicitly against Red Hat's stated guidance, so treat it as an informed judgment call for this project's disposable lab clusters, not something to lean on for production.
 
+**Narrower follow-up filed:** [DFBUGS-10424](https://redhat.atlassian.net/browse/DFBUGS-10424) (split from DFBUGS-10384, 2026-09-02) — asks only for a `default`/`INITIALIZING` case returning `util.NewPersistentError` (mirroring the existing `COULD_NOT_INITIALIZE` handling two lines above it), turning the silent infinite retry into a clear terminal error. Does not ask for auto-recovery, so doesn't reopen the reinstall-vs-recover question engineering already closed. Status: New as of filing, no response yet.
+
 ---
 
-**Last Updated:** 2026-09-02 (DFBUGS-10384 closed Won't Do by Red Hat engineering - no code fix coming, updated status/Future Resolution accordingly; earlier same-day update removed closed/resolved JIRA no longer applicable: DFBUGS-5355, OCPBUGS-74350; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
+**Last Updated:** 2026-09-02 (filed DFBUGS-10424, a narrower follow-up to DFBUGS-10384 asking only for a clear terminal error instead of the silent infinite retry, split-linked to it; earlier same-day updates: DFBUGS-10384 closed Won't Do by Red Hat engineering - no code fix coming; removed closed/resolved JIRA no longer applicable: DFBUGS-5355, OCPBUGS-74350; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
