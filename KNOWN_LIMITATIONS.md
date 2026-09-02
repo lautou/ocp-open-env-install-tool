@@ -385,7 +385,7 @@ done
 **Component:** OpenShift Data Foundation (ODF) - Multi-Cloud Object Gateway (NooBaa)
 **Severity:** Critical - blocks ODF/MCG entirely (`NooBaa` and `StorageCluster` stuck `Configuring`/`Progressing` forever); no automatic recovery
 **Affects:** `noobaa-operator`, all versions checked - the code gap has existed since the file's origin (confirmed via full git blame of `phase4_configuring.go`)
-**Status:** Open upstream - filed as [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384)
+**Status:** Closed as **Won't Do** upstream - filed as [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384). This is a permanent limitation, not a pending fix - see Future Resolution below.
 
 ### Description
 
@@ -430,8 +430,14 @@ Within one reconcile loop (~10-20s), `noobaa-operator` mints a fresh auth token,
 
 ### Future Resolution
 
-Tracked upstream at [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384). Suggested fix direction: add an `INITIALIZING` case to `SetDesiredSecretOp`'s switch - either bounded poll/wait for another in-flight reconcile to finish it, or safely re-verify and complete the remaining `create_system()` steps once the original caller is confirmed gone.
+**No code fix is coming.** [DFBUGS-10384](https://redhat.atlassian.net/browse/DFBUGS-10384) was closed **Won't Do** (2026-09-02) by Red Hat engineering (Liran Mauda):
+
+> "Restarting the NooBaa core in the middle of creating the system is not supported. The result can be unpredictable and/or destructive. As `create_system()` is a one-time operation that we perform only once, in the installation, the preference would be to reinstall. Any other solution is dangerous and error-prone, and we should avoid that."
+
+Engineering didn't dispute the root cause (the missing `INITIALIZING` case) — they're declining to harden against this failure mode at all, and their official guidance for any occurrence is a full NooBaa rebuild (data loss), not an in-place repair. This is a permanent, accepted limitation of `noobaa-operator`, not a tracked pending fix.
+
+The targeted DB workaround above remains this project's own documented approach — verified safe and effective in the specific case where every downstream artifact already exists correctly (as shown in the evidence table) — but it is explicitly against Red Hat's stated guidance, so treat it as an informed judgment call for this project's disposable lab clusters, not something to lean on for production.
 
 ---
 
-**Last Updated:** 2026-09-02 (removed all closed/resolved JIRA still being tracked: DFBUGS-5355, OCPBUGS-74350 - both verified moot on this cluster's current versions; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
+**Last Updated:** 2026-09-02 (DFBUGS-10384 closed Won't Do by Red Hat engineering - no code fix coming, updated status/Future Resolution accordingly; earlier same-day update removed closed/resolved JIRA no longer applicable: DFBUGS-5355, OCPBUGS-74350; DFBUGS-5761/DFBUGS-6835 rechecked and still open, no change)
