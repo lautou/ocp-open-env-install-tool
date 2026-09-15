@@ -18,11 +18,11 @@ spec:
         managementState: Managed
     kueue:
       managementState: Unmanaged
-    llamastackoperator:
-      managementState: Managed
     mlflowoperator:
       managementState: Managed
     modelregistry:
+      managementState: Managed
+    ogx:
       managementState: Managed
     ray:
       managementState: Managed
