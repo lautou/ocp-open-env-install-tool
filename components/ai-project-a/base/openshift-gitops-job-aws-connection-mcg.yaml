@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: aws-connection-mcg
+  namespace: openshift-gitops
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      name: aws-connection-mcg
+    spec:
+      serviceAccountName: aws-connection-mcg
+      restartPolicy: Never
+      containers:
+      - name: create-secret
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Waiting for OBC-generated secret models in ai-project-a..."
+          while ! oc get secret models -n ai-project-a &>/dev/null; do
+            sleep 5
+          done
+          echo "Secret found"
+
+          ACCESS_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+          SECRET_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+
+          echo "Creating Data Connection secret aws-connection-mcg in ai-project-a..."
+          oc create secret generic aws-connection-mcg \
+            -n ai-project-a \
+            --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
+            --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
+            --from-literal=AWS_S3_ENDPOINT="http://s3.openshift-storage.svc" \
+            --from-literal=AWS_DEFAULT_REGION="us-east-1" \
+            --from-literal=AWS_S3_BUCKET="models" \
+            --dry-run=client -o yaml \
+            | oc label -f - --local -o yaml opendatahub.io/dashboard=true opendatahub.io/managed=true \
+            | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 \
+            | oc apply -f -
+
+          echo "✅ Secret aws-connection-mcg ready in ai-project-a"

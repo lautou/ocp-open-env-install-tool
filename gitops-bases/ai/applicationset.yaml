@@ -8,6 +8,8 @@ spec:
   - list:
       elements:
       - branch: master
+        item: ai-project-a
+      - branch: master
         item: jobset
       - branch: master
         item: kueue
