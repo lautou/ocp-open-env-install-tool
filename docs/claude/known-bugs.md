@@ -416,9 +416,9 @@ oc delete certmanager cluster --ignore-not-found
 ### OCPBUGS-105277 — Cluster autoscaler over-provisions a second GPU node before device-plugin capacity appears
 
 **Component:** Cluster Autoscaler (cluster-autoscaler 1.33.0)
-**JIRA:** [OCPBUGS-105277](https://redhat.atlassian.net/browse/OCPBUGS-105277) — New
-**Status:** Open since 2026-08-06, no fix version yet
-**Affects:** Any OCP cluster with a GPU MachineSet scaled from 0 via cluster-autoscaler + NVIDIA GPU Operator (e.g. `myocp-xvl7h-gpu-*`)
+**JIRA:** [OCPBUGS-105277](https://redhat.atlassian.net/browse/OCPBUGS-105277) — Closed/Done, but only for **OCP 5.1** (feature "partially included" in `5.1.0-0.nightly-2026-08-19-171130`)
+**Status:** ⚠️ Still fully unresolved on this project's OCP 4.22.x clusters. No 4.x backport was ever planned — *"we haven't had requests to backport this feature. i am resetting the backport versions."* (Michael McCune, 2026-08-19, in-ticket comment). Jira's Closed/Done status reflects the 5.1-only fix, not any fix reaching a 4.x cluster.
+**Affects:** Any OCP 4.x cluster with a GPU MachineSet scaled from 0 via cluster-autoscaler + NVIDIA GPU Operator (e.g. `myocp-xvl7h-gpu-*`)
 
 **Root cause:** A GPU node registers `Ready` (kubelet up) several minutes before the GPU Operator finishes installing drivers and the device plugin advertises `nvidia.com/gpu` in `.status.allocatable`. Cluster-autoscaler re-evaluates the still-pending pod against the "Ready but GPU-less" node, concludes it doesn't fit, and immediately scales the MachineSet again — provisioning a real, billed second GPU instance (`g4dn.12xlarge`) that sits idle. Confirmed via live reproduction: MachineSet scales 0→1 at T+0, node registers ~T+3m30s, pod flips back to unschedulable ~T+4m15s, cluster-autoscaler scales 1→2 at ~T+4m16s.
 
@@ -448,63 +448,6 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 ---
 
-### 2. KubeMemoryOvercommit — Large LLM Model Serving on Single GPU Node
-
-**Alert Name:** `KubeMemoryOvercommit`
-**Severity:** warning
-**JIRA:** N/A — expected behavior, not a bug
-**Status:** ⚠️ NOT silenced — visible in console, ignore manually when large LLM deployed
-
-**Context:** When a large LLM (e.g., Mistral Medium 3.5 128B) is deployed on a single p4d.24xlarge GPU node with `memory request: 320Gi`, the cluster's total memory requests exceed what remaining nodes can absorb if the GPU node fails. This triggers `KubeMemoryOvercommit`.
-
-This is **expected and by design** for a GPU lab/demo environment:
-- The p4d node has 1.1 Ti allocatable RAM — far more than requested
-- No other node can absorb a 320Gi GPU workload anyway (no failover GPU node)
-- Fixing this would require a second p4d node (~$32/h) with no functional benefit for demos
-
-**Why not silenced:** Silencing at cluster level would mask genuine memory pressure on worker nodes. Ignorable in GPU lab/demo context.
-
-**How to identify:** Alert description mentions ~45G overcommit = 320Gi LLM request on p4d node.
-
----
-
-### 1. LlamaStack Config Generates http:// URL for LLMInferenceService (HTTPS), Breaking Gen AI Playground
-
-**JIRA:** [RHOAIENG-65719](https://redhat.atlassian.net/browse/RHOAIENG-65719)
-**Status:** Open
-**Affected versions:** RHOAI 3.4
-**Affected components:** Gen AI Studio Playground, LlamaStack, LLMInferenceService
-
-**Symptom:** When a `LLMInferenceService` model is added to the Gen AI Studio Playground, the model appears Ready and shows timing metrics (2-3s), but no response text is displayed. LlamaStack pod logs show `APIConnectionError: Connection error`.
-
-**Root cause:** The controller auto-generating the `llama-stack-config` ConfigMap uses `http://` scheme unconditionally. For `LLMInferenceService`, the kserve workload service (`<name>-kserve-workload-svc`) exposes **HTTPS on port 8000** (not HTTP). For standard `InferenceService`, HTTP on port 8080 is correct — this bug is specific to `LLMInferenceService`.
-
-**Workaround:**
-```bash
-NAMESPACE=<namespace>
-LLMISVC_NAME=<llmisvc-name>
-CURRENT=$(oc get configmap llama-stack-config -n $NAMESPACE -o jsonpath='{.data.config\.yaml}')
-UPDATED=$(echo "$CURRENT" \
-  | sed "s|http://${LLMISVC_NAME}-kserve-workload-svc|https://${LLMISVC_NAME}-kserve-workload-svc|g" \
-  | sed 's|tls_verify: ${env.VLLM_TLS_VERIFY:=true}|tls_verify: ${env.VLLM_TLS_VERIFY:=false}|g')
-oc patch configmap llama-stack-config -n $NAMESPACE --type=merge \
-  -p "{\"data\":{\"config.yaml\":$(echo "$UPDATED" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}}"
-oc rollout restart deployment/lsd-genai-playground -n $NAMESPACE
-```
-
-**⚠️ Gap (2026-08-08):** fix shipped in RHOAI 3.5 EA2 (released 2026-07-15) — newer than our RHOAI 3.4, so **not fixed on this cluster**. The patch above is documented but not wired into GitOps (no Job/CMP applies it automatically). Adding a `LLMInferenceService` model to the Gen AI Studio Playground on this cluster will break with `APIConnectionError` and require the manual patch every time until upgrading past 3.5 EA2.
-
-**Live verification attempt (2026-08-08):** deployed a throwaway `LLMInferenceService` (Granite 3.1 8B quantized, single-pod, no `spec.worker` — manifest adapted from `openshift-sizeops/benchmarks/manifests/llmd-multinode-instance.yaml`) and confirmed the bug's precondition directly: `<name>-kserve-workload-svc` exposes `appProtocol: https` on port 8000, created immediately once the LLMInferenceService exists, independent of pod readiness. This matches the root cause exactly.
-
-Could not complete the full end-to-end reproduction (an actual `APIConnectionError` via the Playground) — the "Add to Playground" UI flow hit a cascade of separate, apparently-unrelated Tech Preview bugs in the Gen AI Studio dashboard backend, each blocking on the last:
-1. `GET /gen-ai/api/v1/lsd/models` returns a hard `500` instead of an empty list when no `LlamaStackDistribution` exists yet in the target namespace
-2. After deploying a `LlamaStackDistribution` (requires an external Postgres backend — see `external-db-genai-playground`, added permanently to `components/rhoai/base/`), `GET /gen-ai/api/v1/aaa/models` still reported `llmInferenceServices=0` for the namespace despite the LLMInferenceService being genuinely `Ready=True`, even after labeling the namespace `opendatahub.io/dashboard=true` (the standard Data Science Project marker)
-3. The frontend treats one namespace's `500` as fatal for the entire "AI asset endpoints" page across all namespaces, not just the failing one
-
-None of these three have JIRA tickets filed — noted here only as context for why full reproduction stopped short. The structural evidence above (the `https`/port-8000 Service) combined with the confirmed-unreleased fix is treated as sufficient confirmation that this bug is real and unfixed on this cluster.
-
----
-
 ### OSSM-15257 — Sail Operator ClusterRoles missing aggregate-to-admin/edit labels (Telemetry resource ArgoCD OutOfSync)
 
 **Component:** OpenShift Service Mesh 3 / Sail Operator (`istiod` Helm chart)
@@ -521,26 +464,6 @@ None of these three have JIRA tickets filed — noted here only as context for w
 **⚠️ Related caveat (2026-08-14, Jamie Longmuir, Red Hat):** the only currently *supported* OSSM install/upgrade path is OLM via OperatorHub — the Helm/library path (which is what this bug and its fix apply to) isn't officially supported for production use today, and a support case opened specifically about installing/upgrading via that path may not get an SLA. Doesn't change anything about the bug itself or the need for our workaround (RHCL's `Telemetry` resource is being created *by* the library-installed `istiod`, not by us choosing that install path directly) — just worth knowing if escalating this to Red Hat Support.
 
 **Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation. **Keep in place** — fix targets OSSM 3.3.7/3.4.2, neither shipped; re-check Sail Operator CSV version after any upgrade.
-
----
-
----
-
-### OCPBUGS-100168 — check-endpoints TargetDown in openshift-apiserver (NetworkPolicy missing port 17698)
-
-**Component:** OCP 4.22 platform — `cluster-openshift-apiserver-operator`
-**JIRA:** [OCPBUGS-100168](https://redhat.atlassian.net/browse/OCPBUGS-100168) — Status `POST` (4.22.z backport in progress, not yet released; backport approved 2026-07-29, still no shipped fix version as of 2026-08-07)
-**Upstream fix (verified for 5.0, not yet backported to 4.22):** [PR #719](https://github.com/openshift/cluster-openshift-apiserver-operator/pull/719) (`bindata/v3.11.0/openshift-apiserver/networkpolicy-allow.yaml`) — also reported independently at [cluster-openshift-apiserver-operator#718](https://github.com/openshift/cluster-openshift-apiserver-operator/issues/718)
-
-**Alert:** `TargetDown` — "100% of the check-endpoints/check-endpoints targets in openshift-apiserver namespace have been unreachable for more than 15 minutes."
-
-**Issue:** the platform-shipped `allow-apiserver` NetworkPolicy in `openshift-apiserver` only opens ingress on port 8443 (the API server port). The `check-endpoints` sidecar container (part of every `openshift-apiserver` pod) listens on port 17698, which no NetworkPolicy allows, so Prometheus's scrape of it times out. The apiserver itself is unaffected — confirmed live: all `openshift-apiserver` pods `Running 2/2`, all nodes `Ready`, the `api` job (port 8443) is `up`; only `check-endpoints` (port 17698) targets are `down` with `context deadline exceeded`.
-
-**Root cause:** confirmed via `oc get networkpolicy allow-apiserver -n openshift-apiserver -o yaml` — ingress rule only lists `port: 8443`, nothing for 17698. `default-deny` in the same namespace drops everything else.
-
-**Fix applied (this repo):** `components/openshift-config/base/TEMPORARY-FIX-openshift-apiserver-networkpolicy-allow-check-endpoints-monitoring.yaml` — an additive NetworkPolicy opening port 17698 to namespaces labeled `network.openshift.io/policy-group: monitoring` (matches both `openshift-monitoring` and `openshift-user-workload-monitoring`), for pods labeled `apiserver: "true"`. This is the exact workaround from the original bug report, confirmed there to resolve the alert. Remove once OCP 4.22.z ships a build where `allow-apiserver` itself includes port 17698.
-
-**RBAC dependency:** `openshift-apiserver` isn't labeled `argocd.argoproj.io/managed-by` (it's a system namespace, not one this repo creates), so the ArgoCD Application Controller SA had no permission to create a `NetworkPolicy` there — same RBAC-gap class as OSSM-15257 above. Added `openshift-apiserver-role-networkpolicy-manager.yaml` + `openshift-apiserver-rb-networkpolicy-manager.yaml`, scoped narrowly to `networkpolicies.networking.k8s.io` only (not a broad `edit`/`admin` grant), given the sensitivity of this namespace.
 
 ---
 
