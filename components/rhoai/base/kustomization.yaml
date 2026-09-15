@@ -7,6 +7,7 @@ resources:
 - cluster-datasciencecluster-default-dsc.yaml
 - cluster-namespace-external-db-genai-playground.yaml
 - cluster-namespace-external-db-maas.yaml
+- cluster-namespace-external-db-model-registry.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
 - external-db-genai-playground-deployment-postgresql.yaml
@@ -19,6 +20,10 @@ resources:
 - external-db-maas-role-maas-db-secret.yaml
 - external-db-maas-secret-postgresql-credentials.yaml
 - external-db-maas-service-postgresql.yaml
+- external-db-model-registry-deployment-mysql.yaml
+- external-db-model-registry-pvc-mysql.yaml
+- external-db-model-registry-secret-mysql-credentials.yaml
+- external-db-model-registry-service-mysql.yaml
 - openshift-gitops-job-delete-rhoai-resources.yaml
 - openshift-gitops-job-maas-db-secret.yaml
 - openshift-gitops-sa-maas-db-secret.yaml
