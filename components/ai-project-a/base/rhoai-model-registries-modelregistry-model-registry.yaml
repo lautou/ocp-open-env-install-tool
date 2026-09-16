@@ -1,0 +1,20 @@
+apiVersion: modelregistry.opendatahub.io/v1beta1
+kind: ModelRegistry
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: model-registry
+  namespace: rhoai-model-registries
+spec:
+  grpc:
+    port: 9090
+  mysql:
+    database: modelregistrydb
+    host: mysql.external-db-model-registry.svc.cluster.local
+    passwordSecret:
+      key: database-password
+      name: registry-db-secret
+    port: 3306
+    username: modelregistry
+  rest:
+    port: 8080

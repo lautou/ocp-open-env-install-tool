@@ -7,4 +7,5 @@ resources:
 - cluster-namespace-ai-project-a.yaml
 - openshift-gitops-job-aws-connection-mcg.yaml
 - openshift-gitops-sa-aws-connection-mcg.yaml
+- rhoai-model-registries-modelregistry-model-registry.yaml
 - rhoai-model-registries-secret-registry-db.yaml
