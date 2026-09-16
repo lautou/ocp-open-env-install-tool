@@ -12,7 +12,6 @@ data:
     from huggingface_hub import snapshot_download
     from model_registry import ModelRegistry
     from botocore.client import Config
-    from botocore.exceptions import ClientError
 
     # --- CONFIGURATION ---
     HF_ID = os.getenv("MODEL_ID")
@@ -52,7 +51,10 @@ data:
                 s3.head_bucket(Bucket=S3_BUCKET)
                 log(f"Bucket '{S3_BUCKET}' is ready.")
                 return
-            except ClientError as e:
+            except Exception as e:
+                # Catches both real bucket errors (ClientError) and connection-level
+                # failures (e.g. EndpointConnectionError during a NooBaa restart) —
+                # this integration point should ride through either, not crash on it.
                 log(f"Bucket not ready yet ({e}), retrying...")
                 time.sleep(10)
 
