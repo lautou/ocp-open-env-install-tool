@@ -263,6 +263,22 @@ oc exec -n openshift-monitoring statefulset/alertmanager-main -c alertmanager --
 
 ---
 
+### 5. GoogleCloudExporterDeprecationWarning (blanket notice, not a real issue)
+
+**Alert Name:** `GoogleCloudExporterDeprecationWarning`
+**Component:** Red Hat build of OpenTelemetry — `opentelemetry-operator` bundled PrometheusRule
+**Severity:** warning
+
+**Issue:** Fires unconditionally on any cluster with the `opentelemetry-operator` CSV installed and healthy. The alert's own PromQL is `last_over_time((max by(version) (csv_succeeded{name=~"opentelemetry-operator.*"}))[5m:]) > 0` — it only checks that the CSV succeeded, with zero relation to whether the `googlecloud` exporter is actually configured anywhere. Message: *"Google Cloud Exporter is deprecated and it will be removed from the Red Hat build of OpenTelemetry collector in the 3.12 release."*
+
+**Root Cause:** Confirmed via the actual source commit ([os-observability/konflux-opentelemetry#1002](https://github.com/os-observability/konflux-opentelemetry/pull/1002), tracked in [TRACING-6139](https://redhat.atlassian.net/browse/TRACING-6139)) — Red Hat's Distributed Tracing team deliberately reuses this same blanket-alert mechanism for any component slated for removal (same pattern previously used, then deleted, for the OpenCensus receiver deprecation). Expect this alert to disappear once RHBOT 3.12 actually ships the removal.
+
+**Status:**
+- Confirmed 2026-09-15: no `googlecloud` exporter configured anywhere on this cluster or in this repo — no `OpenTelemetryCollector` CR even exists.
+- **Deliberately NOT silenced** — left visible in the console per explicit decision. Purely informational; ignore unless actually using the `googlecloud` exporter and need to plan a migration before RHBOT 3.12.
+
+---
+
 ## Disabled Insights Recommendations
 
 Red Hat Insights provides cloud-based analysis and recommendations for OpenShift clusters. Some recommendations may be false positives or known issues tracked in JIRA.

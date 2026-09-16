@@ -406,6 +406,8 @@ oc delete applicationset cluster-ai -n openshift-gitops
 
 **Same collision class, different resource**: `application` is also ambiguous — `app.k8s.io/v1beta1` (unrelated, typically empty) vs ArgoCD's own `argoproj.io/v1alpha1`. `oc get application -n openshift-gitops` can silently return "No resources found" even when every ArgoCD Application is healthy. Always use `oc get application.argoproj.io` when checking ArgoCD state from the CLI.
 
+**Third instance**: `modelregistry` is ambiguous too — `modelregistries.components.platform.opendatahub.io` (the DataScienceCluster's own platform component type) vs `modelregistries.modelregistry.opendatahub.io` (actual Model Registry instances, e.g. in `rhoai-model-registries`). Unlike the other two, this one 404s outright rather than returning empty. Always use `oc get modelregistries.modelregistry.opendatahub.io` explicitly.
+
 **Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "Job Stuck in Infinite Loop - OLM API Group Ambiguity" (full incident, diagnosis steps, affected resource list)
 
 ## Component Notes

@@ -90,6 +90,12 @@ Per RHOAI 3.4 doc (section "Playground prerequisites"):
 
 ---
 
+## NooBaa/MCG-Backed Data Connections — Use the Internal S3 Endpoint
+
+For an S3-type Data Connection (or a ModelRegistry's object storage) backed by an `ObjectBucketClaim`, point `AWS_S3_ENDPOINT` at NooBaa's in-cluster gateway service — `http://s3.openshift-storage.svc` — never the external Route. The Route is signed by the cluster's self-signed default ingress cert, which fails TLS verification for S3 clients (boto3, DSPA, etc.) connecting from inside the cluster. This matches the same endpoint already used by this repo's `create-secret-logging-loki-s3`/`create-secret-netobserv-loki-s3` Jobs.
+
+---
+
 ## Distributed Inference with llm-d (LLMInferenceService)
 
 ### Enabling Gateway Discovery in the Wizard

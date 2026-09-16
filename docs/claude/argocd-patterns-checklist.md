@@ -183,11 +183,14 @@ subjects:
   namespace: openshift-gitops
 ```
 
+**RoleBinding vs ClusterRoleBinding**: use a `RoleBinding` (as above) whenever the resource type itself is namespaced — it scopes the grant to exactly the one namespace that needs it. Reach for a `ClusterRoleBinding` only when the resource type is genuinely cluster-scoped (no namespace at all, e.g. `DataScienceCluster` — see `cluster-crb-datascienceclusters-edit-gitops.yaml`), since that's the only case a `RoleBinding` literally cannot cover. Don't copy a prior grant's `ClusterRoleBinding` shape for a new namespaced CRD just because it looks similar — check the CRD's own scope (`oc explain <crd>` shows `Scope: Namespaced` vs `Scope: Cluster`) before picking either one. Confirmed live 2026-09-16: a `ModelRegistry` grant was first written as a `ClusterRoleBinding` (copying the DataScienceCluster example) even though `ModelRegistry` is namespaced — caught and corrected to a `RoleBinding` scoped to just `rhoai-model-registries`.
+
 **Examples**:
 - `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `-rb-telemetry-manager.yaml` (scenario 2 — `openshift-ingress` is `managed-by`-labeled, but its generated Role has no `telemetry.istio.io` entry at all)
 - `components/cluster-ingress/base/openshift-ingress-role-gateway-manager.yaml` + `-rb-gateway-manager.yaml` (scenario 2 — same namespace, generated Role covers `gateway.networking.k8s.io/gateways` but read-only)
 - `components/openshift-config/base/openshift-apiserver-role-networkpolicy-manager.yaml` + `-rb-networkpolicy-manager.yaml` (scenario 1 — `openshift-apiserver` has no `managed-by` label at all)
 - `components/cluster-monitoring/base/openshift-monitoring-role-create-alert-silences.yaml` + `-rolebinding-create-alert-silences.yaml` (scenario 3 — `openshift-monitoring` is `managed-by`-labeled, but the grant is for a custom `create-alert-silences` SA that the label mechanism never covers)
+- `components/rhoai/base/rhoai-model-registries-rb-modelregistries-edit-gitops.yaml` (scenario 2 — `rhoai-model-registries` is `managed-by`-labeled, but its generated Role has no `modelregistry.opendatahub.io` entry at all; confirmed live by removing the grant and watching ArgoCD fail with an explicit `Forbidden` error, not just inferred from the Role's rule count)
 
 **File naming**: name by the target namespace + what it manages (`<namespace>-role-<resource>-manager.yaml`, `<namespace>-rb-<resource>-manager.yaml`), not by the source SA — see the cross-namespace RBAC naming rule in `gitops-specialist-agent.md`.
 
