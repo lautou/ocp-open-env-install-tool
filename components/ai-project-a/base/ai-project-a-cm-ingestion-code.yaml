@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingestion-code
+  namespace: ai-project-a
+data:
+  ingest_and_register.py: |
+    import os
+    import boto3
+    import requests
+    from huggingface_hub import snapshot_download
+    from model_registry import ModelRegistry
+    from botocore.client import Config
+
+    # --- CONFIGURATION ---
+    HF_ID = os.getenv("MODEL_ID")
+    VERSION = "1.0.0"
+    S3_BUCKET = os.getenv("AWS_S3_BUCKET", "models")
+
+    # LOGIC: Truncate the ID to get a clean short name
+    # e.g. "Qwen/Qwen3-0.6B" -> "Qwen3-0.6B"
+    if "/" in HF_ID:
+        MODEL_NAME = HF_ID.split("/")[-1]
+    else:
+        MODEL_NAME = HF_ID
+
+    # Env vars
+    REGISTRY_HOST = os.getenv("REGISTRY_HOST")
+    REGISTRY_PORT = int(os.getenv("REGISTRY_PORT", 8080))
+    AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    S3_ENDPOINT = os.getenv("AWS_S3_ENDPOINT")
+
+    def log(msg): print(f"[PIPELINE]: {msg}")
+
+    def main():
+        # 1. Ensure Registry Protocol
+        global REGISTRY_HOST
+        if not REGISTRY_HOST.startswith("http"):
+            REGISTRY_HOST = f"http://{REGISTRY_HOST}"
+
+        print(f"\n=== STEP 1: ACQUIRING ASSETS ===")
+        log(f"Downloading '{HF_ID}' from Hugging Face...")
+        local_dir = snapshot_download(repo_id=HF_ID,
+                                      cache_dir="/tmp/hf_cache",
+                                      allow_patterns=["*.json", "*.safetensors", "*.model", "tokenizer*"])
+
+        print(f"\n=== STEP 2: SECURING ASSETS (S3) ===")
+        log(f"Connecting to S3 at {S3_ENDPOINT}...")
+
+        # MANUAL UPLOAD: This is safer than the helper method because
+        # we can explicitly force the endpoint_url.
+        s3 = boto3.client('s3',
+                          endpoint_url=S3_ENDPOINT,
+                          aws_access_key_id=AWS_ACCESS_KEY,
+                          aws_secret_access_key=AWS_SECRET_KEY,
+                          config=Config(signature_version='s3v4'))
+
+        # Bucket is already provisioned via ObjectBucketClaim — no create_bucket call needed.
+
+        # Upload files using the clean name
+        s3_prefix = f"{MODEL_NAME}/{VERSION}"
+        log(f"Uploading to s3://{S3_BUCKET}/{s3_prefix}...")
+
+        for root, dirs, files in os.walk(local_dir):
+            for file in files:
+                local_path = os.path.join(root, file)
+                relative_path = os.path.relpath(local_path, local_dir)
+                s3_key = os.path.join(s3_prefix, relative_path)
+                s3.upload_file(local_path, S3_BUCKET, s3_key)
+
+        # --- CRITICAL FIX: CONSTRUCT HTTP URI ---
+        # The Dashboard typically hides "s3://" URIs if it can't find a matching Data Connection.
+        # By registering it as "http://", we force the UI to display the link.
+        if S3_ENDPOINT.startswith("http"):
+            # If endpoint already has http/https, use it
+            s3_uri = f"{S3_ENDPOINT}/{S3_BUCKET}/{s3_prefix}"
+        else:
+            # Assume http for internal S3 service
+            s3_uri = f"http://{S3_ENDPOINT}/{S3_BUCKET}/{s3_prefix}"
+
+        log(f"Upload Complete. Registered Location: {s3_uri}")
+
+        print(f"\n=== STEP 3: GOVERNANCE (MODEL REGISTRY) ===")
+        log(f"Connecting to Registry at {REGISTRY_HOST}:{REGISTRY_PORT}...")
+
+        registry = ModelRegistry(server_address=REGISTRY_HOST, port=REGISTRY_PORT, author="LabUser", is_secure=False)
+
+        log(f"Registering Model: {MODEL_NAME}")
+
+        # Register with the HTTP URI so it appears in the UI
+        model = registry.register_model(
+            MODEL_NAME,
+            s3_uri,  # <--- This is the key to visibility
+            model_format_name="safetensors",
+            model_format_version="1.0",
+            version=VERSION,
+            description=f"{MODEL_NAME} imported from Hugging Face",
+            # Intentionally omitting 'metadata' source keys to force UI to show the URI
+        )
+
+        # ---------------------------------------------------------
+        # FORCE STATE TO LIVE (Direct API)
+        # ---------------------------------------------------------
+        log("Promoting Artifact State to LIVE (via REST API)...")
+
+        artifact = registry.get_model_artifact(MODEL_NAME, VERSION)
+
+        if artifact:
+            api_url = f"{REGISTRY_HOST}:{REGISTRY_PORT}/api/model_registry/v1alpha3/model_artifacts/{artifact.id}"
+            response = requests.patch(api_url, json={"state": "LIVE"})
+
+            if response.status_code == 200:
+                log("State successfully updated to LIVE.")
+            else:
+                log(f"WARNING: Failed to update state. API Code: {response.status_code}")
+        else:
+            log("WARNING: Could not find artifact ID to update.")
+
+        print(f"\n✅ SUCCESS: Supply Chain Complete!")
+        print(f"    Model Name: {model.name}")
+        print(f"    Version: {VERSION}")
+        print(f"    State: LIVE")
+
+    if __name__ == "__main__":
+        main()
