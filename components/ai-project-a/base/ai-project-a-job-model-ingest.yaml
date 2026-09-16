@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: model-ingest-job
+  namespace: ai-project-a
+spec:
+  template:
+    spec:
+      serviceAccountName: model-ingest-job
+      containers:
+      - name: ingestor
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "Installing dependencies..."
+            pip install boto3 huggingface-hub "model-registry>=0.2.0,<0.3.0" requests --quiet --no-cache-dir && \
+            echo "Starting Ingestion..." && \
+            python /scripts/ingest_and_register.py
+        volumeMounts:
+        - name: code-volume
+          mountPath: /scripts
+        - name: service-ca
+          mountPath: /etc/pki/service-ca
+        env:
+        - name: MODEL_ID
+          value: "Qwen/Qwen3-0.6B"
+        - name: REGISTRY_HOST
+          value: "model-registry.rhoai-model-registries.svc.cluster.local"
+        - name: REGISTRY_PORT
+          value: "8443"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-connection-mcg
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-connection-mcg
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_S3_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: aws-connection-mcg
+              key: AWS_S3_ENDPOINT
+        - name: AWS_S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: aws-connection-mcg
+              key: AWS_S3_BUCKET
+      restartPolicy: Never
+      volumes:
+      - name: code-volume
+        configMap:
+          name: ingestion-code
+      - name: service-ca
+        configMap:
+          name: openshift-service-ca.crt

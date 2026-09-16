@@ -6,16 +6,24 @@ metadata:
 data:
   ingest_and_register.py: |
     import os
+    import time
     import boto3
     import requests
     from huggingface_hub import snapshot_download
     from model_registry import ModelRegistry
     from botocore.client import Config
+    from botocore.exceptions import ClientError
 
     # --- CONFIGURATION ---
     HF_ID = os.getenv("MODEL_ID")
     VERSION = "1.0.0"
     S3_BUCKET = os.getenv("AWS_S3_BUCKET")
+
+    # OpenShift service-ca bundle, mounted from the openshift-service-ca.crt
+    # ConfigMap that's auto-injected into every namespace — needed to verify
+    # the Model Registry's kube-rbac-proxy TLS certificate.
+    SERVICE_CA_PATH = "/etc/pki/service-ca/service-ca.crt"
+    SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
     # LOGIC: Truncate the ID to get a clean short name
     # e.g. "Qwen/Qwen3-0.6B" -> "Qwen3-0.6B"
@@ -26,18 +34,54 @@ data:
 
     # Env vars
     REGISTRY_HOST = os.getenv("REGISTRY_HOST")
-    REGISTRY_PORT = int(os.getenv("REGISTRY_PORT", 8080))
+    REGISTRY_PORT = int(os.getenv("REGISTRY_PORT", 8443))
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     S3_ENDPOINT = os.getenv("AWS_S3_ENDPOINT")
 
     def log(msg): print(f"[PIPELINE]: {msg}")
 
+    def read_sa_token():
+        with open(SA_TOKEN_PATH) as f:
+            return f.read().strip()
+
+    def wait_for_bucket(s3):
+        log(f"Waiting for bucket '{S3_BUCKET}' to be reachable...")
+        while True:
+            try:
+                s3.head_bucket(Bucket=S3_BUCKET)
+                log(f"Bucket '{S3_BUCKET}' is ready.")
+                return
+            except ClientError as e:
+                log(f"Bucket not ready yet ({e}), retrying...")
+                time.sleep(10)
+
+    def wait_for_registry():
+        log(f"Waiting for Model Registry at {REGISTRY_HOST}:{REGISTRY_PORT} to be reachable...")
+        while True:
+            try:
+                # Model Registry sits behind kube-rbac-proxy (TLS, service-ca signed,
+                # requires the pod's own ServiceAccount token) — this is a sensitive
+                # integration point, so we wait indefinitely rather than fail fast.
+                # The constructor itself performs a real API call, so a successful
+                # return here also confirms the registry is genuinely reachable.
+                registry = ModelRegistry(
+                    server_address=REGISTRY_HOST,
+                    port=REGISTRY_PORT,
+                    author="LabUser",
+                    custom_ca=SERVICE_CA_PATH,
+                )
+                log("Model Registry is ready.")
+                return registry
+            except Exception as e:
+                log(f"Registry not ready yet ({e}), retrying...")
+                time.sleep(10)
+
     def main():
         # 1. Ensure Registry Protocol
         global REGISTRY_HOST
         if not REGISTRY_HOST.startswith("http"):
-            REGISTRY_HOST = f"http://{REGISTRY_HOST}"
+            REGISTRY_HOST = f"https://{REGISTRY_HOST}"
 
         print(f"\n=== STEP 1: ACQUIRING ASSETS ===")
         log(f"Downloading '{HF_ID}' from Hugging Face...")
@@ -56,7 +100,9 @@ data:
                           aws_secret_access_key=AWS_SECRET_KEY,
                           config=Config(signature_version='s3v4'))
 
-        # Bucket is already provisioned via ObjectBucketClaim — no create_bucket call needed.
+        # Bucket is already provisioned via ObjectBucketClaim — no create_bucket call needed,
+        # but wait for it to actually be reachable before uploading.
+        wait_for_bucket(s3)
 
         # Upload files using the clean name
         s3_prefix = f"{MODEL_NAME}/{VERSION}"
@@ -82,9 +128,7 @@ data:
         log(f"Upload Complete. Registered Location: {s3_uri}")
 
         print(f"\n=== STEP 3: GOVERNANCE (MODEL REGISTRY) ===")
-        log(f"Connecting to Registry at {REGISTRY_HOST}:{REGISTRY_PORT}...")
-
-        registry = ModelRegistry(server_address=REGISTRY_HOST, port=REGISTRY_PORT, author="LabUser", is_secure=False)
+        registry = wait_for_registry()
 
         log(f"Registering Model: {MODEL_NAME}")
 
@@ -108,7 +152,12 @@ data:
 
         if artifact:
             api_url = f"{REGISTRY_HOST}:{REGISTRY_PORT}/api/model_registry/v1alpha3/model_artifacts/{artifact.id}"
-            response = requests.patch(api_url, json={"state": "LIVE"})
+            response = requests.patch(
+                api_url,
+                json={"state": "LIVE"},
+                headers={"Authorization": f"Bearer {read_sa_token()}"},
+                verify=SERVICE_CA_PATH,
+            )
 
             if response.status_code == 200:
                 log("State successfully updated to LIVE.")

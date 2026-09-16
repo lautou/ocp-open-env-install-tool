@@ -2,11 +2,15 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ai-project-a-cm-ingestion-code.yaml
+- ai-project-a-job-model-ingest.yaml
 - ai-project-a-obc-models.yaml
 - ai-project-a-rb-aws-connection-mcg.yaml
 - ai-project-a-role-aws-connection-mcg.yaml
+- ai-project-a-sa-model-ingest-job.yaml
 - cluster-namespace-ai-project-a.yaml
 - openshift-gitops-job-aws-connection-mcg.yaml
 - openshift-gitops-sa-aws-connection-mcg.yaml
 - rhoai-model-registries-modelregistry-model-registry.yaml
+- rhoai-model-registries-rb-model-ingest-job.yaml
+- rhoai-model-registries-role-model-ingest-job.yaml
 - rhoai-model-registries-secret-registry-db.yaml

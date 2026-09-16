@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: model-ingest-job
+  namespace: rhoai-model-registries
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: model-ingest-job
+subjects:
+- kind: ServiceAccount
+  name: model-ingest-job
+  namespace: ai-project-a
