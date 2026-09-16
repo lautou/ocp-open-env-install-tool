@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: genai-pgvector-connection
+  namespace: ai-project-a
+data:
+  PGVECTOR_DB: vectordb
+  PGVECTOR_HOST: genai-pgvector.ai-project-a.svc.cluster.local
+  PGVECTOR_PORT: "5432"
+  PGVECTOR_USER: vectoruser
