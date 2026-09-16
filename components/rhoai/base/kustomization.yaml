@@ -4,7 +4,6 @@ resources:
 - ../../common
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
-- cluster-crb-modelregistries-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
 - cluster-namespace-external-db-genai-playground.yaml
 - cluster-namespace-external-db-maas.yaml
