@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: genai-playground-postgresql
-  namespace: external-db-genai-playground
+  name: ogxserver-postgresql
+  namespace: external-db-ogxserver
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: genai-playground-postgresql
+      app: ogxserver-postgresql
   template:
     metadata:
       labels:
-        app: genai-playground-postgresql
+        app: ogxserver-postgresql
     spec:
       containers:
       - env:
@@ -19,17 +19,17 @@ spec:
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_USER
-              name: genai-playground-postgresql-credentials
+              name: ogxserver-postgresql-credentials
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_PASSWORD
-              name: genai-playground-postgresql-credentials
+              name: ogxserver-postgresql-credentials
         - name: POSTGRESQL_DATABASE
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_DATABASE
-              name: genai-playground-postgresql-credentials
+              name: ogxserver-postgresql-credentials
         image: registry.redhat.io/rhel10/postgresql-18:latest
         livenessProbe:
           exec:
@@ -69,4 +69,4 @@ spec:
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: genai-playground-postgresql
+          claimName: ogxserver-postgresql

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgresql
-  namespace: external-db-genai-playground
+  namespace: external-db-ogxserver
 spec:
   ports:
   - name: postgresql
@@ -10,4 +10,4 @@ spec:
     protocol: TCP
     targetPort: 5432
   selector:
-    app: genai-playground-postgresql
+    app: ogxserver-postgresql

@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
-  name: external-db-genai-playground
+  name: external-db-ogxserver

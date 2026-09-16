@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: genai-playground-postgresql
-  namespace: external-db-genai-playground
+  name: ogxserver-postgresql
+  namespace: external-db-ogxserver
 spec:
   accessModes:
   - ReadWriteOnce
