@@ -15,7 +15,7 @@ data:
     # --- CONFIGURATION ---
     HF_ID = os.getenv("MODEL_ID")
     VERSION = "1.0.0"
-    S3_BUCKET = os.getenv("AWS_S3_BUCKET", "models")
+    S3_BUCKET = os.getenv("AWS_S3_BUCKET")
 
     # LOGIC: Truncate the ID to get a clean short name
     # e.g. "Qwen/Qwen3-0.6B" -> "Qwen3-0.6B"
