@@ -46,3 +46,8 @@ spec:
         - /metadata/annotations
         kind: ConfigMap
         name: cluster-versions
+      - group: ''
+        jsonPointers:
+        - /metadata/annotations
+        kind: ConfigMap
+        name: model-catalog-sources

@@ -36,6 +36,7 @@ resources:
 - redhat-ods-applications-role-maas-db-secret.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
+- rhoai-model-registries-cm-model-catalog-sources.yaml
 - rhoai-model-registries-rb-modelregistries-edit-gitops.yaml
 replacements:
 - source:
