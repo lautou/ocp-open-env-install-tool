@@ -5,11 +5,6 @@ resources:
 - ai-project-a-rb-aws-connection-mcg.yaml
 - ai-project-a-role-aws-connection-mcg.yaml
 - cluster-namespace-ai-project-a.yaml
-- external-db-model-registry-rb-model-registry-db-secret.yaml
-- external-db-model-registry-role-model-registry-db-secret.yaml
 - openshift-gitops-job-aws-connection-mcg.yaml
-- openshift-gitops-job-model-registry-db-secret.yaml
 - openshift-gitops-sa-aws-connection-mcg.yaml
-- openshift-gitops-sa-model-registry-db-secret.yaml
-- rhoai-model-registries-rb-model-registry-db-secret.yaml
-- rhoai-model-registries-role-model-registry-db-secret.yaml
+- rhoai-model-registries-secret-registry-db.yaml

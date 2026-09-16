@@ -10,6 +10,7 @@ resources:
 - cluster-namespace-external-db-model-registry.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
+- cluster-namespace-rhoai-model-registries.yaml
 - external-db-genai-playground-deployment-postgresql.yaml
 - external-db-genai-playground-pvc-postgresql.yaml
 - external-db-genai-playground-secret-postgresql-credentials.yaml
