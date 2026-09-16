@@ -69,6 +69,7 @@ data:
                     server_address=REGISTRY_HOST,
                     port=REGISTRY_PORT,
                     author="LabUser",
+                    user_token=read_sa_token(),
                     custom_ca=SERVICE_CA_PATH,
                 )
                 log("Model Registry is ready.")
