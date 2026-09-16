@@ -4,7 +4,6 @@ resources:
 - ../../common
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
-- cluster-crb-modelregistries-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
 - cluster-namespace-external-db-genai-playground.yaml
 - cluster-namespace-external-db-maas.yaml
@@ -37,6 +36,7 @@ resources:
 - redhat-ods-applications-role-maas-db-secret.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
+- rhoai-model-registries-rb-modelregistries-edit-gitops.yaml
 replacements:
 - source:
     fieldPath: data.rhoai
