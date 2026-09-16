@@ -11,6 +11,7 @@ data:
     import requests
     from huggingface_hub import snapshot_download
     from model_registry import ModelRegistry
+    from model_registry.exceptions import StoreError
     from botocore.client import Config
 
     # --- CONFIGURATION ---
@@ -135,16 +136,24 @@ data:
 
         log(f"Registering Model: {MODEL_NAME}")
 
-        # Register with the HTTP URI so it appears in the UI
-        model = registry.register_model(
-            MODEL_NAME,
-            s3_uri,  # <--- This is the key to visibility
-            model_format_name="safetensors",
-            model_format_version="1.0",
-            version=VERSION,
-            description=f"{MODEL_NAME} imported from Hugging Face",
-            # Intentionally omitting 'metadata' source keys to force UI to show the URI
-        )
+        # Idempotent: a rerun against the same MODEL_ID/VERSION would otherwise
+        # crash here with "Version already exists" — reuse the existing entry instead.
+        try:
+            # Register with the HTTP URI so it appears in the UI
+            model = registry.register_model(
+                MODEL_NAME,
+                s3_uri,  # <--- This is the key to visibility
+                model_format_name="safetensors",
+                model_format_version="1.0",
+                version=VERSION,
+                description=f"{MODEL_NAME} imported from Hugging Face",
+                # Intentionally omitting 'metadata' source keys to force UI to show the URI
+            )
+        except StoreError as e:
+            if "already exists" not in str(e):
+                raise
+            log(f"Model/version already registered ({e}), reusing existing entry.")
+            model = registry.get_registered_model(MODEL_NAME)
 
         # ---------------------------------------------------------
         # FORCE STATE TO LIVE (Direct API)
