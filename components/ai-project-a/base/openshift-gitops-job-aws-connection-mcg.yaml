@@ -41,7 +41,7 @@ spec:
             --from-literal=AWS_S3_BUCKET="models" \
             --dry-run=client -o yaml \
             | oc label -f - --local -o yaml opendatahub.io/dashboard=true opendatahub.io/managed=true \
-            | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 \
+            | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 opendatahub.io/connection-type-protocol=s3 \
             | oc apply -f -
 
           echo "✅ Secret aws-connection-mcg ready in ai-project-a"
