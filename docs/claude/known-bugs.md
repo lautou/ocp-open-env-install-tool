@@ -483,6 +483,23 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 ---
 
+### OCPSTRAT-789 — No way to bypass a PodDisruptionBudget blocking a MachineConfigPool drain (self-managed OCP)
+
+**Component:** Machine Config Operator (all self-managed OCP, not version-specific)
+**JIRA:** [OCPSTRAT-789](https://redhat.atlassian.net/browse/OCPSTRAT-789) — status **Backlog**, no fix version. Tracks the upstream Kubernetes **EvictionRequest API** ([kubernetes/enhancements#4563](https://github.com/kubernetes/enhancements/issues/4563)): API portion merged in k8s 1.37 (Aug 2026), controller portion not yet merged, feature inactive until at least k8s 1.38 (alpha). Related, closed-not-a-bug: [OCPBUGS-100296](https://redhat.atlassian.net/browse/OCPBUGS-100296) (MCO doesn't coordinate drains across pools/nodes to preserve cluster-wide PDB-protected capacity — "working as intended").
+
+**Issue:** self-managed OCP's MCO has no configuration knob to skip or time-box PodDisruptionBudget enforcement during an automatic MachineConfigPool drain. If a PDB-protected replica has no eligible alternate node (e.g. a StatefulSet pod with a zone-locked EBS volume on a node pool with only one node per AZ), the drain retries the Eviction API forever, the node hits MCO's hardcoded 1-hour timeout and is marked `Degraded`, and — critically — MCO does **not** count an already-`Degraded` node against the pool's `maxUnavailable` budget, so it can proceed to cordon further nodes concurrently, compounding the outage. Confirmed live on this cluster 2026-09-15/16: removing the `crio-ulimit-nofile` workaround (see the now-removed LOG-9695/OCPBUGS-62095 entry, resolved in Logging 6.6.1) triggered a worker-pool rollout that deadlocked on `logging-loki-ingester`/`alertmanager-main`/`prometheus-k8s`, each zone-locked to whichever AZ's sole infra node they happened to land on — cascading into 2 nodes stuck `Degraded` simultaneously and ~20 unrelated infra pods stuck `Pending`.
+
+**Managed OpenShift (ROSA/OSD) has a safety net self-managed OCP lacks:** the Managed Upgrade Operator's `spec.PDBForceDrainTimeout` force-deletes a PDB-blocked pod after a configurable duration, and `capacityReservation` provisions one temporary extra node per AZ for the upgrade window. Neither exists for self-managed OCP — confirmed via `managed-upgrade-operator`'s own `docs/faq.md` and multiple Red Hat SRE Slack threads describing this as one of their most common ROSA/OSD fleet incident categories (internally tracked hypothesis `HYP-0044`, "customer PDB blocking drain").
+
+**No official skip mechanism exists for MCO's own automatic drain.** `oc adm drain --disable-eviction` bypasses PDB checks, but only for a manually-invoked drain — it has no equivalent for MCO's internal drain controller. Pausing the MachineConfigPool (`spec.paused: true`) only prevents the drain from starting at all; it does not make a subsequent drain skip PDB checks.
+
+**Recovery playbook used on this cluster (no automated fix available):** cordon the stuck node explicitly, then `oc delete pod <blocking-pod> --grace-period=0 --force` on the specific PDB-blocked pod(s) still resident on that node (bypasses the Eviction API entirely) — one node at a time, worst-stuck first, so evicted pods land on other already-healthy nodes rather than piling onto a single survivor. Patching the PDB's `maxUnavailable` directly does **not** work if the PDB is operator-managed (confirmed live: the Loki Operator reverted a `maxUnavailable` patch within ~15 seconds).
+
+**Remove when:** the upstream EvictionRequest API ships and OCP adopts it (no committed timeline), **or** this project's node topology is hardened with real per-AZ redundancy for PDB-protected infra-tier workloads (more than 1 plain-infra-tainted node per AZ) — the latter is the more actionable fix and doesn't depend on upstream Kubernetes.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
