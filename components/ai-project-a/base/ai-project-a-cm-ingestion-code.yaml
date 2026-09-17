@@ -38,6 +38,9 @@ data:
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     S3_ENDPOINT = os.getenv("AWS_S3_ENDPOINT")
+    # Optional override for the upload path (e.g. "granite3") — falls back to
+    # the derived "<model-name>/<version>" prefix when unset.
+    S3_FOLDER = os.getenv("S3_FOLDER") or f"{MODEL_NAME}/{VERSION}"
 
     def log(msg): print(f"[PIPELINE]: {msg}")
 
@@ -108,15 +111,14 @@ data:
         # but wait for it to actually be reachable before uploading.
         wait_for_bucket(s3)
 
-        # Upload files using the clean name
-        s3_prefix = f"{MODEL_NAME}/{VERSION}"
-        log(f"Uploading to s3://{S3_BUCKET}/{s3_prefix}...")
+        # Upload files to the (possibly overridden) prefix
+        log(f"Uploading to s3://{S3_BUCKET}/{S3_FOLDER}...")
 
         for root, dirs, files in os.walk(local_dir):
             for file in files:
                 local_path = os.path.join(root, file)
                 relative_path = os.path.relpath(local_path, local_dir)
-                s3_key = os.path.join(s3_prefix, relative_path)
+                s3_key = os.path.join(S3_FOLDER, relative_path)
                 s3.upload_file(local_path, S3_BUCKET, s3_key)
 
         # --- CRITICAL FIX: CONSTRUCT HTTP URI ---
@@ -124,10 +126,10 @@ data:
         # By registering it as "http://", we force the UI to display the link.
         if S3_ENDPOINT.startswith("http"):
             # If endpoint already has http/https, use it
-            s3_uri = f"{S3_ENDPOINT}/{S3_BUCKET}/{s3_prefix}"
+            s3_uri = f"{S3_ENDPOINT}/{S3_BUCKET}/{S3_FOLDER}"
         else:
             # Assume http for internal S3 service
-            s3_uri = f"http://{S3_ENDPOINT}/{S3_BUCKET}/{s3_prefix}"
+            s3_uri = f"http://{S3_ENDPOINT}/{S3_BUCKET}/{S3_FOLDER}"
 
         log(f"Upload Complete. Registered Location: {s3_uri}")
 
