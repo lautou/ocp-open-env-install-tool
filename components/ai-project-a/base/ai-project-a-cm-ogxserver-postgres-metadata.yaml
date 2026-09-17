@@ -4,7 +4,7 @@ metadata:
   name: ogxserver-postgres-metadata
   namespace: ai-project-a
 data:
-  POSTGRES_DB: ogxserverdb
-  POSTGRES_HOST: postgresql.external-db-ogxserver.svc.cluster.local
+  POSTGRES_DB: ogxservermetadatadb
+  POSTGRES_HOST: postgresql.external-db-ogxserver-metadata.svc.cluster.local
   POSTGRES_PORT: "5432"
-  POSTGRES_USER: ogxserver
+  POSTGRES_USER: ogxservermetadata

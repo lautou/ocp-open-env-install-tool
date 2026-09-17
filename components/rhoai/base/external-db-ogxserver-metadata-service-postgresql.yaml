@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgresql
-  namespace: external-db-ogxserver
+  namespace: external-db-ogxserver-metadata
 spec:
   ports:
   - name: postgresql
@@ -10,4 +10,4 @@ spec:
     protocol: TCP
     targetPort: 5432
   selector:
-    app: ogxserver-postgresql
+    app: ogxserver-metadata-postgresql

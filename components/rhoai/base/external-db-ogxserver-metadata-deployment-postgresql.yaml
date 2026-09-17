@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ogxserver-postgresql
-  namespace: external-db-ogxserver
+  name: ogxserver-metadata-postgresql
+  namespace: external-db-ogxserver-metadata
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ogxserver-postgresql
+      app: ogxserver-metadata-postgresql
   template:
     metadata:
       labels:
-        app: ogxserver-postgresql
+        app: ogxserver-metadata-postgresql
     spec:
       containers:
       - env:
@@ -19,17 +19,17 @@ spec:
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_USER
-              name: ogxserver-postgresql-credentials
+              name: ogxserver-metadata-postgresql-credentials
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_PASSWORD
-              name: ogxserver-postgresql-credentials
+              name: ogxserver-metadata-postgresql-credentials
         - name: POSTGRESQL_DATABASE
           valueFrom:
             secretKeyRef:
               key: POSTGRESQL_DATABASE
-              name: ogxserver-postgresql-credentials
+              name: ogxserver-metadata-postgresql-credentials
         image: registry.redhat.io/rhel10/postgresql-18:latest
         livenessProbe:
           exec:
@@ -69,4 +69,4 @@ spec:
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: ogxserver-postgresql
+          claimName: ogxserver-metadata-postgresql

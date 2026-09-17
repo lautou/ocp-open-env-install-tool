@@ -7,7 +7,7 @@ resources:
 - cluster-datasciencecluster-default-dsc.yaml
 - cluster-namespace-external-db-maas.yaml
 - cluster-namespace-external-db-model-registry.yaml
-- cluster-namespace-external-db-ogxserver.yaml
+- cluster-namespace-external-db-ogxserver-metadata.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
 - cluster-namespace-rhoai-model-registries.yaml
@@ -21,10 +21,10 @@ resources:
 - external-db-model-registry-pvc-mysql.yaml
 - external-db-model-registry-secret-mysql-credentials.yaml
 - external-db-model-registry-service-mysql.yaml
-- external-db-ogxserver-deployment-postgresql.yaml
-- external-db-ogxserver-pvc-postgresql.yaml
-- external-db-ogxserver-secret-postgresql-credentials.yaml
-- external-db-ogxserver-service-postgresql.yaml
+- external-db-ogxserver-metadata-deployment-postgresql.yaml
+- external-db-ogxserver-metadata-pvc-postgresql.yaml
+- external-db-ogxserver-metadata-secret-postgresql-credentials.yaml
+- external-db-ogxserver-metadata-service-postgresql.yaml
 - openshift-gitops-job-delete-rhoai-resources.yaml
 - openshift-gitops-job-maas-db-secret.yaml
 - openshift-gitops-sa-maas-db-secret.yaml

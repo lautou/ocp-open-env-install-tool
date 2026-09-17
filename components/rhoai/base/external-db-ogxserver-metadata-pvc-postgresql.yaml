@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ogxserver-postgresql
-  namespace: external-db-ogxserver
+  name: ogxserver-metadata-postgresql
+  namespace: external-db-ogxserver-metadata
 spec:
   accessModes:
   - ReadWriteOnce
