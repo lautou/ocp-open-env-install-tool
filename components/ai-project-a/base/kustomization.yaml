@@ -16,7 +16,7 @@ resources:
 - ai-project-a-sa-model-ingestion.yaml
 - ai-project-a-secret-ogxserver-postgres-metadata.yaml
 - ai-project-a-secret-ogxserver-vector-connection.yaml
-- ai-project-a-servingruntime-qwen3-06b-100.yaml
+- ai-project-a-servingruntime-vllm-cpu-x86-runtime.yaml
 - cluster-namespace-ai-project-a.yaml
 - rhoai-model-registries-modelregistry-model-registry.yaml
 - rhoai-model-registries-networkpolicy-allow-ai-projects.yaml

@@ -11,7 +11,7 @@ metadata:
     openshift.io/display-name: vLLM CPU (x86) ServingRuntime for KServe
   labels:
     opendatahub.io/dashboard: "true"
-  name: qwen3-06b-100
+  name: vllm-cpu-x86-runtime
   namespace: ai-project-a
 spec:
   annotations:

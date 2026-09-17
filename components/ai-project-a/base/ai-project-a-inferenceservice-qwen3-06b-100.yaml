@@ -40,7 +40,7 @@ spec:
         requests:
           cpu: "2"
           memory: 4Gi
-      runtime: qwen3-06b-100
+      runtime: vllm-cpu-x86-runtime
       storage:
         key: mcg-models
         path: Qwen3-0.6B/1.0.0
