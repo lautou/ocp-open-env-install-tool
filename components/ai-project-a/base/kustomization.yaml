@@ -1,10 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ai-project-a-cm-genai-pgvector-connection.yaml
 - ai-project-a-cm-ingestion-code.yaml
 - ai-project-a-cm-ogx-base-config.yaml
 - ai-project-a-cm-ogxserver-postgres-metadata.yaml
+- ai-project-a-cm-ogxserver-vector-connection.yaml
 - ai-project-a-job-model-ingest.yaml
 - ai-project-a-obc-models.yaml
 - ai-project-a-ogxserver-ogxserver.yaml
@@ -12,6 +12,7 @@ resources:
 - ai-project-a-role-aws-connection-mcg.yaml
 - ai-project-a-sa-model-ingest-job.yaml
 - ai-project-a-secret-ogxserver-postgres-metadata.yaml
+- ai-project-a-secret-ogxserver-vector-connection.yaml
 - cluster-namespace-ai-project-a.yaml
 - openshift-gitops-job-aws-connection-mcg.yaml
 - openshift-gitops-sa-aws-connection-mcg.yaml

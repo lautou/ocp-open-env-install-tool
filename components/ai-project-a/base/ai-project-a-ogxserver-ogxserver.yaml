@@ -28,27 +28,27 @@ spec:
         valueFrom:
           configMapKeyRef:
             key: PGVECTOR_HOST
-            name: genai-pgvector-connection
+            name: ogxserver-vector-connection
       - name: PGVECTOR_PORT
         valueFrom:
           configMapKeyRef:
             key: PGVECTOR_PORT
-            name: genai-pgvector-connection
+            name: ogxserver-vector-connection
       - name: PGVECTOR_DB
         valueFrom:
           configMapKeyRef:
             key: PGVECTOR_DB
-            name: genai-pgvector-connection
+            name: ogxserver-vector-connection
       - name: PGVECTOR_USER
         valueFrom:
           configMapKeyRef:
             key: PGVECTOR_USER
-            name: genai-pgvector-connection
+            name: ogxserver-vector-connection
       - name: PGVECTOR_PASSWORD
         valueFrom:
           secretKeyRef:
-            key: password
-            name: genai-pgvector-credentials
+            key: PGVECTOR_PASSWORD
+            name: ogxserver-vector-connection
       - name: POSTGRES_HOST
         valueFrom:
           configMapKeyRef:
