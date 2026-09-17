@@ -540,6 +540,22 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 ---
 
+### RHOAIENG-95465 — Serving-runtime template selector has no architecture awareness
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — Dashboard / Serving Orchestration, deploy wizard runtime selection
+**JIRA:** [RHOAIENG-95465](https://redhat.atlassian.net/browse/RHOAIENG-95465) — New, filed 2026-09-17
+**Affects:** Any cluster where two architecture-specific variants of the same runtime template both exist (e.g. `vllm-cpu-runtime-template` vs `vllm-cpu-x86-runtime-template`)
+
+**Issue:** Two near-identically-named ServingRuntime templates exist for vLLM CPU serving — `vllm-cpu-runtime-template` ("vLLM CPU (ppc64le/s390x) ServingRuntime for KServe", image `registry.redhat.io/rhoai/odh-vllm-cpu-rhel9`) and `vllm-cpu-x86-runtime-template` ("vLLM CPU (x86) ServingRuntime for KServe - Tech Preview", image `registry.redhat.io/rhaii/vllm-cpu-rhel9`). Nothing in the dashboard's deploy wizard prevents selecting the wrong one on a mismatched cluster — the failure only surfaces as a cryptic `ErrImagePull: "no image found in manifest list for architecture \"amd64\"..."` at pod scheduling time, with no upfront warning. We hit this ourselves deploying `qwen3-06b-100`.
+
+**Root cause:** `useServingRuntimeTemplates.ts` (`packages/model-serving`) filters templates only by admin-configured order/disablement and single-vs-multi-model support — never by architecture. Both templates already carry a `template.openshift.io/long-description` annotation stating their target architecture explicitly; the selection code just never reads it.
+
+**Precedent:** [RHOAIENG-66855](https://redhat.atlassian.net/browse/RHOAIENG-66855) (Resolved) fixed the same bug class for LLM-d's AMD/NVIDIA template auto-selection — different subsystem, confirms Red Hat has addressed this shape of gap before. [RHOAIENG-95191](https://redhat.atlassian.net/browse/RHOAIENG-95191) (In Progress) — this exact `vllm-cpu-runtime-template` separately shipped with a broken/non-existent image tag in 3.6 EA2, showing this template pairing is a recurring trouble spot.
+
+**Workaround:** always pick "vLLM CPU (x86) ServingRuntime for KServe" explicitly on this (amd64) cluster — never the plain "vLLM CPU (ppc64le/s390x)" one. Our own `components/ai-project-a/base/ai-project-a-servingruntime-qwen3-06b-100.yaml` pins the correct image by digest (not a floating tag) — deliberate, given `odh-vllm-cpu-rhel9:v3.5.0` itself was found to resolve to a manifest list missing `amd64` entirely during this investigation, and RHOAIENG-95191 shows a tag on this same template family breaking outright in a later release. Digest pinning is immune to both failure modes; the trade-off is we won't pick up a future fix without manually bumping it.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
