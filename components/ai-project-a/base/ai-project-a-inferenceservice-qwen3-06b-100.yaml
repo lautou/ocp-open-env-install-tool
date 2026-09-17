@@ -1,0 +1,48 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    modelFormat: vLLM
+    opendatahub.io/connection-path: Qwen3-0.6B/1.0.0
+    opendatahub.io/connections: aws-connection-mcg
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/description: ""
+    openshift.io/display-name: Qwen3-0.6B - 1.0.0
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: Standard
+  labels:
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: qwen3-06b-100
+  namespace: ai-project-a
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+      - --max-model-len=8192
+      - --gpu-memory-utilization=0.5
+      modelFormat:
+        name: vLLM
+      name: ""
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "2"
+          memory: 8Gi
+        requests:
+          cpu: "2"
+          memory: 4Gi
+      runtime: qwen3-06b-100
+      storage:
+        key: aws-connection-mcg
+        path: Qwen3-0.6B/1.0.0
+    serviceAccountName: aws-connection-mcg-sa
+    timeout: 30

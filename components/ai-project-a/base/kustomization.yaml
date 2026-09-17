@@ -5,6 +5,7 @@ resources:
 - ai-project-a-cm-ogx-base-config.yaml
 - ai-project-a-cm-ogxserver-postgres-metadata.yaml
 - ai-project-a-cm-ogxserver-vector-connection.yaml
+- ai-project-a-inferenceservice-qwen3-06b-100.yaml
 - ai-project-a-job-model-ingest.yaml
 - ai-project-a-obc-models.yaml
 - ai-project-a-ogxserver-lsd-genai-playground.yaml
@@ -13,6 +14,7 @@ resources:
 - ai-project-a-sa-model-ingest-job.yaml
 - ai-project-a-secret-ogxserver-postgres-metadata.yaml
 - ai-project-a-secret-ogxserver-vector-connection.yaml
+- ai-project-a-servingruntime-qwen3-06b-100.yaml
 - cluster-namespace-ai-project-a.yaml
 - openshift-gitops-job-aws-connection-mcg.yaml
 - openshift-gitops-sa-aws-connection-mcg.yaml
