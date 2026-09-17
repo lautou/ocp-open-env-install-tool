@@ -1,0 +1,51 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    modelFormat: vLLM
+    opendatahub.io/connection-path: granite-3.3-2b-instruct/1.0.0
+    opendatahub.io/connections: mcg-models
+    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/description: ""
+    openshift.io/display-name: Granite 3.3 2B Instruct
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: RawDeployment
+  labels:
+    networking.kserve.io/visibility: exposed
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: granite-3-3-2b-instruct
+  namespace: ai-project-b
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      args:
+      - --max-model-len=4096
+      - --gpu-memory-utilization=0.95
+      modelFormat:
+        name: vLLM
+      name: ""
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 12Gi
+          nvidia.com/gpu: "1"
+      runtime: vllm-cuda-runtime
+      storage:
+        key: mcg-models
+        path: granite-3.3-2b-instruct/1.0.0
+    serviceAccountName: mcg-models-sa
+    timeout: 30

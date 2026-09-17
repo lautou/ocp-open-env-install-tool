@@ -2,11 +2,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ai-project-b-cm-ingestion-code.yaml
+- ai-project-b-inferenceservice-granite-3-3-2b-instruct.yaml
 - ai-project-b-job-mcg-bucket-models-rotation.yaml
 - ai-project-b-job-model-ingest.yaml
 - ai-project-b-obc-models.yaml
 - ai-project-b-rb-mcg-bucket-models-rotation.yaml
 - ai-project-b-role-mcg-bucket-models-rotation.yaml
+- ai-project-b-route-granite-3-3-2b-instruct.yaml
 - ai-project-b-sa-mcg-bucket-models-rotation.yaml
 - ai-project-b-sa-model-ingestion.yaml
 - ai-project-b-servingruntime-vllm-cuda-runtime.yaml
