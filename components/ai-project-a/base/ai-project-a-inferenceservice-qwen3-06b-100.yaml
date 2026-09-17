@@ -5,7 +5,7 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     modelFormat: vLLM
     opendatahub.io/connection-path: Qwen3-0.6B/1.0.0
-    opendatahub.io/connections: aws-connection-mcg
+    opendatahub.io/connections: mcg-models
     opendatahub.io/hardware-profile-name: default-profile
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
@@ -42,7 +42,7 @@ spec:
           memory: 4Gi
       runtime: qwen3-06b-100
       storage:
-        key: aws-connection-mcg
+        key: mcg-models
         path: Qwen3-0.6B/1.0.0
-    serviceAccountName: aws-connection-mcg-sa
+    serviceAccountName: mcg-models-sa
     timeout: 30

@@ -8,5 +8,5 @@ metadata:
 spec:
   additionalConfig:
     bucketclass: noobaa-default-bucket-class
-  bucketName: models-b
+  generateBucketName: models-
   storageClassName: openshift-storage.noobaa.io

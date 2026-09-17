@@ -34,22 +34,22 @@ spec:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: aws-connection-mcg
+              name: mcg-models
               key: AWS_ACCESS_KEY_ID
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: aws-connection-mcg
+              name: mcg-models
               key: AWS_SECRET_ACCESS_KEY
         - name: AWS_S3_ENDPOINT
           valueFrom:
             secretKeyRef:
-              name: aws-connection-mcg
+              name: mcg-models
               key: AWS_S3_ENDPOINT
         - name: AWS_S3_BUCKET
           valueFrom:
             secretKeyRef:
-              name: aws-connection-mcg
+              name: mcg-models
               key: AWS_S3_BUCKET
       restartPolicy: Never
       volumes:
