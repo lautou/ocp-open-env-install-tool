@@ -24,12 +24,6 @@ spec:
       - -c
       - ogx run /etc/ogx/config.yaml --insecure
       env:
-      - name: VLLM_TLS_VERIFY
-        value: "false"
-      - name: VLLM_API_TOKEN_1
-        value: fake
-      - name: VLLM_MAX_TOKENS_1
-        value: "512"
       - name: PGVECTOR_HOST
         valueFrom:
           configMapKeyRef:
