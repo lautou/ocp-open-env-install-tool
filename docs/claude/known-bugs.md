@@ -500,6 +500,46 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 ---
 
+### RHOAIENG-95446 — Model Catalog → Deploy wizard locks S3 connection fields for s3:// artifacts
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — AI Hub / Model Catalog → Deploy wizard
+**JIRA:** [RHOAIENG-95446](https://redhat.atlassian.net/browse/RHOAIENG-95446) — New, filed 2026-09-17
+**Affects:** Any Model Catalog source whose artifact URI uses `s3://` instead of `oci://`
+
+**Issue:** Clicking Deploy on a Model Catalog entry whose `artifacts[0].uri` uses `s3://` opens the wizard with Access key, Endpoint, Region, and Bucket all disabled/empty — only Secret key and Path are editable. "Next" never becomes enabled, with no error message or guidance.
+
+**Root cause:** `packages/model-serving/modelRegistry/useNavigateToDeploymentWizardWithData.ts`'s `prefillInfo.modelLocationData` sets `disableInputFields: true` and `additionalFields: {}` unconditionally for catalog-triggered deploys — the `s3://` URI is never decomposed into the individual connection fields. Confirmed unchanged on both `v3.5.0` (this cluster's version) and current upstream `main`.
+
+**Confirmed via Slack** ([#forum-openshift-ai-hub](https://redhat-internal.slack.com/archives/C05QB0A582E/p1789579197226999)): Andrew Ballantyne (odh-dashboard) confirmed S3 support was introduced via Model Registry and never extended to Model Catalog-triggered deploys.
+
+**Workaround:** use the Model Registry "Register" flow (Catalog → Model Registry) instead, which has fully editable Region/Path/Bucket/Access key fields for `s3://`, or deploy the model directly via Project → Models → Deploy (bypasses Catalog entirely). Every Red Hat-shipped catalog entry avoids this by using `oci://` only.
+
+**Affects our own repo:** `components/rhoai/base/rhoai-model-registries-cm-model-catalog-sources.yaml` — our custom `Qwen3-0.6B` catalog entry uses `s3://models/Qwen3-0.6B/1.0.0/`, so this bug is hit if Deploy is attempted directly from that Catalog entry. We deploy that model via Project → Models → Deploy instead.
+
+---
+
+### RHOAIENG-95447 — OGXServer operator doesn't propagate spec after a deactivate→reactivate toggle (SSA field-ownership gap)
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — `ogx-k8s-operator` (Gen AI Studio), operator version `0.13.0`
+**JIRA:** [RHOAIENG-95447](https://redhat.atlassian.net/browse/RHOAIENG-95447) — New, filed 2026-09-17
+**Affects:** Any `OGXServer` whose declarative config generation (`spec.disabledAPIs`/`spec.storage`/`spec.providers`) is toggled off then back on
+
+**Issue:** An `OGXServer` that has gone through one full deactivate→reactivate cycle of declarative config generation stops propagating its spec to the underlying Deployment. `metadata.generation` on the Deployment freezes and the `user-config` ConfigMap volume never reappears, even though `OGXServer.status.conditions` falsely reports `ConfigGenerated: True` / `DeploymentReady: True`. Only fix: delete both the `OGXServer` CR and its Deployment, then recreate the CR from scratch — an incremental patch on the existing object never recovers it.
+
+**Confirmed reproducible 3/3 independent attempts**, exact steps:
+1. Create with `spec.baseConfig` only (no `disabledAPIs`/`storage`/`providers`) — `ConfigGenerationInactive`, no volume, Deployment gen 1.
+2. Patch `spec.disabledAPIs: ["batches"]` on — activates generation correctly, volume added, gen 2. (This step alone does **not** reproduce it — confirmed via three separate clean tests before the toggle sequence was isolated.)
+3. Patch to remove `disabledAPIs` — deactivates correctly, volume removed, gen 3.
+4. Patch `disabledAPIs` back **on** again, same object — **breaks here**: status reports success, but Deployment gen stays frozen at 3 and the volume never returns.
+
+Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment carries no ArgoCD tracking annotation at all (ArgoCD only manages the `OGXServer` CR, never the Deployment directly, which is purely operator-owned), and all reproduction attempts used scratch resources never touched by ArgoCD.
+
+**Root cause:** confirmed from `ogx-ai/ogx-k8s-operator`'s own source/PR history — the Deployment is created via `cli.Create` (no SSA field-manager ownership), so later SSA-based patches can't reliably add/remove fields absent from that initial create. This exact bug class has already been patched twice for other fields as narrow, field-specific fixes: CA bundle volumes, then user-config volume *removal* ([PR #275](https://github.com/ogx-ai/ogx-k8s-operator/pull/275)), then `strategy.rollingUpdate` ([PR #349](https://github.com/ogx-ai/ogx-k8s-operator/pull/349)). Our reproduction suggests the removal fix (PR #275) leaves SSA field-manager state in a shape that then breaks the *next addition* of that same field. General fix tracked upstream: [issue #73](https://github.com/ogx-ai/ogx-k8s-operator/issues/73) ("Use `cli.Patch` over naive `cli.Update`"), open since June 2025, unfixed as of the latest release (`v0.14.0`).
+
+**Workaround (this repo's standard practice for every OGXServer change):** never rely on `oc apply`/`oc patch` alone against a live `OGXServer` — always `oc delete ogxservers.ogx.io <name>` + `oc delete deployment <name> --ignore-not-found`, wait for the Deployment to actually disappear, then reapply the CR fresh. Applies to `components/ai-project-a/base/ai-project-a-ogxserver-lsd-genai-playground.yaml` every time its ConfigMap or env wiring changes.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
