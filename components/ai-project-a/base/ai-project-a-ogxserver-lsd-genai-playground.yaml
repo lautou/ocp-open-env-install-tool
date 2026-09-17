@@ -3,10 +3,10 @@ kind: OGXServer
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    openshift.io/display-name: ogxserver
+    openshift.io/display-name: lsd-genai-playground
   labels:
     opendatahub.io/dashboard: "true"
-  name: ogxserver
+  name: lsd-genai-playground
   namespace: ai-project-a
 spec:
   distribution:
