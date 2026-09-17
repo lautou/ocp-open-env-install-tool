@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ogxserver-vector-postgresql
+  namespace: external-db-ogxserver-vector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ogxserver-vector-postgresql
+  template:
+    metadata:
+      labels:
+        app: ogxserver-vector-postgresql
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_USER
+              name: ogxserver-vector-postgresql-credentials
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_PASSWORD
+              name: ogxserver-vector-postgresql-credentials
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_DATABASE
+              name: ogxserver-vector-postgresql-credentials
+        image: registry.redhat.io/rhel10/postgresql-18:latest
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 5
+        name: postgresql
+        ports:
+        - containerPort: 5432
+          name: postgresql
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/pgsql/data
+          name: data
+        - mountPath: /opt/app-root/src/postgresql-start
+          name: init-scripts
+          readOnly: true
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: ogxserver-vector-postgresql
+      - configMap:
+          defaultMode: 493
+          name: ogxserver-vector-postgresql-init
+        name: init-scripts
