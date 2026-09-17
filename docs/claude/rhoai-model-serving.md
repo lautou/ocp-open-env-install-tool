@@ -338,10 +338,10 @@ oc annotate llminferenceservice <name> -n <ns> serving.kserve.io/stop- --overwri
 
 The cluster autoscaler selects a MachineSet based on GPU count per node vs pod request:
 
-| Pod requests `nvidia.com/gpu` | T4 (4 GPU/node, g4dn.12xlarge) | A100 (8 GPU/node, p4d.24xlarge) | Triggered |
+| Pod requests `nvidia.com/gpu` | T4 (1 GPU/node, g4dn.xlarge, maxReplicas=1) | A100 (8 GPU/node, p4d.24xlarge) | Triggered |
 |---|---|---|---|
-| 1–4 | ✅ can satisfy | ✅ can too | T4 (cheaper) |
-| 5–8 | ❌ insufficient | ✅ can satisfy | A100 only |
+| 1 | ✅ can satisfy | ✅ can too | T4 (cheaper) |
+| 2–8 | ❌ insufficient (single GPU per node, only 1 replica max) | ✅ can satisfy | A100 only |
 
 **Prerequisite:** A `MachineAutoscaler` must exist for the target MachineSet **in the correct AZ**. If the AZ has no MachineAutoscaler, manual scaling is required (`oc scale machineset`).
 

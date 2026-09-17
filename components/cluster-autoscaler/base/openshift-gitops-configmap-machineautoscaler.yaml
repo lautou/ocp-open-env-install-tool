@@ -11,7 +11,7 @@ data:
       name: machineautoscaler
       namespace: openshift-machine-api
     spec:
-      maxReplicas: 2
+      maxReplicas: 1
       minReplicas: 0
       scaleTargetRef:
         apiVersion: machine.openshift.io/v1beta1

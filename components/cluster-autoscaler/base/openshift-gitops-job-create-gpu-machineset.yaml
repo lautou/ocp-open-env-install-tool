@@ -46,7 +46,7 @@ spec:
 
               echo "$BASE_MS" | jq \
                 --arg name "$NEW_MS_NAME" \
-                --arg instanceType "g4dn.12xlarge" \
+                --arg instanceType "g4dn.xlarge" \
                 '
                 .metadata = {
                   "name": $name,
