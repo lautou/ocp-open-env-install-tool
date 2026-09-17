@@ -552,7 +552,24 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 **Precedent:** [RHOAIENG-66855](https://redhat.atlassian.net/browse/RHOAIENG-66855) (Resolved) fixed the same bug class for LLM-d's AMD/NVIDIA template auto-selection — different subsystem, confirms Red Hat has addressed this shape of gap before. [RHOAIENG-95191](https://redhat.atlassian.net/browse/RHOAIENG-95191) (In Progress) — this exact `vllm-cpu-runtime-template` separately shipped with a broken/non-existent image tag in 3.6 EA2, showing this template pairing is a recurring trouble spot.
 
-**Workaround:** always pick "vLLM CPU (x86) ServingRuntime for KServe" explicitly on this (amd64) cluster — never the plain "vLLM CPU (ppc64le/s390x)" one. Our own `components/ai-project-a/base/ai-project-a-servingruntime-qwen3-06b-100.yaml` pins the correct image by digest, which resolves to exactly the `3.5.0` tag Red Hat's own template ships — not an invented pin. **Correction:** the `odh-vllm-cpu-rhel9:v3.5.0` manifest-list gap hit earlier in this investigation is NOT tag-instability evidence — that image is intentionally ppc64le/s390x-only and its tag resolved correctly every time; we had simply picked the wrong template. The one genuine tag-instability data point for this image family is RHOAIENG-95191 (a broken tag, but in a pre-GA 3.6 EA2 build, not GA) — a single, weaker incident than originally stated. We still keep the digest, mainly for consistency with two other components already pinning by digest in this repo (`rhacm`, `openshift-gitops-admin-config`) and because it matches Red Hat's own shipped reference, not because tags are broadly unreliable.
+**Workaround:** always pick "vLLM CPU (x86) ServingRuntime for KServe" explicitly on this (amd64) cluster — never the plain "vLLM CPU (ppc64le/s390x)" one. Our own `components/ai-project-a/base/ai-project-a-servingruntime-qwen3-06b-100.yaml` pins the image via the versioned `3.5.0` tag — the same content Red Hat's own template ships, not an invented pin (originally pinned by the equivalent digest, switched to the tag 2026-09-17 for readability once the reasoning below was corrected). **Correction:** the `odh-vllm-cpu-rhel9:v3.5.0` manifest-list gap hit earlier in this investigation is NOT tag-instability evidence — that image is intentionally ppc64le/s390x-only and its tag resolved correctly every time; we had simply picked the wrong template. The one genuine tag-instability data point for this image family is RHOAIENG-95191 (a broken tag, but in a pre-GA 3.6 EA2 build, not GA) — a single, weaker incident than originally stated, not strong enough on its own to require digest-pinning here.
+
+---
+
+### RHOAIENG-95473 — Configure Playground's destructive delete+recreate is unmitigated for non-passthrough (GitOps/externally-managed) OGXServers
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — AI Core Dashboard, Gen AI Studio
+**JIRA:** [RHOAIENG-95473](https://redhat.atlassian.net/browse/RHOAIENG-95473) — New, filed 2026-09-17
+**Related:** [RHOAIENG-79572](https://redhat.atlassian.net/browse/RHOAIENG-79572), [RHOAIENG-79578](https://redhat.atlassian.net/browse/RHOAIENG-79578) — merged 2026-09-15 ("passthrough zero-restart architecture"), fixVersion 3.6 EA2 — prior art, not duplicates
+**Affects:** Any `OGXServer` without a `genai-bff-proxy` passthrough provider — includes our own GitOps-managed `lsd-genai-playground` (static `overrideConfig`, explicit `remote::vllm` providers) and every pre-3.6 cluster
+
+**Issue:** The dashboard's "Configure Playground" modal (`ChatbotConfigurationModal.tsx`) still unconditionally calls `api.deleteLSD({preserve_vector_store:true})` then reinstalls on submit whenever `hasBffPassthroughProvider` is false. RHOAIENG-79572/79578 only disabled the submit button for playgrounds that *do* have the new passthrough provider — everything else still gets destructively deleted and rebuilt from only the modal's own model/vector-store selections on every "Configure" click, discarding anything not representable there (custom storage backends, env vars, command overrides).
+
+**Root cause:** the `hasBffPassthroughProvider` gate added by RHOAIENG-79572/79578 only short-circuits the destructive path for that one specific OGXServer shape; the underlying unconditional `deleteLSD()` → `install()` mechanism was never changed for any other shape.
+
+**Confirmed via KCS:** KCS 7143032 and 7140118 both instruct `oc patch llamastackdistribution lsd-genai-playground ... --type=json` directly as the official resolution; KCS 7146061 instructs editing the backing ConfigMap + `oc rollout restart`. All three are current, official Red Hat Support steps that manipulate the CR/ConfigMap out-of-band — confirming direct manipulation is normal, Support-sanctioned practice for exactly the OGXServer shape this bug destroys.
+
+**Workaround (this repo):** never use the dashboard's "Configure Playground" button on `lsd-genai-playground` — all playground configuration changes go through GitOps (`ai-project-a-cm-ogx-base-config.yaml` + `ai-project-a-ogxserver-lsd-genai-playground.yaml`), never the UI modal.
 
 ---
 
