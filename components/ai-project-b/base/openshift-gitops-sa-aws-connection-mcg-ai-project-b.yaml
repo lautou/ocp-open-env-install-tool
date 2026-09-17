@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: aws-connection-mcg-ai-project-b
-  namespace: openshift-gitops

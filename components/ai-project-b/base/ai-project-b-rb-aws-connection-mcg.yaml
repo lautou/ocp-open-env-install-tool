@@ -9,5 +9,5 @@ roleRef:
   name: aws-connection-mcg
 subjects:
 - kind: ServiceAccount
-  name: aws-connection-mcg-ai-project-b
-  namespace: openshift-gitops
+  name: aws-connection-mcg
+  namespace: ai-project-b

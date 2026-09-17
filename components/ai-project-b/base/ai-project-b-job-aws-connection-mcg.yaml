@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: aws-connection-mcg
-  namespace: openshift-gitops
+  namespace: ai-project-b
 spec:
   ttlSecondsAfterFinished: 600
   template:
@@ -22,26 +22,26 @@ spec:
         - |
           set -e
 
-          echo "Waiting for OBC-generated secret models in ai-project-a..."
-          while ! oc get secret models -n ai-project-a &>/dev/null; do
+          echo "Waiting for OBC-generated secret models in ai-project-b..."
+          while ! oc get secret models -n ai-project-b &>/dev/null; do
             sleep 5
           done
           echo "Secret found"
 
-          ACCESS_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
-          SECRET_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+          ACCESS_KEY=$(oc get secret models -n ai-project-b -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+          SECRET_KEY=$(oc get secret models -n ai-project-b -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
 
-          echo "Creating Data Connection secret aws-connection-mcg in ai-project-a..."
+          echo "Creating Data Connection secret aws-connection-mcg in ai-project-b..."
           oc create secret generic aws-connection-mcg \
-            -n ai-project-a \
+            -n ai-project-b \
             --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
             --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
             --from-literal=AWS_S3_ENDPOINT="http://s3.openshift-storage.svc" \
             --from-literal=AWS_DEFAULT_REGION="us-east-1" \
-            --from-literal=AWS_S3_BUCKET="models" \
+            --from-literal=AWS_S3_BUCKET="models-b" \
             --dry-run=client -o yaml \
             | oc label -f - --local -o yaml opendatahub.io/dashboard=true opendatahub.io/managed=true \
             | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 opendatahub.io/connection-type-protocol=s3 \
             | oc apply -f -
 
-          echo "✅ Secret aws-connection-mcg ready in ai-project-a"
+          echo "✅ Secret aws-connection-mcg ready in ai-project-b"
