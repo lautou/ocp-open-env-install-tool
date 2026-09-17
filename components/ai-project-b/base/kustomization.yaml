@@ -8,7 +8,6 @@ resources:
 - ai-project-b-obc-models.yaml
 - ai-project-b-rb-mcg-bucket-models-rotation.yaml
 - ai-project-b-role-mcg-bucket-models-rotation.yaml
-- ai-project-b-route-granite-3-3-2b-instruct.yaml
 - ai-project-b-sa-mcg-bucket-models-rotation.yaml
 - ai-project-b-sa-model-ingestion.yaml
 - ai-project-b-servingruntime-vllm-cuda-runtime.yaml
