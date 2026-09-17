@@ -31,7 +31,7 @@ spec:
     env:
     - name: HF_HOME
       value: /tmp/hf_home
-    image: registry.redhat.io/rhaii/vllm-cuda-rhel9@sha256:ba060ec145e1b7ac3a3b25b89fc75f7d146746156990ff5858235eaa9d158e32
+    image: registry.redhat.io/rhaii/vllm-cuda-rhel9:3.5.0
     name: kserve-container
     ports:
     - containerPort: 8080
