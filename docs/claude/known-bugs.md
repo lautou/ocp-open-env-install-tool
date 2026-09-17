@@ -573,6 +573,23 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 ---
 
+### ocs-client-operator-controller-manager 256Mi memory limit too tight — CrashLoopBackOff
+
+**Component:** OpenShift Data Foundation (ODF) — `ocs-client-operator.v4.22.4-rhodf`
+**JIRA:** None yet — to be filed
+**Related:** [DFBUGS-4532](https://redhat.atlassian.net/browse/DFBUGS-4532) (`ocs-client-operator-controller-manager` hit its memory limit at scale) and an independent `#forum-ocs` Slack report (Ali Bokhari, ODF/OCP 4.20→4.22 upgrade, same pod OOMKilled at 256Mi, fixed by raising to 512Mi) — neither is this exact ticket, but both confirm the shipped memory limit for this component is a recurring pain point.
+**Affects:** Any cluster where `ocs-client-operator-controller-manager`'s informer cache has a large CRD/CR surface to list+watch on startup (this cluster: 474 CRDs, 38 operator subscriptions)
+
+**Issue:** `ocs-client-operator-controller-manager` crash-loops indefinitely (230+ restarts observed), each cycle ending in a kubelet-initiated kill for a failed liveness probe — never a kernel `OOMKilled`, which made the memory limit look exonerated on a first pass.
+
+**Root cause:** live memory sampling during a crash cycle showed usage climbing to 253-254Mi — 2-3Mi under the 256Mi limit — right before every restart, while CPU stayed at ~7% of its 500m limit the whole time. Memory pressure that close to a hard limit causes Go runtime GC pressure/stalls severe enough to make the `/healthz` endpoint miss its 1s probe deadline; kubelet then kills it as a probe failure, not an OOM kill — so `lastState.terminated.reason == "Error"` (not `OOMKilled`) is not sufficient evidence to rule out memory as the cause.
+
+**Fix:** bump only `limits.memory` to 512Mi via `Subscription.spec.config.resources` (leave CPU at its default 500m/10m) — confirmed live: pod came up clean, `restarts=0`, stable well past the ~79s crash window.
+
+**Workaround (this repo):** `components/openshift-storage/base/openshift-gitops-job-fix-ocs-client-operator-memory-limit.yaml` — a Job (same pattern as `update-odf-subscriptions-node-selector`) that waits for the OLM-auto-created `ocs-client-operator-<channel>-...` Subscription to exist, then patches its `spec.config.resources`. This Subscription is an OLM-managed dependency of `odf-operator`, not something this repo declares directly, so the fix has to be applied this way (imperative patch after creation) rather than as a static manifest.
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.

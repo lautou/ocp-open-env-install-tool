@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: fix-ocs-client-operator-memory-limit
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: fix-ocs-client-operator-memory-limit
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          TARGET_NS="openshift-storage"
+
+          # KNOWN BUG: ocs-client-operator-controller-manager (v4.22.4-rhodf, and
+          # confirmed independently on ODF 4.20->4.22 upgrades by other Red Hat
+          # customers) ships with a 256Mi memory limit that's too tight on
+          # clusters with a large CRD/CR footprint. Memory climbs to ~253-254Mi
+          # right at the limit during informer cache sync, GC pressure makes the
+          # health endpoint miss its 1s liveness probe deadline, and kubelet
+          # kills it as a probe failure (not a kernel OOM) -- forever, since OLM
+          # just reinstalls the same CSV every ~5 minutes. Bumping only the
+          # memory limit to 512Mi (CPU untouched) resolves it; confirmed live
+          # (restarts=0, stable) before this Job was written.
+
+          ODF_CHANNEL=$(oc get configmap cluster-versions -n openshift-gitops \
+            -o jsonpath='{.data.odf}')
+
+          SUB="ocs-client-operator-${ODF_CHANNEL}-redhat-operators-openshift-marketplace"
+          echo "Target Subscription: $SUB"
+
+          echo -n "Waiting for subscription..."
+          while ! oc get subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" >/dev/null 2>&1; do
+            echo -n "."
+            sleep 5
+          done
+          echo " Found!"
+
+          PATCH='{"spec":{"config":{"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"10m","memory":"256Mi"}}}}}'
+
+          echo "Patching..."
+          oc patch subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
+          echo "✅ Patched ocs-client-operator memory limit to 512Mi."
+        image: registry.redhat.io/openshift4/ose-cli:latest
+        name: fix-memory-limit
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      restartPolicy: Never
+      serviceAccountName: odf-subscription-configurator
+      tolerations:
+      - key: node-role.kubernetes.io/infra
+        operator: Exists
