@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: model-ingest-job-ai-project-b
+  namespace: rhoai-model-registries
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  resourceNames:
+  - model-registry
+  verbs:
+  - get
