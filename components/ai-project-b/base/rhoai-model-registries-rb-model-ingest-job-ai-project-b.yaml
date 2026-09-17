@@ -9,5 +9,5 @@ roleRef:
   name: model-ingest-job-ai-project-b
 subjects:
 - kind: ServiceAccount
-  name: model-ingest-job
+  name: model-ingestion
   namespace: ai-project-b

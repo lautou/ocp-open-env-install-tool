@@ -8,7 +8,7 @@ resources:
 - ai-project-b-rb-aws-connection-mcg.yaml
 - ai-project-b-role-aws-connection-mcg.yaml
 - ai-project-b-sa-aws-connection-mcg.yaml
-- ai-project-b-sa-model-ingest-job.yaml
+- ai-project-b-sa-model-ingestion.yaml
 - cluster-namespace-ai-project-b.yaml
 - rhoai-model-registries-rb-model-ingest-job-ai-project-b.yaml
 - rhoai-model-registries-role-model-ingest-job-ai-project-b.yaml
