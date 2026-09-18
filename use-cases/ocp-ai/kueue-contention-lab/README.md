@@ -18,11 +18,18 @@ only one can be admitted at a time.
 ## Expected behavior
 
 `shared-cluster-queue` has no `preemption` policy configured, so Kueue's default
-(`withinClusterQueue: Never`) applies: **Job 3 will not preempt the already-running Job 1**.
-What priority *does* affect is the order Kueue admits pending workloads in — once Job 1
-completes (~60s) and quota frees up, Job 3 (high-priority) is admitted before Job 2
-(low-priority), even though Job 2 was queued first. That reordering of the two pending jobs
-is the actual contention/priority effect this lab demonstrates.
+(`withinClusterQueue: Never`) applies: **Job 3 will not preempt an already-running Job**.
+What priority *does* affect is the order Kueue admits pending workloads in. Confirmed live:
+when all three Jobs are pending together, Kueue admits `lab-job-3-high` first even though
+`lab-job-1-low`/`lab-job-2-low` were queued earlier — priority reorders admission among
+pending jobs sharing the same ClusterQueue, regardless of which LocalQueue/team they came
+from. Once the admitted job completes (~60s) and releases quota, the next-highest-priority
+pending job is admitted next.
+
+Whether an admitted Job's pod actually starts running also depends on real node capacity —
+Kueue only manages logical quota. On a resource-constrained cluster the pod can stay
+`Pending` on its own merits (check `oc describe pod` for scheduling failures); that's a
+separate, expected constraint, not a lab failure.
 
 ## Run
 
@@ -31,6 +38,12 @@ is the actual contention/priority effect this lab demonstrates.
 ```
 
 Re-running is safe — it deletes any previous run's Jobs first.
+
+**Note:** if the `kueue` component (or specifically the `Kueue` CR's `spec.config`) was just
+updated via GitOps, the `kueue-controller-manager` pods restart and can take a couple of
+minutes to re-elect a leader (`leaseDuration` is ~2m17s when both replicas restart at once).
+Until a leader is active, submitted Jobs stay suspended with no Workload progress — this is
+normal controller startup latency, not a broken setup.
 
 ## Cleanup
 
