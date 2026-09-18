@@ -23,7 +23,6 @@ spec:
         cpu: 250m
         memory: 2Gi
   rbac:
-    defaultPolicy: ''
     policy: |
       g, system:cluster-admins, role:admin
       g, cluster-admins, role:admin
