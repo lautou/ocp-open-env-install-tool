@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lab-job-1-low
+  namespace: ai-team-b
+  labels:
+    kueue.x-k8s.io/priority-class: low-priority
+    kueue.x-k8s.io/queue-name: team-b-queue
+spec:
+  suspend: true
+  template:
+    spec:
+      containers:
+      - name: dummy
+        image: bash:5
+        command: ["sleep", "60"]
+        resources:
+          requests:
+            cpu: 4
+      restartPolicy: Never

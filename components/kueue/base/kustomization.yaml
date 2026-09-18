@@ -16,6 +16,7 @@ resources:
 - cluster-resourceflavor-default-flavor.yaml
 - cluster-workloadpriorityclass-high-priority.yaml
 - cluster-workloadpriorityclass-low-priority.yaml
+- openshift-kueue-operator-kueue-cluster.yaml
 - openshift-kueue-operator-operatorgroup-openshift-kueue-operator.yaml
 - openshift-kueue-operator-subscription-openshift-kueue-operator.yaml
 replacements:
