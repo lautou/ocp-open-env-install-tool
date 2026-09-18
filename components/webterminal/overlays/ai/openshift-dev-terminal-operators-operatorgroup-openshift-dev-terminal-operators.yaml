@@ -3,4 +3,3 @@ kind: OperatorGroup
 metadata:
   name: openshift-dev-terminal
   namespace: openshift-dev-terminal
-spec: {}
