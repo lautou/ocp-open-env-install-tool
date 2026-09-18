@@ -5,6 +5,11 @@ resources:
 - ai-team-a-localqueue-team-a-queue.yaml
 - ai-team-b-localqueue-team-b-queue.yaml
 - cluster-clusterqueue-shared-cluster-queue.yaml
+- cluster-clusterrole-kueue-workloadpriorityclass-edit.yaml
+- cluster-crb-kueue-clusterqueue-edit.yaml
+- cluster-crb-kueue-localqueue-edit.yaml
+- cluster-crb-kueue-resourceflavor-edit.yaml
+- cluster-crb-kueue-workloadpriorityclass-edit.yaml
 - cluster-namespace-ai-team-a.yaml
 - cluster-namespace-ai-team-b.yaml
 - cluster-namespace-openshift-kueue-operator.yaml
