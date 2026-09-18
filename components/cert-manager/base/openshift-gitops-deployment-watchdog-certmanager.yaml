@@ -30,7 +30,6 @@ spec:
           name: scripts
       nodeSelector:
         node-role.kubernetes.io/infra: ''
-      restartPolicy: Always
       serviceAccountName: cert-manager-operator
       tolerations:
       - key: node-role.kubernetes.io/infra

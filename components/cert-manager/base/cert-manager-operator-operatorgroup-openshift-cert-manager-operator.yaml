@@ -3,4 +3,3 @@ kind: OperatorGroup
 metadata:
   name: openshift-cert-manager-operator
   namespace: cert-manager-operator
-spec: {}
