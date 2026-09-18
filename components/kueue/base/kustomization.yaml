@@ -6,17 +6,18 @@ resources:
 - ai-team-b-localqueue-team-b-queue.yaml
 - cluster-clusterqueue-shared-cluster-queue.yaml
 - cluster-clusterrole-kueue-workloadpriorityclass-edit.yaml
+- cluster-crb-kueue-cluster-edit.yaml
 - cluster-crb-kueue-clusterqueue-edit.yaml
 - cluster-crb-kueue-localqueue-edit.yaml
 - cluster-crb-kueue-resourceflavor-edit.yaml
 - cluster-crb-kueue-workloadpriorityclass-edit.yaml
+- cluster-kueue-cluster.yaml
 - cluster-namespace-ai-team-a.yaml
 - cluster-namespace-ai-team-b.yaml
 - cluster-namespace-openshift-kueue-operator.yaml
 - cluster-resourceflavor-default-flavor.yaml
 - cluster-workloadpriorityclass-high-priority.yaml
 - cluster-workloadpriorityclass-low-priority.yaml
-- openshift-kueue-operator-kueue-cluster.yaml
 - openshift-kueue-operator-operatorgroup-openshift-kueue-operator.yaml
 - openshift-kueue-operator-subscription-openshift-kueue-operator.yaml
 replacements:
