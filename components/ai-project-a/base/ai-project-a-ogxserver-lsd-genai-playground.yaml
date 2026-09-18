@@ -11,13 +11,11 @@ metadata:
 spec:
   distribution:
     name: rh
-  network:
-    port: 8321
+  network: {}
   overrideConfig:
     key: config.yaml
     name: ogx-base-config
   workload:
-    replicas: 1
     overrides:
       command:
       - /bin/sh

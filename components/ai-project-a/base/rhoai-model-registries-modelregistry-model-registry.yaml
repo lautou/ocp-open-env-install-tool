@@ -6,15 +6,10 @@ metadata:
   name: model-registry
   namespace: rhoai-model-registries
 spec:
-  grpc:
-    port: 9090
   mysql:
     database: modelregistrydb
     host: mysql.external-db-model-registry.svc.cluster.local
     passwordSecret:
       key: database-password
       name: registry-db-secret
-    port: 3306
     username: modelregistry
-  rest:
-    port: 8080
