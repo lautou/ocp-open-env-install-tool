@@ -45,6 +45,26 @@ minutes to re-elect a leader (`leaseDuration` is ~2m17s when both replicas resta
 Until a leader is active, submitted Jobs stay suspended with no Workload progress — this is
 normal controller startup latency, not a broken setup.
 
+## Visualize in the dashboard
+
+There is no "Distributed Workloads → Resource Management" menu in current RHOAI — that's
+from an older dashboard layout. Verified against Red Hat's own RHOAI 3.5 docs (*Accelerate
+data processing and training with distributed workloads*, Ch.8 "Monitor distributed
+workloads"): the current path is per-project, not a single global `shared-cluster-queue`
+view.
+
+1. In the OpenShift AI left navigation pane, click **Observe & monitor → Workload metrics**.
+2. From the Project list, select `ai-team-a` or `ai-team-b` (check both — each is a separate
+   project view even though they share `shared-cluster-queue`).
+3. **Project metrics** tab — CPU/Memory currently used by that project's distributed
+   workloads.
+4. **Distributed workload status** tab — a status graph (Pending/Inadmissible/Admitted/
+   Running/Evicted/Succeeded/Failed) plus a table listing every workload with its priority,
+   status, creation date, and latest message.
+
+Requires `enableUserWorkload: true` on the cluster monitoring stack — already set in this
+repo's `cluster-monitoring` component.
+
 ## Cleanup
 
 ```bash
