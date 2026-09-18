@@ -50,7 +50,6 @@ spec:
       containers:
       - name: klusterlet
         image: registry.redhat.io/multicluster-engine/registration-operator-rhel9@sha256:60aa2309cca7d6ab86f3d7a841b6add9903aad8db55c9c9678cf1cda9d9b5403
-        imagePullPolicy: IfNotPresent
         args:
         - /registration-operator
         - klusterlet
@@ -64,7 +63,6 @@ spec:
           capabilities:
             drop:
             - ALL
-          privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
         livenessProbe:
@@ -73,7 +71,6 @@ spec:
             scheme: HTTPS
             port: 8443
           initialDelaySeconds: 2
-          periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /healthz
