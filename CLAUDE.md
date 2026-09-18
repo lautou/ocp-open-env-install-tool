@@ -390,7 +390,7 @@ oc delete applicationset cluster-ai -n openshift-gitops
 
 **OLM default**: `installPlanApproval: Automatic` (when omitted)
 
-**Project standard**: Omit field from Subscription manifests (25/26 subscriptions)
+**Project standard**: Omit field from Subscription manifests (verified: zero Subscriptions in the repo declare it, as of a full-repo audit)
 
 **When to add explicit value**: Only when overriding default to `Manual`
 

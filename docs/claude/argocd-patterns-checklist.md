@@ -431,6 +431,11 @@ ignoreDifferences:
 - ✅ HardwareProfile: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
 - ✅ OdhDashboardConfig: No ignoreDifferences needed (namespace managed-by label sufficient) - 2026-03-30
 - ✅ RHACM ClusterManagementAddons: Require `/spec/defaultConfigs` AND `/spec/installStrategy` (operator-managed) - 2026-04-08
+- ✅ Full-repo default-value audit: ~17 fields across 15 components omitted (Subscription
+  `installPlanApproval`, OperatorGroup `spec: {}`, `Certificate.isCA`, `ClusterPolicy.operator.
+  defaultRuntime`, `ModelRegistry`/`OGXServer`/`Gateway`/`HardwareProfile`/`OAuth` fields, Deployment/
+  Service port and pod-spec defaults, ArgoCD `rbac.defaultPolicy`, Alertmanager route timing) —
+  confirmed via `dry-run=server`/live-diff, zero regressions - 2026-09-18
 
 **Excessive ignores are technical debt** - Test carefully before adding.
 
