@@ -5,8 +5,6 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: cluster
 spec:
-  sharedResource:
-    state: Enabled
+  sharedResource: {}
   shipwright:
-    build:
-      state: Enabled
+    build: {}
