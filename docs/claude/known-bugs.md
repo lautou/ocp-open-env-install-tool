@@ -464,10 +464,10 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 ---
 
-### OSSM-15257 — Sail Operator ClusterRoles missing aggregate-to-admin/edit labels (Telemetry resource ArgoCD OutOfSync)
+### OSSM-15257 — Cluster Ingress Operator's vendored Sail install library missing aggregate-to-admin/edit ClusterRoles (Telemetry resource ArgoCD OutOfSync)
 
-**Component:** OpenShift Service Mesh 3 / Sail Operator (`istiod` Helm chart)
-**JIRA:** [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257) — **Release Pending** (resolution Done), fixVersions **OSSM 3.4.2** and **OSSM 3.3.7**, neither released yet as of 2026-09-02
+**Component:** OpenShift Container Platform (OCP) `cluster-ingress-operator`'s built-in Gateway API implementation — **not** a separately-installed Service Mesh/Sail Operator. Confirmed on this cluster: no `sailoperator`/`servicemeshoperator` CSV or Subscription exists anywhere; the `istiod-openshift-gateway` Deployment in `openshift-ingress` is rendered directly by the `ingress-operator` pod via a vendored Go library (`github.com/istio-ecosystem/sail-operator`'s `pkg/install` package, labeled `managed-by: sail-library`), not by OLM.
+**JIRA (upstream defect):** [OSSM-15257](https://redhat.atlassian.net/browse/OSSM-15257) — Closed/Done, fixVersions **OSSM 3.4.2** and **OSSM 3.3.7**. This ticket fixes the shared Sail install library itself, consumed by both the standalone OSSM operator *and* OCP's embedded Gateway API feature — but fixing the library doesn't fix our cluster until something re-vendors it (see "Real fix delivery path" below).
 **Related:** [OSSM-8132](https://redhat.atlassian.net/browse/OSSM-8132), [OSSM-8316](https://redhat.atlassian.net/browse/OSSM-8316) — same defect, closed 2024-11-08 on the claim OSSM 3 would fix it; our live repro shows it doesn't
 **Affects:** `rh-connectivity-link` component's `Telemetry/namespace-metrics` resource in `openshift-ingress`
 
@@ -479,7 +479,9 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 **⚠️ Related caveat (2026-08-14, Jamie Longmuir, Red Hat):** the only currently *supported* OSSM install/upgrade path is OLM via OperatorHub — the Helm/library path (which is what this bug and its fix apply to) isn't officially supported for production use today, and a support case opened specifically about installing/upgrading via that path may not get an SLA. Doesn't change anything about the bug itself or the need for our workaround (RHCL's `Telemetry` resource is being created *by* the library-installed `istiod`, not by us choosing that install path directly) — just worth knowing if escalating this to Red Hat Support.
 
-**Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation. **Keep in place** — fix targets OSSM 3.3.7/3.4.2, neither shipped; re-check Sail Operator CSV version after any upgrade.
+**Real fix delivery path for OCP's embedded Gateway API (traced 2026-09-18, since there's no operator to bump):** `cluster-ingress-operator` vendors the Sail install library as a pinned Go module commit in `go.mod` (`replace github.com/istio-ecosystem/sail-operator => github.com/openshift-service-mesh/sail-operator ...`). OCP 4.22's `release-4.22` branch is pinned to a commit from 2026-03-27 ("OSSM 3.3.1") — well before the OSSM-15257 fix. The actual re-vendor is tracked separately as [OCPBUGS-105317](https://redhat.atlassian.net/browse/OCPBUGS-105317) ("Bump sail library to OSSM 3.4.2 in cluster-ingress-operator"), merged into `cluster-ingress-operator`'s `master` branch on 2026-09-17, status `ON_QA`, no `fixVersion` set yet. **No backport PR to `release-4.22` exists** — confirmed via GitHub search. This will not arrive via a normal 4.22.z update; it ships whenever `master`'s target release (presumably OCP 4.23) GAs, unless a separate 4.22.z backport bug is filed later.
+
+**Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation. **Keep in place.** Re-check after any OCP upgrade — there is no CSV to check; instead re-run `oc get clusterrole -l 'rbac.authorization.k8s.io/aggregate-to-admin=true' -o name | grep -i istio` and only remove the workaround once it returns the `istiod`/`istio-reader` ClusterRoles.
 
 ---
 
