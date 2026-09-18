@@ -25,6 +25,24 @@ annotations:
 
 **`opendatahub.io/genai-asset: "true"` is the single label** that makes a model visible in the Playground. The `genai-use-case` annotation is purely informational — it does not control which UI is shown.
 
+### `serving.kserve.io/deploymentMode` — Omit It, Let KServe Inject the Default
+
+RHOAI 3.5 has no Knative Serverless component at all (dropped for Gateway API/llm-d compatibility) — `Standard` (KServe's RawDeployment mode) is the only functional value, sourced from `inferenceservice-config`'s `deploy.defaultDeploymentMode: RawDeployment`.
+
+**Omit the annotation from the manifest.** `oc apply --dry-run=server` against a manifest without it predicts the exact same live result as today (`deploymentMode: Standard`) — confirmed on both `ai-project-a` (`default-profile`) and `ai-project-b` (`gpus`). KServe's `inferenceservice.kserve-webhook-server.defaulter` mutating webhook re-applies this on every CREATE/UPDATE regardless of what's requested, so declaring it adds nothing and only risks a stale/legacy value (`RawDeployment`, KServe's deprecated alias for `Standard`) drifting from what's actually live. This is the same "omit the field entirely so ArgoCD never manages it" pattern documented for `spec.replicas` in the root `CLAUDE.md`'s ignoreDifferences section.
+
+### HardwareProfile `tolerations` — Omit It, Injection Verified Safe Against Real Writes
+
+GPU nodes on this cluster carry a taint (`nvidia.com/gpu=present:NoSchedule`), so this field is operationally load-bearing — if the toleration ever failed to reach the actual Pod (not just the `InferenceService` CR), the model Pod would get stuck `Pending` forever. A plain `dry-run=server` test isn't strong enough evidence for a field this sensitive: the actual injection is done by a separate `odh-model-controller` mutating webhook (`minferenceservice-v1beta1.odh-model-controller.opendatahub.io`, not the plain KServe defaulter), flagged `sideEffects: NoneOnDryRun` — exactly the class of webhook that can legally special-case dry-run requests.
+
+**Verified directly, not by dry-run**: two hand-built `AdmissionReview` v1 requests (identical `InferenceService` payload, tolerations omitted; one `dryRun: false`, one `dryRun: true`) were POSTed straight to the webhook service, bypassing the API server's dry-run path entirely. Both returned the byte-identical JSONPatch injecting `[{key: nvidia.com/gpu, operator: Exists}]` — no dry-run branching exists in this webhook. The live Pod backing `granite-3-3-2b-instruct` was also confirmed to carry the toleration in its actual `spec.tolerations`, not just the CR. Given real writes get the same injection as dry-run, `spec.predictor.tolerations` is safe to omit for any `InferenceService` referencing a HardwareProfile with `scheduling.node.tolerations` set — the HardwareProfile CR is the single source of truth; changing it re-propagates to every referencing `InferenceService` automatically.
+
+### `automountServiceAccountToken` and `minReplicas`/`maxReplicas` — Omit, Confirmed Safe by Live Testing
+
+RHOAI overrides KServe's own upstream default (`true`) via `inferenceservice-config`'s `security.autoMountServiceAccountToken: false` — so `spec.predictor.automountServiceAccountToken: false` is redundant to declare.
+
+`minReplicas`/`maxReplicas` default to `1`/`1` (KServe's documented autoscaling default) when omitted. Verified with a **real apply** (not just dry-run, since the HPA that KServe creates is a controller-reconcile side effect invisible to admission-time dry-run) against `ai-project-a`'s `qwen3-06b-100`: omitting both fields still produced `HPA minPods=1/maxPods=1`, `Deployment replicas=1`, and the CR's own spec settling back to `1`/`1` — identical to declaring them. Contrast with `timeout`, whose real KServe default (60s) *differs* from this repo's declared `30` — that one must stay explicit.
+
 ### PVC Cluster Storage Visibility
 
 A PVC must have `opendatahub.io/dashboard: "true"` to appear in:

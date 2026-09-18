@@ -36,7 +36,5 @@ spec:
     ports:
     - containerPort: 8080
       protocol: TCP
-  multiModel: false
   supportedModelFormats:
-  - autoSelect: true
-    name: vLLM
+  - name: vLLM
