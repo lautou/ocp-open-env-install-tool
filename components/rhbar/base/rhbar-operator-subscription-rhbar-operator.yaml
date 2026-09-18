@@ -5,7 +5,6 @@ metadata:
   namespace: rhbar-operator
 spec:
   channel: 3.x
-  installPlanApproval: Automatic
   name: apicurio-registry-3
   source: redhat-operators
   sourceNamespace: openshift-marketplace
