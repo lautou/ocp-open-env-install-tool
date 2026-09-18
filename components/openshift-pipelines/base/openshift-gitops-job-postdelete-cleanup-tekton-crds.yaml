@@ -62,8 +62,5 @@ spec:
         image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
         imagePullPolicy: IfNotPresent
         name: postdelete-cleanup-tekton-crds
-      dnsPolicy: ClusterFirst
       restartPolicy: Never
-      serviceAccount: openshift-gitops-argocd-application-controller
       serviceAccountName: openshift-gitops-argocd-application-controller
-      terminationGracePeriodSeconds: 30
