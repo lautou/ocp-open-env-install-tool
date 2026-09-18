@@ -28,7 +28,6 @@ spec:
     resourceType: Accelerator
   scheduling:
     node:
-      nodeSelector: {}
       tolerations:
       - key: nvidia.com/gpu
         operator: Exists

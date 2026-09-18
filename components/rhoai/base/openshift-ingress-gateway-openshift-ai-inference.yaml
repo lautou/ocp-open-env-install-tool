@@ -17,7 +17,4 @@ spec:
     protocol: HTTPS
     tls:
       certificateRefs:
-      - group: ""
-        kind: Secret
-        name: ingress-certificates
-      mode: Terminate
+      - name: ingress-certificates
