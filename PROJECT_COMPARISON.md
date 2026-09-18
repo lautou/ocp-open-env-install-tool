@@ -487,7 +487,6 @@ gitops-profiles/ocp-ai/kustomization.yaml:
 **Files:**
 - README.md (user instructions, features, usage)
 - CLAUDE.md (AI context, architecture, patterns)
-- AUDIT.md (comprehensive project audit)
 - KNOWN_LIMITATIONS.md (documented limitations)
 - docs/claude/ (specialized topic docs)
   - components.md (component-specific patterns)
@@ -557,7 +556,7 @@ gitops-profiles/ocp-ai/kustomization.yaml:
 - Not visible in repository (may be in private CI)
 
 **Consistency:**
-- 95/100 consistency score (per AUDIT.md)
+- 95/100 consistency score (per the project's now-removed audit, 2026-03-27 snapshot)
 - All components follow base/overlays pattern (except common by design)
 - Standardized ApplicationSet templates
 

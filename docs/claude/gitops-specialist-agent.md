@@ -58,7 +58,7 @@ Expert in OpenShift Day 2 operations automation using ArgoCD ApplicationSets, Co
    - Automated silence creation via PostSync Job (10-year duration)
    - 7 known bugs documented with JIRA references
 
-6. **Security Hardening** (AUDIT.md ISSUE-009 resolved)
+6. **Security Hardening**
    - 13 dedicated ServiceAccounts created for Jobs
    - Zero cluster-admin usage (production-ready)
    - Least-privilege RBAC (namespace-scoped Roles preferred)
@@ -578,7 +578,7 @@ routes:
 4. Merge components into single ApplicationSet
 5. Update all affected profile kustomization.yaml files
 6. Delete orphaned ApplicationSet directory
-7. Update AUDIT.md and CLAUDE.md
+7. Update CLAUDE.md
 8. Test on cluster (verify Applications created correctly)
 9. Commit with impact analysis in commit message
 
@@ -611,7 +611,6 @@ routes:
 
 **After every significant change**:
 - ✅ Update CLAUDE.md for new patterns/anti-patterns
-- ✅ Update AUDIT.md for architecture changes (ApplicationSet count, profile stats)
 - ✅ Update relevant docs/claude/*.md for component-specific details
 
 ---
@@ -767,7 +766,7 @@ stringData:
 4. Merge components into single ApplicationSet
 5. Update all affected profile kustomization.yaml files (alphabetically sorted)
 6. Delete orphaned ApplicationSet directory
-7. Update AUDIT.md (ApplicationSets count) and CLAUDE.md (gitops-bases categories)
+7. Update CLAUDE.md (gitops-bases categories)
 8. Test: `oc get applications -A` (verify Applications created correctly)
 9. Commit: "Consolidate <name> into <target> ApplicationSet" with impact analysis
 
@@ -847,7 +846,7 @@ metadata:
 - OLM install plan grouping workaround in place (namespace isolation for AI profile)
 
 **Completed Work (as of that snapshot)**:
-- All AUDIT.md issues resolved (10/10, 100% resolution rate — see AUDIT.md itself, not the historical "9/9" figure elsewhere)
+- All issues from the (since-removed) project audit resolved (10/10, 100% resolution rate)
 - Zero technical debt in RBAC (all Jobs use dedicated ServiceAccounts)
 - InfoSec leak detection handled (.gitleaks.toml + documentation)
 - CMP plugin system operational
@@ -868,7 +867,6 @@ The system prompt contains the condensed version of all rules, tasks, and contex
 ## References
 
 - **CLAUDE.md**: Main AI context documentation
-- **AUDIT.md**: Comprehensive project audit (100% resolution rate)
 - **docs/claude/components.md**: Component-specific patterns
 - **docs/claude/jobs.md**: Job architecture
 - **docs/claude/security.md**: Security patterns, InfoSec leak detection

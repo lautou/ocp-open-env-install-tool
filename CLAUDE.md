@@ -40,12 +40,6 @@ OpenShift Container Platform (OCP) installation tool for Red Hat Demo Platform A
 - **[gitops-specialist-agent.md](docs/claude/gitops-specialist-agent.md)** - YAML naming conventions, RBAC patterns, project structure reference
 - **[rhoai-deletion-order.md](docs/claude/rhoai-deletion-order.md)** - RHOAI component deletion order and PreDelete hook procedures
 
-**Project audit**: Complete codebase analysis available:
-- **[AUDIT.md](AUDIT.md)** - Comprehensive project audit (structure, components, GitOps architecture, Jobs, security, documentation, known issues, recommendations)
-  - **Status**: ✅ COMPLETE (2026-03-27, point-in-time snapshot) - 🎉 **100% resolution rate (10/10 issues resolved)**
-  - **Achievement**: ALL issues identified in that audit were resolved
-  - **Note**: this reflects the original 10-item audit list only, not an ongoing "zero technical debt" claim — the project intentionally carries tracked debt via the `TEMPORARY-FIX-` convention (see [known-bugs.md](docs/claude/known-bugs.md))
-
 **Before working on specific topics, read the relevant external doc.**
 
 ### Documentation Maintenance Rules

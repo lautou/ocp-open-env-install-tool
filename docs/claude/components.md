@@ -1118,44 +1118,7 @@ Both UIPlugins:
 
 **Namespace**: `openshift-operators-redhat`
 
-**TEMPORARY-FIX: ServiceAccount Token Secret**
-
-The component includes a workaround for a known Kubernetes 1.24+ limitation:
-
-**File**: `components/loki/base/TEMPORARY-FIX-openshift-operators-redhat-secret-loki-operator-controller-manager-metrics-token.yaml`
-
-**Issue:**
-- **Root Cause**: Kubernetes 1.24+ (OpenShift 4.11+) stopped auto-generating ServiceAccount token secrets
-- **Impact**: Loki operator's ServiceMonitor cannot scrape metrics without a manually created token secret
-- **Upstream Issue**: [LOG-5240](https://issues.redhat.com/browse/LOG-5240)
-
-**Workaround:**
-Manually create a ServiceAccount token secret for the `loki-operator-controller-manager-metrics-reader` ServiceAccount:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  annotations:
-    kubernetes.io/service-account.name: loki-operator-controller-manager-metrics-reader
-  name: loki-operator-controller-manager-metrics-token
-  namespace: openshift-operators-redhat
-type: kubernetes.io/service-account-token
-```
-
-**Why needed:**
-- The Loki operator creates a ServiceMonitor that references this token for Prometheus authentication
-- Without the token secret, Prometheus cannot scrape the operator's metrics endpoint
-- The token is bound to the ServiceAccount and automatically populated by Kubernetes
-
-**Removal Criteria:**
-This workaround can be removed when:
-- The Loki operator automatically creates its own token secret, OR
-- The operator's ServiceMonitor is updated to use a different authentication method
-
-**Related Documentation:**
-- [Red Hat Solution 7087666](https://access.redhat.com/solutions/7087666) - ServiceAccount token secrets in OpenShift 4.11+
-- [Red Hat Solution 7065483](https://access.redhat.com/solutions/7065483) - Manual token secret creation
+**Removed workaround — [LOG-5240](https://issues.redhat.com/browse/LOG-5240) fixed upstream (Logging 5.8.5, released 2024-03-27):** this component previously carried a `TEMPORARY-FIX-...-secret-loki-operator-controller-manager-metrics-token.yaml` manually creating a ServiceAccount token Secret, because the Loki operator's ServiceMonitor needed one and Kubernetes 1.24+ stopped auto-generating them. Removed from the repo once the fix landed (commit `6b686a9`). Confirmed live on this cluster (`loki-operator.v6.6.1`, 2026-09-18): `loki-operator-controller-manager-metrics-token` Secret now exists with `app.kubernetes.io/managed-by: operator-lifecycle-manager` and an owner reference to the operator's CSV — OLM/the operator creates it, no GitOps workaround needed.
 
 ## Red Hat Advanced Cluster Management (RHACM)
 

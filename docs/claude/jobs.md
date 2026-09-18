@@ -17,7 +17,7 @@ This project uses **Kubernetes Jobs** extensively to automate Day 2 operations t
 
 **Execution context**: All Jobs run in `openshift-gitops` namespace (except monitoring Jobs)
 
-**Security**: ✅ **All Jobs use dedicated ServiceAccounts with least-privilege RBAC** (AUDIT.md ISSUE-009 resolved)
+**Security**: ✅ **All Jobs use dedicated ServiceAccounts with least-privilege RBAC**
 - 13 dedicated ServiceAccounts created
 - 0 cluster-admin usage (production-ready security)
 - Namespace-scoped Roles preferred over ClusterRoles
@@ -1146,7 +1146,7 @@ spec:
        # Clean, readable script without \n escapes
    ```
 
-   **Pattern applied:** See `cert-manager-configmap-scripts.yaml` (resolves AUDIT.md ISSUE-003)
+   **Pattern applied:** See `cert-manager-configmap-scripts.yaml`
 
 2. **Always use `set -e`**
    - Exit immediately on any error
@@ -1266,7 +1266,7 @@ hostname: maas-api.apps.${OCP_BASE_DOMAIN}
    - Use standard `nodeSelector` + `tolerations`
 
 4. **Use dedicated ServiceAccounts with least-privilege RBAC**
-   - ✅ **IMPLEMENTED**: All Jobs use dedicated ServiceAccounts (AUDIT.md ISSUE-009 resolved)
+   - ✅ **IMPLEMENTED**: All Jobs use dedicated ServiceAccounts
    - Principle of least privilege (0 cluster-admin usage)
    - Pattern: 1 ServiceAccount per Job type or shared for similar operations
    - Examples:
@@ -1619,7 +1619,7 @@ data:
 - ✅ Easier testing (extract script to test locally)
 - ✅ Better maintainability (edit without YAML complexity)
 
-**Example:** `cert-manager-configmap-scripts.yaml` (AUDIT.md ISSUE-003 resolution)
+**Example:** `cert-manager-configmap-scripts.yaml`
 
 ---
 

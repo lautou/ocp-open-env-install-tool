@@ -126,7 +126,7 @@ Without resource requests/limits, Jobs get:
 
 **✅ IMPLEMENTED**: All Jobs use dedicated ServiceAccounts with least-privilege RBAC instead of cluster-admin.
 
-**Status**: Production-ready (AUDIT.md ISSUE-009 resolved 2026-03-27)
+**Status**: Production-ready
 
 **How It Works:**
 
