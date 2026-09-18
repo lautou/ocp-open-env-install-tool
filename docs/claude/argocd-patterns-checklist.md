@@ -451,6 +451,12 @@ When a field is defaulted/normalized by an **admission webhook** (not just an op
 
 **Concrete example**: RHOAI InferenceService/ServingRuntime fields (`deploymentMode`, `tolerations`, `automountServiceAccountToken`, `minReplicas`/`maxReplicas`, `autoSelect`) — see [rhoai-model-serving.md](rhoai-model-serving.md).
 
+**Parent object must sometimes stay present-but-empty.** CRD structural defaulting only cascades into a parent key that's still present (even as `{}`) — an absent parent skips defaulting entirely. Confirmed differently per field within the same audit: `OpenShiftBuild.spec.sharedResource`/`shipwright.build`, `OGXServer.spec.network`, and `ClusterPolicy.spec.operator` (the last one is also CRD-*required*, so removing it entirely fails validation) all needed the parent key kept as `{}` when only the leaf default was removed. `ModelRegistry.spec.grpc`/`rest`, by contrast, can be removed as whole keys — this varies per CRD and even per field within one CRD, so test each with `dry-run=server` individually rather than assuming a pattern from a sibling field.
+
+**Dry-run can't validate opaque app-config blobs.** A field like Alertmanager's `alertmanager.yaml` (embedded in a Secret's `stringData`) or NFD's `workerConfig.configData` is just a string to the K8s API — `dry-run=server` only checks it's valid string content, not whether the app's own defaulting behavior matches. Verify via the app's own live introspection instead: Alertmanager exposes its parsed config at `/api/v2/status` (`oc exec <pod> -c alertmanager -- wget -qO- http://localhost:9093/api/v2/status`); for a component with no such endpoint, either find an equivalent or explicitly defer with lower confidence rather than assume a documented upstream default applies unverified.
+
+**CMP_PLACEHOLDER strings can produce misleading dry-run failures.** Testing a manifest that still contains an unresolved `CMP_PLACEHOLDER_*` token (normally substituted by the CMP plugin at ArgoCD build time, not before) can fail dry-run for reasons unrelated to the field under test — e.g. `Gateway.spec.listeners[].hostname`'s regex rejects the placeholder's uppercase/underscores. Substitute a realistic value (the cluster's real domain, an existing resource name) in a scratch copy before concluding a field change itself is broken.
+
 ---
 
 ## Reference
