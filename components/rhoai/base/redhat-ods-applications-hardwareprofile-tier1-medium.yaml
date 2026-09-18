@@ -1,0 +1,24 @@
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/dashboard-feature-visibility: '[]'
+    opendatahub.io/description: "Standard: 4-8 CPU, 16-32GiB RAM"
+    opendatahub.io/display-name: "CPU: Medium"
+  name: tier1-medium
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+  - defaultCount: 4
+    displayName: CPU
+    identifier: cpu
+    maxCount: 8
+    minCount: 2
+    resourceType: CPU
+  - defaultCount: 16Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 32Gi
+    minCount: 8Gi
+    resourceType: Memory

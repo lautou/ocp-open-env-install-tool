@@ -1,0 +1,44 @@
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/dashboard-feature-visibility: '[]'
+    opendatahub.io/description: "Full A100 access on isolated nodes."
+    opendatahub.io/display-name: "Training: Dedicated A100"
+  name: training-dedicated-a100
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+  - defaultCount: 16
+    displayName: CPU
+    identifier: cpu
+    maxCount: 32
+    minCount: 8
+    resourceType: CPU
+  - defaultCount: 128Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 256Gi
+    minCount: 64Gi
+    resourceType: Memory
+  - defaultCount: 1
+    displayName: "A100 GPU"
+    identifier: "nvidia.com/gpu"
+    maxCount: 8
+    minCount: 1
+    resourceType: Accelerator
+  scheduling:
+    node:
+      nodeSelector:
+        node-role.kubernetes.io/training-node: "true"
+        nvidia.com/gpu.product: "A100-SXM4-80GB"
+      tolerations:
+      - effect: NoSchedule
+        key: workload
+        operator: Equal
+        value: training
+      - effect: NoSchedule
+        key: "nvidia.com/gpu"
+        operator: Exists
+    type: Node

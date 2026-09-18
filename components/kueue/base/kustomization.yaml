@@ -2,7 +2,15 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ../../common
+- ai-team-a-localqueue-team-a-queue.yaml
+- ai-team-b-localqueue-team-b-queue.yaml
+- cluster-clusterqueue-shared-cluster-queue.yaml
+- cluster-namespace-ai-team-a.yaml
+- cluster-namespace-ai-team-b.yaml
 - cluster-namespace-openshift-kueue-operator.yaml
+- cluster-resourceflavor-default-flavor.yaml
+- cluster-workloadpriorityclass-high-priority.yaml
+- cluster-workloadpriorityclass-low-priority.yaml
 - openshift-kueue-operator-operatorgroup-openshift-kueue-operator.yaml
 - openshift-kueue-operator-subscription-openshift-kueue-operator.yaml
 replacements:
