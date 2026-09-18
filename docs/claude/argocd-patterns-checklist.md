@@ -436,6 +436,18 @@ ignoreDifferences:
 
 ---
 
+### Omission vs ignoreDifferences — Verifying Which Is Safe
+
+When a field is defaulted/normalized by an **admission webhook** (not just an operator's reconcile loop), prefer omitting it from the manifest over `ignoreDifferences` — a field never declared is invisible to ArgoCD's diff (same principle as the `spec.replicas` pattern above), while `ignoreDifferences` on a *declared* field still gets applied on every sync (see "❌ Static Manifest + ignoreDifferences" above).
+
+**Verify before omitting**: `oc apply --dry-run=server -f <manifest-without-the-field>` runs the full admission/mutating-webhook chain and shows the field's real resulting value — reliable evidence omission won't change behavior.
+
+**Exception — don't trust dry-run alone for operationally-critical fields**: a webhook with `sideEffects: NoneOnDryRun` (`oc get mutatingwebhookconfiguration <name> -o yaml`) is explicitly allowed to branch on `request.dryRun`. For a field where being wrong is expensive (e.g. a scheduling toleration for a tainted-node HardwareProfile — missing it means a permanently `Pending` pod, not cosmetic drift), verify by POSTing a hand-built `AdmissionReview` v1 request directly to the webhook service from a debug pod — once with `dryRun: true`, once with `dryRun: false`. An identical returned JSONPatch confirms the injection holds on real writes too.
+
+**Concrete example**: RHOAI InferenceService/ServingRuntime fields (`deploymentMode`, `tolerations`, `automountServiceAccountToken`, `minReplicas`/`maxReplicas`, `autoSelect`) — see [rhoai-model-serving.md](rhoai-model-serving.md).
+
+---
+
 ## Reference
 
 **See also**:
