@@ -36,6 +36,8 @@ resources:
 - openshift-gitops-sa-maas-db-secret.yaml
 - openshift-ingress-gateway-maas-default-gateway.yaml
 - openshift-ingress-gateway-openshift-ai-inference.yaml
+- redhat-ai-gateway-infra-rb-maas-db-secret.yaml
+- redhat-ai-gateway-infra-role-maas-db-secret.yaml
 - redhat-ods-applications-hardwareprofile-dataprep-heavy.yaml
 - redhat-ods-applications-hardwareprofile-gpus.yaml
 - redhat-ods-applications-hardwareprofile-nvidia-mig-1g-5gb.yaml
@@ -44,8 +46,6 @@ resources:
 - redhat-ods-applications-hardwareprofile-tier1-xsmall.yaml
 - redhat-ods-applications-hardwareprofile-training-dedicated-a100.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
-- redhat-ods-applications-rb-maas-db-secret.yaml
-- redhat-ods-applications-role-maas-db-secret.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
 - rhoai-model-registries-cm-model-catalog-sources.yaml

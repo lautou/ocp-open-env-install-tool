@@ -1772,6 +1772,18 @@ The upstream `gateway-api-state-metrics` v0.7.0 expects Kuadrant v1 APIs, which 
 
 **Namespace**: `redhat-ods-operator` (operator), `redhat-ods-applications` (applications)
 
+**Other namespaces RHOAI generates on its own** (not declared as `Namespace` resources in this repo — created by the operator/its sub-operators when the corresponding DataScienceCluster component is enabled, so they carry no `argocd.argoproj.io/managed-by` label unless a component in this repo explicitly needs to write into one):
+
+| Namespace | Created by | Purpose |
+|---|---|---|
+| `rhods-notebooks` | `dashboard`/`workbenches` component | Workbench/notebook pods |
+| `rhoai-model-registries` | `modelregistry` component | Model Registry instances |
+| `redhat-ods-monitoring` | DSCI `spec.monitoring.namespace` | RHOAI metrics stack (empty until `monitoring.metrics` is configured) |
+| `opendatahub-ogx-system` | `ogx` component (Gen AI Studio operator) | OGX/Gen AI Studio operator |
+| `redhat-ai-gateway-infra` | `kserve.modelsAsService` component (`ai-gateway-operator`) | MaaS infra: `maas-api`, gateway policies, `maas-db-config` secret (RHOAI 3.5+) |
+| `ai-tenants` | MaaS controller | Holds `AITenant` CRs (tenant bootstrap objects, Tech Preview) |
+| `models-as-a-service` | MaaS controller, per-`AITenant` | Default MaaS tenant's own namespace (subscriptions, model refs) |
+
 **Key Components:**
 
 ### DataScienceCluster Configuration
@@ -1793,7 +1805,7 @@ spec:
 
 **Models as a Service (MaaS):**
 - Enabled via `kserve.modelsAsService.managementState: Managed`
-- Deploys `maas-api` pod in `redhat-ods-applications`
+- **RHOAI 3.5+**: deploys `maas-api` in the dedicated `redhat-ai-gateway-infra` namespace (a new `ai-gateway-operator`-managed infra namespace, replacing the pre-3.5 default of `redhat-ods-applications`). The `maas-db-config` secret (created by `openshift-gitops-job-maas-db-secret.yaml`) must live in this same namespace — confirmed against [RHOAI 3.5 docs](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service), whose own "Configure the database secret" step states the infra namespace moved in 3.5. Getting this wrong makes `maas-api` crash-loop on startup (`failed to read secret <ns>/maas-db-config: not found`).
 - Creates `tier-to-group-mapping` ConfigMap with tier definitions (Free, Premium, Enterprise)
 
 ### OdhDashboardConfig Management

@@ -1219,6 +1219,34 @@ oc get pods -n openshift-logging | grep loki
 - Loki ingester flush failures (caused by invalid credentials - see previous section)
 - LokiStack components not starting (waiting for valid storage secret)
 
+### maas-api CrashLoopBackOff - maas-db-config Secret in Wrong Namespace (RHOAI 3.5 Namespace Move)
+
+**Symptom**: `maas-api` pod in `redhat-ai-gateway-infra` stuck `CrashLoopBackOff`
+
+**Root Cause**: RHOAI 3.5 moved the MaaS infrastructure namespace from `redhat-ods-applications` to a dedicated `redhat-ai-gateway-infra` namespace (new `ai-gateway-operator`), but a Job/RBAC pair still targeted the old namespace for the `maas-db-config` secret.
+
+**Diagnose**:
+```bash
+oc logs deployment/maas-api -n redhat-ai-gateway-infra
+# error: failed to load database URL: failed to read secret
+# redhat-ai-gateway-infra/maas-db-config: secrets "maas-db-config" not found
+
+# Confirm the operator's own Config CR agrees:
+oc get configs.maas.opendatahub.io default -o jsonpath='{.status.conditions[0].message}'
+# ...MaasTenantConfig: database Secret 'maas-db-config' not found in namespace 'redhat-ai-gateway-infra'...
+
+# Confirm the infra namespace for your deployment (don't assume it's always redhat-ai-gateway-infra):
+oc get maastenantconfig default-tenant -n models-as-a-service -o jsonpath='{.status.infraNamespace}'
+```
+
+**Solution**: create `maas-db-config` in the namespace `MaasTenantConfig.status.infraNamespace` reports (`redhat-ai-gateway-infra` by default on 3.5+), not `redhat-ods-applications`. This repo's fix: `openshift-gitops-job-maas-db-secret.yaml` targets `redhat-ai-gateway-infra`, backed by `redhat-ai-gateway-infra-role-maas-db-secret.yaml` + `redhat-ai-gateway-infra-rb-maas-db-secret.yaml` (RBAC for the Job's `maas-db-secret` ServiceAccount — ArgoCD's own `rbac.authorization.k8s.io: '*'` ClusterRole rule already lets it create Role/RoleBinding in any namespace, no extra grant needed for that part).
+
+**Reference**: [RHOAI 3.5 docs, "Configure the database secret for Models-as-a-Service"](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/govern_llm_access_with_models-as-a-service/deploy-and-manage-models-as-a-service) — *"In OpenShift AI 3.5 and later, the maas-db-config secret is stored in the infrastructure namespace instead of the {dbd-config-default-namespace} namespace."*
+
+**Prevention**: after any RHOAI minor version bump, re-check `MaasTenantConfig.status.infraNamespace` and the release notes for namespace moves — this class of change ships without a CRD/API break, so nothing fails loudly at the GitOps sync level, only at pod runtime.
+
+---
+
 ### RHOAI Models as a Service Dashboard Not Showing Models
 
 **Symptom**: LLMInferenceServices with MaaS configuration do not appear in the RHOAI dashboard "AI asset endpoints → Models as a service" tab
@@ -1234,6 +1262,8 @@ oc get pods -n openshift-logging | grep loki
 ```
 
 **Affected Version**: RHOAI 3.3.0
+
+**⚠️ Namespace note for RHOAI 3.5+**: the debug commands below use `redhat-ods-applications`, correct for the 3.3.0 incident this section documents. From RHOAI 3.5 onward, `maas-api` and `maas-db-config` live in `redhat-ai-gateway-infra` instead — see `components.md`'s MaaS section. Substitute that namespace if debugging on 3.5+.
 
 **Root Cause**:
 The gen-ai-ui backend component cannot discover the maas-api service URL. Gen-ai-ui container logs show empty URL during initialization:
