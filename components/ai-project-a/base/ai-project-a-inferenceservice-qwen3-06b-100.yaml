@@ -24,7 +24,6 @@ spec:
     model:
       args:
       - --max-model-len=8192
-      - --gpu-memory-utilization=0.5
       modelFormat:
         name: vLLM
       name: ""

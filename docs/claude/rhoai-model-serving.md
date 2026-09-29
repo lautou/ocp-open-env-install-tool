@@ -64,6 +64,14 @@ For Mistral models in **HuggingFace format** (model-XXXXX.safetensors + config.j
 
 The Red Hat AI Inference Server 3.4 docs show all four args together for the `RedHatAI/Mistral-*-NVFP4` model (native Mistral format). For standard HF-format Mistral models, only the first two apply.
 
+### vLLM Args Are Not Portable Between CPU and GPU Runtimes
+
+`--gpu-memory-utilization` is a GPU-executor-only vLLM flag. Passing it to an `InferenceService` whose `runtime` is a CPU ServingRuntime (e.g. `vllm-cpu-x86-runtime`, no `nvidia.com/gpu` requested) sends the engine down a GPU-initialization path with no GPU present, crashing on startup with a generic, unhelpful error: `RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}` — the actual root-cause line is typically lost since the container log is short-lived across the crash loop.
+
+**Confirmed live** (`qwen3-06b-100` in `ai-project-a`, RHOAI 3.5.1): the arg was copy-pasted from a GPU-based `InferenceService` example. The CPU ServingRuntime's own shipped template args are just `--port`, `--model`, `--served-model-name` — no memory-utilization flag of any kind. `--max-model-len` is fine on both CPU and GPU.
+
+**Rule**: before adding a vLLM arg to an `InferenceService`, check whether it's GPU-specific (`--gpu-memory-utilization`, `--tensor-parallel-size` for multi-GPU, etc.) and cross-check against the target `runtime`'s actual accelerator (`nvidia.com/gpu` present in `resources` = GPU runtime; absent = CPU runtime).
+
 ### HuggingFace CLI
 
 `huggingface-cli` is deprecated in newer `huggingface_hub` versions. Use `hf` instead:
