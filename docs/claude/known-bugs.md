@@ -575,22 +575,6 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 ---
 
-### Red Hat registry rejects `:latest` tag on `openshift4/ose-cli` — cluster-wide ImagePullBackOff
-
-**Component:** `registry.redhat.io/openshift4/ose-cli` (all consuming Jobs/Deployments in this repo)
-**Status:** Registry policy change, not a bug — permanent, will not be reverted
-**Affects:** Any manifest in this repo pulling `ose-cli:latest`
-
-**Issue:** `registry.redhat.io/openshift4/ose-cli` no longer serves the `latest` tag. Every pod referencing it fails with `ImagePullBackOff`/`ErrImagePull`: *"This repository does not use the 'latest' tag to track the most recent image and must be pulled with an explicit version or image reference"* (see [access.redhat.com/articles/4301321](https://access.redhat.com/articles/4301321)). Confirmed live 2026-09-29: 18 manifests across the repo (GitOps admin Jobs, `cert-manager` watchdog, `ai-project-a`/`ai-project-b` MCG rotation Jobs) all failed identically, and `model-ingest-job` pods cascaded into `CreateContainerConfigError` because the `mcg-models` Secret their upstream rotation Job creates never got created.
-
-**Root cause:** the plain `ose-cli` repo (RHEL8-based) stopped receiving floating `vX.Y` tags after `v4.15` — confirmed via `skopeo list-tags`. The maintained successor is `registry.redhat.io/openshift4/ose-cli-rhel9`, which still publishes a floating tag per OCP minor (`v4.16` through `v4.22` confirmed present).
-
-**Fix applied:** pinned all 18 manifests to `registry.redhat.io/openshift4/ose-cli-rhel9:v4.22` (matches this repo's `OPENSHIFT_VERSION` in `config/common.config` at the time of the fix). These Jobs only run basic `oc`/`jq` scripting against the API server, so `oc` client/server version skew is not a concern — the tag doesn't need to track the exact cluster version precisely.
-
-**Revisit when:** bumping `OPENSHIFT_VERSION` across a major OCP jump (e.g. past 4.22) where `ose-cli-rhel9` may not yet publish a matching floating tag — check with `skopeo list-tags --authfile pull-secret.txt docker://registry.redhat.io/openshift4/ose-cli-rhel9` before assuming the next minor's tag exists.
-
----
-
 ### ocs-client-operator-controller-manager 256Mi memory limit too tight — CrashLoopBackOff
 
 **Component:** OpenShift Data Foundation (ODF) — `ocs-client-operator.v4.22.4-rhodf`

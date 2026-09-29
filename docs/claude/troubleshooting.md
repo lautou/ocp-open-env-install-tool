@@ -522,6 +522,61 @@ oc wait subscription.operators.coreos.com my-operator -n my-namespace --for=...
 - Bastion installation script (GitOps operator installation)
 - Cleanup Jobs (operator uninstallation)
 
+---
+
+### Cluster-Wide ImagePullBackOff - registry.redhat.io Rejects `:latest` Tag
+
+**Symptom**: Many unrelated Jobs/Deployments across the cluster simultaneously show `ImagePullBackOff`/`ErrImagePull`, all using the same base image
+
+**Root Cause**: `registry.redhat.io` can permanently retire the `:latest` tag on a given repo — this is a Red Hat registry policy decision, not a transient outage or an upstream bug that will get fixed
+
+**The Problem:**
+
+Pulling `registry.redhat.io/openshift4/ose-cli:latest` fails with:
+```
+unsupported: This repository does not use the "latest" tag to track the most recent
+image and must be pulled with an explicit version or image reference. For more
+information, see: https://access.redhat.com/articles/4301321
+```
+
+The `latest` tag still exists on the repo — `skopeo list-tags` still lists it — but the registry actively refuses to serve a manifest for it. Any manifest pinned to `:latest` on this repo will never recover on its own.
+
+**How to Diagnose:**
+
+```bash
+# Confirm every failing pod points at the same image
+oc get pods -A -o json | jq -r '.items[] | select(.status.phase!="Running" and .status.phase!="Succeeded") | .metadata.namespace + "/" + .metadata.name + " -> " + .spec.containers[0].image'
+
+# Confirm the registry, not the cluster, is the cause
+oc describe pod <pod> -n <ns> | grep -A2 "Failed.*pull"
+```
+
+**Solution — pin an explicit tag, and check the repo hasn't gone stale:**
+
+```bash
+# List tags (needs registry auth — this repo's own pull-secret.txt works)
+skopeo list-tags --authfile pull-secret.txt docker://registry.redhat.io/openshift4/ose-cli
+
+# If the repo's floating vX.Y tags stop at an old minor (confirmed: plain
+# "ose-cli" stops at v4.15), the image has moved to a RHEL9 successor repo:
+skopeo list-tags --authfile pull-secret.txt docker://registry.redhat.io/openshift4/ose-cli-rhel9 \
+  | jq -r '.Tags[]' | grep -E '^v4\.[0-9]+$'
+
+# Verify the chosen tag actually pulls before committing to it
+skopeo inspect --authfile pull-secret.txt docker://registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
+```
+
+**Example Failure (fixed 2026-09-29):** 18 manifests across the repo (GitOps admin Jobs, `cert-manager` watchdog, `ai-project-a`/`ai-project-b` MCG rotation Jobs) all referenced `registry.redhat.io/openshift4/ose-cli:latest` and failed identically. `model-ingest-job` pods in both AI projects cascaded into `CreateContainerConfigError` (`secret "mcg-models" not found`) because the upstream `mcg-bucket-models-rotation` Job that creates that secret couldn't even start. Fix: repointed all 18 manifests to `registry.redhat.io/openshift4/ose-cli-rhel9:v4.22` — the maintained successor repo, which still publishes a floating `vX.Y` tag per OCP minor. `oc` client/server version skew is not a concern for these Jobs (basic `oc`/`jq` scripting only), so the pin doesn't need to track the cluster's exact patch version.
+
+**Prevention:**
+- ✅ Never reference `registry.redhat.io/...:latest` in any manifest — always pin an explicit tag
+- ✅ When bumping `OPENSHIFT_VERSION` in `config/common.config` across an OCP minor, re-check that `ose-cli-rhel9:vX.Y` exists for the new minor before assuming it does
+- ✅ A `latest` tag showing up in `skopeo list-tags` output does NOT mean it's pullable — registry-side pull rejection is independent of tag listing
+
+**Related Issues:**
+- Any Job/Deployment in this repo needing the `oc` CLI (currently pinned to `registry.redhat.io/openshift4/ose-cli-rhel9:v4.22`)
+- Any future image pinned to a Red Hat registry `:latest` tag elsewhere in the repo
+
 ### Partial Sync Cycles
 
 **Symptom**: Application repeatedly shows "Partial sync operation succeeded" every 5-6 minutes, health cycles between Healthy → Missing

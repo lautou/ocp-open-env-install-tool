@@ -404,6 +404,14 @@ oc delete applicationset cluster-ai -n openshift-gitops
 
 **Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "Job Stuck in Infinite Loop - OLM API Group Ambiguity" (full incident, diagnosis steps, affected resource list)
 
+### Container Image Tags - Never Use `:latest` on registry.redhat.io
+
+**Pattern**: Always pin `registry.redhat.io` images to an explicit tag in manifests — never `:latest`. Red Hat can permanently retire the `:latest` tag on a given repo (registry-side policy, not a transient outage), and every pod referencing it fails `ImagePullBackOff` forever with no self-recovery.
+
+**Current pin**: `registry.redhat.io/openshift4/ose-cli-rhel9:v4.22` — used by every Job/Deployment in this repo needing the `oc` CLI. The RHEL8-based `ose-cli` repo (no `-rhel9` suffix) stopped publishing floating `vX.Y` tags after `v4.15`; verify with `skopeo list-tags` before assuming an image's tagging scheme is still current.
+
+**Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "Cluster-Wide ImagePullBackOff - registry.redhat.io Rejects `:latest` Tag" (diagnosis, tag-verification commands, affected file list)
+
 ## Component Notes
 
 **IMPORTANT**: Most component details moved to external docs.
