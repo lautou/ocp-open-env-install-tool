@@ -95,6 +95,8 @@ fraction of CPU memory reserved (despite its name). To resolve: decrease `--gpu-
 
 **Rule**: on this vLLM CPU image, treat `--gpu-memory-utilization` as a required CPU memory-budget arg, not a leftover GPU flag — verify against the actual crash log (after fixing `/dev/shm` if the log looks suspiciously short) before assuming a "gpu"-named flag is safe to drop on a CPU runtime.
 
+**Documentation gap filed upstream** (2026-09-29): neither issue is documented for the KServe/`InferenceService` deployment path in RHOAI 3.5's own docs — filed as [RHOAIENG-97011](https://redhat.atlassian.net/browse/RHOAIENG-97011) (`/dev/shm` sizing) and [RHOAIENG-97012](https://redhat.atlassian.net/browse/RHOAIENG-97012) (`--gpu-memory-utilization` CPU semantics).
+
 ### HuggingFace CLI
 
 `huggingface-cli` is deprecated in newer `huggingface_hub` versions. Use `hf` instead:
