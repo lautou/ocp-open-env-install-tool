@@ -592,6 +592,19 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 ---
 
+### RHOAIENG-97011 / RHOAIENG-97012 — vLLM CPU ServingRuntime docs missing `/dev/shm` sizing and `--gpu-memory-utilization` CPU semantics
+
+**Component:** Red Hat OpenShift AI (RHOAI) 3.5.1 — vLLM CPU ServingRuntime for KServe (`vllm-cpu-x86-runtime-template`)
+**JIRA:** [RHOAIENG-97011](https://redhat.atlassian.net/browse/RHOAIENG-97011) (`/dev/shm` sizing), [RHOAIENG-97012](https://redhat.atlassian.net/browse/RHOAIENG-97012) (`--gpu-memory-utilization` CPU semantics) — both New, filed 2026-09-29
+**Status:** Open, no fix version yet
+**Affects:** Any `InferenceService` using `vllm-cpu-x86-runtime`/`vllm-cpu-runtime` without an explicit `/dev/shm` volume or an explicit `--gpu-memory-utilization` value
+
+**Issue:** Two undocumented requirements for KServe-based vLLM CPU serving both surface as the same generic, unhelpful crash: `RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}`, with no indication of either real cause. (1) The predictor pod needs a dedicated `/dev/shm` volume larger than CRI-O's 64Mi default — documented for the standalone-container path in Red Hat AI Inference's own troubleshooting guide, but not for the KServe/`InferenceService` path. (2) `--gpu-memory-utilization`, despite its name, controls CPU memory reservation on this backend and must be set explicitly — not documented anywhere, GPU-only framing implies it's safe to omit on CPU.
+
+**Fix applied (this repo):** `components/ai-project-a/base/ai-project-a-inferenceservice-qwen3-06b-100.yaml` — full incident writeup and YAML fix in [rhoai-model-serving.md](rhoai-model-serving.md) ("vllm-cpu-x86-runtime CrashLoopBackOff — Two Real Causes, One Misleading Symptom").
+
+---
+
 ## Adding New Alert Silences and Insights Disabling
 
 This section covers how to silence both Prometheus alerts and disable Insights recommendations.
