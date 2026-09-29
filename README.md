@@ -193,17 +193,7 @@ Bash
 ./init_openshift_installation_lab_cluster.sh --config-file my-odf-cluster.config
 ```
 
-### **2\. Run Default Installation**
-
-If no argument is provided, it defaults to `config/ocp-standard.config`.
-
-Bash
-
-```
-./init_openshift_installation_lab_cluster.sh
-```
-
-### **3\. Help**
+### **2\. Help**
 
 Display available options.
 

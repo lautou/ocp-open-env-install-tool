@@ -5,14 +5,14 @@ cd "$(dirname "$0")"
 
 # --- HELPER: USAGE ---
 show_usage() {
-  echo "Usage: $(basename "$0") [OPTIONS] [CONFIG_FILE]"
+  echo "Usage: $(basename "$0") [OPTIONS] CONFIG_FILE"
   echo ""
   echo "Description:"
   echo "  Initializes an OpenShift installation environment via an AWS Bastion host."
   echo "  Supports resuming sessions, multi-configuration, and parallel executions."
   echo ""
-  echo "  If --config-file is omitted, config/ocp-standard.config is used and a notice"
-  echo "  is printed. Before any prerequisite check runs, the tool prints every variable"
+  echo "  A configuration file is required (via --config-file or as a positional"
+  echo "  argument). Before any prerequisite check runs, the tool prints every variable"
   echo "  from common.config and the selected config file (secrets masked) and asks for"
   echo "  confirmation, unless -y/--yes is passed."
   echo ""
@@ -22,7 +22,6 @@ show_usage() {
   echo "  -y, --yes          Skip the configuration confirmation prompt (for automation)"
   echo ""
   echo "Examples:"
-  echo "  $(basename "$0")                                   # Uses config/ocp-standard.config"
   echo "  $(basename "$0") --config-file odf-perf.config     # Uses config/odf-perf.config"
   echo "  $(basename "$0") --yes --config-file prod.config   # Skip confirmation"
   exit 0
@@ -65,22 +64,23 @@ done
 CONFIG_DIR="config"
 
 if [[ -z "$CONFIG_ARG" ]]; then
-    echo "ℹ️  No --config-file specified. Defaulting to $CONFIG_DIR/ocp-standard.config"
-    TARGET_CONFIG="$CONFIG_DIR/ocp-standard.config"
+    echo "❌ ERROR: A configuration file is required (--config-file or positional argument)"
+    echo "   Run '$(basename "$0") --help' for usage."
+    exit 1
+fi
+
+# Check if file exists as provided (absolute path)
+if [[ -f "$CONFIG_ARG" ]]; then
+    TARGET_CONFIG="$CONFIG_ARG"
+# Check if file exists in the config directory
+elif [[ -f "$CONFIG_DIR/$CONFIG_ARG" ]]; then
+    TARGET_CONFIG="$CONFIG_DIR/$CONFIG_ARG"
 else
-    # Check if file exists as provided (absolute path)
-    if [[ -f "$CONFIG_ARG" ]]; then
-        TARGET_CONFIG="$CONFIG_ARG"
-    # Check if file exists in the config directory
-    elif [[ -f "$CONFIG_DIR/$CONFIG_ARG" ]]; then
-        TARGET_CONFIG="$CONFIG_DIR/$CONFIG_ARG"
-    else
-        echo "❌ ERROR: Configuration file not found: $CONFIG_ARG"
-        echo "   Checked paths:"
-        echo "   - $(pwd)/$CONFIG_ARG"
-        echo "   - $(pwd)/$CONFIG_DIR/$CONFIG_ARG"
-        exit 1
-    fi
+    echo "❌ ERROR: Configuration file not found: $CONFIG_ARG"
+    echo "   Checked paths:"
+    echo "   - $(pwd)/$CONFIG_ARG"
+    echo "   - $(pwd)/$CONFIG_DIR/$CONFIG_ARG"
+    exit 1
 fi
 
 CONFIG_NAME=$(basename "$TARGET_CONFIG" .config)
