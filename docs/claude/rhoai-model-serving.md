@@ -64,13 +64,36 @@ For Mistral models in **HuggingFace format** (model-XXXXX.safetensors + config.j
 
 The Red Hat AI Inference Server 3.4 docs show all four args together for the `RedHatAI/Mistral-*-NVFP4` model (native Mistral format). For standard HF-format Mistral models, only the first two apply.
 
-### vLLM Args Are Not Portable Between CPU and GPU Runtimes
+### vllm-cpu-x86-runtime CrashLoopBackOff — Two Real Causes, One Misleading Symptom
 
-`--gpu-memory-utilization` is a GPU-executor-only vLLM flag. Passing it to an `InferenceService` whose `runtime` is a CPU ServingRuntime (e.g. `vllm-cpu-x86-runtime`, no `nvidia.com/gpu` requested) sends the engine down a GPU-initialization path with no GPU present, crashing on startup with a generic, unhelpful error: `RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}` — the actual root-cause line is typically lost since the container log is short-lived across the crash loop.
+`qwen3-06b-100` (`ai-project-a`, RHOAI 3.5.1, `vllm-cpu-x86-runtime`) crash-looped with a generic, unhelpful error on every attempt: `RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}`. The captured container log was consistently only ~20-30 lines — too short to contain the actual root cause, which vLLM normally prints just above that line. **Two independent, stacked bugs**, both required to get a working deployment:
 
-**Confirmed live** (`qwen3-06b-100` in `ai-project-a`, RHOAI 3.5.1): the arg was copy-pasted from a GPU-based `InferenceService` example. The CPU ServingRuntime's own shipped template args are just `--port`, `--model`, `--served-model-name` — no memory-utilization flag of any kind. `--max-model-len` is fine on both CPU and GPU.
+**1. `/dev/shm` too small (the actual cause of the truncated, uninformative log).** The pod had no dedicated shared-memory volume, so it used CRI-O's 64Mi default — too small for vLLM's multiprocess CPU executor (API server + EngineCore run as separate processes communicating over shared memory). Fix: add a `Memory`-medium `emptyDir` at `/dev/shm`:
+```yaml
+spec:
+  predictor:
+    model:
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: dshm
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi
+      name: dshm
+```
+Once this is in place, the log gets far enough to print the *real* error — don't stop investigating just because a short, generic-looking log matches this symptom; fix `/dev/shm` first and re-check the logs before concluding anything else.
 
-**Rule**: before adding a vLLM arg to an `InferenceService`, check whether it's GPU-specific (`--gpu-memory-utilization`, `--tensor-parallel-size` for multi-GPU, etc.) and cross-check against the target `runtime`'s actual accelerator (`nvidia.com/gpu` present in `resources` = GPU runtime; absent = CPU runtime).
+**2. `--gpu-memory-utilization` is NOT GPU-only on Red Hat's vLLM CPU backend — despite the name, it controls CPU memory reservation.** This is a Red Hat AI Inference Server (`rhaiv`) build-specific behavior, not documented in upstream vLLM's CPU docs, and not discoverable without hitting the actual error text. **Do not remove this arg from a CPU `InferenceService` just because the flag name says "gpu"** — confirmed via the real error surfaced only after fixing `/dev/shm` above:
+```
+ValueError: Available memory on node 0 (6.11/8.0 GiB) on startup is less than desired CPU memory
+utilization (0.92, 7.36 GiB). On the CPU backend, the `--gpu-memory-utilization` flag controls the
+fraction of CPU memory reserved (despite its name). To resolve: decrease `--gpu-memory-utilization`
+(e.g. `--gpu-memory-utilization 0.5`) or reduce CPU memory used by other processes.
+```
+`gpu_memory_utilization` defaults to ~0.9 of the container's memory limit when omitted — on an 8Gi limit that leaves too little headroom once the model, Python/PyTorch runtime, and framework overhead are already resident. Set it explicitly (e.g. `0.5`) to leave real headroom; don't just delete it.
+
+**Rule**: on this vLLM CPU image, treat `--gpu-memory-utilization` as a required CPU memory-budget arg, not a leftover GPU flag — verify against the actual crash log (after fixing `/dev/shm` if the log looks suspiciously short) before assuming a "gpu"-named flag is safe to drop on a CPU runtime.
 
 ### HuggingFace CLI
 
