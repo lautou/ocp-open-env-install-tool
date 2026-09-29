@@ -24,7 +24,7 @@ spec:
           else
             echo "Plugin pipelines-console-plugin already exists. Nothing changed."
           fi
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: enable-console-plugin
       restartPolicy: Never
       serviceAccountName: console-plugin-manager

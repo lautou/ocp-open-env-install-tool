@@ -47,7 +47,7 @@ spec:
           echo "Patching..."
           oc patch subscription.operators.coreos.com "$SUB" -n "$TARGET_NS" --type=merge -p "$PATCH"
           echo "✅ Patched ocs-client-operator memory limit to 512Mi."
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: fix-memory-limit
       nodeSelector:
         node-role.kubernetes.io/infra: ''

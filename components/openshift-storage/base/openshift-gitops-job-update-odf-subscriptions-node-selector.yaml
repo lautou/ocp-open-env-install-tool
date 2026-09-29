@@ -93,7 +93,7 @@ spec:
           echo "Intentionally NOT patched (known bug):"
           echo "  - odf-external-snapshotter-operator"
           echo "  - odf-prometheus-operator"
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: patch-subscriptions
       nodeSelector:
         node-role.kubernetes.io/infra: ''

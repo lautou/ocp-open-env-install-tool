@@ -207,7 +207,7 @@ spec:
             echo "================================================"
             exit 0  # Don't fail the Job on warnings
           fi
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: delete-openshift-builds-resources
       nodeSelector:
         node-role.kubernetes.io/infra: ''

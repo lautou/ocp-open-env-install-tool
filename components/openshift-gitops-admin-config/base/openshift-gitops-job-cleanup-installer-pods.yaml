@@ -26,7 +26,7 @@ spec:
           \ delete command\n  for pod in $PODS_TO_DELETE; do\n    echo \"Deleting\
           \ pod: $pod\"\n    oc delete pod \"$pod\" -n \"$TARGET_NS\"\n  done\n  \n\
           \  echo \"✅ Cleanup complete.\"\nfi\n"
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: cleanup
       nodeSelector:
         node-role.kubernetes.io/infra: ''

@@ -60,7 +60,7 @@ spec:
           oc patch grafanadatasource thanos-query-ds -n monitoring --type=merge -p "{\"spec\":{\"datasource\":{\"url\":\"$HOST\",\"secureJsonData\":{\"httpHeaderValue1\":\"Bearer $TOKEN\"}}}}"
 
           echo "GrafanaDatasource configured successfully with URL: $HOST"
-        image: registry.redhat.io/openshift4/ose-cli:latest
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: configure-datasource
       restartPolicy: Never
       serviceAccountName: grafana-datasource-configurator
