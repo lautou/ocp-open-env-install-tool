@@ -25,4 +25,3 @@ spec:
       - name: golden-dataset
         persistentVolumeClaim:
           claimName: golden-dataset
-  ttlSecondsAfterFinished: 600
