@@ -7,6 +7,7 @@ resources:
 - ai-supply-chain-rb-patch-golden-dataset-pv-retain.yaml
 - ai-supply-chain-role-patch-golden-dataset-pv-retain.yaml
 - ai-supply-chain-sa-patch-golden-dataset-pv-retain.yaml
+- ai-supply-chain-secret-granite-3-8b-modelcar.yaml
 - cluster-cr-patch-golden-dataset-pv-retain.yaml
 - cluster-crb-patch-golden-dataset-pv-retain.yaml
 - cluster-namespace-ai-supply-chain.yaml
