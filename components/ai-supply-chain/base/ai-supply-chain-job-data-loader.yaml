@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: data-loader
+  namespace: ai-supply-chain
+spec:
+  template:
+    metadata:
+      name: data-loader
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - echo "Simulated Model Weights v1.0" > /data/model.safetensors
+        image: registry.access.redhat.com/ubi9/ubi-minimal
+        name: data-loader
+        volumeMounts:
+        - mountPath: /data
+          name: golden-dataset
+      restartPolicy: Never
+      volumes:
+      - name: golden-dataset
+        persistentVolumeClaim:
+          claimName: golden-dataset
+  ttlSecondsAfterFinished: 600
