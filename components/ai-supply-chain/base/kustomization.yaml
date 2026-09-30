@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ai-supply-chain-job-data-loader.yaml
+- ai-supply-chain-obc-private-models.yaml
 - ai-supply-chain-pvc-golden-dataset.yaml
 - ai-supply-chain-secret-granite-3-8b-modelcar.yaml
 - cluster-namespace-ai-supply-chain.yaml
