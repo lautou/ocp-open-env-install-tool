@@ -1,6 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- ai-supply-chain-job-patch-golden-dataset-pv-retain.yaml
 - ai-supply-chain-pod-storage-binder.yaml
 - ai-supply-chain-pvc-golden-dataset.yaml
+- ai-supply-chain-rb-patch-golden-dataset-pv-retain.yaml
+- ai-supply-chain-role-patch-golden-dataset-pv-retain.yaml
+- ai-supply-chain-sa-patch-golden-dataset-pv-retain.yaml
+- cluster-cr-patch-golden-dataset-pv-retain.yaml
+- cluster-crb-patch-golden-dataset-pv-retain.yaml
 - cluster-namespace-ai-supply-chain.yaml
