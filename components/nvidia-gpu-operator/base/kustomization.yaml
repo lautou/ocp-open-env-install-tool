@@ -5,6 +5,7 @@ resources:
 - cluster-clusterpolicy-gpu-cluster-policy.yaml
 - cluster-crb-gpu-clusterpolicy-edit.yaml
 - cluster-namespace-nvidia-gpu-operator.yaml
+- nvidia-gpu-operator-cm-time-slicing-config.yaml
 - nvidia-gpu-operator-operatorgroup-nvidia-gpu-operator-group.yaml
 - nvidia-gpu-operator-subscription-gpu-operator-certified.yaml
 replacements:

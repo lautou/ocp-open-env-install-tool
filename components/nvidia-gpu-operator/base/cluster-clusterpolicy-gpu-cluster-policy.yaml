@@ -8,7 +8,10 @@ spec:
   daemonsets: {}
   dcgm: {}
   dcgmExporter: {}
-  devicePlugin: {}
+  devicePlugin:
+    config:
+      default: high-density-slice
+      name: time-slicing-config
   driver:
     enabled: true
   gfd: {}

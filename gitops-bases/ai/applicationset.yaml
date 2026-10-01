@@ -8,8 +8,6 @@ spec:
   - list:
       elements:
       - branch: master
-        item: ai-gpuaas
-      - branch: master
         item: ai-project-a
       - branch: master
         item: ai-supply-chain
