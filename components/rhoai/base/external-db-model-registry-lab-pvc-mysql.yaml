@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql
-  namespace: external-db-model-registry
+  namespace: external-db-model-registry-lab
 spec:
   accessModes:
     - ReadWriteOnce

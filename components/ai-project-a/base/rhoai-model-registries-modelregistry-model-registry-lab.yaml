@@ -8,7 +8,7 @@ metadata:
 spec:
   mysql:
     database: modelregistrydb
-    host: mysql.external-db-model-registry.svc.cluster.local
+    host: mysql.external-db-model-registry-lab.svc.cluster.local
     passwordSecret:
       key: database-password
       name: registry-db-secret

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
-  namespace: external-db-model-registry
+  namespace: external-db-model-registry-lab
 spec:
   replicas: 1
   selector:
