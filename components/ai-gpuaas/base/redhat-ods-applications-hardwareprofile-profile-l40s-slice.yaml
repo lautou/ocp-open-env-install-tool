@@ -3,6 +3,7 @@ kind: HardwareProfile
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/dashboard-feature-visibility: '["workbench"]'
     opendatahub.io/description: "Shared GPU segment. Good for inference and light training."
     opendatahub.io/display-name: "NVIDIA L40S (Time-Sliced)"
   name: profile-l40s-slice
