@@ -7,7 +7,7 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
   name: lsd-genai-playground
-  namespace: ai-project-a
+  namespace: model-registry-lab
 spec:
   distribution:
     name: rh

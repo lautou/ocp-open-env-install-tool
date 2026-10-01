@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: models
-  namespace: ai-project-a
+  namespace: model-registry-lab
 spec:
   additionalConfig:
     bucketclass: noobaa-default-bucket-class

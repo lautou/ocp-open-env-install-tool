@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cluster-namespace-model-registry-lab.yaml
+- model-registry-lab-cm-ingestion-code.yaml
+- model-registry-lab-cm-ogx-base-config.yaml
+- model-registry-lab-cm-ogxserver-postgres-metadata.yaml
+- model-registry-lab-cm-ogxserver-vector-connection.yaml
+- model-registry-lab-inferenceservice-qwen3-06b-100.yaml
+- model-registry-lab-job-mcg-bucket-models-rotation.yaml
+- model-registry-lab-job-model-ingest.yaml
+- model-registry-lab-obc-models.yaml
+- model-registry-lab-ogxserver-lsd-genai-playground.yaml
+- model-registry-lab-rb-mcg-bucket-models-rotation.yaml
+- model-registry-lab-role-mcg-bucket-models-rotation.yaml
+- model-registry-lab-sa-mcg-bucket-models-rotation.yaml
+- model-registry-lab-sa-model-ingestion.yaml
+- model-registry-lab-secret-ogxserver-postgres-metadata.yaml
+- model-registry-lab-secret-ogxserver-vector-connection.yaml
+- model-registry-lab-servingruntime-vllm-cpu-x86-runtime.yaml
+- rhoai-model-registries-modelregistry-model-registry-lab.yaml
+- rhoai-model-registries-networkpolicy-allow-ai-projects.yaml
+- rhoai-model-registries-rb-model-ingest-job.yaml
+- rhoai-model-registries-role-model-ingest-job.yaml
+- rhoai-model-registries-secret-registry-db.yaml

@@ -16,7 +16,7 @@ metadata:
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
   name: qwen3-06b-100
-  namespace: ai-project-a
+  namespace: model-registry-lab
 spec:
   predictor:
     deploymentStrategy:

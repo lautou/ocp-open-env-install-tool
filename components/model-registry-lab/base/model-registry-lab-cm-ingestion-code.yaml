@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ingestion-code
-  namespace: ai-project-a
+  namespace: model-registry-lab
 data:
   ingest_and_register.py: |
     import os

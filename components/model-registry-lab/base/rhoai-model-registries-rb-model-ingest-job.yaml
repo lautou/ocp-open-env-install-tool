@@ -10,4 +10,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: model-ingestion
-  namespace: ai-project-a
+  namespace: model-registry-lab

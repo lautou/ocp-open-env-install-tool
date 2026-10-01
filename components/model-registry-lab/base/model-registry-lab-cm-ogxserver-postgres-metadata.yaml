@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ogxserver-postgres-metadata
-  namespace: ai-project-a
+  namespace: model-registry-lab
 data:
   POSTGRES_DB: ogxservermetadatadb
   POSTGRES_HOST: postgresql.external-db-ogxserver-metadata.svc.cluster.local

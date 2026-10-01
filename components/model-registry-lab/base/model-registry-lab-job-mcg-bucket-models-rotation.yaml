@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: mcg-bucket-models-rotation
-  namespace: ai-project-a
+  namespace: model-registry-lab
 spec:
   ttlSecondsAfterFinished: 600
   template:
@@ -22,19 +22,19 @@ spec:
         - |
           set -e
 
-          echo "Waiting for OBC-generated secret models in ai-project-a..."
-          while ! oc get secret models -n ai-project-a &>/dev/null; do
+          echo "Waiting for OBC-generated secret models in model-registry-lab..."
+          while ! oc get secret models -n model-registry-lab &>/dev/null; do
             sleep 5
           done
           echo "Secret found"
 
-          ACCESS_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
-          SECRET_KEY=$(oc get secret models -n ai-project-a -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
-          BUCKET_NAME=$(oc get configmap models -n ai-project-a -o jsonpath='{.data.BUCKET_NAME}')
+          ACCESS_KEY=$(oc get secret models -n model-registry-lab -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+          SECRET_KEY=$(oc get secret models -n model-registry-lab -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+          BUCKET_NAME=$(oc get configmap models -n model-registry-lab -o jsonpath='{.data.BUCKET_NAME}')
 
-          echo "Creating Data Connection secret mcg-models in ai-project-a..."
+          echo "Creating Data Connection secret mcg-models in model-registry-lab..."
           oc create secret generic mcg-models \
-            -n ai-project-a \
+            -n model-registry-lab \
             --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
             --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
             --from-literal=AWS_S3_ENDPOINT="http://s3.openshift-storage.svc" \
@@ -45,4 +45,4 @@ spec:
             | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 opendatahub.io/connection-type-protocol=s3 \
             | oc apply -f -
 
-          echo "✅ Secret mcg-models ready in ai-project-a"
+          echo "✅ Secret mcg-models ready in model-registry-lab"

@@ -2,4 +2,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mcg-bucket-models-rotation
-  namespace: ai-project-a
+  namespace: model-registry-lab

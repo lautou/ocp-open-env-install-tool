@@ -10,8 +10,6 @@ spec:
       - branch: master
         item: ai-gpuaas
       - branch: master
-        item: ai-project-a
-      - branch: master
         item: ai-supply-chain
       - branch: master
         item: jobset
@@ -21,6 +19,8 @@ spec:
         item: leader-work-set
       - branch: master
         item: model-deploy-lab
+      - branch: master
+        item: model-registry-lab
       - branch: master
         item: nvidia-gpu-operator
       - branch: master

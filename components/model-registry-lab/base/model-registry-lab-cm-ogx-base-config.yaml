@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ogx-base-config
-  namespace: ai-project-a
+  namespace: model-registry-lab
   labels:
     ogx.io/watch: "true"
 data:
@@ -26,7 +26,7 @@ data:
         provider_type: remote::vllm
         config:
           api_token: ${env.VLLM_API_TOKEN_1:=fake}
-          base_url: http://qwen3-06b-100-predictor.ai-project-a.svc.cluster.local:8080/v1
+          base_url: http://qwen3-06b-100-predictor.model-registry-lab.svc.cluster.local:8080/v1
           max_tokens: ${env.VLLM_MAX_TOKENS_1:=4096}
           tls_verify: ${env.VLLM_TLS_VERIFY:=true}
       vector_io:
