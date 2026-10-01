@@ -12,6 +12,8 @@ spec:
       - branch: master
         item: ai-supply-chain
       - branch: master
+        item: gpuaas
+      - branch: master
         item: jobset
       - branch: master
         item: kueue
