@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - cluster-clusterqueue-cluster-queue-gpu.yaml
 - cluster-namespace-gpu-users.yaml
+- gpu-users-localqueue-local-queue-gpu.yaml
