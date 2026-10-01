@@ -1,0 +1,34 @@
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/dashboard-feature-visibility: '["workbench"]'
+    opendatahub.io/description: "Bundled 2x GPU for LLM Fine-tuning and Distributed Training."
+    opendatahub.io/display-name: "Dual L40S Station (96GB VRAM)"
+  name: profile-dual-l40s
+  namespace: redhat-ods-applications
+spec:
+  identifiers:
+  - defaultCount: 1
+    displayName: CPU
+    identifier: cpu
+    maxCount: 2
+    minCount: 1
+    resourceType: CPU
+  - defaultCount: 1Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 2Gi
+    minCount: 1Gi
+    resourceType: Memory
+  - defaultCount: 2
+    displayName: "Dual GPU"
+    identifier: nvidia.com/gpu
+    maxCount: 2
+    minCount: 2
+    resourceType: Accelerator
+  scheduling:
+    kueue:
+      localQueueName: local-queue-gpu
+    type: Queue

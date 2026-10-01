@@ -5,4 +5,5 @@ resources:
 - cluster-namespace-gpu-users.yaml
 - cluster-resourceflavor-flavor-dual-gpu.yaml
 - gpu-users-localqueue-local-queue-gpu.yaml
+- redhat-ods-applications-hardwareprofile-profile-dual-l40s.yaml
 - redhat-ods-applications-hardwareprofile-profile-l40s-slice.yaml
