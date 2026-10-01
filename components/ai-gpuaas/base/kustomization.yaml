@@ -4,3 +4,4 @@ resources:
 - cluster-clusterqueue-cluster-queue-gpu.yaml
 - cluster-namespace-gpu-users.yaml
 - gpu-users-localqueue-local-queue-gpu.yaml
+- redhat-ods-applications-hardwareprofile-profile-l40s-slice.yaml
