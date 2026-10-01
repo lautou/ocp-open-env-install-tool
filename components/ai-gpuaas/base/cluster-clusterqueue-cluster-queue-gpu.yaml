@@ -8,9 +8,15 @@ spec:
   namespaceSelector: {}
   resourceGroups:
   - coveredResources:
+    - cpu
+    - memory
     - nvidia.com/gpu
     flavors:
     - name: default-flavor
       resources:
+      - name: cpu
+        nominalQuota: 16
+      - name: memory
+        nominalQuota: 64Gi
       - name: nvidia.com/gpu
         nominalQuota: 10
