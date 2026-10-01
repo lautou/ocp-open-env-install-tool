@@ -8,5 +8,6 @@ resources:
 - ai-supply-chain-rb-create-secret-corporate-data-lake.yaml
 - ai-supply-chain-role-create-secret-corporate-data-lake.yaml
 - ai-supply-chain-sa-create-secret-corporate-data-lake.yaml
+- ai-supply-chain-secret-custom-uri-link.yaml
 - ai-supply-chain-secret-granite-3-8b-modelcar.yaml
 - cluster-namespace-ai-supply-chain.yaml
