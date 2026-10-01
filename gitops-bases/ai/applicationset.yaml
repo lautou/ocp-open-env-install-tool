@@ -20,6 +20,8 @@ spec:
       - branch: master
         item: leader-work-set
       - branch: master
+        item: llmd-deploy-lab
+      - branch: master
         item: model-deploy-lab
       - branch: master
         item: model-registry-lab
