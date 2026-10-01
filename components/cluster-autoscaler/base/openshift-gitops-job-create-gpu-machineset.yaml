@@ -58,6 +58,7 @@ spec:
                 .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
                 .spec.template.metadata.labels["cluster-api/accelerator"] = "nvidia" |
                 .spec.template.spec.providerSpec.value.instanceType = $instanceType |
+                .spec.template.spec.metadata.labels["nvidia.com/device-plugin.config"] = "high-density-slice" |
                 .spec.template.spec.taints = [
                   {
                     "key": "nvidia.com/gpu",
