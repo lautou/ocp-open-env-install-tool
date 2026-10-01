@@ -8,7 +8,7 @@ spec:
     matchLabels:
       app: model-registry-lab
       app.kubernetes.io/name: model-registry-lab
-      component: model-registry-lab
+      component: model-registry
   policyTypes:
   - Ingress
   ingress:
