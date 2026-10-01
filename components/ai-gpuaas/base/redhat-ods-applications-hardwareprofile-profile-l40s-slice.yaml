@@ -10,6 +10,18 @@ metadata:
   namespace: redhat-ods-applications
 spec:
   identifiers:
+  - defaultCount: 8
+    displayName: CPU
+    identifier: cpu
+    maxCount: 16
+    minCount: 4
+    resourceType: CPU
+  - defaultCount: 32Gi
+    displayName: Memory
+    identifier: memory
+    maxCount: 64Gi
+    minCount: 16Gi
+    resourceType: Memory
   - defaultCount: 1
     displayName: "Shared GPU"
     identifier: nvidia.com/gpu
