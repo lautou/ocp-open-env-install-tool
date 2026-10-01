@@ -12,8 +12,6 @@ spec:
       - branch: master
         item: ai-project-a
       - branch: master
-        item: ai-project-b
-      - branch: master
         item: ai-supply-chain
       - branch: master
         item: jobset
@@ -21,6 +19,8 @@ spec:
         item: kueue
       - branch: master
         item: leader-work-set
+      - branch: master
+        item: model-deploy-lab
       - branch: master
         item: nvidia-gpu-operator
       - branch: master

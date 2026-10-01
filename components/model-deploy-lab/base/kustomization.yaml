@@ -12,5 +12,5 @@ resources:
 - model-deploy-lab-sa-mcg-bucket-models-rotation.yaml
 - model-deploy-lab-sa-model-ingestion.yaml
 - model-deploy-lab-servingruntime-vllm-cuda-runtime.yaml
-- rhoai-model-registries-rb-model-ingest-job-ai-project-b.yaml
-- rhoai-model-registries-role-model-ingest-job-ai-project-b.yaml
+- rhoai-model-registries-rb-model-ingest-job-model-deploy-lab.yaml
+- rhoai-model-registries-role-model-ingest-job-model-deploy-lab.yaml
