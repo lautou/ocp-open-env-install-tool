@@ -4,3 +4,9 @@ resources:
 - ai-team-a-localqueue-team-a-queue.yaml
 - ai-team-b-localqueue-team-b-queue.yaml
 - cluster-clusterqueue-shared-cluster-queue.yaml
+- redhat-ods-applications-hardwareprofile-dataprep-heavy.yaml
+- redhat-ods-applications-hardwareprofile-nvidia-mig-1g-5gb.yaml
+- redhat-ods-applications-hardwareprofile-nvidia-shared-v100.yaml
+- redhat-ods-applications-hardwareprofile-tier1-medium.yaml
+- redhat-ods-applications-hardwareprofile-tier1-xsmall.yaml
+- redhat-ods-applications-hardwareprofile-training-dedicated-a100.yaml
