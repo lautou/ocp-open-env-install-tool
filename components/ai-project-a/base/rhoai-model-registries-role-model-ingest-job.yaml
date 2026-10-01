@@ -9,6 +9,6 @@ rules:
   resources:
   - services
   resourceNames:
-  - model-registry
+  - model-registry-lab
   verbs:
   - get

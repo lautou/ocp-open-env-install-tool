@@ -28,7 +28,7 @@ spec:
         - name: MODEL_ID
           value: "Qwen/Qwen3-0.6B"
         - name: REGISTRY_HOST
-          value: "model-registry.rhoai-model-registries.svc.cluster.local"
+          value: "model-registry-lab.rhoai-model-registries.svc.cluster.local"
         - name: REGISTRY_PORT
           value: "8443"
         - name: AWS_ACCESS_KEY_ID

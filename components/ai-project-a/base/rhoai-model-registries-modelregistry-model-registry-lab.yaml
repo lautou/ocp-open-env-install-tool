@@ -3,7 +3,7 @@ kind: ModelRegistry
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  name: model-registry
+  name: model-registry-lab
   namespace: rhoai-model-registries
 spec:
   mysql:

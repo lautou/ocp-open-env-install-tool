@@ -28,7 +28,7 @@ spec:
         - name: MODEL_ID
           value: "ibm-granite/granite-3.3-2b-instruct"
         - name: REGISTRY_HOST
-          value: "model-registry.rhoai-model-registries.svc.cluster.local"
+          value: "model-registry-lab.rhoai-model-registries.svc.cluster.local"
         - name: REGISTRY_PORT
           value: "8443"
         - name: AWS_ACCESS_KEY_ID
