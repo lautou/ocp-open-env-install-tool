@@ -4,4 +4,4 @@ metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
     opendatahub.io/dashboard: "true"
-  name: ai-project-b
+  name: model-deploy-lab

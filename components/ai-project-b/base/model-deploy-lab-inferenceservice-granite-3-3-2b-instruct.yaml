@@ -17,7 +17,7 @@ metadata:
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
   name: granite-3-3-2b-instruct
-  namespace: ai-project-b
+  namespace: model-deploy-lab
 spec:
   predictor:
     deploymentStrategy:

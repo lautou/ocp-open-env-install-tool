@@ -2,4 +2,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: model-ingestion
-  namespace: ai-project-b
+  namespace: model-deploy-lab

@@ -13,7 +13,7 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
   name: vllm-cuda-runtime
-  namespace: ai-project-b
+  namespace: model-deploy-lab
 spec:
   annotations:
     opendatahub.io/kserve-runtime: vllm
