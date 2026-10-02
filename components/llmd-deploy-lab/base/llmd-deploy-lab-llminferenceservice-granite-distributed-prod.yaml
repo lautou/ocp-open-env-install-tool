@@ -42,7 +42,7 @@ spec:
           - --cert-path=/var/run/kserve/tls
           - --config-text
           - |
-            apiVersion: inference.networking.x-k8s.io/v1alpha1
+            apiVersion: llm-d.ai/v1alpha1
             kind: EndpointPickerConfig
             plugins:
             - type: single-profile-handler
@@ -50,6 +50,9 @@ spec:
             - type: kv-cache-utilization-scorer
             - type: prefix-cache-scorer
             - type: max-score-picker
+            - parameters:
+                scheme: https
+              type: metrics-data-source
             schedulingProfiles:
             - name: default
               plugins:
@@ -65,16 +68,71 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: registry.redhat.io/rhoai/odh-llm-d-inference-scheduler-rhel9@sha256:bddf686d6eaf1a607e1c697f58165d685944607cb4629648f27e56b2884e3de0
+          image: registry.redhat.io/rhoai/odh-llm-d-router-endpoint-picker-rhel9@sha256:14e57b536479e7d8b7d495000d8402ca780997994096277d131b56e6a9bcf27f
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sleep
+                - "15"
+          livenessProbe:
+            failureThreshold: 3
+            grpc:
+              port: 9003
+              service: liveness
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
           name: main
+          ports:
+          - containerPort: 9002
+            name: grpc
+            protocol: TCP
+          - containerPort: 9003
+            name: grpc-health
+            protocol: TCP
+          - containerPort: 9090
+            name: metrics
+            protocol: TCP
+          - containerPort: 5557
+            name: zmq
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            grpc:
+              port: 9003
+              service: readiness
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
+            limits:
+              cpu: "6"
+              memory: 16Gi
             requests:
-              cpu: 256m
-              memory: 500Mi
+              cpu: "1"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 60
         volumes:
         - name: tls-certs
           secret:
