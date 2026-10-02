@@ -28,7 +28,7 @@ spec:
       name: main
       resources:
         limits:
-          memory: 12Gi
+          memory: 11Gi
           nvidia.com/gpu: "1"
     serviceAccountName: kserve-s3-sa
     tolerations:
