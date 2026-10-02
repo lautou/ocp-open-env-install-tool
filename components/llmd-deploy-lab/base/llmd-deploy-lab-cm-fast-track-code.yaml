@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fast-track-code
+  namespace: llmd-deploy-lab
+data:
+  fast_track_ingest.py: |
+    import os
+    import boto3
+    from huggingface_hub import snapshot_download
+    from botocore.client import Config
+
+    MODEL_ID = os.getenv("MODEL_ID")
+    S3_BUCKET = os.getenv("S3_BUCKET")
+    S3_FOLDER = os.getenv("S3_FOLDER")
+    S3_ENDPOINT = os.getenv("AWS_S3_ENDPOINT")
+    AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+    def main():
+        print(f"\n=== DOWNLOADING {MODEL_ID} ===")
+        local_dir = snapshot_download(repo_id=MODEL_ID, allow_patterns=["*.json", "*.safetensors", "*.model", "tokenizer*"])
+
+        print(f"\n=== UPLOADING TO MINIO ===")
+        s3 = boto3.client('s3', endpoint_url=S3_ENDPOINT,
+                          aws_access_key_id=AWS_ACCESS_KEY,
+                          aws_secret_access_key=AWS_SECRET_KEY,
+                          config=Config(signature_version='s3v4'))
+        try:
+            s3.create_bucket(Bucket=S3_BUCKET)
+        except:
+            pass
+
+        for root, dirs, files in os.walk(local_dir):
+            for file in files:
+                local_path = os.path.join(root, file)
+                relative_path = os.path.relpath(local_path, local_dir)
+                s3_key = os.path.join(S3_FOLDER, relative_path)
+
+                if relative_path == "config.json":
+                     print(f"Uploading Config: s3://{S3_BUCKET}/{s3_key}")
+                s3.upload_file(local_path, S3_BUCKET, s3_key)
+
+        print(f"\n✅ SUCCESS: Model ready in s3://{S3_BUCKET}/{S3_FOLDER}")
+
+    if __name__ == "__main__":
+        main()
