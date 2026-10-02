@@ -4,6 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
     opendatahub.io/model-type: generative
+    security.opendatahub.io/enable-auth: "false"
   labels:
     opendatahub.io/dashboard: "true"
   name: granite-distributed
