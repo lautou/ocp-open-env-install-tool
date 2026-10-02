@@ -3,6 +3,8 @@ kind: LLMInferenceService
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
     security.opendatahub.io/enable-auth: "false"
   labels:
@@ -28,6 +30,11 @@ spec:
       name: main
       resources:
         limits:
+          cpu: "1"
+          memory: 11Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
           memory: 11Gi
           nvidia.com/gpu: "1"
     serviceAccountName: kserve-s3-sa
