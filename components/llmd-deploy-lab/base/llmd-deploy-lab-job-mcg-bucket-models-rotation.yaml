@@ -46,3 +46,19 @@ spec:
             | oc apply -f -
 
           echo "✅ Secret mcg-models ready in llmd-deploy-lab"
+
+          echo "Creating KServe-native S3 credentials secret kserve-s3-creds in llmd-deploy-lab..."
+          oc create secret generic kserve-s3-creds \
+            -n llmd-deploy-lab \
+            --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
+            --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
+            --dry-run=client -o yaml \
+            | oc annotate -f - --local -o yaml \
+                serving.kserve.io/s3-endpoint=s3.openshift-storage.svc \
+                serving.kserve.io/s3-region=us-east-1 \
+                serving.kserve.io/s3-useanoncredential=false \
+                serving.kserve.io/s3-usehttps=0 \
+                serving.kserve.io/s3-verifyssl=0 \
+            | oc apply -f -
+
+          echo "✅ Secret kserve-s3-creds ready in llmd-deploy-lab"

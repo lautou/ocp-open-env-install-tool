@@ -1,0 +1,36 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/model-type: generative
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: granite-distributed
+  namespace: llmd-deploy-lab
+spec:
+  model:
+    name: granite-3.3-2b-instruct
+    uri: s3://models--04c2e537-e593-4fd8-9d8c-948b64c36bb1/granite3
+  replicas: 2
+  router:
+    gateway:
+      refs:
+      - name: openshift-ai-inference
+        namespace: openshift-ingress
+    route: {}
+  template:
+    containers:
+    - env:
+      - name: VLLM_ADDITIONAL_ARGS
+        value: "--max-model-len=16000 --gpu-memory-utilization=0.95"
+      name: main
+      resources:
+        limits:
+          memory: 12Gi
+          nvidia.com/gpu: "1"
+    serviceAccountName: kserve-s3-sa
+    tolerations:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Exists
