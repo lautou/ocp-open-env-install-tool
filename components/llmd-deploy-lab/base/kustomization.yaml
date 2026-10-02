@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - cluster-namespace-llmd-deploy-lab.yaml
 - llmd-deploy-lab-cm-fast-track-code.yaml
+- llmd-deploy-lab-job-fasttracker.yaml
 - llmd-deploy-lab-job-mcg-bucket-models-rotation.yaml
 - llmd-deploy-lab-obc-models.yaml
 - llmd-deploy-lab-rb-mcg-bucket-models-rotation.yaml

@@ -4,7 +4,7 @@ metadata:
   name: fast-track-code
   namespace: llmd-deploy-lab
 data:
-  fast_track_ingest.py: |
+  fast_ingest.py: |
     import os
     import boto3
     from huggingface_hub import snapshot_download

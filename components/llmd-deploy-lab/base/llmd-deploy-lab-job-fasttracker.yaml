@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: fasttracker
+  namespace: llmd-deploy-lab
+spec:
+  template:
+    metadata:
+      name: fasttracker
+    spec:
+      containers:
+      - name: loader
+        image: registry.access.redhat.com/ubi9/python-311:latest
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            pip install boto3 huggingface-hub --quiet --no-cache-dir && \
+            python /scripts/fast_ingest.py
+        env:
+        - name: MODEL_ID
+          value: "ibm-granite/granite-3.3-2b-instruct"
+        - name: S3_FOLDER
+          value: "granite3"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: mcg-models
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mcg-models
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_S3_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: mcg-models
+              key: AWS_S3_ENDPOINT
+        - name: S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: mcg-models
+              key: AWS_S3_BUCKET
+        volumeMounts:
+        - name: code-volume
+          mountPath: /scripts
+      restartPolicy: Never
+      volumes:
+      - name: code-volume
+        configMap:
+          name: fast-track-code
