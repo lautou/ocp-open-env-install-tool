@@ -6,7 +6,7 @@ metadata:
     modelFormat: vLLM
     opendatahub.io/connection-path: granite-3.3-2b-instruct/1.0.0
     opendatahub.io/connections: mcg-models
-    opendatahub.io/hardware-profile-name: gpus
+    opendatahub.io/hardware-profile-name: gpu-profile
     opendatahub.io/hardware-profile-namespace: redhat-ods-applications
     opendatahub.io/model-type: generative
     openshift.io/description: ""
