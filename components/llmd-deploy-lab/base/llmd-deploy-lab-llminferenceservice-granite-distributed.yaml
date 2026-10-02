@@ -38,7 +38,3 @@ spec:
           memory: 11Gi
           nvidia.com/gpu: "1"
     serviceAccountName: kserve-s3-sa
-    tolerations:
-    - effect: NoSchedule
-      key: nvidia.com/gpu
-      operator: Exists
