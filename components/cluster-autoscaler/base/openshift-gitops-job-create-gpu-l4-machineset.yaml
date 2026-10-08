@@ -40,6 +40,14 @@ spec:
               echo "Target Region: $REGION"
               echo "Target AZ: $AZ"
 
+              # Preserve the live replica count on update - the MachineAutoscaler owns this
+              # field after creation. Re-asserting a fixed value here on every run would
+              # fight the autoscaler (same class of issue as GitOps/ArgoCD needing
+              # ignoreDifferences on /spec/replicas - see KCS 7127428). Only default to 0
+              # when the MachineSet doesn't exist yet (first creation).
+              CURRENT_REPLICAS=$(oc get machineset "$NEW_MS_NAME" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
+              echo "Current live replicas: ${CURRENT_REPLICAS:-<none, first creation - defaulting to 0>}"
+
               echo "Processing GPU L4 MachineSet definition (Create or Update)..."
 
               # 2. Process the JSON to create/update the MachineSet definition
@@ -51,13 +59,14 @@ spec:
                 --arg name "$NEW_MS_NAME" \
                 --arg instanceType "g6.8xlarge" \
                 --arg az "$AZ" \
+                --argjson replicas "${CURRENT_REPLICAS:-0}" \
                 '
                 .metadata = {
                   "name": $name,
                   "namespace": "openshift-machine-api",
                   "labels": .metadata.labels
                 } |
-                .spec.replicas = 0 |
+                .spec.replicas = $replicas |
                 .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
                 .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
                 .spec.template.metadata.labels["cluster-api/accelerator"] = "nvidia" |
