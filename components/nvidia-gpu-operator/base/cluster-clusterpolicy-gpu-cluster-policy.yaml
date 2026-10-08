@@ -7,7 +7,9 @@ metadata:
 spec:
   daemonsets: {}
   dcgm: {}
-  dcgmExporter: {}
+  dcgmExporter:
+    serviceMonitor:
+      enabled: true
   devicePlugin:
     config:
       default: no-time-slicing
