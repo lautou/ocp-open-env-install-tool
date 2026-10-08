@@ -1,0 +1,41 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/hardware-profile-name: gpu-l4-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: granite-3-1-8b
+    security.opendatahub.io/enable-auth: "false"
+    serving.kserve.io/deploymentMode: RawDeployment
+  labels:
+    opendatahub.io/dashboard: "true"
+  name: granite-3-1-8b
+  namespace: llm-serving
+spec:
+  predictor:
+    maxReplicas: 1
+    model:
+      args:
+      - --max-model-len
+      - "4096"
+      - --dtype
+      - float16
+      - --gpu-memory-utilization
+      - "0.90"
+      - --enforce-eager
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+      runtime: granite-3-1-8b
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:granite-3.1-8b-instruct
