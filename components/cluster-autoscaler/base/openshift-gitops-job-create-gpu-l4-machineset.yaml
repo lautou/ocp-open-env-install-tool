@@ -63,7 +63,6 @@ spec:
                 .spec.template.metadata.labels["cluster-api/accelerator"] = "nvidia" |
                 .spec.template.spec.providerSpec.value.instanceType = $instanceType |
                 .spec.template.spec.providerSpec.value.placement.availabilityZone = $az |
-                .spec.template.spec.providerSpec.value.spotMarketOptions = {} |
                 .spec.template.spec.taints = [
                   {
                     "key": "nvidia.com/gpu",
