@@ -3,33 +3,33 @@ kind: HardwareProfile
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    opendatahub.io/display-name: gpu-profile
-  name: gpu-profile
+    opendatahub.io/display-name: gpu-l4-profile
+  name: gpu-l4-profile
   namespace: redhat-ods-applications
 spec:
   identifiers:
-  - defaultCount: 2
+  - defaultCount: 8
     displayName: CPU
     identifier: cpu
-    maxCount: 4
+    maxCount: 32
     minCount: 1
     resourceType: CPU
-  - defaultCount: 4Gi
+  - defaultCount: 32Gi
     displayName: Memory
     identifier: memory
-    maxCount: 24Gi
+    maxCount: 128Gi
     minCount: 2Gi
     resourceType: Memory
   - defaultCount: 1
     displayName: GPU
     identifier: nvidia.com/gpu
-    maxCount: 2
+    maxCount: 1
     minCount: 1
     resourceType: Accelerator
   scheduling:
     node:
       nodeSelector:
-        nvidia.com/gpu.product: Tesla-T4-SHARED
+        nvidia.com/gpu.product: NVIDIA-L4
       tolerations:
       - key: nvidia.com/gpu
         operator: Exists

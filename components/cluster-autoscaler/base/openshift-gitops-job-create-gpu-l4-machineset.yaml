@@ -1,0 +1,107 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: create-gpu-l4-machineset
+  namespace: openshift-gitops
+spec:
+  template:
+    metadata:
+      name: create-gpu-l4-machineset
+    spec:
+      containers:
+        - command:
+            - /bin/bash
+            - '-c'
+            - |
+              set -e
+
+              # 1. Variables and Discovery
+              echo "Discovering cluster infrastructure..."
+
+              INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
+              AZ="eu-central-1a"
+
+              BASE_MS=$(oc get machinesets -n openshift-machine-api -o json | jq --arg az "$AZ" '.items | map(select((.metadata.name | contains("-worker-")) and (.metadata.name | contains($az)))) | .[0]')
+
+              if [[ -z "$BASE_MS" || "$BASE_MS" == "null" ]]; then
+                echo "ERROR: No worker MachineSet found in $AZ to clone!"
+                exit 1
+              fi
+
+              # Extract Region from the base MachineSet
+              REGION=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.region')
+
+              # Construct the new GPU L4 MachineSet Name
+              NEW_MS_NAME="${INFRA_ID}-gpu-l4-${AZ}"
+
+              echo "Target GPU L4 MachineSet Name: $NEW_MS_NAME"
+              echo "Target Region: $REGION"
+              echo "Target AZ: $AZ"
+
+              echo "Processing GPU L4 MachineSet definition (Create or Update)..."
+
+              # 2. Process the JSON to create/update the MachineSet definition
+              # Note: no nvidia.com/device-plugin.config label is set here on purpose -
+              # this node inherits the ClusterPolicy cluster-wide default (no time-slicing),
+              # unlike the T4 MachineSet which explicitly opts in to time-slicing.
+
+              echo "$BASE_MS" | jq \
+                --arg name "$NEW_MS_NAME" \
+                --arg instanceType "g6.8xlarge" \
+                --arg az "$AZ" \
+                '
+                .metadata = {
+                  "name": $name,
+                  "namespace": "openshift-machine-api",
+                  "labels": .metadata.labels
+                } |
+                .spec.replicas = 0 |
+                .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
+                .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
+                .spec.template.metadata.labels["cluster-api/accelerator"] = "nvidia" |
+                .spec.template.spec.providerSpec.value.instanceType = $instanceType |
+                .spec.template.spec.providerSpec.value.placement.availabilityZone = $az |
+                .spec.template.spec.providerSpec.value.spotMarketOptions = {} |
+                .spec.template.spec.taints = [
+                  {
+                    "key": "nvidia.com/gpu",
+                    "value": "present",
+                    "effect": "NoSchedule"
+                  }
+                ] |
+                del(.status) |
+                del(.metadata.creationTimestamp) |
+                del(.metadata.uid) |
+                del(.metadata.resourceVersion) |
+                del(.metadata.generation)
+                ' > /tmp/gpu-l4-machineset.json
+
+              # Apply the MachineSet (Create or Patch)
+              oc apply -f /tmp/gpu-l4-machineset.json
+              echo "✅ GPU L4 MachineSet $NEW_MS_NAME applied successfully."
+
+              # 3. Create the fixed-size MachineAutoscaler (min=1/max=1 - always-on, not scale-from-zero)
+              echo "Creating/Updating MachineAutoscaler for $NEW_MS_NAME..."
+
+              cat <<EOF | oc apply -n openshift-machine-api -f -
+              apiVersion: autoscaling.openshift.io/v1beta1
+              kind: MachineAutoscaler
+              metadata:
+                name: $NEW_MS_NAME
+                namespace: openshift-machine-api
+              spec:
+                maxReplicas: 1
+                minReplicas: 1
+                scaleTargetRef:
+                  apiVersion: machine.openshift.io/v1beta1
+                  kind: MachineSet
+                  name: $NEW_MS_NAME
+              EOF
+
+              echo "✅ MachineAutoscaler for $NEW_MS_NAME applied successfully (fixed at 1 replica)."
+          image: quay.io/devfile/universal-developer-image:ubi9-latest
+          name: create-gpu-l4-machineset
+      restartPolicy: Never
+      serviceAccountName: gpu-machineset-operator

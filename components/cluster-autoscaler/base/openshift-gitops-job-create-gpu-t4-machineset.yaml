@@ -3,12 +3,12 @@ kind: Job
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
-  name: create-gpu-machineset
+  name: create-gpu-t4-machineset
   namespace: openshift-gitops
 spec:
   template:
     metadata:
-      name: create-gpu-machineset
+      name: create-gpu-t4-machineset
     spec:
       containers:
         - command:
@@ -33,10 +33,10 @@ spec:
               REGION=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.region')
               AZ=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.availabilityZone')
 
-              # Construct the new GPU MachineSet Name
+              # Construct the new GPU T4 MachineSet Name
               NEW_MS_NAME="${INFRA_ID}-gpu-${AZ}"
 
-              echo "Target GPU MachineSet Name: $NEW_MS_NAME" 
+              echo "Target GPU T4 MachineSet Name: $NEW_MS_NAME"
               echo "Target Region: $REGION" 
               echo "Target AZ: $AZ"
 
@@ -75,7 +75,7 @@ spec:
 
               # Apply the MachineSet (Create or Patch)
               oc apply -f /tmp/gpu-machineset.json
-              echo "✅ GPU MachineSet $NEW_MS_NAME applied successfully."
+              echo "✅ GPU T4 MachineSet $NEW_MS_NAME applied successfully."
 
               # 3. Create the MachineAutoscaler
               echo "Creating/Updating MachineAutoscaler..."
@@ -99,6 +99,6 @@ spec:
                 
               echo "✅ MachineAutoscaler for $NEW_MS_NAME applied successfully."
           image: quay.io/devfile/universal-developer-image:ubi9-latest
-          name: create-gpu-machineset
+          name: create-gpu-t4-machineset
       restartPolicy: Never
       serviceAccountName: gpu-machineset-operator

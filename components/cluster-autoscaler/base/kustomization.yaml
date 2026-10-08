@@ -5,5 +5,6 @@ resources:
   - cluster-clusterautoscaler-default.yaml
   - cluster-clusterrole-edit-clusterautoscaler.yaml
   - cluster-crb-autoscaler-clusterautoscaler-edit.yaml
-  - openshift-gitops-configmap-machineautoscaler.yaml 
-  - openshift-gitops-job-create-gpu-machineset.yaml
+  - openshift-gitops-configmap-machineautoscaler.yaml
+  - openshift-gitops-job-create-gpu-l4-machineset.yaml
+  - openshift-gitops-job-create-gpu-t4-machineset.yaml

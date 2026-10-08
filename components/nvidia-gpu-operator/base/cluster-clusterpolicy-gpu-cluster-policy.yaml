@@ -10,7 +10,7 @@ spec:
   dcgmExporter: {}
   devicePlugin:
     config:
-      default: high-density-slice
+      default: no-time-slicing
       name: time-slicing-config
   driver:
     enabled: true
