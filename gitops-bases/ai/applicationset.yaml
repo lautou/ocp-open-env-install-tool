@@ -63,3 +63,8 @@ spec:
         - /metadata/annotations
         kind: ConfigMap
         name: model-catalog-sources
+      - group: serving.kserve.io
+        jsonPointers:
+        - /spec/predictor/nodeSelector
+        - /spec/predictor/tolerations
+        kind: InferenceService

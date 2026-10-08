@@ -15,6 +15,7 @@ metadata:
   namespace: llm-serving
 spec:
   predictor:
+    automountServiceAccountToken: false
     maxReplicas: 1
     model:
       args:
@@ -28,6 +29,7 @@ spec:
       modelFormat:
         name: vLLM
       name: ""
+      protocolVersion: v2
       resources:
         limits:
           cpu: "4"
