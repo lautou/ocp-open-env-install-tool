@@ -8,7 +8,7 @@ metadata:
     opendatahub.io/model-type: generative
     openshift.io/display-name: granite-3-1-8b
     security.opendatahub.io/enable-auth: "false"
-    serving.kserve.io/deploymentMode: RawDeployment
+    serving.kserve.io/deploymentMode: Standard
   labels:
     opendatahub.io/dashboard: "true"
   name: granite-3-1-8b
