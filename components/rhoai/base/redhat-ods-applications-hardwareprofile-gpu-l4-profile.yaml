@@ -3,22 +3,22 @@ kind: HardwareProfile
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    opendatahub.io/display-name: gpu-l4-profile
+    opendatahub.io/display-name: GPU Profile - L4
   name: gpu-l4-profile
   namespace: redhat-ods-applications
 spec:
   identifiers:
-  - defaultCount: 8
+  - defaultCount: 4
     displayName: CPU
     identifier: cpu
-    maxCount: 32
+    maxCount: 8
     minCount: 1
     resourceType: CPU
-  - defaultCount: 32Gi
+  - defaultCount: 16Gi
     displayName: Memory
     identifier: memory
-    maxCount: 128Gi
-    minCount: 2Gi
+    maxCount: 24Gi
+    minCount: 8Gi
     resourceType: Memory
   - defaultCount: 1
     displayName: GPU
