@@ -28,6 +28,7 @@ resources:
 - monitoring-grafanadashboard-istio-performance.yaml
 - monitoring-grafanadashboard-istio-service.yaml
 - monitoring-grafanadashboard-istio-workload.yaml
+- monitoring-grafanadashboard-node-health.yaml
 - monitoring-grafanadashboard-platform-engineer.yaml
 - monitoring-grafanadatasource-thanos-query-ds.yaml
 - monitoring-secret-grafana-datasource-token.yaml
@@ -125,3 +126,7 @@ configMapGenerator:
   namespace: monitoring
   files:
   - grafana-dashboards/istio-workload-dashboard.json
+- name: grafana-dashboard-node-health
+  namespace: monitoring
+  files:
+  - grafana-dashboards/node_health.json

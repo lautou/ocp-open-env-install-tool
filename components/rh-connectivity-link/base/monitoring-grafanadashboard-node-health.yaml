@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: node-health
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: node_health.json
+    name: grafana-dashboard-node-health
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
