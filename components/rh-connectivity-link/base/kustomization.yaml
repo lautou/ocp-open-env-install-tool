@@ -24,6 +24,7 @@ resources:
 - monitoring-grafanadashboard-controller-resources-metrics.yaml
 - monitoring-grafanadashboard-controller-runtime-metrics.yaml
 - monitoring-grafanadashboard-dns-operator.yaml
+- monitoring-grafanadashboard-gpu-health.yaml
 - monitoring-grafanadashboard-istio-mesh.yaml
 - monitoring-grafanadashboard-istio-performance.yaml
 - monitoring-grafanadashboard-istio-service.yaml
@@ -130,3 +131,7 @@ configMapGenerator:
   namespace: monitoring
   files:
   - grafana-dashboards/node_health.json
+- name: grafana-dashboard-gpu-health
+  namespace: monitoring
+  files:
+  - grafana-dashboards/gpu_health.json

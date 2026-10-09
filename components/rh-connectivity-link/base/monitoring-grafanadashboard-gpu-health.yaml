@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: gpu-health
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: gpu_health.json
+    name: grafana-dashboard-gpu-health
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
