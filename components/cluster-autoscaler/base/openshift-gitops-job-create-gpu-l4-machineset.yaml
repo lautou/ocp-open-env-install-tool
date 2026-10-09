@@ -21,7 +21,7 @@ spec:
               echo "Discovering cluster infrastructure..."
 
               INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
-              AZ="eu-central-1b"
+              AZ="eu-central-1c"
 
               BASE_MS=$(oc get machinesets -n openshift-machine-api -o json | jq --arg az "$AZ" '.items | map(select((.metadata.name | contains("-worker-")) and (.metadata.name | contains($az)))) | .[0]')
 
