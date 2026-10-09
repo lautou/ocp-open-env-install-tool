@@ -57,7 +57,7 @@ spec:
 
               echo "$BASE_MS" | jq \
                 --arg name "$NEW_MS_NAME" \
-                --arg instanceType "g6.8xlarge" \
+                --arg instanceType "g6.2xlarge" \
                 --arg az "$AZ" \
                 --argjson replicas "${CURRENT_REPLICAS:-0}" \
                 '
