@@ -31,6 +31,7 @@ resources:
 - monitoring-grafanadashboard-istio-workload.yaml
 - monitoring-grafanadashboard-node-health.yaml
 - monitoring-grafanadashboard-platform-engineer.yaml
+- monitoring-grafanadashboard-vllm-inference.yaml
 - monitoring-grafanadatasource-thanos-query-ds.yaml
 - monitoring-secret-grafana-datasource-token.yaml
 - monitoring-secret-grafana-proxy.yaml
@@ -135,3 +136,7 @@ configMapGenerator:
   namespace: monitoring
   files:
   - grafana-dashboards/gpu_health.json
+- name: grafana-dashboard-vllm-inference
+  namespace: monitoring
+  files:
+  - grafana-dashboards/vllm_inference.json

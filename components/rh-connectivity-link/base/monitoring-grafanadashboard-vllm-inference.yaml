@@ -1,0 +1,12 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: vllm-inference
+  namespace: monitoring
+spec:
+  configMapRef:
+    key: vllm_inference.json
+    name: grafana-dashboard-vllm-inference
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
