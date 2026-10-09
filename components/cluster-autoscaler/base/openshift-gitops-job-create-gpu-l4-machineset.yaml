@@ -45,7 +45,7 @@ spec:
               # fight the autoscaler (same class of issue as GitOps/ArgoCD needing
               # ignoreDifferences on /spec/replicas - see KCS 7127428). Only default to 0
               # when the MachineSet doesn't exist yet (first creation).
-              CURRENT_REPLICAS=$(oc get machineset "$NEW_MS_NAME" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null)
+              CURRENT_REPLICAS=$(oc get machineset "$NEW_MS_NAME" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
               echo "Current live replicas: ${CURRENT_REPLICAS:-<none, first creation - defaulting to 0>}"
 
               echo "Processing GPU L4 MachineSet definition (Create or Update)..."
