@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-namespace-my-first-model.yaml
+  - my-first-model-inferenceservice-llama-32-3b-instruct.yaml
+  - my-first-model-ogxserver-lsd-genai-playground.yaml
+  - my-first-model-servingruntime-llama-32-3b-instruct.yaml

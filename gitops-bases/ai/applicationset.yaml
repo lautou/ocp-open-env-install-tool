@@ -8,6 +8,8 @@ spec:
   - list:
       elements:
       - branch: master
+        item: agent-traces-mlflow
+      - branch: master
         item: ai-gpuaas
       - branch: master
         item: ai-supply-chain
