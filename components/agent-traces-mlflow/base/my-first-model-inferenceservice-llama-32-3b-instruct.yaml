@@ -9,7 +9,6 @@ metadata:
     openshift.io/display-name: Llama 3.2 3B Instruct
     security.opendatahub.io/enable-auth: "false"
   labels:
-    networking.kserve.io/visibility: exposed
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
   name: llama-32-3b-instruct
