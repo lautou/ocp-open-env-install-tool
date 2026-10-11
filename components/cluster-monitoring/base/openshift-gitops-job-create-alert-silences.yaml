@@ -59,7 +59,7 @@ spec:
             PF_PID=$!
             sleep 2
             API_CODE=$(curl -s -w "%{http_code}" -o /dev/null --connect-timeout 3 \
-              http://localhost:9093/api/v2/status 2>/dev/null)
+              http://localhost:9093/api/v2/status 2>/dev/null) || true
             kill $PF_PID 2>/dev/null || true
             if [ "$API_CODE" = "200" ]; then
               echo "✅ Alertmanager API ready (HTTP 200)"
@@ -90,7 +90,7 @@ spec:
               HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/silence_response.json \
                 -X POST -H "Content-Type: application/json" \
                 --data "$payload" \
-                http://localhost:9093/api/v2/silences 2>/dev/null)
+                http://localhost:9093/api/v2/silences 2>/dev/null) || true
 
               # Extract silence ID using grep/sed (no jq needed)
               SILENCE_ID=$(grep -o '"silenceID":"[^"]*"' /tmp/silence_response.json 2>/dev/null | sed 's/"silenceID":"\(.*\)"/\1/' || echo "")
@@ -102,7 +102,7 @@ spec:
 
                 # Verify silence exists
                 VERIFY_CODE=$(curl -s -w "%{http_code}" -o /tmp/verify_silence.json \
-                  "http://localhost:9093/api/v2/silence/$SILENCE_ID" 2>/dev/null)
+                  "http://localhost:9093/api/v2/silence/$SILENCE_ID" 2>/dev/null) || true
 
                 if [ "$VERIFY_CODE" = "200" ]; then
                   echo "  ✅ Silence created and verified: $SILENCE_ID"
