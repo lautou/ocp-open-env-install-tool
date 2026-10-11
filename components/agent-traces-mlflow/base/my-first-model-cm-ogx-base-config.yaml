@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ogx-base-config
+  namespace: my-first-model
+  labels:
+    ogx.io/watch: "true"
+data:
+  config.yaml: |
+    version: "2"
+    distro_name: rh
+    apis:
+    - responses
+    - inference
+    providers:
+      inference:
+      - provider_id: vllm-inference-1
+        provider_type: remote::vllm
+        config:
+          base_url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+          tls_verify: false
+      responses:
+      - provider_id: builtin
+        provider_type: inline::builtin
+        config:
+          persistence:
+            responses:
+              backend: sql_default
+              table_name: responses
+    metadata_store:
+      type: sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/inference_store.db
+    storage:
+      backends:
+        kv_default:
+          type: kv_sqlite
+          db_path: /opt/app-root/src/.llama/distributions/rh/kvstore.db
+        sql_default:
+          type: sql_sqlite
+          db_path: /opt/app-root/src/.llama/distributions/rh/sql_store.db
+      stores:
+        metadata:
+          backend: kv_default
+          namespace: registry
+        inference:
+          backend: sql_default
+          table_name: inference_store
+        responses:
+          backend: sql_default
+          table_name: responses
+    registered_resources:
+      models:
+      - provider_id: vllm-inference-1
+        model_id: llama-32-3b-instruct
+        model_type: llm
+        metadata:
+          display_name: llama-32-3b-instruct
+    external_providers_dir: /opt/app-root/.llama/providers.d
+    server:
+      port: 8321

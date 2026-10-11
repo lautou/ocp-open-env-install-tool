@@ -12,14 +12,12 @@ spec:
   distribution:
     name: rh
   network: {}
-  providers:
-    inference:
-      remote:
-        vllm:
-        - id: llama-32-3b-instruct
-          endpoint: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
-  resources:
-    models:
-    - name: llama-32-3b-instruct
-      modelType: llm
-      provider: llama-32-3b-instruct
+  overrideConfig:
+    key: config.yaml
+    name: ogx-base-config
+  workload:
+    overrides:
+      command:
+      - /bin/sh
+      - -c
+      - ogx run /etc/ogx/config.yaml --insecure
