@@ -14,7 +14,7 @@ metadata:
 spec:
   model:
     name: granite-3
-    uri: s3://models--04c2e537-e593-4fd8-9d8c-948b64c36bb1/granite3
+    uri: s3://models--acaa409e-b95a-4867-ac77-c75c07a6a9ae/granite3
   replicas: 2
   router:
     gateway:
