@@ -65,7 +65,20 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/pgsql/data
           name: data
+        - mountPath: /opt/app-root/src/certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/app-root/src/postgresql-cfg
+          name: ssl-cfg
+          readOnly: true
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: mlflow-postgresql
+      - name: certs
+        secret:
+          defaultMode: 0640
+          secretName: mlflow-postgresql-tls
+      - configMap:
+          name: mlflow-postgresql-ssl
+        name: ssl-cfg

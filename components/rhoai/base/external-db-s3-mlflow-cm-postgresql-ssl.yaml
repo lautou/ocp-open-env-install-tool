@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-postgresql-ssl
+  namespace: external-db-s3-mlflow
+data:
+  ssl.conf: |
+    ssl = on
+    ssl_cert_file = '/opt/app-root/src/certs/tls.crt'
+    ssl_key_file = '/opt/app-root/src/certs/tls.key'

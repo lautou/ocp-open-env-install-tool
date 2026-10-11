@@ -35,6 +35,7 @@ resources:
 - external-db-ogxserver-vector-pvc-postgresql.yaml
 - external-db-ogxserver-vector-secret-postgresql-credentials.yaml
 - external-db-ogxserver-vector-service-postgresql.yaml
+- external-db-s3-mlflow-cm-postgresql-ssl.yaml
 - external-db-s3-mlflow-deployment-postgresql.yaml
 - external-db-s3-mlflow-obc-mlflow.yaml
 - external-db-s3-mlflow-pvc-postgresql.yaml
