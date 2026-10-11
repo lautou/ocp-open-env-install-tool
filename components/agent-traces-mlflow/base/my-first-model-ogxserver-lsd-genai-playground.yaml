@@ -22,6 +22,14 @@ spec:
       - -c
       - ogx run /etc/ogx/config.yaml --insecure
       env:
+      - name: HF_HUB_OFFLINE
+        value: "1"
+      - name: TRANSFORMERS_OFFLINE
+        value: "1"
+      - name: HF_DATASETS_OFFLINE
+        value: "1"
+      - name: SENTENCE_TRANSFORMERS_HOME
+        value: /opt/app-root/.cache/huggingface/hub
       - name: PGVECTOR_HOST
         valueFrom:
           configMapKeyRef:
