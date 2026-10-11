@@ -22,7 +22,9 @@ spec:
   - name: AWS_DEFAULT_REGION
     value: us-east-1
   - name: MLFLOW_S3_ENDPOINT_URL
-    value: http://s3.openshift-storage.svc
+    value: https://s3.openshift-storage.svc
+  - name: MLFLOW_S3_IGNORE_TLS
+    value: "true"
   serveArtifacts: true
   storage:
     accessModes:
