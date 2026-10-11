@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true
+  name: patch-mlflow-artifacts-destination
+  namespace: openshift-gitops
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      name: patch-mlflow-artifacts-destination
+    spec:
+      serviceAccountName: mlflow-artifacts-patcher
+      restartPolicy: Never
+      containers:
+      - name: patch-mlflow
+        image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Waiting for OBC-generated secret/configmap mlflow in external-db-s3-mlflow..."
+          while ! oc get secret mlflow -n external-db-s3-mlflow &>/dev/null; do
+            sleep 5
+          done
+          while ! oc get configmap mlflow -n external-db-s3-mlflow &>/dev/null; do
+            sleep 5
+          done
+          echo "OBC bucket ready"
+
+          ACCESS_KEY=$(oc get secret mlflow -n external-db-s3-mlflow -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+          SECRET_KEY=$(oc get secret mlflow -n external-db-s3-mlflow -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+          BUCKET_NAME=$(oc get configmap mlflow -n external-db-s3-mlflow -o jsonpath='{.data.BUCKET_NAME}')
+
+          echo "Creating mlflow-s3-credentials secret in redhat-ods-applications..."
+          oc create secret generic mlflow-s3-credentials \
+            -n redhat-ods-applications \
+            --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
+            --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
+            --dry-run=client -o yaml \
+            | oc apply -f -
+
+          echo "Waiting for MLflow CR mlflow in redhat-ods-applications..."
+          while ! oc get mlflow mlflow -n redhat-ods-applications &>/dev/null; do
+            sleep 5
+          done
+
+          echo "Patching artifactsDestination to s3://${BUCKET_NAME}..."
+          oc patch mlflow mlflow -n redhat-ods-applications --type merge -p "{\"spec\":{\"artifactsDestination\":\"s3://${BUCKET_NAME}\"}}"
+
+          echo "✅ MLflow S3 artifacts configured"

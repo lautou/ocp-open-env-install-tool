@@ -1,0 +1,33 @@
+apiVersion: mlflow.opendatahub.io/v1
+kind: MLflow
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: mlflow
+  namespace: redhat-ods-applications
+spec:
+  backendStoreUriFrom:
+    key: BACKEND_STORE_URI
+    name: mlflow-backend-store-uri
+  env:
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        key: AWS_ACCESS_KEY_ID
+        name: mlflow-s3-credentials
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        key: AWS_SECRET_ACCESS_KEY
+        name: mlflow-s3-credentials
+  - name: AWS_DEFAULT_REGION
+    value: us-east-1
+  - name: MLFLOW_S3_ENDPOINT_URL
+    value: http://s3.openshift-storage.svc
+  serveArtifacts: true
+  storage:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
