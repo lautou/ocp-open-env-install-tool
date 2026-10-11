@@ -4,7 +4,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: mlflow
-  namespace: redhat-ods-applications
 spec:
   backendStoreUriFrom:
     key: BACKEND_STORE_URI

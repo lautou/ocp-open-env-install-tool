@@ -4,7 +4,10 @@ resources:
 - ../../common
 - cluster-cr-edit-rhoai-dashboard-config.yaml
 - cluster-crb-datascienceclusters-edit-gitops.yaml
+- cluster-crb-mlflow-artifacts-patcher.yaml
+- cluster-crb-mlflow-edit-gitops.yaml
 - cluster-datasciencecluster-default-dsc.yaml
+- cluster-mlflow-mlflow.yaml
 - cluster-namespace-external-db-maas.yaml
 - cluster-namespace-external-db-model-registry-lab.yaml
 - cluster-namespace-external-db-ogxserver-metadata.yaml
@@ -50,10 +53,8 @@ resources:
 - redhat-ai-gateway-infra-role-maas-db-secret.yaml
 - redhat-ods-applications-hardwareprofile-gpu-l4-profile.yaml
 - redhat-ods-applications-hardwareprofile-gpu-profile.yaml
-- redhat-ods-applications-mlflow-mlflow.yaml
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
 - redhat-ods-applications-rb-mlflow-artifacts-patcher.yaml
-- redhat-ods-applications-rb-mlflow-edit-gitops.yaml
 - redhat-ods-applications-role-mlflow-artifacts-patcher.yaml
 - redhat-ods-applications-secret-mlflow-backend-store-uri.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml

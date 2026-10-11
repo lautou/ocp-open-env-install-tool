@@ -43,12 +43,12 @@ spec:
             --dry-run=client -o yaml \
             | oc apply -f -
 
-          echo "Waiting for MLflow CR mlflow in redhat-ods-applications..."
-          while ! oc get mlflow mlflow -n redhat-ods-applications &>/dev/null; do
+          echo "Waiting for MLflow CR mlflow (cluster-scoped)..."
+          while ! oc get mlflow mlflow &>/dev/null; do
             sleep 5
           done
 
           echo "Patching artifactsDestination to s3://${BUCKET_NAME}..."
-          oc patch mlflow mlflow -n redhat-ods-applications --type merge -p "{\"spec\":{\"artifactsDestination\":\"s3://${BUCKET_NAME}\"}}"
+          oc patch mlflow mlflow --type merge -p "{\"spec\":{\"artifactsDestination\":\"s3://${BUCKET_NAME}\"}}"
 
           echo "✅ MLflow S3 artifacts configured"
