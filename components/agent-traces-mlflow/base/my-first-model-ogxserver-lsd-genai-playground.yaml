@@ -21,3 +21,54 @@ spec:
       - /bin/sh
       - -c
       - ogx run /etc/ogx/config.yaml --insecure
+      env:
+      - name: PGVECTOR_HOST
+        valueFrom:
+          configMapKeyRef:
+            key: PGVECTOR_HOST
+            name: ogxserver-vector-connection
+      - name: PGVECTOR_PORT
+        valueFrom:
+          configMapKeyRef:
+            key: PGVECTOR_PORT
+            name: ogxserver-vector-connection
+      - name: PGVECTOR_DB
+        valueFrom:
+          configMapKeyRef:
+            key: PGVECTOR_DB
+            name: ogxserver-vector-connection
+      - name: PGVECTOR_USER
+        valueFrom:
+          configMapKeyRef:
+            key: PGVECTOR_USER
+            name: ogxserver-vector-connection
+      - name: PGVECTOR_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: PGVECTOR_PASSWORD
+            name: ogxserver-vector-connection
+      - name: POSTGRES_HOST
+        valueFrom:
+          configMapKeyRef:
+            key: POSTGRES_HOST
+            name: ogxserver-postgres-metadata
+      - name: POSTGRES_PORT
+        valueFrom:
+          configMapKeyRef:
+            key: POSTGRES_PORT
+            name: ogxserver-postgres-metadata
+      - name: POSTGRES_DB
+        valueFrom:
+          configMapKeyRef:
+            key: POSTGRES_DB
+            name: ogxserver-postgres-metadata
+      - name: POSTGRES_USER
+        valueFrom:
+          configMapKeyRef:
+            key: POSTGRES_USER
+            name: ogxserver-postgres-metadata
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: ogxserver-postgres-metadata
