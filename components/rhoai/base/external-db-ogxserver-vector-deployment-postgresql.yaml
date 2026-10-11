@@ -8,6 +8,8 @@ spec:
   selector:
     matchLabels:
       app: ogxserver-vector-postgresql
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:

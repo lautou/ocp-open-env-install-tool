@@ -8,6 +8,8 @@ spec:
   selector:
     matchLabels:
       app: mlflow-postgresql
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
