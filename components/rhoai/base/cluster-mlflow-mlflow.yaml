@@ -23,8 +23,8 @@ spec:
     value: us-east-1
   - name: MLFLOW_S3_ENDPOINT_URL
     value: https://s3.openshift-storage.svc
-  - name: MLFLOW_S3_IGNORE_TLS
-    value: "true"
+  caBundleConfigMap:
+    name: odh-kserve-custom-ca-bundle
   serveArtifacts: true
   storage:
     accessModes:
