@@ -21,6 +21,7 @@ data:
         provider_type: remote::vllm
         config:
           base_url: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
+          max_tokens: 1024
           tls_verify: false
       vector_io:
       - provider_id: pgvector
@@ -77,6 +78,7 @@ data:
       - provider_id: vllm-inference-1
         model_id: llama-32-3b-instruct
         model_type: llm
+        max_tokens: 1024
         metadata:
           display_name: llama-32-3b-instruct
     server:
