@@ -30,3 +30,6 @@ spec:
     resources:
       requests:
         storage: 10Gi
+  workspaceLabelSelector:
+    matchLabels:
+      opendatahub.io/dashboard: "true"
