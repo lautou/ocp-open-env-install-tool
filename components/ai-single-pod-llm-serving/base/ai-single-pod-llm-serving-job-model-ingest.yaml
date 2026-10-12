@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: model-ingest-job
-  namespace: model-deploy-lab
+  namespace: ai-single-pod-llm-serving
 spec:
   template:
     spec:

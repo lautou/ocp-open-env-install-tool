@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ai-single-pod-llm-serving-cm-ingestion-code.yaml
+- ai-single-pod-llm-serving-inferenceservice-granite-3-3-2b-instruct.yaml
+- ai-single-pod-llm-serving-job-mcg-bucket-models-rotation.yaml
+- ai-single-pod-llm-serving-job-model-ingest.yaml
+- ai-single-pod-llm-serving-obc-models.yaml
+- ai-single-pod-llm-serving-rb-mcg-bucket-models-rotation.yaml
+- ai-single-pod-llm-serving-role-mcg-bucket-models-rotation.yaml
+- ai-single-pod-llm-serving-sa-mcg-bucket-models-rotation.yaml
+- ai-single-pod-llm-serving-sa-model-ingestion.yaml
+- ai-single-pod-llm-serving-servingruntime-vllm-cuda-runtime.yaml
+- cluster-namespace-ai-single-pod-llm-serving.yaml
+- rhoai-model-registries-rb-model-ingest-job-ai-single-pod-llm-serving.yaml
+- rhoai-model-registries-role-model-ingest-job-ai-single-pod-llm-serving.yaml

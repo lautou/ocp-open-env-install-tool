@@ -26,6 +26,9 @@ spec:
         item: ai-model-registry-governance
         project: ai-usecases
       - branch: master
+        item: ai-single-pod-llm-serving
+        project: ai-usecases
+      - branch: master
         item: hw-profiles-governance
         project: ai-usecases
       - branch: master
@@ -40,9 +43,6 @@ spec:
       - branch: master
         item: mcp
         project: rhoai
-      - branch: master
-        item: model-deploy-lab
-        project: ai-usecases
       - branch: master
         item: nvidia-gpu-operator
         project: rhoai

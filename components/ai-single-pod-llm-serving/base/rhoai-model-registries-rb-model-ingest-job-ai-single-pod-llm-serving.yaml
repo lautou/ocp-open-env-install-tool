@@ -1,13 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: model-ingest-job-model-deploy-lab
+  name: model-ingest-job-ai-single-pod-llm-serving
   namespace: rhoai-model-registries
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: model-ingest-job-model-deploy-lab
+  name: model-ingest-job-ai-single-pod-llm-serving
 subjects:
 - kind: ServiceAccount
   name: model-ingestion
-  namespace: model-deploy-lab
+  namespace: ai-single-pod-llm-serving

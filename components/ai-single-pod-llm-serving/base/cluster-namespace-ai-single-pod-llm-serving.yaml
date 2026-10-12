@@ -4,4 +4,4 @@ metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
     opendatahub.io/dashboard: "true"
-  name: model-deploy-lab
+  name: ai-single-pod-llm-serving
