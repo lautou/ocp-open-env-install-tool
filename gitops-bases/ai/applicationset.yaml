@@ -72,3 +72,17 @@ spec:
         - /spec/predictor/nodeSelector
         - /spec/predictor/tolerations
         kind: InferenceService
+      - group: kubeflow.org
+        jsonPointers:
+        - /metadata/annotations/notebooks.opendatahub.io~1last-image-selection
+        - /metadata/annotations/notebooks.opendatahub.io~1last-image-version-git-commit-selection
+        - /metadata/annotations/opendatahub.io~1connections
+        - /metadata/annotations/opendatahub.io~1hardware-profile-resource-version
+        - /metadata/annotations/opendatahub.io~1image-display-name
+        - /metadata/annotations/opendatahub.io~1workbench-image-namespace
+        - /metadata/annotations/openshift.io~1description
+        jqPathExpressions:
+        - .spec.template.spec.containers[] | select(.name == "kube-rbac-proxy")
+        - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-config")
+        - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-tls-certificates")
+        kind: Notebook
