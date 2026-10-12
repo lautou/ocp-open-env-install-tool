@@ -8,7 +8,7 @@ spec:
   - list:
       elements:
       - branch: master
-        item: agent-traces-mlflow
+        item: ai-agent-tracing
         project: ai-usecases
       - branch: master
         item: ai-distributed-llm-serving

@@ -12,7 +12,7 @@ metadata:
     opendatahub.io/dashboard: "true"
     opendatahub.io/genai-asset: "true"
   name: llama-32-3b-instruct
-  namespace: my-first-model
+  namespace: ai-agent-tracing
 spec:
   predictor:
     model:

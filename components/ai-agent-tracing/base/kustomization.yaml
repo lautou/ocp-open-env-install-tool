@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ai-agent-tracing-cm-ogx-base-config.yaml
+  - ai-agent-tracing-cm-ogxserver-postgres-metadata.yaml
+  - ai-agent-tracing-cm-ogxserver-vector-connection.yaml
+  - ai-agent-tracing-inferenceservice-llama-32-3b-instruct.yaml
+  - ai-agent-tracing-notebook-test-mlflow.yaml
+  - ai-agent-tracing-ogxserver-lsd-genai-playground.yaml
+  - ai-agent-tracing-pvc-test-mlflow-storage.yaml
+  - ai-agent-tracing-secret-ogxserver-postgres-metadata.yaml
+  - ai-agent-tracing-secret-ogxserver-vector-connection.yaml
+  - ai-agent-tracing-servingruntime-llama-32-3b-instruct.yaml
+  - cluster-namespace-ai-agent-tracing.yaml
