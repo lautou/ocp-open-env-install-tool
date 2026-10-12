@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ai-usecases
+  namespace: openshift-gitops
+spec:
+  description: AI/ML use-case demos and labs (OpenShift AI dashboard-facing components)
+  sourceRepos:
+  - https://github.com/lautou/ocp-open-env-install-tool.git
+  destinations:
+  - server: https://kubernetes.default.svc
+    namespace: '*'
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'

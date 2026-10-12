@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - application-redhat-openshift-mcp-server.yaml
   - applicationset.yaml
+  - appproject-ai-usecases.yaml
+  - appproject-rhoai.yaml
