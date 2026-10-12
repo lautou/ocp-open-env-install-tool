@@ -9,7 +9,7 @@ spec:
   destination:
     namespace: mcp-servers
     server: https://kubernetes.default.svc
-  project: default
+  project: rhoai
   source:
     chart: redhat-openshift-mcp-server
     helm:

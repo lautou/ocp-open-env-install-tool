@@ -277,15 +277,23 @@ oc get <resource-type> <resource-name> -n <namespace> -o jsonpath='{.metadata.an
 
 ### ✅ CORRECT: ApplicationSet template (all components now deploy this way, not standalone Application files)
 
-**File**: `gitops-bases/rh-connectivity-link/default/applicationset.yaml`
+**File**: `gitops-bases/ai/applicationset.yaml` (`rh-connectivity-link`'s own
+`gitops-bases/rh-connectivity-link/default/applicationset.yaml` is orphaned — no profile
+references it; `rh-connectivity-link` is actually deployed as a list item of this ApplicationSet)
+
+Most categories use `project: default` (one `AppProject` for the whole category, since there's
+no need to split Applications across projects). The `ai` category is the one exception: it mixes
+AI use-case demos with RHOAI platform/infra pieces, so each list element carries its own
+`project` field and the template references `'{{project}}'` instead of a hardcoded value — this
+is the only ApplicationSet in the repo that needs per-item project routing; copy the simpler
+single-`project: default`-line form for any new category unless it has the same mixed-ownership
+need.
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  finalizers:
-  - resources-finalizer.argocd.argoproj.io
-  name: rh-connectivity-link
+  name: cluster-ai
   namespace: openshift-gitops
 spec:
   generators:
@@ -293,13 +301,17 @@ spec:
       elements:
       - branch: master
         item: rh-connectivity-link
+        project: rhoai       # per-item project - only needed when a category mixes AppProjects
+      - branch: master
+        item: ai-gpuaas
+        project: ai-usecases
   template:
     metadata:
       finalizers:
       - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
-      project: default  # ✅ CORRECT: use the default AppProject, not a custom one
+      project: '{{project}}'  # ✅ CORRECT: templated per-item when the category spans AppProjects
       source:
         path: components/{{item}}/overlays/default
         repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
