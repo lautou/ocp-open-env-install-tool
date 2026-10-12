@@ -151,7 +151,7 @@ Immediately after an `ObjectBucketClaim` is created (e.g. right after a namespac
 
 **Diagnosis:** check the storage-initializer's own log for `Found S3 object: ...` lines and confirm the weight file is actually listed with its real size — don't assume the ingest Job's own `SUCCESS` message proves the upload is complete.
 
-**Fix:** re-run the ingest Job once (`oc create -f` a copy of the completed Job's spec under a new name, or delete+let GitOps/Force=true recreate it) — a retry against the now-fully-provisioned bucket succeeds reliably. Seen in `ai-model-registry-governance` (`model-registry-lab` rename, 2026-10-12): the first `model-ingest-job` run uploaded 5 small files but dropped the 1.5GB `model.safetensors`; an identical retry Job uploaded all 6 without issue.
+**Fix:** re-run the ingest Job once (`oc create -f` a copy of the completed Job's spec under a new name, or delete+let GitOps/Force=true recreate it) — a retry against the now-fully-provisioned bucket succeeds reliably. **Confirmed reproducible, not a one-off:** hit twice in a row during the same renaming session (2026-10-12) — `ai-model-registry-governance` (`model-registry-lab` rename) dropped the single 1.5GB `model.safetensors`; `ai-single-pod-llm-serving` (`model-deploy-lab` rename) dropped both sharded `model-0000X-of-00002.safetensors` files (~5GB total) the very next time a fresh OBC was created. Treat the first ingest run after any namespace recreation as untrusted by default — check the storage-initializer log before assuming the model loaded correctly.
 
 ---
 
