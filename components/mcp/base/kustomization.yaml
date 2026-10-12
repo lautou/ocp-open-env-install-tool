@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
   - cluster-namespace-mcp-servers.yaml
+  - redhat-ods-applications-cm-gen-ai-aa-mcp-servers.yaml
