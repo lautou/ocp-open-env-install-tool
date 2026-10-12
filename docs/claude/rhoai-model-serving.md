@@ -218,6 +218,22 @@ spec:
 
 **Recommended storage for llm-d in production:** S3 or `hf://` URI — no volume mounts, pods schedule freely on any node.
 
+### S3 Storage with an MCG/NooBaa `ObjectBucketClaim` — URI Must Be Re-synced After Namespace Recreation
+
+`spec.model.uri` for an S3-backed `LLMInferenceService` is a static, git-committed string
+(`s3://<bucket>/<path>`), but an `ObjectBucketClaim` using `generateBucketName` gets a brand-new
+random bucket name (e.g. `models--79cb8c90-...`) every time it's created — including when a
+namespace is deleted and recreated (a GitOps rename, a profile switch). The old bucket and its
+contents are gone with the old namespace; the new OBC creates an empty bucket under a different
+name that the hardcoded `model.uri` doesn't match, so the storage-initializer fails with `404
+HeadBucket ... Not Found`, even though the model-loading Job (e.g. `fasttracker`) completes
+successfully into the *new* bucket.
+
+**Fix after any namespace recreation:** read the new bucket name (`oc get obc <name> -n <ns> -o
+jsonpath='{.spec.bucketName}'`) and update `model.uri` in the component's
+`*-llminferenceservice-*.yaml` to match, then commit/push — a live-only patch won't survive
+ArgoCD `selfHeal`. Seen in `ai-distributed-llm-serving` (`llmd-deploy-lab` rename, 2026-10-12).
+
 ### `router.scheduler.template` — Controller Behavior
 
 When `spec.router.scheduler.template` is provided, the controller uses it **as-is without merging with defaults**. This means:
