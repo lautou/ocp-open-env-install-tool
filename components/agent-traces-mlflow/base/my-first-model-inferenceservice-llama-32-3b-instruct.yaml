@@ -17,7 +17,7 @@ spec:
   predictor:
     model:
       args:
-      - --max-model-len=4096
+      - --max-model-len=8192
       - --gpu-memory-utilization=0.95
       modelFormat:
         name: vLLM
