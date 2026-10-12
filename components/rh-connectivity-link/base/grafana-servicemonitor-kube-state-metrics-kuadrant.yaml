@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: kuadrant
     app.kubernetes.io/version: 2.5.0
   name: kube-state-metrics-kuadrant
-  namespace: monitoring
+  namespace: grafana
 spec:
   endpoints:
   - honorLabels: true

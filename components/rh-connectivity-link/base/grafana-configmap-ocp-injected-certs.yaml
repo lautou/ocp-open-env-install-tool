@@ -4,4 +4,4 @@ metadata:
   annotations:
     service.beta.openshift.io/inject-cabundle: 'true'
   name: ocp-injected-certs
-  namespace: monitoring
+  namespace: grafana

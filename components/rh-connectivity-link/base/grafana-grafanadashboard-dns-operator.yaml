@@ -1,12 +1,12 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: gpu-health
-  namespace: monitoring
+  name: dns-operator
+  namespace: grafana
 spec:
   configMapRef:
-    key: gpu_health.json
-    name: grafana-dashboard-gpu-health
+    key: dns-operator.json
+    name: grafana-dashboard-dns-operator
   instanceSelector:
     matchLabels:
       dashboards: grafana

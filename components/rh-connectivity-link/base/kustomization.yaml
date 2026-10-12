@@ -7,37 +7,37 @@ resources:
 - cluster-clusterrolebinding-grafana-datasource-monitoring-view.yaml
 - cluster-clusterrolebinding-grafana-oauth-proxy.yaml
 - cluster-clusterrolebinding-kube-state-metrics-kuadrant.yaml
+- cluster-namespace-grafana.yaml
 - cluster-namespace-kuadrant-system.yaml
-- cluster-namespace-monitoring.yaml
+- grafana-configmap-custom-resource-state.yaml
+- grafana-configmap-ocp-injected-certs.yaml
+- grafana-deployment-kube-state-metrics-kuadrant.yaml
+- grafana-grafanadashboard-app-developer.yaml
+- grafana-grafanadashboard-business-user.yaml
+- grafana-grafanadashboard-controller-resources-metrics.yaml
+- grafana-grafanadashboard-controller-runtime-metrics.yaml
+- grafana-grafanadashboard-dns-operator.yaml
+- grafana-grafanadashboard-gpu-health.yaml
+- grafana-grafanadashboard-istio-mesh.yaml
+- grafana-grafanadashboard-istio-performance.yaml
+- grafana-grafanadashboard-istio-service.yaml
+- grafana-grafanadashboard-istio-workload.yaml
+- grafana-grafanadashboard-node-health.yaml
+- grafana-grafanadashboard-platform-engineer.yaml
+- grafana-grafanadashboard-vllm-inference.yaml
+- grafana-grafanadatasource-thanos-query-ds.yaml
+- grafana-secret-grafana-datasource-token.yaml
+- grafana-secret-grafana-proxy.yaml
+- grafana-service-kube-state-metrics-kuadrant.yaml
+- grafana-serviceaccount-grafana-datasource.yaml
+- grafana-serviceaccount-kube-state-metrics-kuadrant.yaml
+- grafana-servicemonitor-kube-state-metrics-kuadrant.yaml
 - kuadrant-system-kuadrant-kuadrant.yaml
 - kuadrant-system-operatorgroup-rhcl.yaml
 - kuadrant-system-subscription-authorino-operator.yaml
 - kuadrant-system-subscription-dns-operator.yaml
 - kuadrant-system-subscription-limitador-operator.yaml
 - kuadrant-system-subscription-rhcl-operator.yaml
-- monitoring-configmap-custom-resource-state.yaml
-- monitoring-configmap-ocp-injected-certs.yaml
-- monitoring-deployment-kube-state-metrics-kuadrant.yaml
-- monitoring-grafanadashboard-app-developer.yaml
-- monitoring-grafanadashboard-business-user.yaml
-- monitoring-grafanadashboard-controller-resources-metrics.yaml
-- monitoring-grafanadashboard-controller-runtime-metrics.yaml
-- monitoring-grafanadashboard-dns-operator.yaml
-- monitoring-grafanadashboard-gpu-health.yaml
-- monitoring-grafanadashboard-istio-mesh.yaml
-- monitoring-grafanadashboard-istio-performance.yaml
-- monitoring-grafanadashboard-istio-service.yaml
-- monitoring-grafanadashboard-istio-workload.yaml
-- monitoring-grafanadashboard-node-health.yaml
-- monitoring-grafanadashboard-platform-engineer.yaml
-- monitoring-grafanadashboard-vllm-inference.yaml
-- monitoring-grafanadatasource-thanos-query-ds.yaml
-- monitoring-secret-grafana-datasource-token.yaml
-- monitoring-secret-grafana-proxy.yaml
-- monitoring-service-kube-state-metrics-kuadrant.yaml
-- monitoring-serviceaccount-grafana-datasource.yaml
-- monitoring-serviceaccount-kube-state-metrics-kuadrant.yaml
-- monitoring-servicemonitor-kube-state-metrics-kuadrant.yaml
 - openshift-gitops-job-enable-kuadrant-console-plugin.yaml
 - openshift-ingress-rb-telemetry-manager.yaml
 - openshift-ingress-role-telemetry-manager.yaml
@@ -88,54 +88,54 @@ generatorOptions:
   disableNameSuffixHash: true
 configMapGenerator:
 - name: grafana-dashboard-platform-engineer
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/platform_engineer.json
 - name: grafana-dashboard-business-user
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/business_user.json
 - name: grafana-dashboard-controller-resources-metrics
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/controller-resources-metrics.json
 - name: grafana-dashboard-controller-runtime-metrics
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/controller-runtime-metrics.json
 - name: grafana-dashboard-app-developer
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/app_developer.json
 - name: grafana-dashboard-dns-operator
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/dns-operator.json
 - name: grafana-dashboard-istio-mesh
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/istio-mesh-dashboard.json
 - name: grafana-dashboard-istio-performance
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/istio-performance-dashboard.json
 - name: grafana-dashboard-istio-service
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/istio-service-dashboard.json
 - name: grafana-dashboard-istio-workload
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/istio-workload-dashboard.json
 - name: grafana-dashboard-node-health
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/node_health.json
 - name: grafana-dashboard-gpu-health
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/gpu_health.json
 - name: grafana-dashboard-vllm-inference
-  namespace: monitoring
+  namespace: grafana
   files:
   - grafana-dashboards/vllm_inference.json

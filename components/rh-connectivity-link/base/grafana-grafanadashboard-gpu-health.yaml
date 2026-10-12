@@ -1,12 +1,12 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: business-user
-  namespace: monitoring
+  name: gpu-health
+  namespace: grafana
 spec:
   configMapRef:
-    key: business_user.json
-    name: grafana-dashboard-business-user
+    key: gpu_health.json
+    name: grafana-dashboard-gpu-health
   instanceSelector:
     matchLabels:
       dashboards: grafana

@@ -3,9 +3,9 @@ kind: Kustomization
 resources:
 - ../../common
 - cluster-namespace-grafana-operator.yaml
+- grafana-grafana-grafana.yaml
 - grafana-operator-operatorgroup-grafana-operator.yaml
 - grafana-operator-subscription-grafana-operator.yaml
-- monitoring-grafana-grafana.yaml
 replacements:
 - source:
     fieldPath: data.grafana

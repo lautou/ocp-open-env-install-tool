@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: grafana-datasource
-  namespace: monitoring
+  namespace: grafana
