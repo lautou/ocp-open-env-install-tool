@@ -27,5 +27,7 @@ replacements:
     - spec.template.spec.source.repoURL
   - select:
       kind: Application
+    reject:
+    - name: redhat-openshift-mcp-server
     fieldPaths:
     - spec.source.repoURL

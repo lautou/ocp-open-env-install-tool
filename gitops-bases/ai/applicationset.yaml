@@ -24,6 +24,8 @@ spec:
       - branch: master
         item: llmd-deploy-lab
       - branch: master
+        item: mcp
+      - branch: master
         item: model-deploy-lab
       - branch: master
         item: model-registry-lab

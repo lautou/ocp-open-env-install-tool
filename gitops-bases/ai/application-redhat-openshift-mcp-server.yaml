@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io/background
+  name: redhat-openshift-mcp-server
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: mcp-servers
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: redhat-openshift-mcp-server
+    helm:
+      values: |
+        ingress:
+          enabled: false
+        rbac:
+          extraClusterRoleBindings:
+          - name: use-view-role
+            roleRef:
+              external: true
+              name: view
+    repoURL: https://charts.openshift.io/
+    targetRevision: 0.3.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+    syncOptions:
+    - CreateNamespace=true
