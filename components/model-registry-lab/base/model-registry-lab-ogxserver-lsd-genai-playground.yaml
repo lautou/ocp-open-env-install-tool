@@ -22,6 +22,10 @@ spec:
       - -c
       - ogx run /etc/ogx/config.yaml --insecure
       env:
+      - name: PGSSLMODE
+        value: verify-full
+      - name: PGSSLROOTCERT
+        value: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
       - name: VLLM_TLS_VERIFY
         value: "false"
       - name: VLLM_API_TOKEN_1

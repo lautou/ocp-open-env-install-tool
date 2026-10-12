@@ -70,6 +70,8 @@ data:
           user: ${env.POSTGRES_USER}
           password: ${env.POSTGRES_PASSWORD}
           table_name: my_first_model_kvstore
+          ssl_mode: verify-full
+          ca_cert_path: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
         sql_default:
           type: sql_postgres
           host: ${env.POSTGRES_HOST}

@@ -70,6 +70,12 @@ spec:
         - mountPath: /opt/app-root/src/postgresql-start
           name: init-scripts
           readOnly: true
+        - mountPath: /opt/app-root/src/certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/app-root/src/postgresql-cfg
+          name: ssl-cfg
+          readOnly: true
       volumes:
       - name: data
         persistentVolumeClaim:
@@ -78,3 +84,10 @@ spec:
           defaultMode: 493
           name: ogxserver-vector-postgresql-init
         name: init-scripts
+      - name: certs
+        secret:
+          defaultMode: 0640
+          secretName: ogxserver-vector-postgresql-tls
+      - configMap:
+          name: ogxserver-vector-postgresql-ssl
+        name: ssl-cfg

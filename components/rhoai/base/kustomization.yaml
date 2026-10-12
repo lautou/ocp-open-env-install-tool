@@ -26,11 +26,13 @@ resources:
 - external-db-model-registry-lab-pvc-mysql.yaml
 - external-db-model-registry-lab-secret-mysql-credentials.yaml
 - external-db-model-registry-lab-service-mysql.yaml
+- external-db-ogxserver-metadata-cm-postgresql-ssl.yaml
 - external-db-ogxserver-metadata-deployment-postgresql.yaml
 - external-db-ogxserver-metadata-pvc-postgresql.yaml
 - external-db-ogxserver-metadata-secret-postgresql-credentials.yaml
 - external-db-ogxserver-metadata-service-postgresql.yaml
 - external-db-ogxserver-vector-cm-init-pgvector.yaml
+- external-db-ogxserver-vector-cm-postgresql-ssl.yaml
 - external-db-ogxserver-vector-deployment-postgresql.yaml
 - external-db-ogxserver-vector-pvc-postgresql.yaml
 - external-db-ogxserver-vector-secret-postgresql-credentials.yaml

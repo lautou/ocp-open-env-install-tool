@@ -22,6 +22,10 @@ spec:
       - -c
       - ogx run /etc/ogx/config.yaml --insecure
       env:
+      - name: PGSSLMODE
+        value: verify-full
+      - name: PGSSLROOTCERT
+        value: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
       - name: HF_HUB_OFFLINE
         value: "1"
       - name: TRANSFORMERS_OFFLINE
