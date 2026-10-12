@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: mcg-bucket-models-rotation
-  namespace: llmd-deploy-lab
+  namespace: ai-distributed-llm-serving
 spec:
   ttlSecondsAfterFinished: 600
   template:
@@ -22,19 +22,19 @@ spec:
         - |
           set -e
 
-          echo "Waiting for OBC-generated secret models in llmd-deploy-lab..."
-          while ! oc get secret models -n llmd-deploy-lab &>/dev/null; do
+          echo "Waiting for OBC-generated secret models in ai-distributed-llm-serving..."
+          while ! oc get secret models -n ai-distributed-llm-serving &>/dev/null; do
             sleep 5
           done
           echo "Secret found"
 
-          ACCESS_KEY=$(oc get secret models -n llmd-deploy-lab -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
-          SECRET_KEY=$(oc get secret models -n llmd-deploy-lab -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
-          BUCKET_NAME=$(oc get configmap models -n llmd-deploy-lab -o jsonpath='{.data.BUCKET_NAME}')
+          ACCESS_KEY=$(oc get secret models -n ai-distributed-llm-serving -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | base64 -d)
+          SECRET_KEY=$(oc get secret models -n ai-distributed-llm-serving -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | base64 -d)
+          BUCKET_NAME=$(oc get configmap models -n ai-distributed-llm-serving -o jsonpath='{.data.BUCKET_NAME}')
 
-          echo "Creating Data Connection secret mcg-models in llmd-deploy-lab..."
+          echo "Creating Data Connection secret mcg-models in ai-distributed-llm-serving..."
           oc create secret generic mcg-models \
-            -n llmd-deploy-lab \
+            -n ai-distributed-llm-serving \
             --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
             --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
             --from-literal=AWS_S3_ENDPOINT="http://s3.openshift-storage.svc" \
@@ -45,11 +45,11 @@ spec:
             | oc annotate -f - --local -o yaml opendatahub.io/connection-type=s3 opendatahub.io/connection-type-protocol=s3 \
             | oc apply -f -
 
-          echo "✅ Secret mcg-models ready in llmd-deploy-lab"
+          echo "✅ Secret mcg-models ready in ai-distributed-llm-serving"
 
-          echo "Creating KServe-native S3 credentials secret kserve-s3-creds in llmd-deploy-lab..."
+          echo "Creating KServe-native S3 credentials secret kserve-s3-creds in ai-distributed-llm-serving..."
           oc create secret generic kserve-s3-creds \
-            -n llmd-deploy-lab \
+            -n ai-distributed-llm-serving \
             --from-literal=AWS_ACCESS_KEY_ID="${ACCESS_KEY}" \
             --from-literal=AWS_SECRET_ACCESS_KEY="${SECRET_KEY}" \
             --dry-run=client -o yaml \
@@ -61,4 +61,4 @@ spec:
                 serving.kserve.io/s3-verifyssl=0 \
             | oc apply -f -
 
-          echo "✅ Secret kserve-s3-creds ready in llmd-deploy-lab"
+          echo "✅ Secret kserve-s3-creds ready in ai-distributed-llm-serving"

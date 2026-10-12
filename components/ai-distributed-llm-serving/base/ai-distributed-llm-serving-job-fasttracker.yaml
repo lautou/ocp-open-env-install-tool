@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: fasttracker
-  namespace: llmd-deploy-lab
+  namespace: ai-distributed-llm-serving
 spec:
   template:
     metadata:

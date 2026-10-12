@@ -10,7 +10,7 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
   name: granite-distributed-prod
-  namespace: llmd-deploy-lab
+  namespace: ai-distributed-llm-serving
 spec:
   model:
     name: granite-3
@@ -29,7 +29,7 @@ spec:
           - --pool-name
           - granite-distributed-prod-inference-pool
           - --pool-namespace
-          - llmd-deploy-lab
+          - ai-distributed-llm-serving
           - --zap-encoder
           - json
           - --grpc-port

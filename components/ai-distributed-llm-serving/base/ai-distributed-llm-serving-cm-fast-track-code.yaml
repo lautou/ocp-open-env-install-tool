@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: fast-track-code
-  namespace: llmd-deploy-lab
+  namespace: ai-distributed-llm-serving
 data:
   fast_ingest.py: |
     import os

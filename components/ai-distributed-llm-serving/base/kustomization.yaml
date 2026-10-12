@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ai-distributed-llm-serving-cm-fast-track-code.yaml
+- ai-distributed-llm-serving-job-fasttracker.yaml
+- ai-distributed-llm-serving-job-mcg-bucket-models-rotation.yaml
+- ai-distributed-llm-serving-llminferenceservice-granite-distributed-prod.yaml
+- ai-distributed-llm-serving-obc-models.yaml
+- ai-distributed-llm-serving-rb-mcg-bucket-models-rotation.yaml
+- ai-distributed-llm-serving-role-mcg-bucket-models-rotation.yaml
+- ai-distributed-llm-serving-sa-kserve-s3-sa.yaml
+- ai-distributed-llm-serving-sa-mcg-bucket-models-rotation.yaml
+- cluster-namespace-ai-distributed-llm-serving.yaml
