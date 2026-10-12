@@ -18,7 +18,6 @@ resources:
 - monitoring-configmap-custom-resource-state.yaml
 - monitoring-configmap-ocp-injected-certs.yaml
 - monitoring-deployment-kube-state-metrics-kuadrant.yaml
-- monitoring-grafana-grafana.yaml
 - monitoring-grafanadashboard-app-developer.yaml
 - monitoring-grafanadashboard-business-user.yaml
 - monitoring-grafanadashboard-controller-resources-metrics.yaml
