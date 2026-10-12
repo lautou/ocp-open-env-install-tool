@@ -1,0 +1,111 @@
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  annotations:
+    notebooks.opendatahub.io/inject-auth: "true"
+    opendatahub.io/hardware-profile-name: default-profile
+    opendatahub.io/hardware-profile-namespace: redhat-ods-applications
+    opendatahub.io/mlflow-instance: mlflow
+    opendatahub.io/user: admin
+    opendatahub.io/username: admin
+    openshift.io/display-name: test-mlflow
+  labels:
+    app: test-mlflow
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/odh-managed: "true"
+  name: test-mlflow
+  namespace: my-first-model
+spec:
+  template:
+    spec:
+      containers:
+      - env:
+        - name: NOTEBOOK_ARGS
+          value: |-
+            --ServerApp.port=8888
+                              --ServerApp.token=''
+                              --ServerApp.password=''
+                              --ServerApp.base_url=/notebook/my-first-model/test-mlflow
+                              --ServerApp.quit_button=False
+        - name: JUPYTER_IMAGE
+          value: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:3.5
+        - name: REQUESTS_CA_BUNDLE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: SSL_CERT_FILE
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: PIPELINES_SSL_SA_CERTS
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: KF_PIPELINES_SSL_SA_CERTS
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: GIT_SSL_CAINFO
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: PIP_CERT
+          value: /etc/pki/tls/custom-certs/ca-bundle.crt
+        - name: MLFLOW_K8S_INTEGRATION
+          value: "true"
+        - name: MLFLOW_TRACKING_AUTH
+          value: kubernetes-namespaced
+        - name: MLFLOW_TRACKING_URI
+          value: https://rh-ai.apps.myocp.sandbox668.opentlc.com/mlflow
+        image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:3.5
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /notebook/my-first-model/test-mlflow/api
+            port: notebook-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: test-mlflow
+        ports:
+        - containerPort: 8888
+          name: notebook-port
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /notebook/my-first-model/test-mlflow/api
+            port: notebook-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "2"
+            memory: 4Gi
+        volumeMounts:
+        - mountPath: /opt/app-root/src/
+          name: test-mlflow-storage
+        - mountPath: /dev/shm
+          name: shm
+        - mountPath: /etc/pki/tls/custom-certs
+          name: trusted-ca
+          readOnly: true
+        - mountPath: /opt/app-root/pipeline-runtimes/
+          name: runtime-images
+        workingDir: /opt/app-root/src
+      enableServiceLinks: false
+      serviceAccountName: test-mlflow
+      volumes:
+      - name: test-mlflow-storage
+        persistentVolumeClaim:
+          claimName: test-mlflow-storage
+      - emptyDir:
+          medium: Memory
+        name: shm
+      - configMap:
+          name: workbench-trusted-ca-bundle
+          optional: true
+        name: trusted-ca
+      - configMap:
+          name: pipeline-runtime-images
+          optional: true
+        name: runtime-images
