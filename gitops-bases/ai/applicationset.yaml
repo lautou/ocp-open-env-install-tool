@@ -14,6 +14,9 @@ spec:
         item: ai-gpuaas
         project: ai-usecases
       - branch: master
+        item: ai-llm-observability
+        project: ai-usecases
+      - branch: master
         item: ai-supply-chain
         project: ai-usecases
       - branch: master
@@ -43,9 +46,6 @@ spec:
       - branch: master
         item: nvidia-gpu-operator
         project: rhoai
-      - branch: master
-        item: observing-ai-apps
-        project: ai-usecases
       - branch: master
         item: rh-connectivity-link
         project: rhoai

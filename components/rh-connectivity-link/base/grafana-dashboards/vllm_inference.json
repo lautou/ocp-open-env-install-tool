@@ -26,8 +26,8 @@
       {
         "current": {
           "selected": false,
-          "text": "llm-serving",
-          "value": "llm-serving"
+          "text": "ai-llm-observability",
+          "value": "ai-llm-observability"
         },
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
         "definition": "label_values(vllm:kv_cache_usage_perc, namespace)",

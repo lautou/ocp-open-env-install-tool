@@ -11,7 +11,7 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
   name: granite-3-1-8b
-  namespace: llm-serving
+  namespace: ai-llm-observability
 spec:
   annotations:
     opendatahub.io/kserve-runtime: vllm

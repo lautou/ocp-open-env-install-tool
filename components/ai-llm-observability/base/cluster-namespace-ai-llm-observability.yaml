@@ -7,4 +7,4 @@ metadata:
   labels:
     argocd.argoproj.io/managed-by: openshift-gitops
     opendatahub.io/dashboard: "true"
-  name: llm-serving
+  name: ai-llm-observability
