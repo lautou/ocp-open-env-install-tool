@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: model-ingest-job
-  namespace: model-registry-lab
+  namespace: ai-model-registry-governance
 spec:
   template:
     spec:

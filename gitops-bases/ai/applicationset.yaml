@@ -23,6 +23,9 @@ spec:
         item: ai-model-data-sourcing
         project: ai-usecases
       - branch: master
+        item: ai-model-registry-governance
+        project: ai-usecases
+      - branch: master
         item: hw-profiles-governance
         project: ai-usecases
       - branch: master
@@ -39,9 +42,6 @@ spec:
         project: rhoai
       - branch: master
         item: model-deploy-lab
-        project: ai-usecases
-      - branch: master
-        item: model-registry-lab
         project: ai-usecases
       - branch: master
         item: nvidia-gpu-operator
