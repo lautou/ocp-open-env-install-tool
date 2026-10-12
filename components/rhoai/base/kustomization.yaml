@@ -22,6 +22,7 @@ resources:
 - external-db-maas-role-maas-db-secret.yaml
 - external-db-maas-secret-postgresql-credentials.yaml
 - external-db-maas-service-postgresql.yaml
+- external-db-model-registry-lab-cm-mysql-ssl.yaml
 - external-db-model-registry-lab-deployment-mysql.yaml
 - external-db-model-registry-lab-pvc-mysql.yaml
 - external-db-model-registry-lab-secret-mysql-credentials.yaml

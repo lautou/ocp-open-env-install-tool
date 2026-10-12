@@ -12,4 +12,8 @@ spec:
     passwordSecret:
       key: database-password
       name: registry-db-secret
+    sslRootCertificateConfigMap:
+      key: service-ca.crt
+      name: openshift-service-ca.crt
     username: modelregistry
+    verifyServerCert: true

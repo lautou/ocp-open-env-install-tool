@@ -55,7 +55,20 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql/data
           name: data
+        - mountPath: /opt/app-root/src/certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/app-root/src/mysql-cfg
+          name: ssl-cfg
+          readOnly: true
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: mysql
+      - name: certs
+        secret:
+          defaultMode: 0640
+          secretName: model-registry-lab-mysql-tls
+      - configMap:
+          name: model-registry-lab-mysql-ssl
+        name: ssl-cfg

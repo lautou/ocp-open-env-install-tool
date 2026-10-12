@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-registry-lab-mysql-ssl
+  namespace: external-db-model-registry-lab
+data:
+  ssl.cnf: |
+    [mysqld]
+    ssl-cert=/opt/app-root/src/certs/tls.crt
+    ssl-key=/opt/app-root/src/certs/tls.key
