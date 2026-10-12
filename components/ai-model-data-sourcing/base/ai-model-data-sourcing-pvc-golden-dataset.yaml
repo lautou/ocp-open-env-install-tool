@@ -6,7 +6,7 @@ metadata:
     opendatahub.io/dashboard: "true"
     opendatahub.io/storage-type: "general-purpose"
   name: golden-dataset
-  namespace: ai-supply-chain
+  namespace: ai-model-data-sourcing
 spec:
   accessModes:
     - ReadWriteOnce

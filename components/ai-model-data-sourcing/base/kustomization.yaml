@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ai-model-data-sourcing-job-create-secret-corporate-data-lake.yaml
+- ai-model-data-sourcing-job-data-loader.yaml
+- ai-model-data-sourcing-obc-private-models.yaml
+- ai-model-data-sourcing-pvc-golden-dataset.yaml
+- ai-model-data-sourcing-rb-create-secret-corporate-data-lake.yaml
+- ai-model-data-sourcing-role-create-secret-corporate-data-lake.yaml
+- ai-model-data-sourcing-sa-create-secret-corporate-data-lake.yaml
+- ai-model-data-sourcing-secret-custom-uri-link.yaml
+- ai-model-data-sourcing-secret-granite-3-8b-modelcar.yaml
+- cluster-namespace-ai-model-data-sourcing.yaml

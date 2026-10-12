@@ -17,7 +17,7 @@ spec:
         item: ai-llm-observability
         project: ai-usecases
       - branch: master
-        item: ai-supply-chain
+        item: ai-model-data-sourcing
         project: ai-usecases
       - branch: master
         item: hw-profiles-governance

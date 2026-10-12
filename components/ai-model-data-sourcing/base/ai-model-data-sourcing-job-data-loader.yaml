@@ -4,7 +4,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Force=true
   name: data-loader
-  namespace: ai-supply-chain
+  namespace: ai-model-data-sourcing
 spec:
   template:
     metadata:
