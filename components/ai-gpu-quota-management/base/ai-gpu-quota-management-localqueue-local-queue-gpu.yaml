@@ -4,6 +4,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: local-queue-gpu
-  namespace: gpu-users
+  namespace: ai-gpu-quota-management
 spec:
   clusterQueue: cluster-queue-gpu
