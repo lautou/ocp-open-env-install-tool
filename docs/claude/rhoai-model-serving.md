@@ -145,6 +145,14 @@ Per RHOAI 3.4 doc (section "Playground prerequisites"):
 
 For an S3-type Data Connection (or a ModelRegistry's object storage) backed by an `ObjectBucketClaim`, point `AWS_S3_ENDPOINT` at NooBaa's in-cluster gateway service — `http://s3.openshift-storage.svc` — never the external Route. The Route is signed by the cluster's self-signed default ingress cert, which fails TLS verification for S3 clients (boto3, DSPA, etc.) connecting from inside the cluster. This matches the same endpoint already used by this repo's `create-secret-logging-loki-s3`/`create-secret-netobserv-loki-s3` Jobs.
 
+### A Large Upload Can Silently Fail on a Just-Created OBC Bucket, While Small Files Succeed
+
+Immediately after an `ObjectBucketClaim` is created (e.g. right after a namespace recreation), a model-ingest script's `wait_for_bucket()`-style readiness check can pass and small file uploads (`config.json`, tokenizer files) can succeed via `boto3.upload_file()`, while a large file (a multi-hundred-MB/GB `.safetensors` weight file, uploaded as a multipart transfer) silently fails with no exception raised and no error in the Job log — the script reports `✅ SUCCESS` even though the weight file never lands in the bucket. The only symptom shows up downstream: KServe's storage-initializer lists fewer S3 objects than expected, and vLLM fails to load with a generic, unhelpful `Engine core initialization failed` error (same misleading-short-log symptom as the `vllm-cpu-x86-runtime` entry above, but with a different root cause).
+
+**Diagnosis:** check the storage-initializer's own log for `Found S3 object: ...` lines and confirm the weight file is actually listed with its real size — don't assume the ingest Job's own `SUCCESS` message proves the upload is complete.
+
+**Fix:** re-run the ingest Job once (`oc create -f` a copy of the completed Job's spec under a new name, or delete+let GitOps/Force=true recreate it) — a retry against the now-fully-provisioned bucket succeeds reliably. Seen in `ai-model-registry-governance` (`model-registry-lab` rename, 2026-10-12): the first `model-ingest-job` run uploaded 5 small files but dropped the 1.5GB `model.safetensors`; an identical retry Job uploaded all 6 without issue.
+
 ---
 
 ## Distributed Inference with llm-d (LLMInferenceService)
