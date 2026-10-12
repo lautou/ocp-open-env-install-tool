@@ -5,4 +5,4 @@ metadata:
     argocd.argoproj.io/managed-by: openshift-gitops
     kueue.openshift.io/managed: "true"
     opendatahub.io/dashboard: "true"
-  name: ai-team-a
+  name: ai-gpu-quota-infrastructure-team-a

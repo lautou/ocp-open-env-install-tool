@@ -1,9 +1,10 @@
 # Kueue contention lab
 
 Not GitOps-managed — this is an imperative test scenario, run manually against a live
-`ocp-ai` profile cluster (needs the `kueue` component: `shared-cluster-queue`,
-`default-flavor`, `high-priority`/`low-priority` WorkloadPriorityClasses, and the
-`team-a-queue`/`team-b-queue` LocalQueues in `ai-team-a`/`ai-team-b`).
+`ocp-ai` profile cluster (needs the `ai-gpu-quota-infrastructure` component: `default-flavor`,
+`high-priority`/`low-priority` WorkloadPriorityClasses, and the `ai-gpu-quota-infrastructure-team-a`/
+`ai-gpu-quota-infrastructure-team-b` namespaces; and the `ai-multi-tenant-gpu-fairness` component:
+`shared-cluster-queue`, `team-a-queue`/`team-b-queue` LocalQueues).
 
 ## What it does
 
@@ -54,7 +55,7 @@ workloads"): the current path is per-project, not a single global `shared-cluste
 view.
 
 1. In the OpenShift AI left navigation pane, click **Observe & monitor → Workload metrics**.
-2. From the Project list, select `ai-team-a` or `ai-team-b` (check both — each is a separate
+2. From the Project list, select `ai-gpu-quota-infrastructure-team-a` or `ai-gpu-quota-infrastructure-team-b` (check both — each is a separate
    project view even though they share `shared-cluster-queue`).
 3. **Project metrics** tab — CPU/Memory currently used by that project's distributed
    workloads.
@@ -68,7 +69,7 @@ repo's `cluster-monitoring` component.
 ## Cleanup
 
 ```bash
-oc delete job lab-job-1-low -n ai-team-b --ignore-not-found=true
-oc delete job lab-job-2-low -n ai-team-b --ignore-not-found=true
-oc delete job lab-job-3-high -n ai-team-a --ignore-not-found=true
+oc delete job lab-job-1-low -n ai-gpu-quota-infrastructure-team-b --ignore-not-found=true
+oc delete job lab-job-2-low -n ai-gpu-quota-infrastructure-team-b --ignore-not-found=true
+oc delete job lab-job-3-high -n ai-gpu-quota-infrastructure-team-a --ignore-not-found=true
 ```

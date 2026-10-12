@@ -3,7 +3,7 @@ kind: LocalQueue
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-  name: team-b-queue
-  namespace: ai-team-b
+  name: team-a-queue
+  namespace: ai-gpu-quota-infrastructure-team-a
 spec:
   clusterQueue: shared-cluster-queue

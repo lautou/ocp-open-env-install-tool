@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ai-team-a-localqueue-team-a-queue.yaml
-- ai-team-b-localqueue-team-b-queue.yaml
+- ai-gpu-quota-infrastructure-team-a-localqueue-team-a-queue.yaml
+- ai-gpu-quota-infrastructure-team-b-localqueue-team-b-queue.yaml
 - cluster-clusterqueue-shared-cluster-queue.yaml
 - redhat-ods-applications-hardwareprofile-dataprep-heavy.yaml
 - redhat-ods-applications-hardwareprofile-nvidia-mig-1g-5gb.yaml

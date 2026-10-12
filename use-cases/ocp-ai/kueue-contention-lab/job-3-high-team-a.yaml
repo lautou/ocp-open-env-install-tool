@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: lab-job-3-high
-  namespace: ai-team-a
+  namespace: ai-gpu-quota-infrastructure-team-a
   labels:
     kueue.x-k8s.io/priority-class: high-priority
     kueue.x-k8s.io/queue-name: team-a-queue

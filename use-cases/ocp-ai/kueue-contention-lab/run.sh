@@ -1,12 +1,12 @@
 #!/bin/bash
 # Kueue contention lab: submits 3 suspended Jobs to exercise quota contention
 # and priority ordering on the shared-cluster-queue ClusterQueue.
-# Requires the ocp-ai profile (rhoai + kueue components) to be deployed.
+# Requires the ocp-ai profile (rhoai + ai-gpu-quota-infrastructure + ai-multi-tenant-gpu-fairness components) to be deployed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-JOBS="lab-job-1-low:ai-team-b lab-job-2-low:ai-team-b lab-job-3-high:ai-team-a"
+JOBS="lab-job-1-low:ai-gpu-quota-infrastructure-team-b lab-job-2-low:ai-gpu-quota-infrastructure-team-b lab-job-3-high:ai-gpu-quota-infrastructure-team-a"
 
 echo "==> Removing any previous run of these Jobs (ignored if absent)"
 for job_ns in $JOBS; do

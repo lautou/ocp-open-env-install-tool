@@ -9,8 +9,8 @@ resources:
 - cluster-crb-kueue-resourceflavor-edit.yaml
 - cluster-crb-kueue-workloadpriorityclass-edit.yaml
 - cluster-kueue-cluster.yaml
-- cluster-namespace-ai-team-a.yaml
-- cluster-namespace-ai-team-b.yaml
+- cluster-namespace-ai-gpu-quota-infrastructure-team-a.yaml
+- cluster-namespace-ai-gpu-quota-infrastructure-team-b.yaml
 - cluster-namespace-openshift-kueue-operator.yaml
 - cluster-resourceflavor-default-flavor.yaml
 - cluster-workloadpriorityclass-high-priority.yaml
