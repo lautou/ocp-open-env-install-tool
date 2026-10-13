@@ -11,7 +11,6 @@ resources:
 - cluster-mlflow-mlflow.yaml
 - cluster-namespace-external-db-evalhub.yaml
 - cluster-namespace-external-db-maas.yaml
-- cluster-namespace-external-db-model-registry-lab.yaml
 - cluster-namespace-external-db-ogxserver-metadata.yaml
 - cluster-namespace-external-db-ogxserver-vector.yaml
 - cluster-namespace-external-db-s3-mlflow.yaml
@@ -30,11 +29,6 @@ resources:
 - external-db-maas-role-maas-db-secret.yaml
 - external-db-maas-secret-postgresql-credentials.yaml
 - external-db-maas-service-postgresql.yaml
-- external-db-model-registry-lab-cm-mysql-ssl.yaml
-- external-db-model-registry-lab-deployment-mysql.yaml
-- external-db-model-registry-lab-pvc-mysql.yaml
-- external-db-model-registry-lab-secret-mysql-credentials.yaml
-- external-db-model-registry-lab-service-mysql.yaml
 - external-db-ogxserver-metadata-cm-postgresql-ssl.yaml
 - external-db-ogxserver-metadata-deployment-postgresql.yaml
 - external-db-ogxserver-metadata-pvc-postgresql.yaml

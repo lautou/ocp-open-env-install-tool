@@ -18,6 +18,12 @@ resources:
 - ai-model-registry-governance-secret-ogxserver-vector-connection.yaml
 - ai-model-registry-governance-servingruntime-vllm-cpu-x86-runtime.yaml
 - cluster-namespace-ai-model-registry-governance.yaml
+- cluster-namespace-external-db-model-registry-lab.yaml
+- external-db-model-registry-lab-cm-mysql-ssl.yaml
+- external-db-model-registry-lab-deployment-mysql.yaml
+- external-db-model-registry-lab-pvc-mysql.yaml
+- external-db-model-registry-lab-secret-mysql-credentials.yaml
+- external-db-model-registry-lab-service-mysql.yaml
 - rhoai-model-registries-modelregistry-model-registry-lab.yaml
 - rhoai-model-registries-networkpolicy-allow-ai-projects.yaml
 - rhoai-model-registries-rb-model-ingest-job.yaml
