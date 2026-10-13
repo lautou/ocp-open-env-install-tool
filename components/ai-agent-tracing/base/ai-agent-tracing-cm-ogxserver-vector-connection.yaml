@@ -5,6 +5,6 @@ metadata:
   namespace: ai-agent-tracing
 data:
   PGVECTOR_DB: ogxservervectordb
-  PGVECTOR_HOST: postgresql.external-db-ogxserver-vector.svc.cluster.local
+  PGVECTOR_HOST: postgresql.external-db-ai-agent-tracing-ogxserver-vector.svc.cluster.local
   PGVECTOR_PORT: "5432"
   PGVECTOR_USER: ogxservervector

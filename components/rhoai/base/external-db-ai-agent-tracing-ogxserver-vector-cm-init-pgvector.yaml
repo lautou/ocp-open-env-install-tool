@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ogxserver-vector-postgresql-init
-  namespace: external-db-ogxserver-vector
+  namespace: external-db-ai-agent-tracing-ogxserver-vector
 data:
   enable-pgvector.sh: |
     #!/bin/bash

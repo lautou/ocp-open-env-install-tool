@@ -12,9 +12,9 @@ resources:
 - cluster-kueue-cluster.yaml
 - cluster-mlflow-mlflow.yaml
 - cluster-namespace-external-db-ai-agent-tracing-ogxserver-metadata.yaml
+- cluster-namespace-external-db-ai-agent-tracing-ogxserver-vector.yaml
 - cluster-namespace-external-db-evalhub.yaml
 - cluster-namespace-external-db-maas.yaml
-- cluster-namespace-external-db-ogxserver-vector.yaml
 - cluster-namespace-external-db-s3-mlflow.yaml
 - cluster-namespace-redhat-ods-applications.yaml
 - cluster-namespace-redhat-ods-operator.yaml
@@ -24,6 +24,12 @@ resources:
 - external-db-ai-agent-tracing-ogxserver-metadata-pvc-postgresql.yaml
 - external-db-ai-agent-tracing-ogxserver-metadata-secret-postgresql-credentials.yaml
 - external-db-ai-agent-tracing-ogxserver-metadata-service-postgresql.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-cm-init-pgvector.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-cm-postgresql-ssl.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-deployment-postgresql.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-pvc-postgresql.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-secret-postgresql-credentials.yaml
+- external-db-ai-agent-tracing-ogxserver-vector-service-postgresql.yaml
 - external-db-evalhub-cm-postgresql-ssl.yaml
 - external-db-evalhub-deployment-postgresql.yaml
 - external-db-evalhub-pvc-postgresql.yaml
@@ -36,12 +42,6 @@ resources:
 - external-db-maas-role-maas-db-secret.yaml
 - external-db-maas-secret-postgresql-credentials.yaml
 - external-db-maas-service-postgresql.yaml
-- external-db-ogxserver-vector-cm-init-pgvector.yaml
-- external-db-ogxserver-vector-cm-postgresql-ssl.yaml
-- external-db-ogxserver-vector-deployment-postgresql.yaml
-- external-db-ogxserver-vector-pvc-postgresql.yaml
-- external-db-ogxserver-vector-secret-postgresql-credentials.yaml
-- external-db-ogxserver-vector-service-postgresql.yaml
 - external-db-s3-mlflow-cm-postgresql-ssl.yaml
 - external-db-s3-mlflow-deployment-postgresql.yaml
 - external-db-s3-mlflow-obc-mlflow.yaml

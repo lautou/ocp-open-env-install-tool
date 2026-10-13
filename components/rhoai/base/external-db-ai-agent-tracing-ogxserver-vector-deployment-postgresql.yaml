@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ogxserver-vector-postgresql
-  namespace: external-db-ogxserver-vector
+  namespace: external-db-ai-agent-tracing-ogxserver-vector
 spec:
   replicas: 1
   selector:
