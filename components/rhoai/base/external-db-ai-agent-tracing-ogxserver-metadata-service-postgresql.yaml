@@ -4,7 +4,7 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: ogxserver-metadata-postgresql-tls
   name: postgresql
-  namespace: external-db-ogxserver-metadata
+  namespace: external-db-ai-agent-tracing-ogxserver-metadata
 spec:
   ports:
   - name: postgresql

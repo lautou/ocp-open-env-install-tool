@@ -62,6 +62,7 @@ resources:
 - redhat-ods-applications-odhdashboardconfig-odh-dashboard-config.yaml
 - redhat-ods-applications-rb-mlflow-artifacts-patcher.yaml
 - redhat-ods-applications-role-mlflow-artifacts-patcher.yaml
+- redhat-ods-applications-secret-evalhub-db-credentials.yaml
 - redhat-ods-applications-secret-mlflow-backend-store-uri.yaml
 - redhat-ods-operator-operatorgroup-rhods-operator.yaml
 - redhat-ods-operator-subscription-rhods-operator.yaml
