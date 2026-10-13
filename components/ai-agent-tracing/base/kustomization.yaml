@@ -13,3 +13,16 @@ resources:
   - ai-agent-tracing-secret-ogxserver-vector-connection.yaml
   - ai-agent-tracing-servingruntime-llama-32-3b-instruct.yaml
   - cluster-namespace-ai-agent-tracing.yaml
+  - cluster-namespace-external-db-ai-agent-tracing-ogxserver-metadata.yaml
+  - cluster-namespace-external-db-ai-agent-tracing-ogxserver-vector.yaml
+  - external-db-ai-agent-tracing-ogxserver-metadata-cm-postgresql-ssl.yaml
+  - external-db-ai-agent-tracing-ogxserver-metadata-deployment-postgresql.yaml
+  - external-db-ai-agent-tracing-ogxserver-metadata-pvc-postgresql.yaml
+  - external-db-ai-agent-tracing-ogxserver-metadata-secret-postgresql-credentials.yaml
+  - external-db-ai-agent-tracing-ogxserver-metadata-service-postgresql.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-cm-init-pgvector.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-cm-postgresql-ssl.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-deployment-postgresql.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-pvc-postgresql.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-secret-postgresql-credentials.yaml
+  - external-db-ai-agent-tracing-ogxserver-vector-service-postgresql.yaml
