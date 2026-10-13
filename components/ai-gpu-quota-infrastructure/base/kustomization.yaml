@@ -8,7 +8,6 @@ resources:
 - cluster-crb-kueue-localqueue-edit.yaml
 - cluster-crb-kueue-resourceflavor-edit.yaml
 - cluster-crb-kueue-workloadpriorityclass-edit.yaml
-- cluster-kueue-cluster.yaml
 - cluster-namespace-ai-gpu-quota-infrastructure-team-a.yaml
 - cluster-namespace-ai-gpu-quota-infrastructure-team-b.yaml
 - cluster-namespace-openshift-kueue-operator.yaml
