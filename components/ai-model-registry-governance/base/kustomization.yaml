@@ -2,20 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - ai-model-registry-governance-cm-ingestion-code.yaml
-- ai-model-registry-governance-cm-ogx-base-config.yaml
-- ai-model-registry-governance-cm-ogxserver-postgres-metadata.yaml
-- ai-model-registry-governance-cm-ogxserver-vector-connection.yaml
 - ai-model-registry-governance-inferenceservice-qwen3-06b-100.yaml
 - ai-model-registry-governance-job-mcg-bucket-models-rotation.yaml
 - ai-model-registry-governance-job-model-ingest.yaml
 - ai-model-registry-governance-obc-models.yaml
-- ai-model-registry-governance-ogxserver-lsd-genai-playground.yaml
 - ai-model-registry-governance-rb-mcg-bucket-models-rotation.yaml
 - ai-model-registry-governance-role-mcg-bucket-models-rotation.yaml
 - ai-model-registry-governance-sa-mcg-bucket-models-rotation.yaml
 - ai-model-registry-governance-sa-model-ingestion.yaml
-- ai-model-registry-governance-secret-ogxserver-postgres-metadata.yaml
-- ai-model-registry-governance-secret-ogxserver-vector-connection.yaml
 - ai-model-registry-governance-servingruntime-vllm-cpu-x86-runtime.yaml
 - cluster-namespace-ai-model-registry-governance.yaml
 - cluster-namespace-external-db-model-registry-lab.yaml
