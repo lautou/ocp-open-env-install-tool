@@ -1,0 +1,22 @@
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: EvalHub
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: evalhub
+  namespace: redhat-ods-applications
+spec:
+  collections:
+  - safety-and-fairness-v1
+  database:
+    secret: evalhub-db-credentials
+    type: postgresql
+  env:
+  - name: MLFLOW_TRACKING_URI
+    value: https://mlflow.redhat-ods-applications.svc.cluster.local:8443
+  providers:
+  - lm-evaluation-harness
+  - garak
+  - guidellm
+  - lighteval
+  replicas: 1
