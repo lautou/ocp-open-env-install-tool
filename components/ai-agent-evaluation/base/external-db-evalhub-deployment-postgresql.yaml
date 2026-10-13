@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evalhub-postgresql
+  namespace: external-db-evalhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evalhub-postgresql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: evalhub-postgresql
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_USER
+              name: evalhub-postgresql-credentials
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_PASSWORD
+              name: evalhub-postgresql-credentials
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_DATABASE
+              name: evalhub-postgresql-credentials
+        image: registry.redhat.io/rhel10/postgresql-18@sha256:2e04d97c53cd19e9fc855195f0585925fd2a704e42cb158d9c96b57747631882
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 5
+        name: postgresql
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/pgsql/data
+          name: data
+        - mountPath: /opt/app-root/src/certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/app-root/src/postgresql-cfg
+          name: ssl-cfg
+          readOnly: true
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: evalhub-postgresql
+      - name: certs
+        secret:
+          defaultMode: 0640
+          secretName: evalhub-postgresql-tls
+      - configMap:
+          name: evalhub-postgresql-ssl
+        name: ssl-cfg

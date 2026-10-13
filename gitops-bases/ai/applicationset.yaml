@@ -8,6 +8,9 @@ spec:
   - list:
       elements:
       - branch: master
+        item: ai-agent-evaluation
+        project: ai-usecases
+      - branch: master
         item: ai-agent-tracing
         project: ai-usecases
       - branch: master
