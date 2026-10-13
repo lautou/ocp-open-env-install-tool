@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: edit-evalhub
+rules:
+  - apiGroups:
+      - trustyai.opendatahub.io
+    resources:
+      - evalhubs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - trustyai.opendatahub.io
+    resources:
+      - evalhubs/status
+    verbs:
+      - get
