@@ -141,9 +141,13 @@ Per RHOAI 3.4 doc (section "Playground prerequisites"):
 
 ---
 
-## NooBaa/MCG-Backed Data Connections — Use the Internal S3 Endpoint
+## NooBaa/MCG-Backed Data Connections — Use the Internal S3 Endpoint, HTTPS Is Also an Option
 
-For an S3-type Data Connection (or a ModelRegistry's object storage) backed by an `ObjectBucketClaim`, point `AWS_S3_ENDPOINT` at NooBaa's in-cluster gateway service — `http://s3.openshift-storage.svc` — never the external Route. The Route is signed by the cluster's self-signed default ingress cert, which fails TLS verification for S3 clients (boto3, DSPA, etc.) connecting from inside the cluster. This matches the same endpoint already used by this repo's `create-secret-logging-loki-s3`/`create-secret-netobserv-loki-s3` Jobs.
+For an S3-type Data Connection (or a ModelRegistry's object storage) backed by an `ObjectBucketClaim`, point `AWS_S3_ENDPOINT` at NooBaa's in-cluster gateway service — `s3.openshift-storage.svc` — never the external Route. The Route is signed by the cluster's self-signed default ingress cert, which fails TLS verification for S3 clients (boto3, DSPA, etc.) connecting from inside the cluster.
+
+**The internal Service itself supports real, verifiable TLS on port 443** — its cert (`CN=s3.openshift-storage.svc`) is signed by the cluster's own service-ca signer, same as every other service-ca cert cluster-wide. Confirmed live: `curl --cacert <(oc get cm odh-kserve-custom-ca-bundle -o jsonpath='{.data.cabundle\.crt}') https://s3.openshift-storage.svc` returns `SSL certificate verify ok`. `odh-kserve-custom-ca-bundle` (and the combined `odh-trusted-ca-bundle`'s `odh-ca-bundle.crt` key) are auto-propagated to every namespace cluster-wide, so any consumer that trusts the cluster's service-ca signer — explicitly via a mounted CA bundle (MLflow's CR `caBundleConfigMap` field), or implicitly via RHOAI's standard Workbench/Pipeline trusted-CA injection — gets a genuinely verified connection with `https://s3.openshift-storage.svc`, not just an encrypted-but-unverified one.
+
+**Plain `http://` is still the simplest, lowest-risk default** for a generic Data Connection Secret with no single fixed consumer (the RHOAI dashboard's S3 connection type has no CA-bundle field, so there's no way to wire explicit trust into the Secret itself — a consumer has to already trust the service-ca signer on its own, which dashboard-created Workbenches generally do but arbitrary user code might not). Use `https://` when there's a specific, verifiable consumer to confirm against (as done for MLflow); default to `http://` otherwise, matching `create-secret-logging-loki-s3`/`create-secret-netobserv-loki-s3`.
 
 ### A Large Upload Can Silently Fail on a Just-Created OBC Bucket, While Small Files Succeed
 
