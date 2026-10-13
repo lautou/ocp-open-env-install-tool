@@ -4,13 +4,6 @@ metadata:
   name: allow-ai-projects
   namespace: rhoai-model-registries
 spec:
-  podSelector:
-    matchLabels:
-      app: model-registry-lab
-      app.kubernetes.io/name: model-registry-lab
-      component: model-registry
-  policyTypes:
-  - Ingress
   ingress:
   - from:
     - namespaceSelector:
@@ -19,3 +12,10 @@ spec:
     ports:
     - port: 8443
       protocol: TCP
+  podSelector:
+    matchLabels:
+      app: model-registry-lab
+      app.kubernetes.io/name: model-registry-lab
+      component: model-registry
+  policyTypes:
+  - Ingress

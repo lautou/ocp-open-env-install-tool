@@ -8,6 +8,8 @@ spec:
   backendStoreUriFrom:
     key: BACKEND_STORE_URI
     name: mlflow-backend-store-uri
+  caBundleConfigMap:
+    name: odh-kserve-custom-ca-bundle
   env:
   - name: AWS_ACCESS_KEY_ID
     valueFrom:
@@ -23,8 +25,6 @@ spec:
     value: us-east-1
   - name: MLFLOW_S3_ENDPOINT_URL
     value: https://s3.openshift-storage.svc
-  caBundleConfigMap:
-    name: odh-kserve-custom-ca-bundle
   serveArtifacts: true
   storage:
     accessModes:

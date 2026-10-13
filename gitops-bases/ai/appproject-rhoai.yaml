@@ -4,13 +4,13 @@ metadata:
   name: rhoai
   namespace: openshift-gitops
 spec:
-  description: RHOAI platform + its infra operators
-  sourceRepos:
-  - https://github.com/lautou/ocp-open-env-install-tool.git
-  - https://charts.openshift.io/
-  destinations:
-  - server: https://kubernetes.default.svc
-    namespace: '*'
   clusterResourceWhitelist:
   - group: '*'
     kind: '*'
+  description: RHOAI platform + its infra operators
+  destinations:
+  - server: https://kubernetes.default.svc
+    namespace: '*'
+  sourceRepos:
+  - https://github.com/lautou/ocp-open-env-install-tool.git
+  - https://charts.openshift.io/

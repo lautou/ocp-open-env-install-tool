@@ -6,13 +6,10 @@ metadata:
   name: patch-mlflow-artifacts-destination
   namespace: openshift-gitops
 spec:
-  ttlSecondsAfterFinished: 600
   template:
     metadata:
       name: patch-mlflow-artifacts-destination
     spec:
-      serviceAccountName: mlflow-artifacts-patcher
-      restartPolicy: Never
       containers:
       - name: patch-mlflow
         image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
@@ -52,3 +49,6 @@ spec:
           oc patch mlflow mlflow --type merge -p "{\"spec\":{\"artifactsDestination\":\"s3://${BUCKET_NAME}\"}}"
 
           echo "✅ MLflow S3 artifacts configured"
+      restartPolicy: Never
+      serviceAccountName: mlflow-artifacts-patcher
+  ttlSecondsAfterFinished: 600

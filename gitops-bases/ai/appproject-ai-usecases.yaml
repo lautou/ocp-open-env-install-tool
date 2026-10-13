@@ -4,12 +4,12 @@ metadata:
   name: ai-usecases
   namespace: openshift-gitops
 spec:
-  description: AI/ML use-case demos and labs (OpenShift AI dashboard-facing components)
-  sourceRepos:
-  - https://github.com/lautou/ocp-open-env-install-tool.git
-  destinations:
-  - server: https://kubernetes.default.svc
-    namespace: '*'
   clusterResourceWhitelist:
   - group: '*'
     kind: '*'
+  description: AI/ML use-case demos and labs (OpenShift AI dashboard-facing components)
+  destinations:
+  - server: https://kubernetes.default.svc
+    namespace: '*'
+  sourceRepos:
+  - https://github.com/lautou/ocp-open-env-install-tool.git

@@ -6,13 +6,10 @@ metadata:
   name: mcg-bucket-models-rotation
   namespace: ai-single-pod-llm-serving
 spec:
-  ttlSecondsAfterFinished: 600
   template:
     metadata:
       name: mcg-bucket-models-rotation
     spec:
-      serviceAccountName: mcg-bucket-models-rotation
-      restartPolicy: Never
       containers:
       - name: create-secret
         image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
@@ -46,3 +43,6 @@ spec:
             | oc apply -f -
 
           echo "✅ Secret mcg-models ready in ai-single-pod-llm-serving"
+      restartPolicy: Never
+      serviceAccountName: mcg-bucket-models-rotation
+  ttlSecondsAfterFinished: 600

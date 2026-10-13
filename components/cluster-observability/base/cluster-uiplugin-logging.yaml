@@ -12,8 +12,8 @@ spec:
       - operator: Exists
         key: node-role.kubernetes.io/infra
   logging:
+    logsLimit: 50
     lokiStack:
       name: logging-loki
-    logsLimit: 50
     timeout: 30s
   type: Logging

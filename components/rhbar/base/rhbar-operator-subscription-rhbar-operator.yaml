@@ -5,12 +5,12 @@ metadata:
   namespace: rhbar-operator
 spec:
   channel: 3.x
-  name: apicurio-registry-3
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ""
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists
+  name: apicurio-registry-3
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

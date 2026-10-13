@@ -5,41 +5,6 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: gitops-standard
 spec:
-  # Priority: 10 (higher than NetworkPolicy, cannot be overridden)
-  priority: 10
-
-  # Apply to namespaces explicitly opted-in to GitOps network policies
-  subject:
-    namespaces:
-      matchLabels:
-        network-policy.gitops/enforce: "true"
-
-  # Ingress rules (processed BEFORE NetworkPolicy)
-  # Note: Same-namespace traffic control should be implemented via NetworkPolicy
-  # (namespace-scoped), not AdminNetworkPolicy (cluster-scoped). The sameLabels
-  # feature was removed from v1alpha1 API.
-  ingress:
-  - name: allow-openshift-ingress
-    action: Allow
-    from:
-    - namespaces:
-        matchLabels:
-          network.openshift.io/policy-group: ingress
-
-  - name: allow-openshift-monitoring
-    action: Allow
-    from:
-    - namespaces:
-        matchLabels:
-          kubernetes.io/metadata.name: openshift-monitoring
-
-  - name: allow-openshift-user-workload-monitoring
-    action: Allow
-    from:
-    - namespaces:
-        matchLabels:
-          kubernetes.io/metadata.name: openshift-user-workload-monitoring
-
   # Egress rules (processed BEFORE NetworkPolicy)
   egress:
   - name: allow-dns
@@ -88,3 +53,38 @@ spec:
     - namespaces:
         matchLabels:
           kubernetes.io/metadata.name: openshift-monitoring
+
+  # Ingress rules (processed BEFORE NetworkPolicy)
+  # Note: Same-namespace traffic control should be implemented via NetworkPolicy
+  # (namespace-scoped), not AdminNetworkPolicy (cluster-scoped). The sameLabels
+  # feature was removed from v1alpha1 API.
+  ingress:
+  - name: allow-openshift-ingress
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+
+  - name: allow-openshift-monitoring
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+
+  - name: allow-openshift-user-workload-monitoring
+    action: Allow
+    from:
+    - namespaces:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-user-workload-monitoring
+
+  # Priority: 10 (higher than NetworkPolicy, cannot be overridden)
+  priority: 10
+
+  # Apply to namespaces explicitly opted-in to GitOps network policies
+  subject:
+    namespaces:
+      matchLabels:
+        network-policy.gitops/enforce: "true"

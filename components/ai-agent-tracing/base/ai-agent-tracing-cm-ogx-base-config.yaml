@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ogx-base-config
-  namespace: ai-agent-tracing
   labels:
     ogx.io/watch: "true"
+  name: ogx-base-config
+  namespace: ai-agent-tracing
 data:
   config.yaml: |
     version: "2"

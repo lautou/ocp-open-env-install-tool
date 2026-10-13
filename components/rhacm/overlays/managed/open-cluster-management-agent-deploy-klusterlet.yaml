@@ -38,15 +38,6 @@ spec:
                   - klusterlet
               topologyKey: kubernetes.io/hostname
             weight: 30
-      nodeSelector:
-        node-role.kubernetes.io/infra: ''
-      tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/infra
-        operator: Exists
-      serviceAccountName: klusterlet
-      securityContext:
-        runAsNonRoot: true
       containers:
       - name: klusterlet
         image: registry.redhat.io/multicluster-engine/registration-operator-rhel9@sha256:60aa2309cca7d6ab86f3d7a841b6add9903aad8db55c9c9678cf1cda9d9b5403
@@ -86,6 +77,15 @@ spec:
         volumeMounts:
         - name: tmpdir
           mountPath: /tmp
+      nodeSelector:
+        node-role.kubernetes.io/infra: ''
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: klusterlet
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/infra
+        operator: Exists
       volumes:
       - name: tmpdir
         emptyDir: {}

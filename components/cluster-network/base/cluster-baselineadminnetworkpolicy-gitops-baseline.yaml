@@ -5,12 +5,6 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: default
 spec:
-  # Apply to namespaces explicitly opted-in to GitOps network policies
-  subject:
-    namespaces:
-      matchLabels:
-        network-policy.gitops/enforce: "true"
-
   # Egress rules (processed AFTER AdminNetworkPolicy and NetworkPolicy)
   egress:
   - name: deny-all-other-egress
@@ -18,3 +12,9 @@ spec:
     to:
     - networks:
       - 0.0.0.0/0
+
+  # Apply to namespaces explicitly opted-in to GitOps network policies
+  subject:
+    namespaces:
+      matchLabels:
+        network-policy.gitops/enforce: "true"

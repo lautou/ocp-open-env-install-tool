@@ -12,29 +12,19 @@ spec:
     auth:
       disable_login_form: 'false'
     auth.proxy:
-      enabled: 'true'
-      enable_login_token: 'true'
-      header_property: username
-      header_name: X-Forwarded-User
       auto_login: 'true'
-    users:
-      auto_assign_org_role: Admin
+      enable_login_token: 'true'
+      enabled: 'true'
+      header_name: X-Forwarded-User
+      header_property: username
     log:
       mode: console
+    users:
+      auto_assign_org_role: Admin
   deployment:
     spec:
       template:
         spec:
-          volumes:
-          - name: grafana-tls
-            secret:
-              secretName: grafana-tls
-          - name: grafana-proxy
-            secret:
-              secretName: grafana-proxy
-          - name: ocp-injected-certs
-            configMap:
-              name: ocp-injected-certs
           containers:
           - args:
             - -provider=openshift
@@ -69,6 +59,16 @@ spec:
             - mountPath: /etc/proxy/certs
               name: ocp-injected-certs
               readOnly: false
+          volumes:
+          - name: grafana-tls
+            secret:
+              secretName: grafana-tls
+          - name: grafana-proxy
+            secret:
+              secretName: grafana-proxy
+          - name: ocp-injected-certs
+            configMap:
+              name: ocp-injected-certs
   route:
     spec:
       port:

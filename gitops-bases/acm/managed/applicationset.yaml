@@ -13,19 +13,8 @@ spec:
     metadata:
       name: '{{item}}'
     spec:
-      project: default
-      source:
-        path: components/{{item}}/overlays/managed
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        retry:
-          limit: 10
       ignoreDifferences:
       - group: ''
         jsonPointers:
@@ -37,3 +26,14 @@ spec:
         - .imagePullSecrets[] | select(.name | startswith("klusterlet-dockercfg-"))
         kind: ServiceAccount
         name: klusterlet
+      project: default
+      source:
+        path: components/{{item}}/overlays/managed
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: '{{branch}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10

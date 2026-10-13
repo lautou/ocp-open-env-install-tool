@@ -6,8 +6,6 @@ metadata:
   name: cluster-core-components
   namespace: openshift-gitops
 spec:
-  syncPolicy:
-    applicationsSync: create-update
   generators:
   - list:
       elements:
@@ -53,25 +51,16 @@ spec:
         item: user-workload-monitoring
       - branch: master
         item: vertical-pod-autoscaler
+  syncPolicy:
+    applicationsSync: create-update
   template:
     metadata:
       finalizers:
       - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
-      project: default
-      source:
-        path: components/{{item}}/overlays/default
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        retry:
-          limit: 10
       ignoreDifferences:
       - group: ''
         jsonPointers:
@@ -84,3 +73,14 @@ spec:
         kind: ConfigMap
         name: cmp-plugin
         namespace: openshift-gitops
+      project: default
+      source:
+        path: components/{{item}}/overlays/default
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: '{{branch}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10

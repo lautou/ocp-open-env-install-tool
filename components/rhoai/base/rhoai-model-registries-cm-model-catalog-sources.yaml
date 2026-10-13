@@ -4,14 +4,6 @@ metadata:
   name: model-catalog-sources
   namespace: rhoai-model-registries
 data:
-  sources.yaml: |
-    catalogs:
-      - name: "Model-Registry-Lab"
-        id: "registry-custom-models"
-        enabled: true
-        type: "yaml"
-        properties:
-          yamlCatalogPath: "/data/user-model-sources/registry-models.yaml"
   registry-models.yaml: |
     source: Model-Registry-Lab
     models:
@@ -32,3 +24,11 @@ data:
             string_value: "1.0"
         artifacts:
           - uri: "s3://models/Qwen3-0.6B/1.0.0/"
+  sources.yaml: |
+    catalogs:
+      - name: "Model-Registry-Lab"
+        id: "registry-custom-models"
+        enabled: true
+        type: "yaml"
+        properties:
+          yamlCatalogPath: "/data/user-model-sources/registry-models.yaml"

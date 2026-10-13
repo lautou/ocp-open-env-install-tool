@@ -58,19 +58,8 @@ spec:
       - resources-finalizer.argocd.argoproj.io/background
       name: '{{item}}'
     spec:
-      project: '{{project}}'
-      source:
-        path: components/{{item}}/overlays/default
-        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
-        targetRevision: '{{branch}}'
       destination:
         server: https://kubernetes.default.svc
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        retry:
-          limit: 10
       ignoreDifferences:
       - group: ''
         jsonPointers:
@@ -101,3 +90,14 @@ spec:
         - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-config")
         - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-tls-certificates")
         kind: Notebook
+      project: '{{project}}'
+      source:
+        path: components/{{item}}/overlays/default
+        repoURL: https://github.com/lautou/ocp-open-env-install-tool.git
+        targetRevision: '{{branch}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10

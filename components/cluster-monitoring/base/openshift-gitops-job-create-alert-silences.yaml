@@ -10,8 +10,6 @@ spec:
     metadata:
       name: create-alert-silences
     spec:
-      serviceAccountName: create-alert-silences
-      restartPolicy: Never
       containers:
       - command:
         - /bin/bash
@@ -241,3 +239,5 @@ spec:
           fi
         image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
         name: create-silences
+      restartPolicy: Never
+      serviceAccountName: create-alert-silences
