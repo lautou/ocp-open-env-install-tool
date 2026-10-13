@@ -105,6 +105,7 @@ data:
                           endpoint_url=S3_ENDPOINT,
                           aws_access_key_id=AWS_ACCESS_KEY,
                           aws_secret_access_key=AWS_SECRET_KEY,
+                          verify=SERVICE_CA_PATH,
                           config=Config(signature_version='s3v4'))
 
         # Bucket is already provisioned via ObjectBucketClaim — no create_bucket call needed,

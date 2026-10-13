@@ -16,6 +16,7 @@ data:
     S3_ENDPOINT = os.getenv("AWS_S3_ENDPOINT")
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    SERVICE_CA_PATH = "/etc/pki/service-ca/service-ca.crt"
 
     def main():
         print(f"\n=== DOWNLOADING {MODEL_ID} ===")
@@ -25,6 +26,7 @@ data:
         s3 = boto3.client('s3', endpoint_url=S3_ENDPOINT,
                           aws_access_key_id=AWS_ACCESS_KEY,
                           aws_secret_access_key=AWS_SECRET_KEY,
+                          verify=SERVICE_CA_PATH,
                           config=Config(signature_version='s3v4'))
         try:
             s3.create_bucket(Bucket=S3_BUCKET)

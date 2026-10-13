@@ -46,8 +46,13 @@ spec:
         volumeMounts:
         - name: code-volume
           mountPath: /scripts
+        - name: service-ca
+          mountPath: /etc/pki/service-ca
       restartPolicy: Never
       volumes:
       - name: code-volume
         configMap:
           name: fast-track-code
+      - name: service-ca
+        configMap:
+          name: openshift-service-ca.crt
