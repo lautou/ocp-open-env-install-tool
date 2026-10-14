@@ -9,6 +9,7 @@ resources:
   - ai-agent-tracing-notebook-test-mlflow.yaml
   - ai-agent-tracing-ogxserver-lsd-genai-playground.yaml
   - ai-agent-tracing-pvc-test-mlflow-storage.yaml
+  - ai-agent-tracing-rb-evalhub-providers-access.yaml
   - ai-agent-tracing-secret-ogxserver-postgres-metadata.yaml
   - ai-agent-tracing-secret-ogxserver-vector-connection.yaml
   - ai-agent-tracing-servingruntime-llama-32-3b-instruct.yaml
