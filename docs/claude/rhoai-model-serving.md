@@ -224,7 +224,7 @@ spec:
 - EBS RWO = one node at a time
 - If pods land on different nodes → **Multi-Attach error** → router-scheduler stuck `ContainerCreating`
 
-**Workaround (EBS RWO):** Force co-location via `podAffinity` in `router.scheduler.template`. Requires providing full container specs because the controller uses the template as-is without merging with defaults (bug — see YAML in memory `project_llmisvc_pvc_workaround`).
+**Workaround (EBS RWO):** Force co-location via `podAffinity` in `router.scheduler.template`. Requires providing full container specs because the controller uses the template as-is without merging with defaults (bug — see "Full Working YAML — EBS RWO Co-location Workaround" below).
 
 **Clean solution:** Use RWX storage (EFS on AWS, CephFS with ODF). Standard LLMInferenceService spec then works without modification. EFS Standard is 2-3x slower at model load vs EBS gp3, but runtime inference is unaffected (model in GPU VRAM).
 
@@ -253,7 +253,168 @@ When `spec.router.scheduler.template` is provided, the controller uses it **as-i
 - ✅ `affinity`, `tolerations`, `nodeSelector` work
 - ❌ If `containers` is absent → Deployment creation fails: `spec.template.spec.containers: Required value`
 
-To use `affinity` in the scheduler template, you must also provide the full container specs. See memory entry `project_llmisvc_pvc_workaround` for the complete YAML.
+To use `affinity` in the scheduler template, you must also provide the full container specs — see "Full Working YAML — EBS RWO Co-location Workaround" below.
+
+### Full Working YAML — EBS RWO Co-location Workaround
+
+Deploying LLMInferenceService with PVC RWO storage on a GPU-tainted node (e.g. `p4d.24xlarge`) requires two non-standard sections beyond the basic spec, because EBS gp3 is RWO (one node at a time) and the llm-d controller mounts the PVC on every pod it creates — both vLLM and the router-scheduler's `tokenizer` container must land on the same node.
+
+```yaml
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/genai-use-case: chat
+    opendatahub.io/model-type: generative
+    openshift.io/display-name: mistral-medium-3-5-llmd
+    security.opendatahub.io/enable-auth: "false"
+  labels:
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+  name: mistral-medium-3-5-llmd
+  namespace: demo-ei
+spec:
+  model:
+    name: mistral-medium-3-5-llmd
+    uri: pvc://mistral-medium-3-5-bf16/mistral-medium-3-5
+  replicas: 1
+  router:
+    gateway:
+      refs:
+      - name: openshift-ai-inference
+        namespace: openshift-ingress
+    route: {}
+    scheduler:
+      template:
+        # NON-STANDARD: podAffinity to co-locate router-scheduler with vLLM pod (same RWO node)
+        affinity:
+          podAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: mistral-medium-3-5-llmd
+                  kserve.io/component: workload
+              topologyKey: kubernetes.io/hostname
+        # NON-STANDARD: toleration needed since p4d has nvidia.com/gpu:NoSchedule taint
+        tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+        # NON-STANDARD: full containers required — controller does NOT merge with defaults
+        containers:
+        - name: main
+          command:
+          - /app/epp
+          - --pool-name
+          - mistral-medium-3-5-llmd-inference-pool
+          - --pool-namespace
+          - demo-ei
+          - --zap-encoder
+          - json
+          - --grpc-port
+          - "9002"
+          - --grpc-health-port
+          - "9003"
+          - --enable-cert-reload=true
+          - --secure-serving=true
+          - --model-server-metrics-scheme=https
+          - --cert-path=/var/run/kserve/tls
+          args:
+          - --config-text
+          - |
+            apiVersion: inference.networking.x-k8s.io/v1alpha1
+            kind: EndpointPickerConfig
+            plugins:
+            - type: single-profile-handler
+            - type: queue-scorer
+            - type: prefix-cache-scorer
+            - type: max-score-picker
+            schedulingProfiles:
+            - name: default
+              plugins:
+              - pluginRef: queue-scorer
+                weight: 2
+              - pluginRef: prefix-cache-scorer
+                weight: 3
+              - pluginRef: max-score-picker
+          env:
+          - name: SSL_CERT_DIR
+            value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
+          image: registry.redhat.io/rhoai/odh-llm-d-inference-scheduler-rhel9@sha256:bddf686d6eaf1a607e1c697f58165d685944607cb4629648f27e56b2884e3de0
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          volumeMounts:
+          - mountPath: /var/run/kserve/tls
+            name: tls-certs
+            readOnly: true
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+        - name: tokenizer
+          image: registry.redhat.io/rhoai/odh-llm-d-kv-cache-rhel9@sha256:db4b79a17194574aeae3e702eb2740485c95f160166d2ea7b6cbab0a40cfe9e9
+          env:
+          - name: TOKENIZERS_DIR
+            value: /mnt/models
+          workingDir: /mnt/models
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          volumeMounts:
+          - mountPath: /tmp
+            name: tokenizer-tmp
+          - mountPath: /.cache
+            name: tokenizer-cache
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+          - mountPath: /mnt/models/base
+            name: kserve-pvc-source
+            readOnly: true
+            subPath: mistral-medium-3-5
+        volumes:
+        - name: tls-certs
+          secret:
+            secretName: mistral-medium-3-5-llmd-kserve-self-signed-certs
+        - name: tokenizer-uds
+          emptyDir: {}
+        - name: tokenizer-tmp
+          emptyDir: {}
+        - name: tokenizer-cache
+          emptyDir: {}
+        - name: kserve-pvc-source
+          persistentVolumeClaim:
+            claimName: mistral-medium-3-5-bf16
+  template:
+    containers:
+    - env:
+      - name: VLLM_ADDITIONAL_ARGS
+        value: --tensor-parallel-size 8
+      name: main
+      resources:
+        limits:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+        requests:
+          cpu: "48"
+          memory: 320Gi
+          nvidia.com/gpu: "8"
+    # NON-STANDARD: toleration required for vLLM pod on GPU-tainted p4d node
+    tolerations:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Exists
+```
+
+**Key facts:**
+- TLS secret name: `<llmisvc-name>-kserve-self-signed-certs` (auto-created by controller)
+- Pool name: `<llmisvc-name>-inference-pool` (hardcoded in EPP args)
+- Tokenizer container mounts the PVC at `/mnt/models/base` with `subPath=<model-subfolder>`
+- Image digests above are for RHOAI 3.4 — re-verify against the current release before reusing
+
+For PVC RWX (e.g. EFS), none of these workarounds are needed — the standard spec works as-is. AWS EFS supports ReadWriteMany, eliminating the co-location requirement entirely: EFS Standard runs 100-300 MB/s (2-3x slower model load than EBS gp3), EFS Performance up to 3 GB/s (comparable to EBS, more expensive). Runtime inference is unaffected either way since the model loads into GPU VRAM — the only cost is cold-start time.
 
 ---
 

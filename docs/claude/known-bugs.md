@@ -2,6 +2,8 @@
 
 This document tracks known bugs in OpenShift operators and components that generate false-positive alerts. These alerts are silenced in the Alertmanager configuration to reduce noise.
 
+**Scope:** entries here are actual upstream bugs with a JIRA tracking a real fix that may eventually ship — that's what the Removal Criteria below rely on. A permanent, intentional vendor policy change (e.g. a registry retiring a tag scheme) is not a bug: there's no JIRA, nothing will be "fixed," and it will never meet the removal criteria. File those instead as a short pointer in CLAUDE.md plus a full writeup in [troubleshooting.md](troubleshooting.md) — see CLAUDE.md's "Container Image Tags" entry as the template.
+
 **⚠️ IMPORTANT: Do NOT add secrets to Alertmanager configuration!**
 
 Before adding any alert silence, verify that the Alertmanager configuration does NOT contain:
@@ -517,6 +519,8 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 **Workaround:** use the Model Registry "Register" flow (Catalog → Model Registry) instead, which has fully editable Region/Path/Bucket/Access key fields for `s3://`, or deploy the model directly via Project → Models → Deploy (bypasses Catalog entirely). Every Red Hat-shipped catalog entry avoids this by using `oci://` only.
 
 **Affects our own repo:** `components/rhoai/base/rhoai-model-registries-cm-model-catalog-sources.yaml` — our custom `Qwen3-0.6B` catalog entry uses `s3://models/Qwen3-0.6B/1.0.0/`, so this bug is hit if Deploy is attempted directly from that Catalog entry. We deploy that model via Project → Models → Deploy instead.
+
+**Re-confirmed 2026-10-14** via a repo-wide audit for hardcoded per-cluster-rebuild values: this same `s3://models/...` entry was independently flagged again as a low-confidence item worth checking. Already covered here — no new ticket needed.
 
 ---
 
