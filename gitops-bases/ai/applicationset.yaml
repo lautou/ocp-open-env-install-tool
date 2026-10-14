@@ -89,6 +89,7 @@ spec:
         - .spec.template.spec.containers[] | select(.name == "kube-rbac-proxy")
         - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-config")
         - .spec.template.spec.volumes[] | select(.name == "kube-rbac-proxy-tls-certificates")
+        - .spec.template.spec.containers[].env[] | select(.name == "MLFLOW_TRACKING_URI")
         kind: Notebook
       project: '{{project}}'
       source:
