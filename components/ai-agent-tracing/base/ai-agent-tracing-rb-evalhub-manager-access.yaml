@@ -1,0 +1,18 @@
+# Works around RHOAIENG-100710: the TrustyAI operator only binds the
+# trustyai-service-operator-evalhub-manager-role ClusterRole (full CRUD on the providers,
+# collections, and evaluations resources EvalHub's server gates via SubjectAccessReview) to its
+# own controller-manager SA. No identity in this tenant namespace can call EvalHub's API at all
+# without this grant (e.g. `evalhub providers describe`/`evalhub eval run` from a workbench).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: evalhub-manager-access
+  namespace: ai-agent-tracing
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trustyai-service-operator-evalhub-manager-role
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:serviceaccounts:ai-agent-tracing
