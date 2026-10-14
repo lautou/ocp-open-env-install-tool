@@ -45,8 +45,6 @@ spec:
           value: "true"
         - name: MLFLOW_TRACKING_AUTH
           value: kubernetes-namespaced
-        - name: MLFLOW_TRACKING_URI
-          value: https://mlflow.redhat-ods-applications.svc.cluster.local:8443
         image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-minimal-notebook:3.5
         imagePullPolicy: Always
         livenessProbe:
