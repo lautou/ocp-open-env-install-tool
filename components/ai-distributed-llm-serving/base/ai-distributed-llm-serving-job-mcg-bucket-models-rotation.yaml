@@ -59,6 +59,19 @@ spec:
             | oc apply -f -
 
           echo "✅ Secret kserve-s3-creds ready in ai-distributed-llm-serving"
+
+          echo "Waiting for LLMInferenceService granite-distributed-prod in ai-distributed-llm-serving..."
+          while ! oc get llminferenceservice granite-distributed-prod -n ai-distributed-llm-serving &>/dev/null; do
+            sleep 5
+          done
+
+          echo "Patching LLMInferenceService model.uri with live bucket name..."
+          oc patch llminferenceservice granite-distributed-prod \
+            -n ai-distributed-llm-serving \
+            --type=merge \
+            -p "{\"spec\":{\"model\":{\"uri\":\"s3://${BUCKET_NAME}/granite3\"}}}"
+
+          echo "✅ LLMInferenceService model.uri patched to s3://${BUCKET_NAME}/granite3"
       restartPolicy: Never
       serviceAccountName: mcg-bucket-models-rotation
   ttlSecondsAfterFinished: 600

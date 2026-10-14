@@ -76,6 +76,10 @@ spec:
         - /spec/predictor/nodeSelector
         - /spec/predictor/tolerations
         kind: InferenceService
+      - group: serving.kserve.io
+        jsonPointers:
+        - /spec/model/uri
+        kind: LLMInferenceService
       - group: kubeflow.org
         jsonPointers:
         - /metadata/annotations/notebooks.opendatahub.io~1last-image-selection
