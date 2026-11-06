@@ -230,21 +230,27 @@ spec:
 
 **Recommended storage for llm-d in production:** S3 or `hf://` URI — no volume mounts, pods schedule freely on any node.
 
-### S3 Storage with an MCG/NooBaa `ObjectBucketClaim` — URI Must Be Re-synced After Namespace Recreation
+### S3 Storage with an MCG/NooBaa `ObjectBucketClaim` — Use a Fixed `bucketName`, Not `generateBucketName`
 
-`spec.model.uri` for an S3-backed `LLMInferenceService` is a static, git-committed string
-(`s3://<bucket>/<path>`), but an `ObjectBucketClaim` using `generateBucketName` gets a brand-new
-random bucket name (e.g. `models--79cb8c90-...`) every time it's created — including when a
-namespace is deleted and recreated (a GitOps rename, a profile switch). The old bucket and its
-contents are gone with the old namespace; the new OBC creates an empty bucket under a different
-name that the hardcoded `model.uri` doesn't match, so the storage-initializer fails with `404
-HeadBucket ... Not Found`, even though the model-loading Job (e.g. `fasttracker`) completes
-successfully into the *new* bucket.
+`spec.model.uri` (`s3://<bucket>/<path>`) has to name the bucket, but an OBC using
+`generateBucketName` gets a new random name (`models--<uuid>`) on every cluster rebuild or
+namespace recreation. Two failed approaches:
 
-**Fix after any namespace recreation:** read the new bucket name (`oc get obc <name> -n <ns> -o
-jsonpath='{.spec.bucketName}'`) and update `model.uri` in the component's
-`*-llminferenceservice-*.yaml` to match, then commit/push — a live-only patch won't survive
-ArgoCD `selfHeal`. Seen in `ai-distributed-llm-serving` (`llmd-deploy-lab` rename, 2026-10-12).
+- **Hardcoding the generated name in Git:** goes stale on every rebuild (storage-initializer
+  `404 HeadBucket ... Not Found`). Needed manual fixes three times.
+- **A Job patching `model.uri` after creation (+ `ignoreDifferences`):** the LLMInferenceService
+  is first created with the stale URI, so revision 1 pods get scheduled and hold the GPU nodes.
+  The patch then starts revision 2, which can't schedule (g4dn.xlarge only fits one 11Gi pod
+  per node). With `replicas: 2`, `maxUnavailable: 25%` rounds down to 0, so the old crash-looping
+  pods are never removed. The result is a permanent `ProgressDeadlineExceeded` deadlock while
+  ArgoCD still shows Synced/Healthy (seen 2026-11-06).
+
+**Pattern:** give the OBC a fixed, namespace-suffixed `bucketName` (e.g.
+`models-ai-distributed-llm-serving`) and commit the matching static `model.uri`. The resource is
+correct on first creation, with no second rollout and no `ignoreDifferences`. On an existing
+cluster, plan to delete and recreate the OBC and re-ingest the model: the bucket provisioner
+only acts on create/delete, so editing a Bound OBC's `bucketName` isn't expected to rename the
+bucket (not yet verified live).
 
 ### `router.scheduler.template` — Controller Behavior
 

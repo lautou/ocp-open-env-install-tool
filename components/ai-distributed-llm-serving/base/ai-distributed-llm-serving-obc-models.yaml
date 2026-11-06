@@ -8,5 +8,7 @@ metadata:
 spec:
   additionalConfig:
     bucketclass: noobaa-default-bucket-class
-  generateBucketName: models-
+  # Fixed (not generateBucketName) so the LLMInferenceService model.uri can be
+  # declared statically in Git — a generated name changes on every cluster rebuild.
+  bucketName: models-ai-distributed-llm-serving
   storageClassName: openshift-storage.noobaa.io
