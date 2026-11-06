@@ -252,6 +252,14 @@ cluster, plan to delete and recreate the OBC and re-ingest the model: the bucket
 only acts on create/delete, so editing a Bound OBC's `bucketName` isn't expected to rename the
 bucket (not yet verified live).
 
+**Recreating an OBC on a live cluster also needs the `mcg-bucket-models-rotation` Job re-run.**
+That Job copies the OBC's credentials and bucket name into `mcg-models`/`kserve-s3-creds` only
+when it runs. A recreated OBC gets new credentials, but the secrets keep the old ones until the
+Job runs again, so the ingest Job fails with `InvalidAccessKeyId`. Order: delete the rotation Job
+and let ArgoCD recreate it, wait for `mcg-models` to show the new bucket, then re-run the ingest
+Job. Check the storage-initializer log for every weight shard, since the first upload into a
+new bucket can silently drop a large file (see the upload entry above). Seen 2026-11-06.
+
 ### `router.scheduler.template` — Controller Behavior
 
 When `spec.router.scheduler.template` is provided, the controller uses it **as-is without merging with defaults**. This means:
