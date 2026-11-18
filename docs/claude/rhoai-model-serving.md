@@ -1,6 +1,6 @@
 # RHOAI 3.x Model Serving — Patterns and Lessons Learned
 
-Complements the LlamaStack RAG section in `components.md`. Covers model deployment patterns, Gen AI Studio, llm-d, and storage considerations.
+Complements the RHOAI section in `components.md`. Covers model deployment patterns, Gen AI Studio, llm-d, and storage considerations.
 
 ---
 
@@ -116,23 +116,25 @@ Set `TMPDIR` to a writable path and mount an `emptyDir` at `/tmp` to avoid permi
 
 ### Prerequisites (Cluster Admin)
 
-Per RHOAI 3.4 doc (section "Playground prerequisites"):
+Per RHOAI 3.5 doc ("Experimenting with models in the gen AI playground" → "Playground prerequisites"):
 
 1. `spec.dashboardConfig.genAiStudio: true` in `OdhDashboardConfig`
-2. **LlamaStack Operator enabled** in DataScienceCluster:
+2. **OGX Operator enabled** in DataScienceCluster:
    ```yaml
    spec:
      components:
-       llamastackoperator:
+       ogx:
          managementState: Managed
    ```
-3. Model deployed with `opendatahub.io/genai-asset: "true"` label
+3. Model deployed with `opendatahub.io/genai-asset: "true"` label — applies to both `InferenceService` and `LLMInferenceService` (the Playground reads model metadata from either kind)
 
-**LlamaStack is the backend of the Playground** — one pod per project, auto-created when user configures a playground instance. It connects to all AI asset endpoints in the project.
+**⚠️ RHOAI 3.4 → 3.5 rename**: LlamaStack became **OGX**. The DSC component `llamastackoperator` is now `ogx`, and the per-project backend CR `LlamaStackDistribution` is now `OGXServer` (`ogx.io/v1beta1`) — the `llamastackdistributions` resource no longer exists on 3.5, so `oc get llamastackdistributions` errors rather than returning empty.
 
-### LlamaStack vs AI Asset Endpoints vs MaaS
+**OGX is the backend of the Playground** — one `OGXServer` per project. The dashboard creates it when a user configures a playground instance, or it can be GitOps-managed (example: `components/ai-agent-tracing/base/ai-agent-tracing-ogxserver-lsd-genai-playground.yaml`). It connects to all AI asset endpoints in the project. A model with the `genai-asset` label in a project with no `OGXServer` is listed under AI asset endpoints but has no Playground until one is configured.
 
-| Feature | Requires LlamaStack | Requires Kuadrant/RHCL |
+### OGX vs AI Asset Endpoints vs MaaS
+
+| Feature | Requires OGX (formerly LlamaStack) | Requires Kuadrant/RHCL |
 |---|---|---|
 | AI asset endpoints (listing) | No | No |
 | Playground | **Yes** | No |

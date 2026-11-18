@@ -11,6 +11,7 @@ metadata:
     serving.kserve.io/deploymentMode: Standard
   labels:
     opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
   name: granite-3-1-8b
   namespace: ai-llm-observability
 spec:

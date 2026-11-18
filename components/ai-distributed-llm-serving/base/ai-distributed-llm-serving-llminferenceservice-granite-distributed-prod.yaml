@@ -9,6 +9,7 @@ metadata:
     openshift.io/display-name: Granite Distributed Prod
   labels:
     opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
   name: granite-distributed-prod
   namespace: ai-distributed-llm-serving
 spec:
