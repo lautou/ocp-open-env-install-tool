@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ogxserver-vector-connection
+  namespace: ai-distributed-llm-serving
+data:
+  PGVECTOR_DB: ogxservervectordb
+  PGVECTOR_HOST: postgresql.external-db-ai-distributed-llm-serving-ogxserver-vector.svc.cluster.local
+  PGVECTOR_PORT: "5432"
+  PGVECTOR_USER: ogxservervector

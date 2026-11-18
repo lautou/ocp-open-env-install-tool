@@ -1,0 +1,5 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ogx-gateway-client
+  namespace: ai-distributed-llm-serving

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ogxserver-metadata-postgresql
+  namespace: external-db-ai-distributed-llm-serving-ogxserver-metadata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ogxserver-metadata-postgresql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ogxserver-metadata-postgresql
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_USER
+              name: ogxserver-metadata-postgresql-credentials
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_PASSWORD
+              name: ogxserver-metadata-postgresql-credentials
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRESQL_DATABASE
+              name: ogxserver-metadata-postgresql-credentials
+        image: registry.redhat.io/rhel10/postgresql-18:10.3
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 5
+        name: postgresql
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+          failureThreshold: 6
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/pgsql/data
+          name: data
+        - mountPath: /opt/app-root/src/certs
+          name: certs
+          readOnly: true
+        - mountPath: /opt/app-root/src/postgresql-cfg
+          name: ssl-cfg
+          readOnly: true
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: ogxserver-metadata-postgresql
+      - name: certs
+        secret:
+          defaultMode: 0640
+          secretName: ogxserver-metadata-postgresql-tls
+      - configMap:
+          name: ogxserver-metadata-postgresql-ssl
+        name: ssl-cfg

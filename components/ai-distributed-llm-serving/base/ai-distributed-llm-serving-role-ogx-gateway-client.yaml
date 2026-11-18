@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ogx-gateway-client
+  namespace: ai-distributed-llm-serving
+rules:
+- apiGroups:
+  - serving.kserve.io
+  resourceNames:
+  - granite-distributed-prod
+  resources:
+  - llminferenceservices
+  verbs:
+  - get

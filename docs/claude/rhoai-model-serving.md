@@ -132,6 +132,16 @@ Per RHOAI 3.5 doc ("Experimenting with models in the gen AI playground" → "Pla
 
 **OGX is the backend of the Playground** — one `OGXServer` per project. The dashboard creates it when a user configures a playground instance, or it can be GitOps-managed (example: `components/ai-agent-tracing/base/ai-agent-tracing-ogxserver-lsd-genai-playground.yaml`). It connects to all AI asset endpoints in the project. A model with the `genai-asset` label in a project with no `OGXServer` is listed under AI asset endpoints but has no Playground until one is configured.
 
+### OGX Playground Backed by an llm-d Model (LLMInferenceService)
+
+An `OGXServer` calling an llm-d model must go through the `openshift-ai-inference` Gateway, which enforces the auto-created `openshift-ai-inference-authn` AuthPolicy (401 without a token). Three non-obvious points:
+
+- **URL**: use the external hostname `https://llm-d.CMP_PLACEHOLDER_OCP_APPS_DOMAIN/<namespace>/<llmisvc-name>/v1`. The `gateway-internal` address KServe publishes in `LLMInferenceService.status.addresses` (`openshift-ai-inference-data-science-gateway-class.openshift-ingress.svc...`) doesn't work, because the Gateway's only listener is bound to the `llm-d.<apps-domain>` hostname. Calling `<name>-kserve-workload-svc` directly skips auth but also skips the llm-d EPP router.
+- **Token**: the AuthPolicy does a TokenReview, then a SubjectAccessReview for `get` on `llminferenceservices/<name>` in the path's namespace. Use a dedicated ServiceAccount + `kubernetes.io/service-account-token` Secret + a Role scoped to that one `resourceName`. Don't reuse the operator-created `<ogxserver>-sa`: a token Secret applied before its SA exists is deleted by the token controller.
+- **OGX field name**: the `remote::vllm` key is `auth_credential`, with `api_token` accepted as an alias (`api_token: ${env.VLLM_API_TOKEN}`, env fed from the token Secret's `token` key). `tls_verify` is deprecated in favor of `network.tls.verify`; omit both to keep the default (verify on, which works with the Gateway's publicly-trusted cert).
+
+**Reference implementation**: `components/ai-distributed-llm-serving/base/` (`*-ogx-gateway-client*` + `*-ogxserver-lsd-genai-playground.yaml` + `*-cm-ogx-base-config.yaml`).
+
 ### OGX vs AI Asset Endpoints vs MaaS
 
 | Feature | Requires OGX (formerly LlamaStack) | Requires Kuadrant/RHCL |

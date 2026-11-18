@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    ogx.io/watch: "true"
+  name: ogx-base-config
+  namespace: ai-distributed-llm-serving
+data:
+  config.yaml: |
+    version: "2"
+    distro_name: rh
+    apis:
+    - inference
+    - vector_io
+    - files
+    - tool_runtime
+    - responses
+    providers:
+      inference:
+      - provider_id: sentence-transformers
+        provider_type: inline::sentence-transformers
+        config:
+          trust_remote_code: false
+      - provider_id: vllm-inference-1
+        provider_type: remote::vllm
+        config:
+          api_token: ${env.VLLM_API_TOKEN}
+          base_url: https://llm-d.CMP_PLACEHOLDER_OCP_APPS_DOMAIN/ai-distributed-llm-serving/granite-distributed-prod/v1
+          max_tokens: 1024
+      vector_io:
+      - provider_id: pgvector
+        provider_type: remote::pgvector
+        config:
+          db: ${env.PGVECTOR_DB:=vectordb}
+          distance_metric: COSINE
+          host: ${env.PGVECTOR_HOST}
+          password: ${env.PGVECTOR_PASSWORD:=}
+          persistence:
+            backend: kv_default
+            namespace: vector_io::pgvector::ai-distributed-llm-serving
+          port: ${env.PGVECTOR_PORT:=5432}
+          user: ${env.PGVECTOR_USER:=vectoruser}
+      files:
+      - provider_id: localfs-files
+        provider_type: inline::localfs
+        config:
+          metadata_store:
+            backend: sql_default
+            table_name: my_first_model_files_metadata
+          storage_dir: /opt/app-root/src/.llama/distributions/rh/files
+      tool_runtime:
+      - provider_id: file-search
+        provider_type: inline::file-search
+        config: {}
+      responses:
+      - provider_id: builtin
+        provider_type: inline::builtin
+        config:
+          persistence:
+            responses:
+              backend: sql_default
+              table_name: my_first_model_responses
+    storage:
+      backends:
+        kv_default:
+          type: kv_postgres
+          host: ${env.POSTGRES_HOST}
+          port: ${env.POSTGRES_PORT:=5432}
+          db: ${env.POSTGRES_DB}
+          user: ${env.POSTGRES_USER}
+          password: ${env.POSTGRES_PASSWORD}
+          table_name: my_first_model_kvstore
+          ssl_mode: verify-full
+          ca_cert_path: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+        sql_default:
+          type: sql_postgres
+          host: ${env.POSTGRES_HOST}
+          port: ${env.POSTGRES_PORT:=5432}
+          db: ${env.POSTGRES_DB}
+          user: ${env.POSTGRES_USER}
+          password: ${env.POSTGRES_PASSWORD}
+    registered_resources:
+      models:
+      - provider_id: sentence-transformers
+        model_id: sentence-transformers/ibm-granite/granite-embedding-125m-english
+        provider_model_id: ibm-granite/granite-embedding-125m-english
+        model_type: embedding
+        metadata:
+          embedding_dimension: 768
+      - provider_id: vllm-inference-1
+        model_id: granite-3
+        model_type: llm
+        max_tokens: 1024
+        metadata:
+          display_name: Granite Distributed Prod
+    vector_stores:
+      default_provider_id: pgvector
+      default_embedding_model:
+        provider_id: sentence-transformers
+        model_id: ibm-granite/granite-embedding-125m-english
+    server:
+      port: 8321
