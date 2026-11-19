@@ -1247,6 +1247,29 @@ oc get maastenantconfig default-tenant -n models-as-a-service -o jsonpath='{.sta
 
 ---
 
+### RHOAI Dashboard 404 / DSCI Error - `opendatahub.io/application-namespace` Label on a Tenant Namespace
+
+**Symptoms** (all at once, starting right after an `rhods-operator` pod restart, e.g. a cluster stop/start):
+- `https://rh-ai.<apps-domain>/` returns an empty 404
+- Every HTTPRoute in `redhat-ods-applications` (dashboard, MLflow, model catalog, model registry, workbenches) shows `Accepted=False: NotAllowedByListeners` on `data-science-gateway`
+- `DSCInitialization` in `Error`: `DSCI must used the same namespace which has opendatahub.io/application-namespace=true label`; `DataScienceCluster` `Not Ready`
+- The operator creates `dashboard-redirect` objects (Deployment/Service/ConfigMap/Routes, owned by `GatewayConfig`) in the labelled tenant namespace
+
+**Root cause**: `opendatahub.io/application-namespace: "true"` does not mean "an application namespace". The operator (`setApplicationNamespace` in `pkg/cluster/cluster_config.go`) uses it to pick **the** RHOAI application namespace: 0 labelled namespaces → `redhat-ods-applications`; exactly 1 → that namespace replaces it; 2 or more → error. It only reads the label at operator startup, so labelling a tenant namespace looks harmless until the operator pods next restart, possibly weeks later. The gateway listener's `allowedRoutes` is then rebuilt as `openshift-ingress` + the tenant namespace, so every RHOAI route gets rejected.
+
+**Diagnose**:
+```bash
+oc get ns -l opendatahub.io/application-namespace          # must return nothing
+oc logs -n redhat-ods-operator deploy/rhods-operator | grep '"Cluster config"'   # "Application Namespace" must be redhat-ods-applications
+oc get gateway data-science-gateway -n openshift-ingress -o jsonpath='{.spec.listeners[0].allowedRoutes}'
+```
+
+**Solution**: remove the label from the tenant namespace (in Git, then sync), then restart the operator: `oc rollout restart deploy/rhods-operator -n redhat-ods-operator`. Delete any leftover `dashboard-redirect` objects in the tenant namespace if the operator doesn't prune them.
+
+**Incident**: added on `ai-agent-tracing` on 2026-10-14 so EvalHub job pods could pass the operator's `redhat-ods-applications` NetworkPolicy (which admits namespaces labelled `generated-namespace` or `application-namespace`). It broke the dashboard on 2026-11-19, the first operator restart afterwards. Don't use `opendatahub.io/generated-namespace` either: the operator treats it as "namespace owned by RHOAI". The replacement is an additive NetworkPolicy in `redhat-ods-applications` admitting the tenant namespace by name (`components/ai-agent-tracing/base/redhat-ods-applications-networkpolicy-allow-ai-agent-tracing-to-evalhub.yaml`).
+
+---
+
 ### RHOAI Models as a Service Dashboard Not Showing Models
 
 **Symptom**: LLMInferenceServices with MaaS configuration do not appear in the RHOAI dashboard "AI asset endpoints → Models as a service" tab

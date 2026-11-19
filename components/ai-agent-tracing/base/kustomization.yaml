@@ -27,3 +27,4 @@ resources:
   - external-db-ai-agent-tracing-ogxserver-vector-pvc-postgresql.yaml
   - external-db-ai-agent-tracing-ogxserver-vector-secret-postgresql-credentials.yaml
   - external-db-ai-agent-tracing-ogxserver-vector-service-postgresql.yaml
+  - redhat-ods-applications-networkpolicy-allow-ai-agent-tracing-to-evalhub.yaml

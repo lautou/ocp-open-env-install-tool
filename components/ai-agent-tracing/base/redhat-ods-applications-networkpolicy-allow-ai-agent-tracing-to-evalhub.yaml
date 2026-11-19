@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-agent-tracing-to-evalhub
+  namespace: redhat-ods-applications
+spec:
+  # EvalHub job pods in ai-agent-tracing call back evalhub's API (svc evalhub:8443)
+  # for status/results. The operator's own redhat-ods-applications NetworkPolicy only
+  # admits namespaces labelled opendatahub.io/generated-namespace or
+  # opendatahub.io/application-namespace - do NOT use either label on a tenant
+  # namespace: application-namespace relocates the whole RHOAI application namespace
+  # (see docs/claude/troubleshooting.md). NetworkPolicies are additive, so this one widens
+  # ingress without touching the operator-managed policy.
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ai-agent-tracing
+    ports:
+    - port: 8443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: eval-hub
+      component: api
+      instance: evalhub
+  policyTypes:
+  - Ingress

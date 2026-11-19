@@ -412,6 +412,12 @@ oc delete applicationset cluster-ai -n openshift-gitops
 
 **Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "Cluster-Wide ImagePullBackOff - registry.redhat.io Rejects `:latest` Tag" (diagnosis, tag-verification commands, affected file list)
 
+### Never Label a Tenant Namespace `opendatahub.io/application-namespace`
+
+**Rule**: Never put `opendatahub.io/application-namespace` (or `opendatahub.io/generated-namespace`) on a namespace this repo creates. The RHOAI operator uses the first label to pick **the** single application namespace, replacing `redhat-ods-applications` at its next restart: the dashboard returns 404 and the DSCI goes into Error. To let a tenant namespace reach a service in `redhat-ods-applications`, add an additive NetworkPolicy there that admits the namespace by `kubernetes.io/metadata.name`.
+
+**Complete guide**: [troubleshooting.md](docs/claude/troubleshooting.md) → "RHOAI Dashboard 404 / DSCI Error - `opendatahub.io/application-namespace` Label on a Tenant Namespace"
+
 ## Component Notes
 
 **IMPORTANT**: Most component details moved to external docs.
