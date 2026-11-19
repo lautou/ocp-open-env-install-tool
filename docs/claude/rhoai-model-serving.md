@@ -453,6 +453,14 @@ For PVC RWX (e.g. EFS), none of these workarounds are needed — the standard sp
 - Create separate MachineSets per AZ and test sequentially
 - The error message specifies which AZs currently have capacity — use that information
 
+**Lab stop/start hits this too, not just new launches:** restarting a *stopped* instance needs fresh capacity in its own AZ. On 2026-11-19 the RHDP stop/start brought back every instance except the only L4 node (`g6.2xlarge`, eu-central-1c): `StartInstances` failed with `InsufficientInstanceCapacity` (visible in CloudTrail), and nothing retries afterwards. The Machine API never restarts a stopped instance, and the autoscaler doesn't replace a registered-but-NotReady node in a group already at its max.
+
+**L4 design (`create-gpu-l4-machineset` Job):** one L4 MachineSet per AZ, each with a MachineAutoscaler `min=0/max=1`. A pending pod requesting `nvidia.com/gpu.product: NVIDIA-L4` gets a node in whichever AZ has capacity; a group whose launch fails is backed off and another AZ is tried. If an L4 node stays stopped after a restart, its pods get evicted (`unreachable` taint), the replacement pod scales up another AZ's group, and the autoscaler removes the unready node after its default unready time (20m). Side effects:
+- L4 nodes only exist while a workload needs them (scale-from-zero, not always-on)
+- At most 3 L4 nodes in total, one per AZ
+- The OCPBUGS-105277 race can add up to 2 temporary idle L4 nodes (see [known-bugs.md](known-bugs.md))
+- Only AZ-agnostic workloads (modelcar/S3) benefit. A workload on an EBS PVC is still pinned to the PVC's AZ (below)
+
 **EBS PVC and AZ:** EBS volumes are AZ-bound. If the GPU node ends up in a different AZ than the PVC, the pod cannot mount it. Plan accordingly:
 - Let the download job run first to bind the PVC to an AZ
 - Use the same AZ for the MachineSet

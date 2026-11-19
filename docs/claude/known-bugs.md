@@ -444,6 +444,8 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 **No workaround implemented.** `MachineAutoscaler.spec.maxReplicas: 2` on the GPU node group already bounds the blast radius to at most one wasted extra node, never worse. Dropping `maxReplicas` to 1 would eliminate the wasted node entirely for single-GPU-pod workloads, but was deliberately left at 2 to preserve the ability to scale to 2 concurrent GPU nodes if a benchmark ever needs it — revisit if this recurs often enough to change that trade-off.
 
+**L4 node groups (multi-AZ):** the `create-gpu-l4-machineset` Job creates one L4 MachineSet per AZ, each `min=0/max=1`. `maxReplicas: 1` stops the race *within* a group, but the autoscaler can satisfy the "second" scale-up from another AZ's group, so the blast radius here is up to **2** wasted L4 nodes (one per other AZ). They're idle, so scale-down removes them after `delayAfterAdd` (20m) plus the default unneeded time (10m). Accepted trade-off for surviving AZ capacity exhaustion (see [rhoai-model-serving.md](rhoai-model-serving.md) → "AWS GPU Instance Availability").
+
 ---
 
 ### RHOAIENG-81202 — LLMInferenceService+LeaderWorkerSet Ready stuck at Progressing
