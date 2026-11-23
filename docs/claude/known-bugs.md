@@ -48,7 +48,7 @@ The Apicurio Registry Operator creates a PodDisruptionBudget for the UI componen
 PDB configuration in Apicurio Registry Operator creates `minAvailable: 1` for single-replica UI deployment, which mathematically results in 0 allowed disruptions (1 available - 1 required = 0). This is the same pattern as NooBaa and llama-stack operators.
 
 **Status:**
-- **JIRA:** [APICURIO-24](https://issues.redhat.com/browse/APICURIO-24) - Apicurio Registry UI PodDisruptionBudget triggers false-positive alert in single-replica deployment
+- **JIRA:** [APICURIO-24](https://redhat.atlassian.net/browse/APICURIO-24) - Apicurio Registry UI PodDisruptionBudget triggers false-positive alert in single-replica deployment — New, no fix version (re-checked 2026-11-23)
 - **Reported:** 2026-03-30
 - **Workaround:** Alert routed to null receiver + Alertmanager silence active
 - **Fix ETA:** TBD (pending operator update to skip PDB for single-replica deployments)
@@ -135,7 +135,7 @@ The Kuadrant operator's `istioPodMonitorBuild()` function creates PodMonitors wi
 The operator correctly sets `namespaceSelector` for ServiceMonitors but omits it for PodMonitors (istio-pod-monitor, kuadrant-limitador-monitor).
 
 **Status:**
-- **JIRA:** [CONNLINK-911](https://issues.redhat.com/browse/CONNLINK-911)
+- **JIRA:** [CONNLINK-911](https://redhat.atlassian.net/browse/CONNLINK-911) — New, no fix version (re-checked 2026-11-23 on RHCL 1.4.3: the `openshift-ingress/istio-pod-monitor` TargetDown alert is still firing behind the silence)
 - **Reported:** 2026-03-26
 - **Workaround:** Alert routed to null receiver + Alertmanager silence active
 - **Fix ETA:** TBD (requires operator update to add `namespaceSelector.matchNames: [ns]`)
@@ -196,7 +196,7 @@ The `insights-runtime-extractor` DaemonSet has `nodeSelector: kubernetes.io/os: 
 **Root Cause:** Missing `tolerations: [{operator: Exists}]` in the DaemonSet spec.
 
 **Status:**
-- **JIRA:** [OCPBUGS-74211](https://redhat.atlassian.net/browse/OCPBUGS-74211) — New (unassigned), OCP 4.20.8
+- **JIRA:** [OCPBUGS-74211](https://redhat.atlassian.net/browse/OCPBUGS-74211) — New (unassigned), OCP 4.20.8 (still New, re-checked 2026-11-23; the alert only fires right after Day 2 taints are applied, so its absence on a running cluster doesn't mean it's fixed)
 - **Reported:** 2026-06-24
 - **Workaround:** Alert silenced in Alertmanager (pending upstream fix)
 - **Fix ETA:** TBD — upstream fix adds `tolerations: [{operator: Exists}]`
@@ -229,7 +229,7 @@ The alert's PromQL (`count(node_network_mtu_bytes{device!~"^(veth|docker|flannel
 `ovs-system` exists on any OVN-Kubernetes cluster (the default CNI for modern OpenShift) regardless of platform, so this is a broad false-positive, not something specific to this cluster's config. Confirmed via Red Hat's own ODF engineering team as an acknowledged, unfixed gap in the alert rule's device exclusion list — see Status below.
 
 **Status:**
-- **JIRA:** [DFBUGS-5761](https://redhat.atlassian.net/browse/DFBUGS-5761) — Assigned, unfixed. Long thread with multiple unrelated customers (bare-metal, VMware, telco) hitting the same structural false positive for different device classes (unused bare-metal NICs/bridges, telco VLAN sub-interfaces, Multus dedicated-network topology mismatches). None of the prior reports name `ovs-system` specifically — added as a new data point via comment on 2026-08-18, since it demonstrates the bug also affects the simplest possible ODF/OVN-Kubernetes deployment shape (plain cloud install, no Multus, no bare-metal, no VLANs), not just exotic networking topologies.
+- **JIRA:** [DFBUGS-5761](https://redhat.atlassian.net/browse/DFBUGS-5761) — Verified, fixVersion **odf-5.0** only (re-checked 2026-11-23). No ODF 4.22 backport, so the silence stays for this project's OCP 4.22 / ODF 4.22 clusters. Long thread with multiple unrelated customers (bare-metal, VMware, telco) hitting the same structural false positive for different device classes (unused bare-metal NICs/bridges, telco VLAN sub-interfaces, Multus dedicated-network topology mismatches). None of the prior reports name `ovs-system` specifically — added as a new data point via comment on 2026-08-18, since it demonstrates the bug also affects the simplest possible ODF/OVN-Kubernetes deployment shape (plain cloud install, no Multus, no bare-metal, no VLANs), not just exotic networking topologies.
 - **JIRA:** [DFBUGS-6835](https://redhat.atlassian.net/browse/DFBUGS-6835) — New, unfixed, effectively a duplicate of the same rule-scoping problem.
 - **Reported:** DFBUGS-5761 opened 2026-02-25, DFBUGS-6835 opened 2026-05-08. Red Hat engineer (Yati Padia) confirmed 2026-07-18: *"we need to modify specific devices on which ocs-metrics-exporter should raise alert"* — acknowledged but no fix version yet.
 - **⚠️ Caveat on the JIRA's suggested workaround:** a comment recommends `oc patch storagecluster ocs-storagecluster ... spec.monitoring.excludedAlerts`. Verified directly against this cluster's live CRD (ODF 4.22.1) — the field's own description states *"Alerts still fire in Prometheus but are excluded from health score"*. This only affects the ODF Health Score/Overview dashboard, **not** Alertmanager/console alerting — it does not actually suppress the alert. Use the standard Alertmanager routing+silence pattern below instead for real suppression.
@@ -414,23 +414,6 @@ oc delete certmanager cluster --ignore-not-found
 
 ---
 
-### SRVKP-12579 — tekton-results-postgres StatefulSet nodeSelector not propagated (SRVKP-9205 fix incomplete)
-
-**Component:** OpenShift Pipelines 1.22.3 — Tekton Results
-**JIRA:** [SRVKP-12579](https://redhat.atlassian.net/browse/SRVKP-12579) — Dev Complete
-**Related:** [SRVKP-9205](https://redhat.atlassian.net/browse/SRVKP-9205) — ✅ **Fixed and confirmed live on this cluster** (2026-08-08), despite Jira showing "Release Pending" / fixVersion `Pipelines 1.20.5` as not yet released — same silent-backport pattern seen elsewhere in this doc (e.g. RHOAIENG-70416, where the reverse happened: Jira claimed Closed/Done but the midstream PR was never actually merged).
-**Status:** Open — StatefulSet gap only
-
-**Root cause:** SRVKP-9205 fix (PR #2909) propagated `nodeSelector`/`tolerations` to Tekton Results **Deployments** but NOT to the `tekton-results-postgres` **StatefulSet**. The TektonInstallerSet generates postgres with `nodeSelector=None` even when `TektonConfig.spec.config.nodeSelector` is set.
-
-**Live confirmation (2026-08-08) — this is not dormant, it's actively happening right now, no test setup needed:**
-- `tekton-results-api`, `tekton-results-watcher`, `tekton-results-retention-policy-agent` Deployments all have explicit `nodeSelector: {node-role.kubernetes.io/infra: ""}` set (verified via `oc get deployment ... -o jsonpath='{.spec.template.spec.nodeSelector}'`, not just coincidental pod placement) → correctly scheduled on infra nodes ✅ — **SRVKP-9205 confirmed genuinely fixed here.**
-- `tekton-results-postgres` StatefulSet's `nodeSelector` field is **empty** → pod `tekton-results-postgres-0` is running on a plain worker node (`ip-10-0-77-68`, role `worker` only) ❌ — **SRVKP-12579 confirmed still broken.**
-
-**No hack for this — deliberate policy (2026-08-08):** this project does not carry automated infra-node-placement remediation hacks. Tracking continues via this doc only; no Job will be added to patch `tekton-results-postgres` onto infra nodes even once SRVKP-12579 ships.
-
----
-
 ### OCPBUGS-105277 — Cluster autoscaler over-provisions a second GPU node before device-plugin capacity appears
 
 **Component:** Cluster Autoscaler (cluster-autoscaler 1.33.0)
@@ -454,9 +437,7 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 **JIRA:** [RHOAIENG-81202](https://redhat.atlassian.net/browse/RHOAIENG-81202) — New
 **Status:** Open since 2026-08-05, no fix version yet
 **Related:** [RHOAIENG-70416](https://redhat.atlassian.net/browse/RHOAIENG-70416) — same bug class, for the older `InferenceService.workerSpec` path — that fix does not cover the newer `LLMInferenceService`+`LeaderWorkerSet` reconciler regardless of its own status. Dormant on this cluster: `oc get inferenceservice -A` confirms zero InferenceServices of any kind are deployed (2026-08-08).
-- ⚠️ **Jira/reality mismatch on RHOAIENG-70416 — now definitively confirmed absent from RHOAI 3.5.0 (re-checked 2026-09-02):** Jira shows Closed/Done, fixVersion `3.5 GA RHOAI RELEASE` (**released** 2026-08-26 — we are running this exact version). The standalone midstream cherry-pick, [opendatahub-io/kserve#1649](https://github.com/opendatahub-io/kserve/pull/1649), failed CI and was closed without merging on 2026-06-25 — but the same upstream commit ([kserve/kserve@1ee40c4](https://github.com/kserve/kserve/commit/1ee40c4c363bcb1d193f7b4ebf4fcccf5e2d0309)) later slipped in via an unrelated bulk sync, [opendatahub-io/kserve#1761](https://github.com/opendatahub-io/kserve/pull/1761) ("upstream sync [2026-07-17], 86 commits"), merged 2026-07-18 — so it IS present on the fork's generic `release-v0.17` branch today.
-  However, the branch actually named for this exact release, **`python-v3.5.0`**, was cut 2026-02-25 — before that sync — and never received it: fetched `pkg/apis/serving/v1beta1/inference_service_status.go` directly from that branch and confirmed it still has the pre-fix code (the bare `else { Status: ConditionUnknown }` branch, missing the `availableCondition == nil || availableCondition.Status != corev1.ConditionTrue` guard the fix adds). Commit history on that branch's copy of the file stops at 2026-02-25, matching.
-  **Conclusion: RHOAIENG-70416 is not fixed in the RHOAI 3.5.0 we are running**, despite Jira's Closed/Done status — confirmed by branch content, not just PR/Jira metadata. Re-check `python-v3.5.<N>` (or whatever branch the next RHOAI point release builds from) after any upgrade.
+- **RHOAIENG-70416 (Closed/Done, fixVersion `3.5 GA RHOAI RELEASE`) is most likely fixed in 3.5.x — correction to the 2026-09-02 conclusion (re-checked 2026-11-23):** the earlier "not fixed in 3.5.0" verdict was based on `opendatahub-io/kserve`'s `python-v3.5.0` branch, which is probably not what RHOAI builds from. The downstream branch, `red-hat-data-services/kserve` `rhoai-3.5`, contains the fix guard (`availableCondition == nil || availableCondition.Status != corev1.ConditionTrue` in `pkg/apis/serving/v1beta1/inference_service_status.go`) via upstream sync #1761, merged 2026-07-18, before 3.5 GA (2026-08-26). `rhoai-3.6` has it too. Not verified live: no multi-node `InferenceService` is deployed on this cluster to exercise it.
 
 **Issue:** Deploying an `LLMInferenceService` with `spec.worker` set (triggers a `LeaderWorkerSet`-backed multi-node deployment) can leave `LLMInferenceService.status` conditions stuck at `Ready=Progressing` indefinitely, even after the underlying `LeaderWorkerSet` reports `Available: True` and all leader/worker pods are `Running`/`Ready`. Observed stuck for 9+ minutes with no further reconciliation.
 
@@ -485,7 +466,7 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 **Real fix delivery path for OCP's embedded Gateway API (traced 2026-09-18, since there's no operator to bump):** `cluster-ingress-operator` vendors the Sail install library as a pinned Go module commit in `go.mod` (`replace github.com/istio-ecosystem/sail-operator => github.com/openshift-service-mesh/sail-operator ...`). OCP 4.22's `release-4.22` branch is pinned to a commit from 2026-03-27 ("OSSM 3.3.1") — well before the OSSM-15257 fix. The actual re-vendor is tracked separately as [OCPBUGS-105317](https://redhat.atlassian.net/browse/OCPBUGS-105317) ("Bump sail library to OSSM 3.4.2 in cluster-ingress-operator"), merged into `cluster-ingress-operator`'s `master` branch on 2026-09-17, status `ON_QA`, no `fixVersion` set yet. **No backport PR to `release-4.22` exists** — confirmed via GitHub search. This will not arrive via a normal 4.22.z update; it ships whenever `master`'s target release (presumably OCP 4.23) GAs, unless a separate 4.22.z backport bug is filed later.
 
-**Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation. **Keep in place.** Re-check after any OCP upgrade — there is no CSV to check; instead re-run `oc get clusterrole -l 'rbac.authorization.k8s.io/aggregate-to-admin=true' -o name | grep -i istio` and only remove the workaround once it returns the `istiod`/`istio-reader` ClusterRoles.
+**Fix applied (this repo):** `components/rh-connectivity-link/base/openshift-ingress-role-telemetry-manager.yaml` + `openshift-ingress-rb-telemetry-manager.yaml` — a namespace-scoped `Role`/`RoleBinding` granting the ArgoCD Application Controller SA explicit permission on `telemetries.telemetry.istio.io` in `openshift-ingress`, bypassing the missing aggregation. **Keep in place.** Re-checked 2026-11-23 on OCP 4.22.22: the `istiod-*`/`istio-reader-*` ClusterRoles still have no `aggregate-to-admin` label, and OCPBUGS-105317 is now Verified with fixVersion **5.1.0** only (still no 4.22 backport). Re-check after any OCP upgrade — there is no CSV to check; instead re-run `oc get clusterrole -l 'rbac.authorization.k8s.io/aggregate-to-admin=true' -o name | grep -i istio` and only remove the workaround once it returns the `istiod`/`istio-reader` ClusterRoles.
 
 ---
 
@@ -509,7 +490,7 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 ### RHOAIENG-95446 — Model Catalog → Deploy wizard locks S3 connection fields for s3:// artifacts
 
 **Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — AI Hub / Model Catalog → Deploy wizard
-**JIRA:** [RHOAIENG-95446](https://redhat.atlassian.net/browse/RHOAIENG-95446) — New, filed 2026-09-17
+**JIRA:** [RHOAIENG-95446](https://redhat.atlassian.net/browse/RHOAIENG-95446) — In Progress, no fix version (filed 2026-09-17, re-checked 2026-11-23)
 **Affects:** Any Model Catalog source whose artifact URI uses `s3://` instead of `oci://`
 
 **Issue:** Clicking Deploy on a Model Catalog entry whose `artifacts[0].uri` uses `s3://` opens the wizard with Access key, Endpoint, Region, and Bucket all disabled/empty — only Secret key and Path are editable. "Next" never becomes enabled, with no error message or guidance.
@@ -529,7 +510,7 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 ### RHOAIENG-95447 — OGXServer operator doesn't propagate spec after a deactivate→reactivate toggle (SSA field-ownership gap)
 
 **Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — `ogx-k8s-operator` (Gen AI Studio), operator version `0.13.0`
-**JIRA:** [RHOAIENG-95447](https://redhat.atlassian.net/browse/RHOAIENG-95447) — New, filed 2026-09-17
+**JIRA:** [RHOAIENG-95447](https://redhat.atlassian.net/browse/RHOAIENG-95447) — New, filed 2026-09-17 (unchanged, re-checked 2026-11-23)
 **Affects:** Any `OGXServer` whose declarative config generation (`spec.disabledAPIs`/`spec.storage`/`spec.providers`) is toggled off then back on
 
 **Issue:** An `OGXServer` that has gone through one full deactivate→reactivate cycle of declarative config generation stops propagating its spec to the underlying Deployment. `metadata.generation` on the Deployment freezes and the `user-config` ConfigMap volume never reappears, even though `OGXServer.status.conditions` falsely reports `ConfigGenerated: True` / `DeploymentReady: True`. Only fix: delete both the `OGXServer` CR and its Deployment, then recreate the CR from scratch — an incremental patch on the existing object never recovers it.
@@ -551,14 +532,14 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 ### RHOAIENG-95465 — Serving-runtime template selector has no architecture awareness
 
 **Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — Dashboard / Serving Orchestration, deploy wizard runtime selection
-**JIRA:** [RHOAIENG-95465](https://redhat.atlassian.net/browse/RHOAIENG-95465) — New, filed 2026-09-17
+**JIRA:** [RHOAIENG-95465](https://redhat.atlassian.net/browse/RHOAIENG-95465) — In Progress, no fix version (filed 2026-09-17, re-checked 2026-11-23)
 **Affects:** Any cluster where two architecture-specific variants of the same runtime template both exist (e.g. `vllm-cpu-runtime-template` vs `vllm-cpu-x86-runtime-template`)
 
 **Issue:** Two near-identically-named ServingRuntime templates exist for vLLM CPU serving — `vllm-cpu-runtime-template` ("vLLM CPU (ppc64le/s390x) ServingRuntime for KServe", image `registry.redhat.io/rhoai/odh-vllm-cpu-rhel9`) and `vllm-cpu-x86-runtime-template` ("vLLM CPU (x86) ServingRuntime for KServe - Tech Preview", image `registry.redhat.io/rhaii/vllm-cpu-rhel9`). Nothing in the dashboard's deploy wizard prevents selecting the wrong one on a mismatched cluster — the failure only surfaces as a cryptic `ErrImagePull: "no image found in manifest list for architecture \"amd64\"..."` at pod scheduling time, with no upfront warning. We hit this ourselves deploying `qwen3-06b-100`.
 
 **Root cause:** `useServingRuntimeTemplates.ts` (`packages/model-serving`) filters templates only by admin-configured order/disablement and single-vs-multi-model support — never by architecture. Both templates already carry a `template.openshift.io/long-description` annotation stating their target architecture explicitly; the selection code just never reads it.
 
-**Precedent:** [RHOAIENG-66855](https://redhat.atlassian.net/browse/RHOAIENG-66855) (Resolved) fixed the same bug class for LLM-d's AMD/NVIDIA template auto-selection — different subsystem, confirms Red Hat has addressed this shape of gap before. [RHOAIENG-95191](https://redhat.atlassian.net/browse/RHOAIENG-95191) (In Progress) — this exact `vllm-cpu-runtime-template` separately shipped with a broken/non-existent image tag in 3.6 EA2, showing this template pairing is a recurring trouble spot.
+**Precedent:** [RHOAIENG-66855](https://redhat.atlassian.net/browse/RHOAIENG-66855) (Resolved) fixed the same bug class for LLM-d's AMD/NVIDIA template auto-selection — different subsystem, confirms Red Hat has addressed this shape of gap before. [RHOAIENG-95191](https://redhat.atlassian.net/browse/RHOAIENG-95191) (Closed/Done, fixVersion 3.6 EA2) — this exact `vllm-cpu-runtime-template` separately shipped with a broken/non-existent image tag in 3.6 EA2, showing this template pairing is a recurring trouble spot.
 
 **Workaround:** always pick "vLLM CPU (x86) ServingRuntime for KServe" explicitly on this (amd64) cluster — never the plain "vLLM CPU (ppc64le/s390x)" one. Our own `components/ai-model-registry-governance/base/ai-model-registry-governance-servingruntime-vllm-cpu-x86-runtime.yaml` pins the image via the versioned `3.5.0` tag — the same content Red Hat's own template ships, not an invented pin (originally pinned by the equivalent digest, switched to the tag 2026-09-17 for readability once the reasoning below was corrected). **Correction:** the `odh-vllm-cpu-rhel9:v3.5.0` manifest-list gap hit earlier in this investigation is NOT tag-instability evidence — that image is intentionally ppc64le/s390x-only and its tag resolved correctly every time; we had simply picked the wrong template. The one genuine tag-instability data point for this image family is RHOAIENG-95191 (a broken tag, but in a pre-GA 3.6 EA2 build, not GA) — a single, weaker incident than originally stated, not strong enough on its own to require digest-pinning here.
 
@@ -567,7 +548,7 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 ### RHOAIENG-95473 — Configure Playground's destructive delete+recreate is unmitigated for non-passthrough (GitOps/externally-managed) OGXServers
 
 **Component:** Red Hat OpenShift AI (RHOAI) 3.5.0 — AI Core Dashboard, Gen AI Studio
-**JIRA:** [RHOAIENG-95473](https://redhat.atlassian.net/browse/RHOAIENG-95473) — New, filed 2026-09-17
+**JIRA:** [RHOAIENG-95473](https://redhat.atlassian.net/browse/RHOAIENG-95473) — Backlog, no fix version (filed 2026-09-17, re-checked 2026-11-23)
 **Related:** [RHOAIENG-79572](https://redhat.atlassian.net/browse/RHOAIENG-79572), [RHOAIENG-79578](https://redhat.atlassian.net/browse/RHOAIENG-79578) — merged 2026-09-15 ("passthrough zero-restart architecture"), fixVersion 3.6 EA2 — prior art, not duplicates
 **Affects:** Any `OGXServer` without a `genai-bff-proxy` passthrough provider — includes our own GitOps-managed `lsd-genai-playground` (static `overrideConfig`, explicit `remote::vllm` providers) and every pre-3.6 cluster
 
@@ -585,7 +566,7 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 **Component:** OpenShift Data Foundation (ODF) — `ocs-client-operator.v4.22.4-rhodf`
 **JIRA:** None yet — to be filed
-**Related:** [DFBUGS-4532](https://redhat.atlassian.net/browse/DFBUGS-4532) (`ocs-client-operator-controller-manager` hit its memory limit at scale) and an independent `#forum-ocs` Slack report (Ali Bokhari, ODF/OCP 4.20→4.22 upgrade, same pod OOMKilled at 256Mi, fixed by raising to 512Mi) — neither is this exact ticket, but both confirm the shipped memory limit for this component is a recurring pain point.
+**Related:** [DFBUGS-4532](https://redhat.atlassian.net/browse/DFBUGS-4532) (`ocs-client-operator-controller-manager` hit its memory limit at scale; Verified, fixVersion **odf-5.0** only as of 2026-11-23, so the workaround stays on ODF 4.22) and an independent `#forum-ocs` Slack report (Ali Bokhari, ODF/OCP 4.20→4.22 upgrade, same pod OOMKilled at 256Mi, fixed by raising to 512Mi) — neither is this exact ticket, but both confirm the shipped memory limit for this component is a recurring pain point.
 **Affects:** Any cluster where `ocs-client-operator-controller-manager`'s informer cache has a large CRD/CR surface to list+watch on startup (this cluster: 474 CRDs, 38 operator subscriptions)
 
 **Issue:** `ocs-client-operator-controller-manager` crash-loops indefinitely (230+ restarts observed), each cycle ending in a kubelet-initiated kill for a failed liveness probe — never a kernel `OOMKilled`, which made the memory limit look exonerated on a first pass.
@@ -915,4 +896,4 @@ oc exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
 - **Monthly:** Review this document and update bug statuses
 - **Quarterly:** Run audit script and verify all silences are still necessary
 
-Last reviewed: 2026-05-07
+Last reviewed: 2026-11-23

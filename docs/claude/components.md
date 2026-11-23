@@ -2069,8 +2069,8 @@ spec:
 - Prevents following OpenShift best practices for infrastructure workload separation
 
 **Tracking:**
-- **JIRA**: [RHOAIENG-55981](https://issues.redhat.com/browse/RHOAIENG-55981) - "LeaderWorkerSetOperator - Add nodeSelector and tolerations configuration"
-- **Status**: Open - Feature Request
+- **JIRA**: [RHOAIENG-55981](https://redhat.atlassian.net/browse/RHOAIENG-55981) - "LeaderWorkerSetOperator - Add nodeSelector and tolerations configuration"
+- **Status**: Testing, no fix version (re-checked 2026-11-23: both `lws-controller-manager` pods still run on worker nodes)
 - **Also Tracked In**: `KNOWN_LIMITATIONS.md` - Operator Pod Placement on Infra Nodes
 
 **Requested API Enhancement:**

@@ -604,7 +604,7 @@ oc annotate llminferenceservice <name> -n <ns> serving.kserve.io/stop- --overwri
 
 **Why not scale replicas to 0?** Use the stop annotation — it's the official mechanism. Setting `replicas: 0` in the manifest causes ArgoCD selfHeal conflicts (see ArgoCD patterns in CLAUDE.md).
 
-**Known side effect:** While stopped, `odh-model-controller` logs continuous reconciliation errors (AuthPolicy targets deleted HTTPRoute). This is cosmetic only — [RHOAIENG-56131](https://redhat.atlassian.net/browse/RHOAIENG-56131), In Review.
+**Known side effect:** While stopped, `odh-model-controller` logs continuous reconciliation errors (AuthPolicy targets deleted HTTPRoute). This is cosmetic only — [RHOAIENG-56131](https://redhat.atlassian.net/browse/RHOAIENG-56131), Closed/Done as of 2026-11-23 (no fix version listed; not re-verified live whether the log noise is gone on RHOAI 3.5.3).
 
 ---
 
