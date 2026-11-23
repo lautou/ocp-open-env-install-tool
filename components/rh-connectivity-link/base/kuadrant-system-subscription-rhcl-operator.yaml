@@ -8,6 +8,20 @@ spec:
   config:
     nodeSelector:
       node-role.kubernetes.io/infra: ''
+    # TEMPORARY workaround for CONNLINK-1878: the CSV default memory limit (300Mi)
+    # is too low - the manager peaks at the limit, stalls, fails its 1s liveness
+    # probe and gets killed (74 restarts in 5 days on RHCL 1.4.3). While it is down,
+    # gateway pods that start cannot fetch the Kuadrant Wasm plugin and return
+    # 503 wasm_fail_stream until recreated (CONNLINK-1589). CPU stays at the CSV
+    # default: measured throttling was ~1%. The CSV has a single container, so this
+    # override affects nothing else. See docs/claude/known-bugs.md.
+    resources:
+      limits:
+        cpu: 200m
+        memory: 1Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
     tolerations:
       - key: node-role.kubernetes.io/infra
         operator: Exists

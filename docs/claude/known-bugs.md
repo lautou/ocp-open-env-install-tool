@@ -598,6 +598,29 @@ Also independently confirmed **not** caused by ArgoCD/GitOps — the Deployment 
 
 ---
 
+### CONNLINK-1878 / CONNLINK-1589 — Kuadrant operator memory limit too tight, gateways stuck on `503 wasm_fail_stream`
+
+**Component:** Red Hat Connectivity Link — `rhcl-operator.v1.4.3` (`kuadrant-operator-controller-manager`)
+**JIRA:** [CONNLINK-1878](https://redhat.atlassian.net/browse/CONNLINK-1878) (In Progress; memory fix upstream in [Kuadrant/kuadrant-operator#2401](https://github.com/Kuadrant/kuadrant-operator/pull/2401), reported still present on RHCL 1.5.0 with its 500Mi default) and [CONNLINK-1589](https://redhat.atlassian.net/browse/CONNLINK-1589) (Refinement, no fix)
+**Affects:** Every gateway carrying Kuadrant policies: `openshift-ai-inference` (llm-d endpoints, Gen AI Playground) and `maas-default-gateway`
+
+**Symptoms**: llm-d or MaaS requests return an empty-body 503. The gateway Envoy access log shows response flag `wasm_fail_stream`; the request never reaches vLLM. The gateway pod's startup log has `Retry limit exceeded for fetching data from remote data source` then `Plugin kuadrant-wasm-shim failed to load` / `Plugin configured to fail closed failed to load`.
+
+**Root cause (two linked defects):**
+- The operator's CSV ships a 300Mi memory limit. Its working set peaks at 286-299Mi each container life, then it stalls, misses its 1s liveness probe and gets killed (74 restarts in 5 days, observed 2026-11-23). Same pattern as the ocs-client-operator entry above: `lastState.terminated.reason` is `Error`, not `OOMKilled`, and CPU throttling was only ~1%. CONNLINK-1878 also describes EnvoyFilter churn; that part did not apply here (all Kuadrant EnvoyFilters stayed at generation 1).
+- The operator also serves the Wasm plugin (`kuadrant-operator-wasm.kuadrant-system:8082`). A gateway pod that starts while it is down cannot fetch the plugin. The filter is fail-closed and Envoy never retries, so that pod returns 503 for every request while still reporting `Ready` (CONNLINK-1589, which also describes an Envoy startup race that hits even with a healthy operator).
+
+**Fix (this repo)**: `spec.config.resources` on `components/rh-connectivity-link/base/kuadrant-system-subscription-rhcl-operator.yaml` raises memory to 512Mi request / 1Gi limit and keeps CPU at the CSV default (200m). The CSV has a single container, so the override touches nothing else. Remove once a shipped RHCL release fixes the memory use.
+
+**Recovery when a gateway is already stuck**: find pods whose log contains `failed to load` and delete them; the Gateway Deployment recreates them:
+```bash
+for p in $(oc get pods -n openshift-ingress -o name); do
+  oc logs -n openshift-ingress $p 2>/dev/null | grep -q 'failed to load' && echo $p
+done
+```
+
+---
+
 ### RHOAIENG-97011 / RHOAIENG-97012 — vLLM CPU ServingRuntime docs missing `/dev/shm` sizing and `--gpu-memory-utilization` CPU semantics
 
 **Component:** Red Hat OpenShift AI (RHOAI) 3.5.1 — vLLM CPU ServingRuntime for KServe (`vllm-cpu-x86-runtime-template`)
