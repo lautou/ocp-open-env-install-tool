@@ -429,6 +429,8 @@ Our `cluster-api/accelerator: nvidia` label (the documented fix for [BZ#1943194]
 
 **L4 node groups (multi-AZ):** the `create-gpu-l4-machineset` Job creates one L4 MachineSet per AZ, each `min=0/max=1`. `maxReplicas: 1` stops the race *within* a group, but the autoscaler can satisfy the "second" scale-up from another AZ's group, so the blast radius here is up to **2** wasted L4 nodes (one per other AZ). They're idle, so scale-down removes them after `delayAfterAdd` (20m) plus the default unneeded time (10m). Accepted trade-off for surviving AZ capacity exhaustion (see [rhoai-model-serving.md](rhoai-model-serving.md) → "AWS GPU Instance Availability").
 
+**T4 node groups (multi-AZ, since 2026-11-24):** the `create-gpu-t4-machineset` Job now also creates one `g4dn.xlarge` MachineSet per AZ, each `min=0/max=4` (from the `machineautoscaler` ConfigMap). The same race can therefore land an extra idle T4 node in any AZ group with room, not just the one being scaled. Same cleanup as above (idle nodes removed after ~30 min). The `maxReplicas: 2` reasoning in the paragraph above predates both multi-AZ Jobs and no longer matches the current values.
+
 ---
 
 ### RHOAIENG-81202 — LLMInferenceService+LeaderWorkerSet Ready stuck at Progressing

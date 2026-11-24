@@ -14,101 +14,105 @@ spec:
         - command:
             - /bin/bash
             - '-c'
-            - | 
+            - |
               set -e
 
-              # 1. Variables and Discovery 
+              # One GPU T4 MachineSet per AZ, each with a MachineAutoscaler from the
+              # machineautoscaler ConfigMap (min=0). The cluster autoscaler adds a T4 node in
+              # whichever AZ has capacity; a group whose launch fails with
+              # InsufficientInstanceCapacity is backed off and another AZ is tried. A single-AZ
+              # group could not recover when that AZ ran out of g4dn.xlarge capacity after a lab
+              # stop/start (observed 2026-11-24). Same design as create-gpu-l4-machineset.
+
+              # 1. Variables and Discovery
               echo "Discovering cluster infrastructure..."
 
               INFRA_ID=$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}')
 
-              BASE_MS=$(oc get machinesets -n openshift-machine-api -o json | jq '.items | map(select(.metadata.name | contains("-worker-"))) | .[0]')
+              # Clone one worker MachineSet per AZ (the installer creates one per AZ)
+              BASE_MS_LIST=$(oc get machinesets -n openshift-machine-api -o json | jq -c '.items | map(select(.metadata.name | contains("-worker-"))) | .[]')
 
-              if [[ -z "$BASE_MS" || "$BASE_MS" == "null" ]]; then
+              if [[ -z "$BASE_MS_LIST" ]]; then
                 echo "ERROR: No worker MachineSet found to clone!"
                 exit 1
               fi
 
-              # Extract Region and Availability Zone from the base MachineSet
-              REGION=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.region')
-              AZ=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.availabilityZone')
-
-              # Construct the new GPU T4 MachineSet Name
-              NEW_MS_NAME="${INFRA_ID}-gpu-${AZ}"
-
-              echo "Target GPU T4 MachineSet Name: $NEW_MS_NAME"
-              echo "Target Region: $REGION"
-              echo "Target AZ: $AZ"
-
-              # Preserve the live replica count on update - the MachineAutoscaler owns this
-              # field after creation. Re-asserting a fixed value here on every run would
-              # fight the autoscaler (same class of issue as GitOps/ArgoCD needing
-              # ignoreDifferences on /spec/replicas - see KCS 7127428). Only default to 0
-              # when the MachineSet doesn't exist yet (first creation).
-              CURRENT_REPLICAS=$(oc get machineset "$NEW_MS_NAME" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
-              echo "Current live replicas: ${CURRENT_REPLICAS:-<none, first creation - defaulting to 0>}"
-
-              echo "Processing GPU MachineSet definition (Create or Update)..."
-
-              # 2. Process the JSON to create/update the MachineSet definition
-
-              echo "$BASE_MS" | jq \
-                --arg name "$NEW_MS_NAME" \
-                --arg instanceType "g4dn.xlarge" \
-                --argjson replicas "${CURRENT_REPLICAS:-0}" \
-                '
-                .metadata = {
-                  "name": $name,
-                  "namespace": "openshift-machine-api",
-                  "labels": .metadata.labels
-                } |
-                .spec.replicas = $replicas |
-                .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
-                .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
-                .spec.template.spec.providerSpec.value.instanceType = $instanceType |
-                .spec.template.spec.metadata.labels["cluster-api/accelerator"] = "nvidia" |
-                .spec.template.spec.metadata.labels["nvidia.com/device-plugin.config"] = "high-density-slice" |
-                .spec.template.spec.metadata.labels["nvidia.com/gpu.product"] = "Tesla-T4-SHARED" |
-                .metadata.annotations["capacity.cluster-autoscaler.kubernetes.io/labels"] = "kubernetes.io/arch=amd64,nvidia.com/gpu.product=Tesla-T4-SHARED" |
-                .spec.template.spec.taints = [
-                  {
-                    "key": "nvidia.com/gpu",
-                    "value": "present",
-                    "effect": "NoSchedule"
-                  }
-                ] |
-                del(.status) |
-                del(.metadata.creationTimestamp) |
-                del(.metadata.uid) |
-                del(.metadata.resourceVersion) |
-                del(.metadata.generation)
-                ' > /tmp/gpu-machineset.json
-
-              # Apply the MachineSet (Create or Patch)
-              oc apply -f /tmp/gpu-machineset.json
-              echo "✅ GPU T4 MachineSet $NEW_MS_NAME applied successfully."
-
-              # 3. Create the MachineAutoscaler
-              echo "Creating/Updating MachineAutoscaler..."
-
-              # Wait for ConfigMap to be available
+              # Wait for the MachineAutoscaler template ConfigMap
               echo "Waiting for ConfigMap machineautoscaler in openshift-gitops..."
               while ! oc get cm machineautoscaler -n openshift-gitops >/dev/null 2>&1; do
                 echo "Waiting for ConfigMap machineautoscaler..."
                 sleep 5
               done
               echo "✅ ConfigMap machineautoscaler found"
-
-              # Extract template
               MAS_TEMPLATE=$(oc extract cm/machineautoscaler -n openshift-gitops --keys machineautoscaler.yaml --to -)
 
-              # Replace placeholders and Apply
-              echo "$MAS_TEMPLATE" | \
-                sed -e "s/name: machineautoscaler/name: $NEW_MS_NAME/" \
-                    -e "s/name: machineset/name: $NEW_MS_NAME/" | \
-                oc apply -n openshift-machine-api -f -
-                
-              echo "✅ MachineAutoscaler for $NEW_MS_NAME applied successfully."
+              while IFS= read -r BASE_MS; do
+                REGION=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.region')
+                AZ=$(echo "$BASE_MS" | jq -r '.spec.template.spec.providerSpec.value.placement.availabilityZone')
+                NEW_MS_NAME="${INFRA_ID}-gpu-${AZ}"
+
+                echo "----"
+                echo "Target GPU T4 MachineSet Name: $NEW_MS_NAME"
+                echo "Target Region: $REGION"
+                echo "Target AZ: $AZ"
+
+                # Preserve the live replica count on update - the MachineAutoscaler owns this
+                # field after creation. Re-asserting a fixed value here on every run would
+                # fight the autoscaler (same class of issue as GitOps/ArgoCD needing
+                # ignoreDifferences on /spec/replicas - see KCS 7127428). Only default to 0
+                # when the MachineSet doesn't exist yet (first creation).
+                CURRENT_REPLICAS=$(oc get machineset "$NEW_MS_NAME" -n openshift-machine-api -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
+                echo "Current live replicas: ${CURRENT_REPLICAS:-<none, first creation - defaulting to 0>}"
+
+                echo "Processing GPU MachineSet definition (Create or Update)..."
+
+                # 2. Process the JSON to create/update the MachineSet definition
+                # The subnet comes from the cloned worker MachineSet, so it already matches $AZ.
+
+                echo "$BASE_MS" | jq \
+                  --arg name "$NEW_MS_NAME" \
+                  --arg instanceType "g4dn.xlarge" \
+                  --argjson replicas "${CURRENT_REPLICAS:-0}" \
+                  '
+                  .metadata = {
+                    "name": $name,
+                    "namespace": "openshift-machine-api",
+                    "labels": .metadata.labels
+                  } |
+                  .spec.replicas = $replicas |
+                  .spec.selector.matchLabels["machine.openshift.io/cluster-api-machineset"] = $name |
+                  .spec.template.metadata.labels["machine.openshift.io/cluster-api-machineset"] = $name |
+                  .spec.template.spec.providerSpec.value.instanceType = $instanceType |
+                  .spec.template.spec.metadata.labels["cluster-api/accelerator"] = "nvidia" |
+                  .spec.template.spec.metadata.labels["nvidia.com/device-plugin.config"] = "high-density-slice" |
+                  .spec.template.spec.metadata.labels["nvidia.com/gpu.product"] = "Tesla-T4-SHARED" |
+                  .metadata.annotations["capacity.cluster-autoscaler.kubernetes.io/labels"] = "kubernetes.io/arch=amd64,nvidia.com/gpu.product=Tesla-T4-SHARED" |
+                  .spec.template.spec.taints = [
+                    {
+                      "key": "nvidia.com/gpu",
+                      "value": "present",
+                      "effect": "NoSchedule"
+                    }
+                  ] |
+                  del(.status) |
+                  del(.metadata.creationTimestamp) |
+                  del(.metadata.uid) |
+                  del(.metadata.resourceVersion) |
+                  del(.metadata.generation)
+                  ' > /tmp/gpu-machineset.json
+
+                # Apply the MachineSet (Create or Patch)
+                oc apply -f /tmp/gpu-machineset.json
+                echo "✅ GPU T4 MachineSet $NEW_MS_NAME applied successfully."
+
+                # 3. Create the MachineAutoscaler from the ConfigMap template
+                echo "$MAS_TEMPLATE" | \
+                  sed -e "s/name: machineautoscaler/name: $NEW_MS_NAME/" \
+                      -e "s/name: machineset/name: $NEW_MS_NAME/" | \
+                  oc apply -n openshift-machine-api -f -
+
+                echo "✅ MachineAutoscaler for $NEW_MS_NAME applied successfully."
+              done <<< "$BASE_MS_LIST"
           image: quay.io/devfile/universal-developer-image:ubi9-latest
           name: create-gpu-t4-machineset
       restartPolicy: Never
